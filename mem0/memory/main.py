@@ -25,9 +25,9 @@ from mem0.configs.prompts import (
 from mem0.exceptions import LLMError
 from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.memory.base import MemoryBase
-from mem0.memory.setup import mem0_dir, setup_config
-from mem0.memory.storage import SQLiteManager
-from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
+from mem0.memory.midterm import MidTermMemory
+from mem0.memory.midterm_retriever import MidTermRetriever
+from mem0.memory.midterm_updater import MidTermUpdater
 from mem0.memory.notices import (
     PERFORMANCE_SLOW_QUERY_THRESHOLD_SECONDS,
     detect_scale_threshold_from_add_result,
@@ -51,6 +51,9 @@ from mem0.memory.notices import (
     get_temporal_feature_error_message,
     get_temporal_feature_error_message_async,
 )
+from mem0.memory.setup import mem0_dir, setup_config
+from mem0.memory.storage import SQLiteManager
+from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
 from mem0.memory.utils import (
     extract_json,
     parse_messages,
@@ -469,6 +472,10 @@ class Memory(MemoryBase):
 
         # Entity store is initialized lazily on first use
         self._entity_store = None
+        self._midterm_memory = None
+        self._midterm_updater = None
+        self._midterm_retriever = None
+        self._last_evicted_messages = []
 
         if MEM0_TELEMETRY:
             # Create telemetry config manually to avoid deepcopy issues with thread locks
@@ -535,6 +542,105 @@ class Memory(MemoryBase):
                 self.config.vector_store.provider, entity_config
             )
         return self._entity_store
+
+    def _midterm_enabled(self):
+        return bool(getattr(getattr(self, "config", None), "midterm", None) and self.config.midterm.enabled)
+
+    @property
+    def midterm_memory(self):
+        if self._midterm_memory is None:
+            self._midterm_memory = MidTermMemory(
+                provider=self.config.vector_store.provider,
+                base_vector_config=self.config.vector_store.config,
+                base_collection_name=self.collection_name,
+                embedding_model=self.embedding_model,
+                config=self.config.midterm,
+                primary_vector_store=self.vector_store,
+            )
+        return self._midterm_memory
+
+    @property
+    def midterm_updater(self):
+        if self._midterm_updater is None:
+            self._midterm_updater = MidTermUpdater(self.midterm_memory, self.llm, self.config.midterm)
+        return self._midterm_updater
+
+    @property
+    def midterm_retriever(self):
+        if self._midterm_retriever is None:
+            self._midterm_retriever = MidTermRetriever(self.midterm_memory, self.config.midterm)
+        return self._midterm_retriever
+
+    def _short_term_capacity(self):
+        if self._midterm_enabled():
+            capacity = max(int(self.config.midterm.short_term_capacity), 0)
+            if capacity % 2 != 0:
+                capacity += 1
+                self.config.midterm.short_term_capacity = capacity
+                logger.warning(
+                    "midterm short_term_capacity should be even; using %s to preserve QA pairs.",
+                    capacity,
+                )
+            return capacity
+        return 10
+
+    def _expand_evicted_messages_for_qa_pairs(self, evicted_messages, session_scope):
+        if not evicted_messages or evicted_messages[-1].get("role") != "user":
+            return evicted_messages or []
+
+        retained_messages = self.db.get_messages(session_scope, limit=1)
+        if not retained_messages or retained_messages[0].get("role") != "assistant":
+            return evicted_messages
+
+        assistant_message = retained_messages[0]
+        self.db.delete_messages([assistant_message["id"]])
+        return [*evicted_messages, assistant_message]
+
+    def _save_short_term_messages(self, messages, session_scope):
+        if self._midterm_enabled():
+            evicted_messages = self.db.save_messages(
+                messages,
+                session_scope,
+                max_messages=self._short_term_capacity(),
+                return_evicted=True,
+            ) or []
+            evicted_messages = self._expand_evicted_messages_for_qa_pairs(evicted_messages, session_scope)
+            self._last_evicted_messages = evicted_messages
+            return evicted_messages
+
+        self.db.save_messages(messages, session_scope)
+        self._last_evicted_messages = []
+        return []
+
+    def _process_midterm_evictions(self, evicted_messages, filters):
+        if not self._midterm_enabled() or not evicted_messages:
+            return
+        try:
+            self.midterm_updater.process_evicted_messages(evicted_messages, filters)
+        except Exception as e:
+            logger.warning(f"Mid-term memory update failed: {e}")
+
+    def _with_midterm_search_results(self, query, filters, long_term_memories):
+        if not self._midterm_enabled():
+            return long_term_memories
+
+        results = [{**memory, "source": "long_term"} for memory in long_term_memories]
+        try:
+            results.extend(self.midterm_retriever.search(query, filters))
+        except Exception as e:
+            logger.warning(f"Mid-term memory search failed: {e}")
+        return results
+
+    def _reset_midterm_state(self):
+        if self._midterm_memory is not None or self._midterm_enabled():
+            try:
+                self.midterm_memory.reset()
+            except Exception as e:
+                logger.warning(f"Failed to reset mid-term memory: {e}")
+        self._midterm_memory = None
+        self._midterm_updater = None
+        self._midterm_retriever = None
+        self._last_evicted_messages = []
 
     @staticmethod
     def _normalize_entity_text(value: str) -> str:
@@ -818,7 +924,9 @@ class Memory(MemoryBase):
         else:
             messages = parse_vision_messages(messages)
 
+        self._last_evicted_messages = []
         vector_store_result = self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
+        self._process_midterm_evictions(self._last_evicted_messages, effective_filters)
         scale_threshold_notice = detect_scale_threshold_from_add_result(self, vector_store_result)
         if temporal_usage_notice:
             display_temporal_usage_notice(self, "sync", "add", *temporal_usage_notice)
@@ -831,6 +939,7 @@ class Memory(MemoryBase):
     def _add_to_vector_store(self, messages, metadata, filters, infer, prompt=None):
         if not infer:
             returned_memories = []
+            session_scope = _build_session_scope(filters)
             for message_dict in messages:
                 if (
                     not isinstance(message_dict, dict)
@@ -863,13 +972,14 @@ class Memory(MemoryBase):
                         "role": message_dict["role"],
                     }
                 )
+            self._save_short_term_messages(messages, session_scope)
             return returned_memories
 
         # === V3 PHASED BATCH PIPELINE ===
 
         # Phase 0: Context gathering
         session_scope = _build_session_scope(filters)
-        last_messages = self.db.get_last_messages(session_scope, limit=10)
+        last_messages = self.db.get_last_messages(session_scope, limit=self._short_term_capacity())
         parsed_messages = parse_messages(messages)
 
         # Phase 1: Existing memory retrieval
@@ -937,7 +1047,7 @@ class Memory(MemoryBase):
 
         if not extracted_memories:
             # Save messages even if nothing extracted
-            self.db.save_messages(messages, session_scope)
+            self._save_short_term_messages(messages, session_scope)
             return []
 
         # Phase 3: Batch embed all extracted memory texts
@@ -991,7 +1101,7 @@ class Memory(MemoryBase):
             records.append((memory_id, text, embed_map[text], mem_metadata))
 
         if not records:
-            self.db.save_messages(messages, session_scope)
+            self._save_short_term_messages(messages, session_scope)
             return []
 
         # Phase 6: Batch persist
@@ -1142,7 +1252,7 @@ class Memory(MemoryBase):
             logger.warning(f"Batch entity linking failed: {e}")
 
         # Phase 8: Save messages + return
-        self.db.save_messages(messages, session_scope)
+        self._save_short_term_messages(messages, session_scope)
 
         returned_memories = [
             {"id": r[0], "memory": r[1], "event": "ADD"}
@@ -1427,6 +1537,7 @@ class Memory(MemoryBase):
             effective_filters.update(processed_filters)
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
+        # TODO: 为什么没有系统时间的记录？
         capture_event(
             "mem0.search",
             self,
@@ -1455,6 +1566,8 @@ class Memory(MemoryBase):
                 original_memories = reranked_memories
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
+
+        original_memories = self._with_midterm_search_results(query, effective_filters, original_memories)
 
         if temporal_usage_notice:
             display_temporal_usage_notice(self, "sync", "search", *temporal_usage_notice)
@@ -2059,6 +2172,7 @@ class Memory(MemoryBase):
         """
         logger.warning("Resetting all memories")
 
+        self._reset_midterm_state()
         self.db.reset()
         self.db.close()
         self.db = SQLiteManager(self.config.history_db_path)
@@ -2110,6 +2224,10 @@ class AsyncMemory(MemoryBase):
         self.api_version = self.config.version
         self.custom_instructions = self.config.custom_instructions
         self._entity_store = None
+        self._midterm_memory = None
+        self._midterm_updater = None
+        self._midterm_retriever = None
+        self._last_evicted_messages = []
 
         # Initialize reranker if configured
         self.reranker = None
@@ -2165,6 +2283,106 @@ class AsyncMemory(MemoryBase):
                 self.config.vector_store.provider, entity_config
             )
         return self._entity_store
+
+    def _midterm_enabled(self):
+        return bool(getattr(getattr(self, "config", None), "midterm", None) and self.config.midterm.enabled)
+
+    @property
+    def midterm_memory(self):
+        if self._midterm_memory is None:
+            self._midterm_memory = MidTermMemory(
+                provider=self.config.vector_store.provider,
+                base_vector_config=self.config.vector_store.config,
+                base_collection_name=self.collection_name,
+                embedding_model=self.embedding_model,
+                config=self.config.midterm,
+                primary_vector_store=self.vector_store,
+            )
+        return self._midterm_memory
+
+    @property
+    def midterm_updater(self):
+        if self._midterm_updater is None:
+            self._midterm_updater = MidTermUpdater(self.midterm_memory, self.llm, self.config.midterm)
+        return self._midterm_updater
+
+    @property
+    def midterm_retriever(self):
+        if self._midterm_retriever is None:
+            self._midterm_retriever = MidTermRetriever(self.midterm_memory, self.config.midterm)
+        return self._midterm_retriever
+
+    def _short_term_capacity(self):
+        if self._midterm_enabled():
+            capacity = max(int(self.config.midterm.short_term_capacity), 0)
+            if capacity % 2 != 0:
+                capacity += 1
+                self.config.midterm.short_term_capacity = capacity
+                logger.warning(
+                    "midterm short_term_capacity should be even; using %s to preserve QA pairs.",
+                    capacity,
+                )
+            return capacity
+        return 10
+
+    async def _expand_evicted_messages_for_qa_pairs(self, evicted_messages, session_scope):
+        if not evicted_messages or evicted_messages[-1].get("role") != "user":
+            return evicted_messages or []
+
+        retained_messages = await asyncio.to_thread(self.db.get_messages, session_scope, 1)
+        if not retained_messages or retained_messages[0].get("role") != "assistant":
+            return evicted_messages
+
+        assistant_message = retained_messages[0]
+        await asyncio.to_thread(self.db.delete_messages, [assistant_message["id"]])
+        return [*evicted_messages, assistant_message]
+
+    async def _save_short_term_messages(self, messages, session_scope):
+        if self._midterm_enabled():
+            evicted_messages = await asyncio.to_thread(
+                self.db.save_messages,
+                messages,
+                session_scope,
+                self._short_term_capacity(),
+                True,
+            ) or []
+            evicted_messages = await self._expand_evicted_messages_for_qa_pairs(evicted_messages, session_scope)
+            self._last_evicted_messages = evicted_messages
+            return evicted_messages
+
+        await asyncio.to_thread(self.db.save_messages, messages, session_scope)
+        self._last_evicted_messages = []
+        return []
+
+    def _process_midterm_evictions(self, evicted_messages, filters):
+        if not self._midterm_enabled() or not evicted_messages:
+            return
+        try:
+            self.midterm_updater.process_evicted_messages(evicted_messages, filters)
+        except Exception as e:
+            logger.warning(f"Mid-term memory update failed: {e}")
+
+    def _with_midterm_search_results(self, query, filters, long_term_memories):
+        if not self._midterm_enabled():
+            return long_term_memories
+
+        results = [{**memory, "source": "long_term"} for memory in long_term_memories]
+        try:
+            results.extend(self.midterm_retriever.search(query, filters))
+        except Exception as e:
+            logger.warning(f"Mid-term memory search failed: {e}")
+        return results
+
+    def _reset_midterm_state(self):
+        if self._midterm_memory is not None or self._midterm_enabled():
+            try:
+                self.midterm_memory.reset()
+            except Exception as e:
+                logger.warning(f"Failed to reset mid-term memory: {e}")
+        self._midterm_memory = None
+        self._midterm_updater = None
+        self._midterm_retriever = None
+        self._last_evicted_messages = []
 
     @staticmethod
     def _normalize_entity_text(value: str) -> str:
@@ -2437,7 +2655,9 @@ class AsyncMemory(MemoryBase):
         else:
             messages = parse_vision_messages(messages)
 
+        self._last_evicted_messages = []
         vector_store_result = await self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
+        await asyncio.to_thread(self._process_midterm_evictions, self._last_evicted_messages, effective_filters)
         scale_threshold_notice = await asyncio.to_thread(detect_scale_threshold_from_add_result, self, vector_store_result)
         if temporal_usage_notice:
             await display_temporal_usage_notice_async(self, "async", "add", *temporal_usage_notice)
@@ -2457,6 +2677,7 @@ class AsyncMemory(MemoryBase):
     ):
         if not infer:
             returned_memories = []
+            session_scope = _build_session_scope(effective_filters)
             for message_dict in messages:
                 if (
                     not isinstance(message_dict, dict)
@@ -2489,13 +2710,14 @@ class AsyncMemory(MemoryBase):
                         "role": message_dict["role"],
                     }
                 )
+            await self._save_short_term_messages(messages, session_scope)
             return returned_memories
 
         # === V3 PHASED BATCH PIPELINE (async) ===
 
         # Phase 0: Context gathering
         session_scope = _build_session_scope(effective_filters)
-        last_messages = await asyncio.to_thread(self.db.get_last_messages, session_scope, 10)
+        last_messages = await asyncio.to_thread(self.db.get_last_messages, session_scope, self._short_term_capacity())
         parsed_messages = parse_messages(messages)
 
         # Phase 1: Existing memory retrieval
@@ -2562,7 +2784,7 @@ class AsyncMemory(MemoryBase):
             extracted_memories = []
 
         if not extracted_memories:
-            await asyncio.to_thread(self.db.save_messages, messages, session_scope)
+            await self._save_short_term_messages(messages, session_scope)
             return []
 
         # Phase 3: Batch embed all extracted memory texts
@@ -2614,7 +2836,7 @@ class AsyncMemory(MemoryBase):
             records.append((memory_id, text, embed_map[text], mem_metadata))
 
         if not records:
-            await asyncio.to_thread(self.db.save_messages, messages, session_scope)
+            await self._save_short_term_messages(messages, session_scope)
             return []
 
         # Phase 6: Batch persist
@@ -2765,7 +2987,7 @@ class AsyncMemory(MemoryBase):
             logger.warning(f"Batch entity linking failed (async): {e}")
 
         # Phase 8: Save messages + return
-        await asyncio.to_thread(self.db.save_messages, messages, session_scope)
+        await self._save_short_term_messages(messages, session_scope)
 
         returned_memories = [
             {"id": r[0], "memory": r[1], "event": "ADD"}
@@ -3085,6 +3307,10 @@ class AsyncMemory(MemoryBase):
                 original_memories = reranked_memories
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
+
+        original_memories = await asyncio.to_thread(
+            self._with_midterm_search_results, query, effective_filters, original_memories
+        )
 
         if temporal_usage_notice:
             await display_temporal_usage_notice_async(self, "async", "search", *temporal_usage_notice)
@@ -3713,20 +3939,22 @@ class AsyncMemory(MemoryBase):
             Recreates the vector store with a new client
         """
         logger.warning("Resetting all memories")
-        await asyncio.to_thread(self.vector_store.delete_col)
 
-        gc.collect()
-
-        if hasattr(self.vector_store, "client") and hasattr(self.vector_store.client, "close"):
-            await asyncio.to_thread(self.vector_store.client.close)
-
+        await asyncio.to_thread(self._reset_midterm_state)
         await asyncio.to_thread(self.db.reset)
         await asyncio.to_thread(self.db.close)
         self.db = SQLiteManager(self.config.history_db_path)
 
-        self.vector_store = VectorStoreFactory.create(
-            self.config.vector_store.provider, self.config.vector_store.config
-        )
+        if hasattr(self.vector_store, "reset"):
+            self.vector_store = await asyncio.to_thread(VectorStoreFactory.reset, self.vector_store)
+        else:
+            logger.warning("Vector store does not support reset. Skipping.")
+            await asyncio.to_thread(self.vector_store.delete_col)
+            self.vector_store = VectorStoreFactory.create(
+                self.config.vector_store.provider, self.config.vector_store.config
+            )
+
+        gc.collect()
 
         if self._entity_store is not None:
             try:

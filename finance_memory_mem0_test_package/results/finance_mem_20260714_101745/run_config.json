@@ -1,0 +1,22 @@
+{
+  "run_name": "finance_mem_20260714_101745",
+  "mode": "incremental",
+  "data": "/home/peize/Code/htzq/mem0/finance_memory_mem0_test_package/finance_memory_mini_timeline.json",
+  "top_k": 5,
+  "cutoffs": [
+    1,
+    3,
+    5
+  ],
+  "answer_top_k": 5,
+  "judge": false,
+  "skip_answer": false,
+  "base_user_id": "invest_user_001",
+  "collection_name": "finance_memory_benchmark_512",
+  "qdrant_path": "/tmp/qdrant_finance_memory_benchmark_512",
+  "deepseek_model": "deepseek-v4-flash",
+  "embedding_model": "BAAI/bge-small-zh-v1.5",
+  "embedding_dims": 512,
+  "memory_temperature": 0.2,
+  "started_at": "2026-07-14T10:17:45.410119"
+}
