@@ -26,6 +26,20 @@ class MemoryItem(BaseModel):
     updated_at: Optional[str] = Field(None, description="The timestamp when the memory was updated")
 
 
+class MidTermMemoryConfig(BaseModel):
+    enabled: bool = Field(False, description="Enable the mid-term memory layer")
+    short_term_capacity: int = Field(10, description="Number of recent SQLite messages to keep per session")
+    session_similarity_threshold: float = Field(0.65, description="Minimum score for assigning a page to a session")
+    embedding_similarity_weight: float = Field(0.7, description="Weight for embedding similarity during topic routing")
+    keyword_overlap_weight: float = Field(0.3, description="Weight for keyword overlap during topic routing")
+    top_k_sessions: int = Field(5, description="Number of mid-term sessions to retrieve")
+    top_k_pages: int = Field(5, description="Number of mid-term pages to retrieve")
+    heat_alpha: float = Field(1.0, description="Session heat weight for visit count")
+    heat_beta: float = Field(0.5, description="Session heat weight for interaction count")
+    heat_gamma: float = Field(1.0, description="Session heat weight for recency")
+    promotion_heat_threshold: float = Field(5.0, description="Reserved threshold for promoting hot sessions")
+
+
 class MemoryConfig(BaseModel):
     vector_store: VectorStoreConfig = Field(
         description="Configuration for the vector store",
@@ -54,6 +68,10 @@ class MemoryConfig(BaseModel):
     custom_instructions: Optional[str] = Field(
         description="Custom instructions for fact extraction",
         default=None,
+    )
+    midterm: MidTermMemoryConfig = Field(
+        description="Configuration for the optional mid-term memory layer",
+        default_factory=MidTermMemoryConfig,
     )
 
 

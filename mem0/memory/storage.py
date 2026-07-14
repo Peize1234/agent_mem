@@ -254,14 +254,20 @@ class SQLiteManager:
             for r in rows
         ]
 
-    def save_messages(self, messages: List[Dict[str, Any]], session_scope: str) -> None:
+    def save_messages(
+        self,
+        messages: List[Dict[str, Any]],
+        session_scope: str,
+        max_messages: int = 10,
+        return_evicted: bool = False,
+    ) -> Optional[List[Dict[str, Any]]]:
         if not messages:
-            return
+            return [] if return_evicted else None
         with self._lock:
             try:
                 self.connection.execute("BEGIN")
-                now = datetime.now(timezone.utc).isoformat()
                 for message in messages:
+                    now = message.get("created_at") or datetime.now(timezone.utc).isoformat()
                     self.connection.execute(
                         """
                         INSERT INTO messages (id, session_scope, role, content, name, created_at)
@@ -275,24 +281,99 @@ class SQLiteManager:
                             message.get("name"),
                             now,
                         ),
-                    )
-                # Evict old messages beyond the most recent 10 for this scope.
-                # Wrapped in a derived table to force SQLite to materialize the
-                # ORDER BY before the outer NOT IN evaluates it.
-                self.connection.execute(
-                    """
-                    DELETE FROM messages WHERE session_scope = ? AND id NOT IN (
-                        SELECT id FROM (
-                            SELECT id FROM messages WHERE session_scope = ? ORDER BY created_at DESC LIMIT 10
-                        )
-                    )
-                """,
-                    (session_scope, session_scope),
                 )
+                max_messages = max(int(max_messages), 0)
+
+                rows = self.connection.execute(
+                    """
+                    SELECT id, role, content, name, created_at
+                    FROM messages
+                    WHERE session_scope = ?
+                    ORDER BY DATETIME(created_at) ASC, rowid ASC
+                """,
+                    (session_scope,),
+                ).fetchall()
+
+                evict_count = max(len(rows) - max_messages, 0)
+                evicted_rows = rows[:evict_count]
+                evicted_ids = [row[0] for row in evicted_rows]
+                if evicted_ids:
+                    placeholders = ",".join("?" for _ in evicted_ids)
+                    self.connection.execute(
+                        f"""
+                        DELETE FROM messages
+                        WHERE session_scope = ? AND id IN ({placeholders})
+                    """,
+                        (session_scope, *evicted_ids),
+                    )
+
+                evicted_messages = [
+                    {
+                        "id": r[0],
+                        "role": r[1],
+                        "content": r[2],
+                        "name": r[3],
+                        "created_at": r[4],
+                        "session_scope": session_scope,
+                    }
+                    for r in evicted_rows
+                ]
+
+                if not return_evicted:
+                    evicted_messages = None
+
                 self.connection.execute("COMMIT")
+                return evicted_messages
             except Exception as e:
                 self.connection.execute("ROLLBACK")
                 logger.error(f"Failed to save messages: {e}")
+                raise
+
+    def get_messages(self, session_scope: str, limit: int = 10) -> List[Dict[str, Any]]:
+        with self._lock:
+            cur = self.connection.execute(
+                """
+                SELECT id, role, content, name, created_at
+                FROM messages
+                WHERE session_scope = ?
+                ORDER BY DATETIME(created_at) ASC, rowid ASC
+                LIMIT ?
+            """,
+                (session_scope, limit),
+            )
+            rows = cur.fetchall()
+
+        return [
+            {
+                "id": r[0],
+                "role": r[1],
+                "content": r[2],
+                "name": r[3],
+                "created_at": r[4],
+                "session_scope": session_scope,
+            }
+            for r in rows
+        ]
+
+    def delete_messages(self, message_ids: List[str]) -> int:
+        if not message_ids:
+            return 0
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN")
+                placeholders = ",".join("?" for _ in message_ids)
+                cursor = self.connection.execute(
+                    f"""
+                    DELETE FROM messages
+                    WHERE id IN ({placeholders})
+                """,
+                    tuple(message_ids),
+                )
+                self.connection.execute("COMMIT")
+                return cursor.rowcount
+            except Exception as e:
+                self.connection.execute("ROLLBACK")
+                logger.error(f"Failed to delete messages: {e}")
                 raise
 
     def get_last_messages(self, session_scope: str, limit: int = 10) -> List[Dict[str, Any]]:
@@ -302,12 +383,12 @@ class SQLiteManager:
             cur = self.connection.execute(
                 """
                 SELECT role, content, name, created_at FROM (
-                    SELECT role, content, name, created_at
+                    SELECT rowid, role, content, name, created_at
                     FROM messages
                     WHERE session_scope = ?
-                    ORDER BY created_at DESC
+                    ORDER BY DATETIME(created_at) DESC, rowid DESC
                     LIMIT ?
-                ) ORDER BY created_at ASC
+                ) ORDER BY DATETIME(created_at) ASC, rowid ASC
             """,
                 (session_scope, limit),
             )

@@ -1,0 +1,2388 @@
+[
+  {
+    "session_id": "S001",
+    "user_id": "invest_user_001__my_memory_v1",
+    "snapshot": {
+      "results": [
+        {
+          "id": "03032841-de94-4bb5-8b4b-5927d81eace3",
+          "memory": "User is interested in understanding bond funds, specifically whether they are basically risk-free and why long-term bond funds fluctuate more when interest rates rise, indicating a desire to learn about bond fund risks as part of investment knowledge.",
+          "hash": "19f658c18cb30a7f3e6812e6b0f02c1e",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 9,
+            "benchmark_turn_ids": [
+              "T017",
+              "T018"
+            ],
+            "benchmark_memory_ids": [
+              "M008"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:20:09.356869+00:00",
+          "updated_at": "2026-07-14T02:20:09.356869+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "0799c3f1-5dae-4d7d-871d-068c158f0f43",
+          "memory": "User is busy and prefers to check investments only a few times per year (e.g., quarterly or semi-annually) rather than adjusting based on weekly fluctuations.",
+          "hash": "d8e90050adb3889dac0dd5cbc529a112",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 8,
+            "benchmark_turn_ids": [
+              "T015",
+              "T016"
+            ],
+            "benchmark_memory_ids": [
+              "M007"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:19:53.569072+00:00",
+          "updated_at": "2026-07-14T02:19:53.569072+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "22f56f25-5534-463e-a059-3d84992ea28f",
+          "memory": "User stated that for long-term investment funds (excluding the 60,000 yuan emergency fund), a principal loss of around 10% would cause significant anxiety and potentially stop further investment.",
+          "hash": "359b31378fbe8986da38babd852060ab",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 4,
+            "benchmark_turn_ids": [
+              "T007",
+              "T008"
+            ],
+            "benchmark_memory_ids": [
+              "M003"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:19:16.284029+00:00",
+          "updated_at": "2026-07-14T02:19:16.284029+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "2bbd9880-1532-46ed-b271-4ff61c597cd5",
+          "memory": "User prefers low-cost, broadly diversified broad-based index funds as the core of long-term investments, as they have limited research on individual stocks.",
+          "hash": "43cc7b66970179ebb2597de1f1cd5322",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 6,
+            "benchmark_turn_ids": [
+              "T011",
+              "T012"
+            ],
+            "benchmark_memory_ids": [
+              "M005"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:19:38.304517+00:00",
+          "updated_at": "2026-07-14T02:19:38.304517+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "3c63f0a1-b8b9-49d7-8e92-fdd783bd0c96",
+          "memory": "User has set aside 60,000 yuan as an emergency fund, covering approximately six months of living expenses, held in a liquid cash management tool.",
+          "hash": "3bf7e9d0cd76c67a56f34398059528b7",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 2,
+            "benchmark_turn_ids": [
+              "T003",
+              "T004"
+            ],
+            "benchmark_memory_ids": [
+              "M001"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:19:00.007553+00:00",
+          "updated_at": "2026-07-14T02:19:00.007553+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "41d21e16-4d5f-4c43-9461-cf506c44786e",
+          "memory": "User was advised that industry-themed funds should not replace broad-based index funds as the long-term core investment, and are only suitable as a small satellite allocation within the risk budget, with strict proportion limits and rebalancing rules.",
+          "hash": "74f628b057ac4698958a7f9a9e2bdb83",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 11,
+            "benchmark_turn_ids": [
+              "T021",
+              "T022"
+            ],
+            "benchmark_memory_ids": [
+              "M010"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:20:24.722451+00:00",
+          "updated_at": "2026-07-14T02:20:24.722451+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "78a539c8-9290-4bf2-9ceb-ef1151d65ca2",
+          "memory": "User does not want to use leverage, futures, or complex structured products where they cannot assess worst-case losses, as part of their investment boundaries.",
+          "hash": "9a7f20595840ab015bbe23587b57858c",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 7,
+            "benchmark_turn_ids": [
+              "T013",
+              "T014"
+            ],
+            "benchmark_memory_ids": [
+              "M006"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:19:44.640041+00:00",
+          "updated_at": "2026-07-14T02:19:44.640041+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "7b3eab3a-66b6-4587-b7f0-b71ce7e4b565",
+          "memory": "Assistant explained that bond funds can lose money, and long-term bond funds are more sensitive to interest rate changes due to duration; also noted that bond funds are subject to interest rate risk, credit risk, and other factors, so they are not risk-free.",
+          "hash": "5ec4cfc9b482254571a9070988767be5",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 9,
+            "benchmark_turn_ids": [
+              "T017",
+              "T018"
+            ],
+            "benchmark_memory_ids": [
+              "M008"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:20:09.364803+00:00",
+          "updated_at": "2026-07-14T02:20:09.364803+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "84b35334-2356-429b-912e-f4b17b6ad386",
+          "memory": "Assistant recommended that for low-maintenance execution, the user should use quarterly or semi-annual reviews with threshold-based rebalancing, use new contributions to adjust allocation, and separate rules for different accounts (long-term vs. short-term).",
+          "hash": "959a881049248704742626e20b883842",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 8,
+            "benchmark_turn_ids": [
+              "T015",
+              "T016"
+            ],
+            "benchmark_memory_ids": [
+              "M007"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:19:53.575484+00:00",
+          "updated_at": "2026-07-14T02:19:53.575484+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "88c97605-be9d-4267-85e7-d80754e3f38a",
+          "memory": "User has savings that are not separated into emergency funds, short-term expenses, and long-term investments, and is seeking guidance on financial planning order.",
+          "hash": "fe279565c46ab080bc4dad60094b57c2",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 1,
+            "benchmark_turn_ids": [
+              "T001",
+              "T002"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:18:44.409363+00:00",
+          "updated_at": "2026-07-14T02:18:44.409363+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "9288cca6-b3dd-434d-acf2-d9e0118bd381",
+          "memory": "User prefers broad-based index funds (宽基) as the core long-term investment, as confirmed in the session summary.",
+          "hash": "5307d2f0f5520b127118728f7b0b4306",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 12,
+            "benchmark_turn_ids": [
+              "T023",
+              "T024"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:20:35.540367+00:00",
+          "updated_at": "2026-07-14T02:20:35.540367+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "aea7454c-b425-45c6-82db-5ff59eda4f01",
+          "memory": "User asked about how compound interest works in long-term regular investing and whether holding long enough guarantees profit, indicating a desire to understand the mechanics and risks of compound interest.",
+          "hash": "7c043ef9cf38a4f7d1e6409123a2e758",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 10,
+            "benchmark_turn_ids": [
+              "T019",
+              "T020"
+            ],
+            "benchmark_memory_ids": [
+              "M009"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:20:16.021690+00:00",
+          "updated_at": "2026-07-14T02:20:16.021690+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "bbde15be-d83b-42e9-acff-b87bfff7f675",
+          "memory": "User was recommended to keep the emergency fund separate from long-term investments and to set periodic review conditions, such as when the balance falls below target, job changes, or family expenses increase, to ensure the fund remains adequate.",
+          "hash": "d785b4e9152a9a6c5ce643dad13141bc",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 2,
+            "benchmark_turn_ids": [
+              "T003",
+              "T004"
+            ],
+            "benchmark_memory_ids": [
+              "M001"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:19:00.016563+00:00",
+          "updated_at": "2026-07-14T02:19:00.016563+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "bf20ea2c-4db0-411a-ad06-28faccabeb88",
+          "memory": "User's remaining investment funds (excluding the 60,000 yuan emergency fund) will not be used for at least three years and currently has no confirmed large expense plans.",
+          "hash": "0bebd9f5b6980f744f1106731ab8fc6c",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 3,
+            "benchmark_turn_ids": [
+              "T005",
+              "T006"
+            ],
+            "benchmark_memory_ids": [
+              "M002"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:19:09.682123+00:00",
+          "updated_at": "2026-07-14T02:19:09.682123+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "cb4b9cc2-e764-4d2e-9d2c-6ddc4589a85b",
+          "memory": "Assistant clarified that compound interest involves reinvesting earnings to generate further earnings, but does not guarantee profit because losses also compound and large drawdowns require higher percentage gains to recover.",
+          "hash": "7eccef2529962837ac50c91b385f0664",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 10,
+            "benchmark_turn_ids": [
+              "T019",
+              "T020"
+            ],
+            "benchmark_memory_ids": [
+              "M009"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:20:16.027875+00:00",
+          "updated_at": "2026-07-14T02:20:16.027875+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "ce56218b-9c26-425b-a06c-81e327a9f951",
+          "memory": "User has a stable monthly surplus of 6000 yuan after expenses and intends to use most of it for long-term regular investments (DCA) as of July 2026.",
+          "hash": "b2642ab67e009cc697f50278d0e36021",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 5,
+            "benchmark_turn_ids": [
+              "T009",
+              "T010"
+            ],
+            "benchmark_memory_ids": [
+              "M004"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:19:28.307099+00:00",
+          "updated_at": "2026-07-14T02:19:28.307099+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        }
+      ]
+    }
+  },
+  {
+    "session_id": "S002",
+    "user_id": "invest_user_001__my_memory_v1",
+    "snapshot": {
+      "results": [
+        {
+          "id": "03032841-de94-4bb5-8b4b-5927d81eace3",
+          "memory": "User is interested in understanding bond funds, specifically whether they are basically risk-free and why long-term bond funds fluctuate more when interest rates rise, indicating a desire to learn about bond fund risks as part of investment knowledge.",
+          "hash": "19f658c18cb30a7f3e6812e6b0f02c1e",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 9,
+            "benchmark_turn_ids": [
+              "T017",
+              "T018"
+            ],
+            "benchmark_memory_ids": [
+              "M008"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:20:09.356869+00:00",
+          "updated_at": "2026-07-14T02:20:09.356869+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "0799c3f1-5dae-4d7d-871d-068c158f0f43",
+          "memory": "User is busy and prefers to check investments only a few times per year (e.g., quarterly or semi-annually) rather than adjusting based on weekly fluctuations.",
+          "hash": "d8e90050adb3889dac0dd5cbc529a112",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 8,
+            "benchmark_turn_ids": [
+              "T015",
+              "T016"
+            ],
+            "benchmark_memory_ids": [
+              "M007"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:19:53.569072+00:00",
+          "updated_at": "2026-07-14T02:19:53.569072+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "08d517d8-f004-4875-bb9b-68cdafbcd623",
+          "memory": "Assistant suggested reviewing current holdings for exit feasibility, especially if the down payment target date has been updated, to avoid misalignment between plans and actual accounts.",
+          "hash": "3b1b887db90b7ad901c306b59c198d86",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S002",
+            "benchmark_session_timestamp": "2026-04-06T20:20:00+08:00",
+            "benchmark_pair_index": 1,
+            "benchmark_turn_ids": [
+              "T025",
+              "T026"
+            ],
+            "benchmark_memory_ids": [
+              "M011"
+            ],
+            "benchmark_window_type": "short"
+          },
+          "created_at": "2026-07-14T02:20:50.346689+00:00",
+          "updated_at": "2026-07-14T02:20:50.346689+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S002",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "1c4d7f98-ac3d-44f7-8bd4-1197ca2a9ff6",
+          "memory": "Assistant recommended that down payment funds be separated from long-term investment accounts, prioritizing liquidity, maturity matching, and principal stability.",
+          "hash": "262de5040b55e44a0b679c7a33595390",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S002",
+            "benchmark_session_timestamp": "2026-04-06T20:20:00+08:00",
+            "benchmark_pair_index": 1,
+            "benchmark_turn_ids": [
+              "T025",
+              "T026"
+            ],
+            "benchmark_memory_ids": [
+              "M011"
+            ],
+            "benchmark_window_type": "short"
+          },
+          "created_at": "2026-07-14T02:20:50.334039+00:00",
+          "updated_at": "2026-07-14T02:20:50.334039+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S002",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "1c63f533-3b71-44ad-88aa-ce4466866fbf",
+          "memory": "Assistant provided rules for memory updates when down payment plans change: when a date or amount changes, the old value should be marked as superseded while the new value is set as active; both old and new values should be retained for traceability, with statuses like active, superseded, or deleted to ensure correct retrieval and generation.",
+          "hash": "65b2908c4a63bb027dde3c8fcc71fc41",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S002",
+            "benchmark_session_timestamp": "2026-04-06T20:20:00+08:00",
+            "benchmark_pair_index": 4,
+            "benchmark_turn_ids": [
+              "T031",
+              "T032"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "short"
+          },
+          "created_at": "2026-07-14T02:21:35.165370+00:00",
+          "updated_at": "2026-07-14T02:21:35.165370+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S002",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "22f56f25-5534-463e-a059-3d84992ea28f",
+          "memory": "User stated that for long-term investment funds (excluding the 60,000 yuan emergency fund), a principal loss of around 10% would cause significant anxiety and potentially stop further investment.",
+          "hash": "359b31378fbe8986da38babd852060ab",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 4,
+            "benchmark_turn_ids": [
+              "T007",
+              "T008"
+            ],
+            "benchmark_memory_ids": [
+              "M003"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:19:16.284029+00:00",
+          "updated_at": "2026-07-14T02:19:16.284029+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "26dbcad8-945d-49ef-9cf7-7bde7f31e531",
+          "memory": "User's down payment target is 100,000 yuan for purchasing a house around April 2027.",
+          "hash": "837726b55bef8c89f6987af83504ca2e",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S002",
+            "benchmark_session_timestamp": "2026-04-06T20:20:00+08:00",
+            "benchmark_pair_index": 2,
+            "benchmark_turn_ids": [
+              "T027",
+              "T028"
+            ],
+            "benchmark_memory_ids": [
+              "M012",
+              "M013"
+            ],
+            "benchmark_window_type": "short"
+          },
+          "created_at": "2026-07-14T02:21:07.091292+00:00",
+          "updated_at": "2026-07-14T02:21:07.091292+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S002",
+          "attributed_to": "user"
+        },
+        {
+          "id": "2bbd9880-1532-46ed-b271-4ff61c597cd5",
+          "memory": "User prefers low-cost, broadly diversified broad-based index funds as the core of long-term investments, as they have limited research on individual stocks.",
+          "hash": "43cc7b66970179ebb2597de1f1cd5322",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 6,
+            "benchmark_turn_ids": [
+              "T011",
+              "T012"
+            ],
+            "benchmark_memory_ids": [
+              "M005"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:19:38.304517+00:00",
+          "updated_at": "2026-07-14T02:19:38.304517+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "303262bf-c951-4cdc-ba01-8a030ca55fe6",
+          "memory": "Assistant recommended that the 100,000 yuan down payment be placed in a separate account prioritizing liquidity, maturity matching, and principal stability, with buffers for taxes, renovation, and transaction costs, and including checks on redemption periods and transfer times.",
+          "hash": "5f449f42276f09af2f0ea6d260fb1e29",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S002",
+            "benchmark_session_timestamp": "2026-04-06T20:20:00+08:00",
+            "benchmark_pair_index": 2,
+            "benchmark_turn_ids": [
+              "T027",
+              "T028"
+            ],
+            "benchmark_memory_ids": [
+              "M012",
+              "M013"
+            ],
+            "benchmark_window_type": "short"
+          },
+          "created_at": "2026-07-14T02:21:07.096370+00:00",
+          "updated_at": "2026-07-14T02:21:07.096370+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S002",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "3c63f0a1-b8b9-49d7-8e92-fdd783bd0c96",
+          "memory": "User has set aside 60,000 yuan as an emergency fund, covering approximately six months of living expenses, held in a liquid cash management tool.",
+          "hash": "3bf7e9d0cd76c67a56f34398059528b7",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 2,
+            "benchmark_turn_ids": [
+              "T003",
+              "T004"
+            ],
+            "benchmark_memory_ids": [
+              "M001"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:19:00.007553+00:00",
+          "updated_at": "2026-07-14T02:19:00.007553+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "41d21e16-4d5f-4c43-9461-cf506c44786e",
+          "memory": "User was advised that industry-themed funds should not replace broad-based index funds as the long-term core investment, and are only suitable as a small satellite allocation within the risk budget, with strict proportion limits and rebalancing rules.",
+          "hash": "74f628b057ac4698958a7f9a9e2bdb83",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 11,
+            "benchmark_turn_ids": [
+              "T021",
+              "T022"
+            ],
+            "benchmark_memory_ids": [
+              "M010"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:20:24.722451+00:00",
+          "updated_at": "2026-07-14T02:20:24.722451+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "58eacc1e-2ea5-4bea-a6ab-5ca1e7e00170",
+          "memory": "Assistant advised checking redemption periods, transfer times, and holidays to ensure funds are accessible by the payment date, and to include buffers for taxes, renovation, and transaction costs.",
+          "hash": "7d95dadc716683986991e59cf14db4a7",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S002",
+            "benchmark_session_timestamp": "2026-04-06T20:20:00+08:00",
+            "benchmark_pair_index": 1,
+            "benchmark_turn_ids": [
+              "T025",
+              "T026"
+            ],
+            "benchmark_memory_ids": [
+              "M011"
+            ],
+            "benchmark_window_type": "short"
+          },
+          "created_at": "2026-07-14T02:20:50.341878+00:00",
+          "updated_at": "2026-07-14T02:20:50.341878+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S002",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "5ce4cb82-e120-4ad9-8f44-d4e2b0cfd4ea",
+          "memory": "User expressed a strong preference that down payment funds should be safe and available on time, even at the cost of lower returns.",
+          "hash": "658d405830feeefd47f40032d49e7f7c",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S002",
+            "benchmark_session_timestamp": "2026-04-06T20:20:00+08:00",
+            "benchmark_pair_index": 1,
+            "benchmark_turn_ids": [
+              "T025",
+              "T026"
+            ],
+            "benchmark_memory_ids": [
+              "M011"
+            ],
+            "benchmark_window_type": "short"
+          },
+          "created_at": "2026-07-14T02:20:50.329735+00:00",
+          "updated_at": "2026-07-14T02:20:50.329735+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S002",
+          "attributed_to": "user"
+        },
+        {
+          "id": "72cdf2ae-cf92-4ce6-bcf0-42d50996ca91",
+          "memory": "User confirmed the down payment plan: 100,000 yuan, target date around April 2027, funds to be kept separate from long-term investments, prioritizing safety and on-time availability even at the cost of lower returns.",
+          "hash": "43cb3df1aaae265d4ca6d017e2159fab",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S002",
+            "benchmark_session_timestamp": "2026-04-06T20:20:00+08:00",
+            "benchmark_pair_index": 4,
+            "benchmark_turn_ids": [
+              "T031",
+              "T032"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "short"
+          },
+          "created_at": "2026-07-14T02:21:35.156169+00:00",
+          "updated_at": "2026-07-14T02:21:35.156169+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S002",
+          "attributed_to": "user"
+        },
+        {
+          "id": "7783c35d-29d0-4689-aa0b-bc31ea321c10",
+          "memory": "Assistant advised that bond funds are not automatically suitable for a short-term rigid goal like a down payment due in one year; must check duration, credit risk, historical maximum drawdown, and redemption time, and that safety and on-time availability are the primary criteria, even if it means accepting lower returns.",
+          "hash": "30846156ad9ac6b4383b8a2e3667f68b",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S002",
+            "benchmark_session_timestamp": "2026-04-06T20:20:00+08:00",
+            "benchmark_pair_index": 3,
+            "benchmark_turn_ids": [
+              "T029",
+              "T030"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "short"
+          },
+          "created_at": "2026-07-14T02:21:25.885290+00:00",
+          "updated_at": "2026-07-14T02:21:25.885290+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S002",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "78a539c8-9290-4bf2-9ceb-ef1151d65ca2",
+          "memory": "User does not want to use leverage, futures, or complex structured products where they cannot assess worst-case losses, as part of their investment boundaries.",
+          "hash": "9a7f20595840ab015bbe23587b57858c",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 7,
+            "benchmark_turn_ids": [
+              "T013",
+              "T014"
+            ],
+            "benchmark_memory_ids": [
+              "M006"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:19:44.640041+00:00",
+          "updated_at": "2026-07-14T02:19:44.640041+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "7b3eab3a-66b6-4587-b7f0-b71ce7e4b565",
+          "memory": "Assistant explained that bond funds can lose money, and long-term bond funds are more sensitive to interest rate changes due to duration; also noted that bond funds are subject to interest rate risk, credit risk, and other factors, so they are not risk-free.",
+          "hash": "5ec4cfc9b482254571a9070988767be5",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 9,
+            "benchmark_turn_ids": [
+              "T017",
+              "T018"
+            ],
+            "benchmark_memory_ids": [
+              "M008"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:20:09.364803+00:00",
+          "updated_at": "2026-07-14T02:20:09.364803+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "84b35334-2356-429b-912e-f4b17b6ad386",
+          "memory": "Assistant recommended that for low-maintenance execution, the user should use quarterly or semi-annual reviews with threshold-based rebalancing, use new contributions to adjust allocation, and separate rules for different accounts (long-term vs. short-term).",
+          "hash": "959a881049248704742626e20b883842",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 8,
+            "benchmark_turn_ids": [
+              "T015",
+              "T016"
+            ],
+            "benchmark_memory_ids": [
+              "M007"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:19:53.575484+00:00",
+          "updated_at": "2026-07-14T02:19:53.575484+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "88c97605-be9d-4267-85e7-d80754e3f38a",
+          "memory": "User has savings that are not separated into emergency funds, short-term expenses, and long-term investments, and is seeking guidance on financial planning order.",
+          "hash": "fe279565c46ab080bc4dad60094b57c2",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 1,
+            "benchmark_turn_ids": [
+              "T001",
+              "T002"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:18:44.409363+00:00",
+          "updated_at": "2026-07-14T02:18:44.409363+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "9288cca6-b3dd-434d-acf2-d9e0118bd381",
+          "memory": "User prefers broad-based index funds (宽基) as the core long-term investment, as confirmed in the session summary.",
+          "hash": "5307d2f0f5520b127118728f7b0b4306",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 12,
+            "benchmark_turn_ids": [
+              "T023",
+              "T024"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:20:35.540367+00:00",
+          "updated_at": "2026-07-14T02:20:35.540367+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        }
+      ]
+    }
+  },
+  {
+    "session_id": "S003",
+    "user_id": "invest_user_001__my_memory_v1",
+    "snapshot": {
+      "results": [
+        {
+          "id": "010367b2-1a7a-45ec-888a-e40a7289a225",
+          "memory": "User updated maximum acceptable loss for the down payment account from 10% to 5% of principal on July 14, 2026, stating that exceeding 5% could affect the down payment arrangement in November 2026, reflecting reduced risk tolerance due to increased household expenses and the shortened timeline.",
+          "hash": "ed5f2e90078d679f04145706b07e1fbb",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S003",
+            "benchmark_session_timestamp": "2026-05-18T21:10:00+08:00",
+            "benchmark_pair_index": 4,
+            "benchmark_turn_ids": [
+              "T039",
+              "T040"
+            ],
+            "benchmark_memory_ids": [
+              "M015"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:22:19.012410+00:00",
+          "updated_at": "2026-07-14T02:22:19.012410+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S003",
+          "attributed_to": "user"
+        },
+        {
+          "id": "03032841-de94-4bb5-8b4b-5927d81eace3",
+          "memory": "User is interested in understanding bond funds, specifically whether they are basically risk-free and why long-term bond funds fluctuate more when interest rates rise, indicating a desire to learn about bond fund risks as part of investment knowledge.",
+          "hash": "19f658c18cb30a7f3e6812e6b0f02c1e",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 9,
+            "benchmark_turn_ids": [
+              "T017",
+              "T018"
+            ],
+            "benchmark_memory_ids": [
+              "M008"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:20:09.356869+00:00",
+          "updated_at": "2026-07-14T02:20:09.356869+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "03262f11-9c5c-44ae-937b-6570285a7747",
+          "memory": "User explicitly stated they prefer safety and availability of funds over potential earnings for down payment purposes, meaning the primary goal is ensuring funds are available on time without shortage.",
+          "hash": "804ed9cf5b655e3e2f92ee2c2b699414",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S003",
+            "benchmark_session_timestamp": "2026-05-18T21:10:00+08:00",
+            "benchmark_pair_index": 1,
+            "benchmark_turn_ids": [
+              "T033",
+              "T034"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:21:47.547560+00:00",
+          "updated_at": "2026-07-14T02:21:47.547560+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S003",
+          "attributed_to": "user"
+        },
+        {
+          "id": "0799c3f1-5dae-4d7d-871d-068c158f0f43",
+          "memory": "User is busy and prefers to check investments only a few times per year (e.g., quarterly or semi-annually) rather than adjusting based on weekly fluctuations.",
+          "hash": "d8e90050adb3889dac0dd5cbc529a112",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 8,
+            "benchmark_turn_ids": [
+              "T015",
+              "T016"
+            ],
+            "benchmark_memory_ids": [
+              "M007"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:19:53.569072+00:00",
+          "updated_at": "2026-07-14T02:19:53.569072+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "08d517d8-f004-4875-bb9b-68cdafbcd623",
+          "memory": "Assistant suggested reviewing current holdings for exit feasibility, especially if the down payment target date has been updated, to avoid misalignment between plans and actual accounts.",
+          "hash": "3b1b887db90b7ad901c306b59c198d86",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S002",
+            "benchmark_session_timestamp": "2026-04-06T20:20:00+08:00",
+            "benchmark_pair_index": 1,
+            "benchmark_turn_ids": [
+              "T025",
+              "T026"
+            ],
+            "benchmark_memory_ids": [
+              "M011"
+            ],
+            "benchmark_window_type": "short"
+          },
+          "created_at": "2026-07-14T02:20:50.346689+00:00",
+          "updated_at": "2026-07-14T02:20:50.346689+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S002",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "0d012263-cfd8-42ae-b733-0ae4d148487b",
+          "memory": "User gets anxious during market downturns and may be tempted to sell immediately, indicating lower actual risk tolerance and a tendency toward emotional trading.",
+          "hash": "11312821f03a5f8145230cad31f4dc08",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S003",
+            "benchmark_session_timestamp": "2026-05-18T21:10:00+08:00",
+            "benchmark_pair_index": 11,
+            "benchmark_turn_ids": [
+              "T053",
+              "T054"
+            ],
+            "benchmark_memory_ids": [
+              "M017"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:23:19.282921+00:00",
+          "updated_at": "2026-07-14T02:23:19.282921+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S003",
+          "attributed_to": "user"
+        },
+        {
+          "id": "1c4d7f98-ac3d-44f7-8bd4-1197ca2a9ff6",
+          "memory": "Assistant recommended that down payment funds be separated from long-term investment accounts, prioritizing liquidity, maturity matching, and principal stability.",
+          "hash": "262de5040b55e44a0b679c7a33595390",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S002",
+            "benchmark_session_timestamp": "2026-04-06T20:20:00+08:00",
+            "benchmark_pair_index": 1,
+            "benchmark_turn_ids": [
+              "T025",
+              "T026"
+            ],
+            "benchmark_memory_ids": [
+              "M011"
+            ],
+            "benchmark_window_type": "short"
+          },
+          "created_at": "2026-07-14T02:20:50.334039+00:00",
+          "updated_at": "2026-07-14T02:20:50.334039+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S002",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "1c63f533-3b71-44ad-88aa-ce4466866fbf",
+          "memory": "Assistant provided rules for memory updates when down payment plans change: when a date or amount changes, the old value should be marked as superseded while the new value is set as active; both old and new values should be retained for traceability, with statuses like active, superseded, or deleted to ensure correct retrieval and generation.",
+          "hash": "65b2908c4a63bb027dde3c8fcc71fc41",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S002",
+            "benchmark_session_timestamp": "2026-04-06T20:20:00+08:00",
+            "benchmark_pair_index": 4,
+            "benchmark_turn_ids": [
+              "T031",
+              "T032"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "short"
+          },
+          "created_at": "2026-07-14T02:21:35.165370+00:00",
+          "updated_at": "2026-07-14T02:21:35.165370+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S002",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "1d4cc6f0-5a2d-498c-aff9-9a35c5f09ec8",
+          "memory": "Assistant advised that rebalancing can prioritize using new contributions (e.g., allocating more to underweight assets) over selling positions, to minimize transaction costs and tax implications.",
+          "hash": "3e46f66f1fc57ede054b77ca89da8cc1",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S003",
+            "benchmark_session_timestamp": "2026-05-18T21:10:00+08:00",
+            "benchmark_pair_index": 10,
+            "benchmark_turn_ids": [
+              "T051",
+              "T052"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:23:11.895018+00:00",
+          "updated_at": "2026-07-14T02:23:11.895018+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S003",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "2004d918-c5cd-48fe-abaf-567c7cdd2d3d",
+          "memory": "Assistant advised that major life events (such as advancing the house purchase plan or reducing risk limit) should trigger immediate reassessment of the portfolio, overriding fixed check cycles, and that these events require a structural adjustment rather than routine rebalancing.",
+          "hash": "aeba37cc3a97d600cf009a7ff2861a30",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S003",
+            "benchmark_session_timestamp": "2026-05-18T21:10:00+08:00",
+            "benchmark_pair_index": 10,
+            "benchmark_turn_ids": [
+              "T051",
+              "T052"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:23:11.905698+00:00",
+          "updated_at": "2026-07-14T02:23:11.905698+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S003",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "2170def8-7748-464f-a005-721227bad3c8",
+          "memory": "User's family wants to advance their house buying plan and needs to re-examine the down payment account, requiring updated key information such as new payment date, down payment amount, acceptable loss, and withdrawal requirements.",
+          "hash": "ad8fff6796d54461576e38c2564e6e93",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S003",
+            "benchmark_session_timestamp": "2026-05-18T21:10:00+08:00",
+            "benchmark_pair_index": 1,
+            "benchmark_turn_ids": [
+              "T033",
+              "T034"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:21:47.539533+00:00",
+          "updated_at": "2026-07-14T02:21:47.539533+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S003",
+          "attributed_to": "user"
+        },
+        {
+          "id": "22f56f25-5534-463e-a059-3d84992ea28f",
+          "memory": "User stated that for long-term investment funds (excluding the 60,000 yuan emergency fund), a principal loss of around 10% would cause significant anxiety and potentially stop further investment.",
+          "hash": "359b31378fbe8986da38babd852060ab",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 4,
+            "benchmark_turn_ids": [
+              "T007",
+              "T008"
+            ],
+            "benchmark_memory_ids": [
+              "M003"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:19:16.284029+00:00",
+          "updated_at": "2026-07-14T02:19:16.284029+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "234b95be-ca40-4cac-9312-0c0a13fc4a6e",
+          "memory": "User previously accepted up to 10% loss for the down payment account but now considers that no longer appropriate due to increased household expenses and the shortened timeline to November 2026.",
+          "hash": "4aea9ddd9bba8cd1ab6e579365b0c61a",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S003",
+            "benchmark_session_timestamp": "2026-05-18T21:10:00+08:00",
+            "benchmark_pair_index": 3,
+            "benchmark_turn_ids": [
+              "T037",
+              "T038"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:22:10.950761+00:00",
+          "updated_at": "2026-07-14T02:22:10.950761+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S003",
+          "attributed_to": "user"
+        },
+        {
+          "id": "26dbcad8-945d-49ef-9cf7-7bde7f31e531",
+          "memory": "User's down payment target is 100,000 yuan for purchasing a house around April 2027.",
+          "hash": "837726b55bef8c89f6987af83504ca2e",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S002",
+            "benchmark_session_timestamp": "2026-04-06T20:20:00+08:00",
+            "benchmark_pair_index": 2,
+            "benchmark_turn_ids": [
+              "T027",
+              "T028"
+            ],
+            "benchmark_memory_ids": [
+              "M012",
+              "M013"
+            ],
+            "benchmark_window_type": "short"
+          },
+          "created_at": "2026-07-14T02:21:07.091292+00:00",
+          "updated_at": "2026-07-14T02:21:07.091292+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S002",
+          "attributed_to": "user"
+        },
+        {
+          "id": "2bbd9880-1532-46ed-b271-4ff61c597cd5",
+          "memory": "User prefers low-cost, broadly diversified broad-based index funds as the core of long-term investments, as they have limited research on individual stocks.",
+          "hash": "43cc7b66970179ebb2597de1f1cd5322",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 6,
+            "benchmark_turn_ids": [
+              "T011",
+              "T012"
+            ],
+            "benchmark_memory_ids": [
+              "M005"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:19:38.304517+00:00",
+          "updated_at": "2026-07-14T02:19:38.304517+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "303262bf-c951-4cdc-ba01-8a030ca55fe6",
+          "memory": "Assistant recommended that the 100,000 yuan down payment be placed in a separate account prioritizing liquidity, maturity matching, and principal stability, with buffers for taxes, renovation, and transaction costs, and including checks on redemption periods and transfer times.",
+          "hash": "5f449f42276f09af2f0ea6d260fb1e29",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S002",
+            "benchmark_session_timestamp": "2026-04-06T20:20:00+08:00",
+            "benchmark_pair_index": 2,
+            "benchmark_turn_ids": [
+              "T027",
+              "T028"
+            ],
+            "benchmark_memory_ids": [
+              "M012",
+              "M013"
+            ],
+            "benchmark_window_type": "short"
+          },
+          "created_at": "2026-07-14T02:21:07.096370+00:00",
+          "updated_at": "2026-07-14T02:21:07.096370+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S002",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "3518149f-8caa-499f-a0f7-98f7a8daf347",
+          "memory": "For the down payment goal, the user should consider additional costs such as taxes, renovation, and transaction costs, and maintain extra buffer beyond the contract down payment.",
+          "hash": "52a2164a8894ae4a5d10495dc0312536",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S003",
+            "benchmark_session_timestamp": "2026-05-18T21:10:00+08:00",
+            "benchmark_pair_index": 1,
+            "benchmark_turn_ids": [
+              "T033",
+              "T034"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:21:47.551456+00:00",
+          "updated_at": "2026-07-14T02:21:47.551456+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S003",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "3c63f0a1-b8b9-49d7-8e92-fdd783bd0c96",
+          "memory": "User has set aside 60,000 yuan as an emergency fund, covering approximately six months of living expenses, held in a liquid cash management tool.",
+          "hash": "3bf7e9d0cd76c67a56f34398059528b7",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 2,
+            "benchmark_turn_ids": [
+              "T003",
+              "T004"
+            ],
+            "benchmark_memory_ids": [
+              "M001"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:19:00.007553+00:00",
+          "updated_at": "2026-07-14T02:19:00.007553+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "41d21e16-4d5f-4c43-9461-cf506c44786e",
+          "memory": "User was advised that industry-themed funds should not replace broad-based index funds as the long-term core investment, and are only suitable as a small satellite allocation within the risk budget, with strict proportion limits and rebalancing rules.",
+          "hash": "74f628b057ac4698958a7f9a9e2bdb83",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 11,
+            "benchmark_turn_ids": [
+              "T021",
+              "T022"
+            ],
+            "benchmark_memory_ids": [
+              "M010"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:20:24.722451+00:00",
+          "updated_at": "2026-07-14T02:20:24.722451+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "4ac7d96f-fe1c-4e74-a8a4-2fbe48269f7c",
+          "memory": "User considered investing the majority of the 100,000 yuan down payment into new energy industry funds for a half-year period until November 2026.",
+          "hash": "1f8f25e0aca5822430c217b60e5ed922",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S003",
+            "benchmark_session_timestamp": "2026-05-18T21:10:00+08:00",
+            "benchmark_pair_index": 6,
+            "benchmark_turn_ids": [
+              "T043",
+              "T044"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:22:37.156175+00:00",
+          "updated_at": "2026-07-14T02:22:37.156175+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S003",
+          "attributed_to": "user"
+        }
+      ]
+    }
+  },
+  {
+    "session_id": "S004",
+    "user_id": "invest_user_001__my_memory_v1",
+    "snapshot": {
+      "results": [
+        {
+          "id": "010367b2-1a7a-45ec-888a-e40a7289a225",
+          "memory": "User updated maximum acceptable loss for the down payment account from 10% to 5% of principal on July 14, 2026, stating that exceeding 5% could affect the down payment arrangement in November 2026, reflecting reduced risk tolerance due to increased household expenses and the shortened timeline.",
+          "hash": "ed5f2e90078d679f04145706b07e1fbb",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S003",
+            "benchmark_session_timestamp": "2026-05-18T21:10:00+08:00",
+            "benchmark_pair_index": 4,
+            "benchmark_turn_ids": [
+              "T039",
+              "T040"
+            ],
+            "benchmark_memory_ids": [
+              "M015"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:22:19.012410+00:00",
+          "updated_at": "2026-07-14T02:22:19.012410+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S003",
+          "attributed_to": "user"
+        },
+        {
+          "id": "03032841-de94-4bb5-8b4b-5927d81eace3",
+          "memory": "User is interested in understanding bond funds, specifically whether they are basically risk-free and why long-term bond funds fluctuate more when interest rates rise, indicating a desire to learn about bond fund risks as part of investment knowledge.",
+          "hash": "19f658c18cb30a7f3e6812e6b0f02c1e",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 9,
+            "benchmark_turn_ids": [
+              "T017",
+              "T018"
+            ],
+            "benchmark_memory_ids": [
+              "M008"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:20:09.356869+00:00",
+          "updated_at": "2026-07-14T02:20:09.356869+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "03262f11-9c5c-44ae-937b-6570285a7747",
+          "memory": "User explicitly stated they prefer safety and availability of funds over potential earnings for down payment purposes, meaning the primary goal is ensuring funds are available on time without shortage.",
+          "hash": "804ed9cf5b655e3e2f92ee2c2b699414",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S003",
+            "benchmark_session_timestamp": "2026-05-18T21:10:00+08:00",
+            "benchmark_pair_index": 1,
+            "benchmark_turn_ids": [
+              "T033",
+              "T034"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:21:47.547560+00:00",
+          "updated_at": "2026-07-14T02:21:47.547560+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S003",
+          "attributed_to": "user"
+        },
+        {
+          "id": "0799c3f1-5dae-4d7d-871d-068c158f0f43",
+          "memory": "User is busy and prefers to check investments only a few times per year (e.g., quarterly or semi-annually) rather than adjusting based on weekly fluctuations.",
+          "hash": "d8e90050adb3889dac0dd5cbc529a112",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 8,
+            "benchmark_turn_ids": [
+              "T015",
+              "T016"
+            ],
+            "benchmark_memory_ids": [
+              "M007"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:19:53.569072+00:00",
+          "updated_at": "2026-07-14T02:19:53.569072+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "08d517d8-f004-4875-bb9b-68cdafbcd623",
+          "memory": "Assistant suggested reviewing current holdings for exit feasibility, especially if the down payment target date has been updated, to avoid misalignment between plans and actual accounts.",
+          "hash": "3b1b887db90b7ad901c306b59c198d86",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S002",
+            "benchmark_session_timestamp": "2026-04-06T20:20:00+08:00",
+            "benchmark_pair_index": 1,
+            "benchmark_turn_ids": [
+              "T025",
+              "T026"
+            ],
+            "benchmark_memory_ids": [
+              "M011"
+            ],
+            "benchmark_window_type": "short"
+          },
+          "created_at": "2026-07-14T02:20:50.346689+00:00",
+          "updated_at": "2026-07-14T02:20:50.346689+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S002",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "0d012263-cfd8-42ae-b733-0ae4d148487b",
+          "memory": "User gets anxious during market downturns and may be tempted to sell immediately, indicating lower actual risk tolerance and a tendency toward emotional trading.",
+          "hash": "11312821f03a5f8145230cad31f4dc08",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S003",
+            "benchmark_session_timestamp": "2026-05-18T21:10:00+08:00",
+            "benchmark_pair_index": 11,
+            "benchmark_turn_ids": [
+              "T053",
+              "T054"
+            ],
+            "benchmark_memory_ids": [
+              "M017"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:23:19.282921+00:00",
+          "updated_at": "2026-07-14T02:23:19.282921+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S003",
+          "attributed_to": "user"
+        },
+        {
+          "id": "1c4d7f98-ac3d-44f7-8bd4-1197ca2a9ff6",
+          "memory": "Assistant recommended that down payment funds be separated from long-term investment accounts, prioritizing liquidity, maturity matching, and principal stability.",
+          "hash": "262de5040b55e44a0b679c7a33595390",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S002",
+            "benchmark_session_timestamp": "2026-04-06T20:20:00+08:00",
+            "benchmark_pair_index": 1,
+            "benchmark_turn_ids": [
+              "T025",
+              "T026"
+            ],
+            "benchmark_memory_ids": [
+              "M011"
+            ],
+            "benchmark_window_type": "short"
+          },
+          "created_at": "2026-07-14T02:20:50.334039+00:00",
+          "updated_at": "2026-07-14T02:20:50.334039+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S002",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "1c63f533-3b71-44ad-88aa-ce4466866fbf",
+          "memory": "Assistant provided rules for memory updates when down payment plans change: when a date or amount changes, the old value should be marked as superseded while the new value is set as active; both old and new values should be retained for traceability, with statuses like active, superseded, or deleted to ensure correct retrieval and generation.",
+          "hash": "65b2908c4a63bb027dde3c8fcc71fc41",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S002",
+            "benchmark_session_timestamp": "2026-04-06T20:20:00+08:00",
+            "benchmark_pair_index": 4,
+            "benchmark_turn_ids": [
+              "T031",
+              "T032"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "short"
+          },
+          "created_at": "2026-07-14T02:21:35.165370+00:00",
+          "updated_at": "2026-07-14T02:21:35.165370+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S002",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "1d4cc6f0-5a2d-498c-aff9-9a35c5f09ec8",
+          "memory": "Assistant advised that rebalancing can prioritize using new contributions (e.g., allocating more to underweight assets) over selling positions, to minimize transaction costs and tax implications.",
+          "hash": "3e46f66f1fc57ede054b77ca89da8cc1",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S003",
+            "benchmark_session_timestamp": "2026-05-18T21:10:00+08:00",
+            "benchmark_pair_index": 10,
+            "benchmark_turn_ids": [
+              "T051",
+              "T052"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:23:11.895018+00:00",
+          "updated_at": "2026-07-14T02:23:11.895018+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S003",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "2004d918-c5cd-48fe-abaf-567c7cdd2d3d",
+          "memory": "Assistant advised that major life events (such as advancing the house purchase plan or reducing risk limit) should trigger immediate reassessment of the portfolio, overriding fixed check cycles, and that these events require a structural adjustment rather than routine rebalancing.",
+          "hash": "aeba37cc3a97d600cf009a7ff2861a30",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S003",
+            "benchmark_session_timestamp": "2026-05-18T21:10:00+08:00",
+            "benchmark_pair_index": 10,
+            "benchmark_turn_ids": [
+              "T051",
+              "T052"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:23:11.905698+00:00",
+          "updated_at": "2026-07-14T02:23:11.905698+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S003",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "2170def8-7748-464f-a005-721227bad3c8",
+          "memory": "User's family wants to advance their house buying plan and needs to re-examine the down payment account, requiring updated key information such as new payment date, down payment amount, acceptable loss, and withdrawal requirements.",
+          "hash": "ad8fff6796d54461576e38c2564e6e93",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S003",
+            "benchmark_session_timestamp": "2026-05-18T21:10:00+08:00",
+            "benchmark_pair_index": 1,
+            "benchmark_turn_ids": [
+              "T033",
+              "T034"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:21:47.539533+00:00",
+          "updated_at": "2026-07-14T02:21:47.539533+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S003",
+          "attributed_to": "user"
+        },
+        {
+          "id": "22f56f25-5534-463e-a059-3d84992ea28f",
+          "memory": "User stated that for long-term investment funds (excluding the 60,000 yuan emergency fund), a principal loss of around 10% would cause significant anxiety and potentially stop further investment.",
+          "hash": "359b31378fbe8986da38babd852060ab",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 4,
+            "benchmark_turn_ids": [
+              "T007",
+              "T008"
+            ],
+            "benchmark_memory_ids": [
+              "M003"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:19:16.284029+00:00",
+          "updated_at": "2026-07-14T02:19:16.284029+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "234b95be-ca40-4cac-9312-0c0a13fc4a6e",
+          "memory": "User previously accepted up to 10% loss for the down payment account but now considers that no longer appropriate due to increased household expenses and the shortened timeline to November 2026.",
+          "hash": "4aea9ddd9bba8cd1ab6e579365b0c61a",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S003",
+            "benchmark_session_timestamp": "2026-05-18T21:10:00+08:00",
+            "benchmark_pair_index": 3,
+            "benchmark_turn_ids": [
+              "T037",
+              "T038"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:22:10.950761+00:00",
+          "updated_at": "2026-07-14T02:22:10.950761+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S003",
+          "attributed_to": "user"
+        },
+        {
+          "id": "26dbcad8-945d-49ef-9cf7-7bde7f31e531",
+          "memory": "User's down payment target is 100,000 yuan for purchasing a house around April 2027.",
+          "hash": "837726b55bef8c89f6987af83504ca2e",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S002",
+            "benchmark_session_timestamp": "2026-04-06T20:20:00+08:00",
+            "benchmark_pair_index": 2,
+            "benchmark_turn_ids": [
+              "T027",
+              "T028"
+            ],
+            "benchmark_memory_ids": [
+              "M012",
+              "M013"
+            ],
+            "benchmark_window_type": "short"
+          },
+          "created_at": "2026-07-14T02:21:07.091292+00:00",
+          "updated_at": "2026-07-14T02:21:07.091292+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S002",
+          "attributed_to": "user"
+        },
+        {
+          "id": "2bbd9880-1532-46ed-b271-4ff61c597cd5",
+          "memory": "User prefers low-cost, broadly diversified broad-based index funds as the core of long-term investments, as they have limited research on individual stocks.",
+          "hash": "43cc7b66970179ebb2597de1f1cd5322",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 6,
+            "benchmark_turn_ids": [
+              "T011",
+              "T012"
+            ],
+            "benchmark_memory_ids": [
+              "M005"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:19:38.304517+00:00",
+          "updated_at": "2026-07-14T02:19:38.304517+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "303262bf-c951-4cdc-ba01-8a030ca55fe6",
+          "memory": "Assistant recommended that the 100,000 yuan down payment be placed in a separate account prioritizing liquidity, maturity matching, and principal stability, with buffers for taxes, renovation, and transaction costs, and including checks on redemption periods and transfer times.",
+          "hash": "5f449f42276f09af2f0ea6d260fb1e29",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S002",
+            "benchmark_session_timestamp": "2026-04-06T20:20:00+08:00",
+            "benchmark_pair_index": 2,
+            "benchmark_turn_ids": [
+              "T027",
+              "T028"
+            ],
+            "benchmark_memory_ids": [
+              "M012",
+              "M013"
+            ],
+            "benchmark_window_type": "short"
+          },
+          "created_at": "2026-07-14T02:21:07.096370+00:00",
+          "updated_at": "2026-07-14T02:21:07.096370+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S002",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "3518149f-8caa-499f-a0f7-98f7a8daf347",
+          "memory": "For the down payment goal, the user should consider additional costs such as taxes, renovation, and transaction costs, and maintain extra buffer beyond the contract down payment.",
+          "hash": "52a2164a8894ae4a5d10495dc0312536",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S003",
+            "benchmark_session_timestamp": "2026-05-18T21:10:00+08:00",
+            "benchmark_pair_index": 1,
+            "benchmark_turn_ids": [
+              "T033",
+              "T034"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:21:47.551456+00:00",
+          "updated_at": "2026-07-14T02:21:47.551456+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S003",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "3c63f0a1-b8b9-49d7-8e92-fdd783bd0c96",
+          "memory": "User has set aside 60,000 yuan as an emergency fund, covering approximately six months of living expenses, held in a liquid cash management tool.",
+          "hash": "3bf7e9d0cd76c67a56f34398059528b7",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 2,
+            "benchmark_turn_ids": [
+              "T003",
+              "T004"
+            ],
+            "benchmark_memory_ids": [
+              "M001"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:19:00.007553+00:00",
+          "updated_at": "2026-07-14T02:19:00.007553+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "41d21e16-4d5f-4c43-9461-cf506c44786e",
+          "memory": "User was advised that industry-themed funds should not replace broad-based index funds as the long-term core investment, and are only suitable as a small satellite allocation within the risk budget, with strict proportion limits and rebalancing rules.",
+          "hash": "74f628b057ac4698958a7f9a9e2bdb83",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 11,
+            "benchmark_turn_ids": [
+              "T021",
+              "T022"
+            ],
+            "benchmark_memory_ids": [
+              "M010"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:20:24.722451+00:00",
+          "updated_at": "2026-07-14T02:20:24.722451+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "4ac7d96f-fe1c-4e74-a8a4-2fbe48269f7c",
+          "memory": "User considered investing the majority of the 100,000 yuan down payment into new energy industry funds for a half-year period until November 2026.",
+          "hash": "1f8f25e0aca5822430c217b60e5ed922",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S003",
+            "benchmark_session_timestamp": "2026-05-18T21:10:00+08:00",
+            "benchmark_pair_index": 6,
+            "benchmark_turn_ids": [
+              "T043",
+              "T044"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:22:37.156175+00:00",
+          "updated_at": "2026-07-14T02:22:37.156175+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S003",
+          "attributed_to": "user"
+        }
+      ]
+    }
+  },
+  {
+    "session_id": "S005",
+    "user_id": "invest_user_001__my_memory_v1",
+    "snapshot": {
+      "results": [
+        {
+          "id": "010367b2-1a7a-45ec-888a-e40a7289a225",
+          "memory": "User updated maximum acceptable loss for the down payment account from 10% to 5% of principal on July 14, 2026, stating that exceeding 5% could affect the down payment arrangement in November 2026, reflecting reduced risk tolerance due to increased household expenses and the shortened timeline.",
+          "hash": "ed5f2e90078d679f04145706b07e1fbb",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S003",
+            "benchmark_session_timestamp": "2026-05-18T21:10:00+08:00",
+            "benchmark_pair_index": 4,
+            "benchmark_turn_ids": [
+              "T039",
+              "T040"
+            ],
+            "benchmark_memory_ids": [
+              "M015"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:22:19.012410+00:00",
+          "updated_at": "2026-07-14T02:22:19.012410+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S003",
+          "attributed_to": "user"
+        },
+        {
+          "id": "03032841-de94-4bb5-8b4b-5927d81eace3",
+          "memory": "User is interested in understanding bond funds, specifically whether they are basically risk-free and why long-term bond funds fluctuate more when interest rates rise, indicating a desire to learn about bond fund risks as part of investment knowledge.",
+          "hash": "19f658c18cb30a7f3e6812e6b0f02c1e",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 9,
+            "benchmark_turn_ids": [
+              "T017",
+              "T018"
+            ],
+            "benchmark_memory_ids": [
+              "M008"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:20:09.356869+00:00",
+          "updated_at": "2026-07-14T02:20:09.356869+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "03262f11-9c5c-44ae-937b-6570285a7747",
+          "memory": "User explicitly stated they prefer safety and availability of funds over potential earnings for down payment purposes, meaning the primary goal is ensuring funds are available on time without shortage.",
+          "hash": "804ed9cf5b655e3e2f92ee2c2b699414",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S003",
+            "benchmark_session_timestamp": "2026-05-18T21:10:00+08:00",
+            "benchmark_pair_index": 1,
+            "benchmark_turn_ids": [
+              "T033",
+              "T034"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:21:47.547560+00:00",
+          "updated_at": "2026-07-14T02:21:47.547560+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S003",
+          "attributed_to": "user"
+        },
+        {
+          "id": "0799c3f1-5dae-4d7d-871d-068c158f0f43",
+          "memory": "User is busy and prefers to check investments only a few times per year (e.g., quarterly or semi-annually) rather than adjusting based on weekly fluctuations.",
+          "hash": "d8e90050adb3889dac0dd5cbc529a112",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 8,
+            "benchmark_turn_ids": [
+              "T015",
+              "T016"
+            ],
+            "benchmark_memory_ids": [
+              "M007"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:19:53.569072+00:00",
+          "updated_at": "2026-07-14T02:19:53.569072+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "08d517d8-f004-4875-bb9b-68cdafbcd623",
+          "memory": "Assistant suggested reviewing current holdings for exit feasibility, especially if the down payment target date has been updated, to avoid misalignment between plans and actual accounts.",
+          "hash": "3b1b887db90b7ad901c306b59c198d86",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S002",
+            "benchmark_session_timestamp": "2026-04-06T20:20:00+08:00",
+            "benchmark_pair_index": 1,
+            "benchmark_turn_ids": [
+              "T025",
+              "T026"
+            ],
+            "benchmark_memory_ids": [
+              "M011"
+            ],
+            "benchmark_window_type": "short"
+          },
+          "created_at": "2026-07-14T02:20:50.346689+00:00",
+          "updated_at": "2026-07-14T02:20:50.346689+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S002",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "0d012263-cfd8-42ae-b733-0ae4d148487b",
+          "memory": "User gets anxious during market downturns and may be tempted to sell immediately, indicating lower actual risk tolerance and a tendency toward emotional trading.",
+          "hash": "11312821f03a5f8145230cad31f4dc08",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S003",
+            "benchmark_session_timestamp": "2026-05-18T21:10:00+08:00",
+            "benchmark_pair_index": 11,
+            "benchmark_turn_ids": [
+              "T053",
+              "T054"
+            ],
+            "benchmark_memory_ids": [
+              "M017"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:23:19.282921+00:00",
+          "updated_at": "2026-07-14T02:23:19.282921+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S003",
+          "attributed_to": "user"
+        },
+        {
+          "id": "140ab9c8-7233-4fc9-9d18-14f40d39846e",
+          "memory": "User prefers that when answering investment questions, the explanation should be structured within three main points, use plain language, but not omit major risks for brevity.",
+          "hash": "6fca796a0e919f77495c76553fee2914",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S005",
+            "benchmark_session_timestamp": "2026-06-28T20:00:00+08:00",
+            "benchmark_pair_index": 2,
+            "benchmark_turn_ids": [
+              "T067",
+              "T068"
+            ],
+            "benchmark_memory_ids": [
+              "M021"
+            ],
+            "benchmark_window_type": "short"
+          },
+          "created_at": "2026-07-14T02:24:34.389536+00:00",
+          "updated_at": "2026-07-14T02:24:34.389536+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S005",
+          "attributed_to": "user"
+        },
+        {
+          "id": "1c4d7f98-ac3d-44f7-8bd4-1197ca2a9ff6",
+          "memory": "Assistant recommended that down payment funds be separated from long-term investment accounts, prioritizing liquidity, maturity matching, and principal stability.",
+          "hash": "262de5040b55e44a0b679c7a33595390",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S002",
+            "benchmark_session_timestamp": "2026-04-06T20:20:00+08:00",
+            "benchmark_pair_index": 1,
+            "benchmark_turn_ids": [
+              "T025",
+              "T026"
+            ],
+            "benchmark_memory_ids": [
+              "M011"
+            ],
+            "benchmark_window_type": "short"
+          },
+          "created_at": "2026-07-14T02:20:50.334039+00:00",
+          "updated_at": "2026-07-14T02:20:50.334039+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S002",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "1c63f533-3b71-44ad-88aa-ce4466866fbf",
+          "memory": "Assistant provided rules for memory updates when down payment plans change: when a date or amount changes, the old value should be marked as superseded while the new value is set as active; both old and new values should be retained for traceability, with statuses like active, superseded, or deleted to ensure correct retrieval and generation.",
+          "hash": "65b2908c4a63bb027dde3c8fcc71fc41",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S002",
+            "benchmark_session_timestamp": "2026-04-06T20:20:00+08:00",
+            "benchmark_pair_index": 4,
+            "benchmark_turn_ids": [
+              "T031",
+              "T032"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "short"
+          },
+          "created_at": "2026-07-14T02:21:35.165370+00:00",
+          "updated_at": "2026-07-14T02:21:35.165370+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S002",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "1d4cc6f0-5a2d-498c-aff9-9a35c5f09ec8",
+          "memory": "Assistant advised that rebalancing can prioritize using new contributions (e.g., allocating more to underweight assets) over selling positions, to minimize transaction costs and tax implications.",
+          "hash": "3e46f66f1fc57ede054b77ca89da8cc1",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S003",
+            "benchmark_session_timestamp": "2026-05-18T21:10:00+08:00",
+            "benchmark_pair_index": 10,
+            "benchmark_turn_ids": [
+              "T051",
+              "T052"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:23:11.895018+00:00",
+          "updated_at": "2026-07-14T02:23:11.895018+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S003",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "2004d918-c5cd-48fe-abaf-567c7cdd2d3d",
+          "memory": "Assistant advised that major life events (such as advancing the house purchase plan or reducing risk limit) should trigger immediate reassessment of the portfolio, overriding fixed check cycles, and that these events require a structural adjustment rather than routine rebalancing.",
+          "hash": "aeba37cc3a97d600cf009a7ff2861a30",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S003",
+            "benchmark_session_timestamp": "2026-05-18T21:10:00+08:00",
+            "benchmark_pair_index": 10,
+            "benchmark_turn_ids": [
+              "T051",
+              "T052"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:23:11.905698+00:00",
+          "updated_at": "2026-07-14T02:23:11.905698+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S003",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "2170def8-7748-464f-a005-721227bad3c8",
+          "memory": "User's family wants to advance their house buying plan and needs to re-examine the down payment account, requiring updated key information such as new payment date, down payment amount, acceptable loss, and withdrawal requirements.",
+          "hash": "ad8fff6796d54461576e38c2564e6e93",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S003",
+            "benchmark_session_timestamp": "2026-05-18T21:10:00+08:00",
+            "benchmark_pair_index": 1,
+            "benchmark_turn_ids": [
+              "T033",
+              "T034"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:21:47.539533+00:00",
+          "updated_at": "2026-07-14T02:21:47.539533+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S003",
+          "attributed_to": "user"
+        },
+        {
+          "id": "22f56f25-5534-463e-a059-3d84992ea28f",
+          "memory": "User stated that for long-term investment funds (excluding the 60,000 yuan emergency fund), a principal loss of around 10% would cause significant anxiety and potentially stop further investment.",
+          "hash": "359b31378fbe8986da38babd852060ab",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 4,
+            "benchmark_turn_ids": [
+              "T007",
+              "T008"
+            ],
+            "benchmark_memory_ids": [
+              "M003"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:19:16.284029+00:00",
+          "updated_at": "2026-07-14T02:19:16.284029+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "234b95be-ca40-4cac-9312-0c0a13fc4a6e",
+          "memory": "User previously accepted up to 10% loss for the down payment account but now considers that no longer appropriate due to increased household expenses and the shortened timeline to November 2026.",
+          "hash": "4aea9ddd9bba8cd1ab6e579365b0c61a",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S003",
+            "benchmark_session_timestamp": "2026-05-18T21:10:00+08:00",
+            "benchmark_pair_index": 3,
+            "benchmark_turn_ids": [
+              "T037",
+              "T038"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:22:10.950761+00:00",
+          "updated_at": "2026-07-14T02:22:10.950761+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S003",
+          "attributed_to": "user"
+        },
+        {
+          "id": "26dbcad8-945d-49ef-9cf7-7bde7f31e531",
+          "memory": "User's down payment target is 100,000 yuan for purchasing a house around April 2027.",
+          "hash": "837726b55bef8c89f6987af83504ca2e",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S002",
+            "benchmark_session_timestamp": "2026-04-06T20:20:00+08:00",
+            "benchmark_pair_index": 2,
+            "benchmark_turn_ids": [
+              "T027",
+              "T028"
+            ],
+            "benchmark_memory_ids": [
+              "M012",
+              "M013"
+            ],
+            "benchmark_window_type": "short"
+          },
+          "created_at": "2026-07-14T02:21:07.091292+00:00",
+          "updated_at": "2026-07-14T02:21:07.091292+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S002",
+          "attributed_to": "user"
+        },
+        {
+          "id": "2bbd9880-1532-46ed-b271-4ff61c597cd5",
+          "memory": "User prefers low-cost, broadly diversified broad-based index funds as the core of long-term investments, as they have limited research on individual stocks.",
+          "hash": "43cc7b66970179ebb2597de1f1cd5322",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 6,
+            "benchmark_turn_ids": [
+              "T011",
+              "T012"
+            ],
+            "benchmark_memory_ids": [
+              "M005"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:19:38.304517+00:00",
+          "updated_at": "2026-07-14T02:19:38.304517+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        },
+        {
+          "id": "303262bf-c951-4cdc-ba01-8a030ca55fe6",
+          "memory": "Assistant recommended that the 100,000 yuan down payment be placed in a separate account prioritizing liquidity, maturity matching, and principal stability, with buffers for taxes, renovation, and transaction costs, and including checks on redemption periods and transfer times.",
+          "hash": "5f449f42276f09af2f0ea6d260fb1e29",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S002",
+            "benchmark_session_timestamp": "2026-04-06T20:20:00+08:00",
+            "benchmark_pair_index": 2,
+            "benchmark_turn_ids": [
+              "T027",
+              "T028"
+            ],
+            "benchmark_memory_ids": [
+              "M012",
+              "M013"
+            ],
+            "benchmark_window_type": "short"
+          },
+          "created_at": "2026-07-14T02:21:07.096370+00:00",
+          "updated_at": "2026-07-14T02:21:07.096370+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S002",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "3518149f-8caa-499f-a0f7-98f7a8daf347",
+          "memory": "For the down payment goal, the user should consider additional costs such as taxes, renovation, and transaction costs, and maintain extra buffer beyond the contract down payment.",
+          "hash": "52a2164a8894ae4a5d10495dc0312536",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S003",
+            "benchmark_session_timestamp": "2026-05-18T21:10:00+08:00",
+            "benchmark_pair_index": 1,
+            "benchmark_turn_ids": [
+              "T033",
+              "T034"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:21:47.551456+00:00",
+          "updated_at": "2026-07-14T02:21:47.551456+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S003",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "36e620aa-9cf7-4fcf-9324-e3e1ebe00426",
+          "memory": "Assistant explained compound interest (复利) using the user's preferred style: conclusion first, then three parts (mechanism, time effect, risk boundaries), without including irrelevant personal details. Key points: returns are reinvested to generate further returns; time does not guarantee profit; large drawdowns require higher returns to recover.",
+          "hash": "fae22ba7c16d0c71707ba410175b1579",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S005",
+            "benchmark_session_timestamp": "2026-06-28T20:00:00+08:00",
+            "benchmark_pair_index": 4,
+            "benchmark_turn_ids": [
+              "T071",
+              "T072"
+            ],
+            "benchmark_memory_ids": [],
+            "benchmark_window_type": "short"
+          },
+          "created_at": "2026-07-14T02:25:04.445296+00:00",
+          "updated_at": "2026-07-14T02:25:04.445296+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S005",
+          "attributed_to": "assistant"
+        },
+        {
+          "id": "3c63f0a1-b8b9-49d7-8e92-fdd783bd0c96",
+          "memory": "User has set aside 60,000 yuan as an emergency fund, covering approximately six months of living expenses, held in a liquid cash management tool.",
+          "hash": "3bf7e9d0cd76c67a56f34398059528b7",
+          "metadata": {
+            "benchmark_name": "FinanceMemory-Mini-CN",
+            "benchmark_version": "4.0.0",
+            "benchmark_session_id": "S001",
+            "benchmark_session_timestamp": "2026-01-05T19:30:00+08:00",
+            "benchmark_pair_index": 2,
+            "benchmark_turn_ids": [
+              "T003",
+              "T004"
+            ],
+            "benchmark_memory_ids": [
+              "M001"
+            ],
+            "benchmark_window_type": "long"
+          },
+          "created_at": "2026-07-14T02:19:00.007553+00:00",
+          "updated_at": "2026-07-14T02:19:00.007553+00:00",
+          "user_id": "invest_user_001__my_memory_v1",
+          "run_id": "my_memory_v1:S001",
+          "attributed_to": "user"
+        }
+      ]
+    }
+  }
+]
