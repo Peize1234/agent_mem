@@ -1,0 +1,49 @@
+{
+  "run_name": "single_session_longterm_off_midterm_on",
+  "user_id": "invest_user_001",
+  "data": "/home/peize/Code/htzq/mem0/finance_memory_single_session_package/finance_memory_single_session_timeline.json",
+  "evaluator": "/home/peize/Code/htzq/mem0/finance_memory_single_session_package/parse_and_evaluate.py",
+  "top_k": 0,
+  "max_total_pages": 5,
+  "judge": true,
+  "state_timing": "both",
+  "midterm_enabled": true,
+  "history_write_mode": "reference",
+  "session_isolation": "strict_user_id_and_run_id",
+  "fair_short_window_patch": true,
+  "memory_config_without_api_key": {
+    "llm": {
+      "provider": "deepseek",
+      "config": {
+        "model": "deepseek-v4-flash",
+        "api_key": "***REDACTED***",
+        "temperature": 0.2,
+        "max_tokens": 2400
+      }
+    },
+    "embedder": {
+      "provider": "huggingface",
+      "config": {
+        "model": "BAAI/bge-small-zh-v1.5"
+      }
+    },
+    "vector_store": {
+      "provider": "qdrant",
+      "config": {
+        "collection_name": "agent_mem_single_session_longterm_off_midterm_on",
+        "path": "/home/peize/Code/htzq/mem0/finance_memory_single_session_package/results/single_session_longterm_off_midterm_on/qdrant",
+        "embedding_model_dims": 512
+      }
+    },
+    "history_db_path": "/home/peize/Code/htzq/mem0/finance_memory_single_session_package/results/single_session_longterm_off_midterm_on/history.db",
+    "midterm": {
+      "enabled": true,
+      "short_term_capacity": 4,
+      "session_similarity_threshold": 0.5,
+      "top_k_sessions": 5,
+      "top_k_pages": 5,
+      "max_total_pages": 5
+    }
+  },
+  "started_at": "2026-07-16T14:19:47.066347"
+}
