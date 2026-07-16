@@ -95,7 +95,7 @@ class Qdrant(VectorStoreBase):
         if self._bm25_encoder is None:
             try:
                 from fastembed import SparseTextEmbedding
-                self._bm25_encoder = SparseTextEmbedding(model_name="Qdrant/bm25")
+                self._bm25_encoder = SparseTextEmbedding(model_name="Qdrant/bm25", disable_stemmer=True)
                 logger.info("BM25 encoder loaded (fastembed Qdrant/bm25)")
             except ImportError:
                 logger.warning(
