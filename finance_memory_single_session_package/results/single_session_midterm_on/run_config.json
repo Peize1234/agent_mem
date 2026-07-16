@@ -8,7 +8,7 @@
   "judge": true,
   "state_timing": "both",
   "midterm_enabled": true,
-  "history_write_mode": "generated",
+  "history_write_mode": "reference",
   "session_isolation": "strict_user_id_and_run_id",
   "fair_short_window_patch": true,
   "memory_config_without_api_key": {
@@ -45,5 +45,5 @@
       "max_total_pages": 5
     }
   },
-  "started_at": "2026-07-14T16:24:33.690992"
+  "started_at": "2026-07-16T10:31:27.626748"
 }
