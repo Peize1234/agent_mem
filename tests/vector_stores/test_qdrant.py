@@ -1041,3 +1041,16 @@ class TestQdrantDatetimeRangeFilters(unittest.TestCase):
         self.assertIn("mem0ai[extras]", joined)  # points at the right install
         self.assertNotIn("pip install fastembed", joined)  # not the bare package
         self.assertNotIn("\u2014", joined)  # no em-dash
+
+    def test_bm25_encoder_disables_stemmer(self):
+        """Chinese BM25 pre-tokenization should not be stemmed by fastembed."""
+        self.qdrant._bm25_encoder = None
+        encoder = MagicMock()
+        fastembed = MagicMock()
+        fastembed.SparseTextEmbedding.return_value = encoder
+
+        with patch.dict("sys.modules", {"fastembed": fastembed}):
+            result = self.qdrant._get_bm25_encoder()
+
+        self.assertIs(result, encoder)
+        fastembed.SparseTextEmbedding.assert_called_once_with(model_name="Qdrant/bm25", disable_stemmer=True)
