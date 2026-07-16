@@ -6,6 +6,7 @@ import pytest
 
 from mem0 import Memory
 from mem0.configs.base import MemoryConfig, MidTermMemoryConfig
+from mem0.memory.midterm_retriever import MidTermRetriever
 from mem0.memory.midterm_updater import MidTermUpdater
 from mem0.memory.storage import SQLiteManager
 
@@ -185,6 +186,176 @@ def test_midterm_config_default_disabled():
     config = MemoryConfig()
     assert config.midterm.enabled is False
     assert config.midterm.short_term_capacity == 10
+    assert config.midterm.max_total_pages == 4
+
+
+def test_midterm_config_rejects_negative_page_limits():
+    with pytest.raises(ValueError):
+        MidTermMemoryConfig(top_k_sessions=-1)
+    with pytest.raises(ValueError):
+        MidTermMemoryConfig(top_k_pages=-1)
+    with pytest.raises(ValueError):
+        MidTermMemoryConfig(max_total_pages=-1)
+
+
+def _midterm_row(row_id, score, **payload):
+    return SimpleNamespace(id=row_id, score=score, payload=payload)
+
+
+class FakeMidTermRetrievalStore:
+    def __init__(self, sessions, pages_by_session):
+        self.sessions = sessions
+        self.pages_by_session = pages_by_session
+        self.session_filters = []
+        self.page_filters = []
+        self.visited_sessions = []
+
+    def search_sessions(self, query, filters=None, top_k=5):
+        self.session_filters.append(dict(filters or {}))
+        rows = [row for row in self.sessions if self._matches(row.payload, filters)]
+        return rows[:top_k]
+
+    def search_pages(self, query, filters=None, top_k=5):
+        self.page_filters.append({"filters": dict(filters or {}), "top_k": top_k})
+        session_id = (filters or {}).get("session_id")
+        rows = self.pages_by_session.get(session_id, [])
+        rows = [row for row in rows if self._matches(row.payload, filters)]
+        return rows[:top_k]
+
+    def record_session_visit(self, session_id):
+        self.visited_sessions.append(session_id)
+
+    @staticmethod
+    def _matches(payload, filters):
+        return all(payload.get(key) == value for key, value in (filters or {}).items())
+
+
+def _retriever_config(*, top_k_sessions=5, top_k_pages=5, max_total_pages=4):
+    return MidTermMemoryConfig(
+        enabled=True,
+        top_k_sessions=top_k_sessions,
+        top_k_pages=top_k_pages,
+        max_total_pages=max_total_pages,
+    )
+
+
+def _page_results(results):
+    return [item for item in results if item.get("source") == "mid_term_page"]
+
+
+def test_midterm_retriever_applies_global_page_limit_and_score_order():
+    sessions = [
+        _midterm_row(f"s{session_index}", 1.0, summary=f"session {session_index}", user_id="u1", run_id="r1")
+        for session_index in range(1, 6)
+    ]
+    pages_by_session = {}
+    for session_index in range(1, 6):
+        session_id = f"s{session_index}"
+        pages_by_session[session_id] = [
+            _midterm_row(
+                f"{session_id}-p{page_index}",
+                session_index * 10 + page_index,
+                session_id=session_id,
+                summary=f"page {session_index}-{page_index}",
+                user_id="u1",
+                run_id="r1",
+            )
+            for page_index in range(1, 6)
+        ]
+    store = FakeMidTermRetrievalStore(sessions, pages_by_session)
+    retriever = MidTermRetriever(store, _retriever_config(top_k_sessions=5, top_k_pages=5, max_total_pages=4))
+
+    results = retriever.search("risk", {"user_id": "u1", "run_id": "r1"})
+    pages = _page_results(results)
+
+    assert len(pages) == 4
+    assert [page["score"] for page in pages] == [55.0, 54.0, 53.0, 52.0]
+    assert [page["id"] for page in pages] == ["s5-p5", "s5-p4", "s5-p3", "s5-p2"]
+    assert retriever.last_search_stats == {
+        "retrieved_sessions": 5,
+        "candidate_pages_before_dedupe": 25,
+        "candidate_pages_after_dedupe": 25,
+        "returned_pages": 4,
+    }
+
+
+def test_midterm_retriever_dedupes_same_page_from_multiple_sessions():
+    sessions = [
+        _midterm_row("s1", 0.9, summary="session 1", user_id="u1", run_id="r1"),
+        _midterm_row("s2", 0.8, summary="session 2", user_id="u1", run_id="r1"),
+    ]
+    pages_by_session = {
+        "s1": [
+            _midterm_row("shared-page", 0.5, session_id="s1", summary="older", user_id="u1", run_id="r1"),
+            _midterm_row("s1-p1", 0.4, session_id="s1", summary="s1 page", user_id="u1", run_id="r1"),
+        ],
+        "s2": [
+            _midterm_row("shared-page", 0.9, session_id="s2", summary="newer", user_id="u1", run_id="r1"),
+            _midterm_row("s2-p1", 0.8, session_id="s2", summary="s2 page", user_id="u1", run_id="r1"),
+        ],
+    }
+    store = FakeMidTermRetrievalStore(sessions, pages_by_session)
+    retriever = MidTermRetriever(store, _retriever_config(max_total_pages=5))
+
+    pages = _page_results(retriever.search("risk", {"user_id": "u1", "run_id": "r1"}))
+
+    assert [page["id"] for page in pages] == ["shared-page", "s2-p1", "s1-p1"]
+    assert pages[0]["score"] == 0.9
+    assert pages[0]["session_id"] == "s2"
+    assert retriever.last_search_stats["candidate_pages_before_dedupe"] == 4
+    assert retriever.last_search_stats["candidate_pages_after_dedupe"] == 3
+
+
+def test_midterm_retriever_returns_all_pages_when_candidates_below_limit():
+    sessions = [_midterm_row("s1", 0.9, summary="session 1", user_id="u1", run_id="r1")]
+    pages_by_session = {
+        "s1": [
+            _midterm_row("p1", 0.7, session_id="s1", summary="page 1", user_id="u1", run_id="r1"),
+            _midterm_row("p2", 0.6, session_id="s1", summary="page 2", user_id="u1", run_id="r1"),
+        ],
+    }
+    store = FakeMidTermRetrievalStore(sessions, pages_by_session)
+    retriever = MidTermRetriever(store, _retriever_config(max_total_pages=4))
+
+    pages = _page_results(retriever.search("risk", {"user_id": "u1", "run_id": "r1"}))
+
+    assert [page["id"] for page in pages] == ["p1", "p2"]
+    assert retriever.last_search_stats["returned_pages"] == 2
+
+
+def test_midterm_retriever_max_total_pages_zero_returns_no_pages():
+    sessions = [_midterm_row("s1", 0.9, summary="session 1", user_id="u1", run_id="r1")]
+    pages_by_session = {
+        "s1": [_midterm_row("p1", 0.7, session_id="s1", summary="page 1", user_id="u1", run_id="r1")]
+    }
+    store = FakeMidTermRetrievalStore(sessions, pages_by_session)
+    retriever = MidTermRetriever(store, _retriever_config(max_total_pages=0))
+
+    results = retriever.search("risk", {"user_id": "u1", "run_id": "r1"})
+
+    assert _page_results(results) == []
+    assert [item["source"] for item in results] == ["mid_term_session"]
+    assert store.page_filters == []
+    assert retriever.last_search_stats["returned_pages"] == 0
+
+
+def test_midterm_retriever_preserves_run_id_isolation():
+    sessions = [
+        _midterm_row("s1", 0.9, summary="run 1 session", user_id="u1", run_id="r1"),
+        _midterm_row("s2", 0.8, summary="run 2 session", user_id="u1", run_id="r2"),
+    ]
+    pages_by_session = {
+        "s1": [_midterm_row("p1", 0.7, session_id="s1", summary="run 1 page", user_id="u1", run_id="r1")],
+        "s2": [_midterm_row("p2", 0.9, session_id="s2", summary="run 2 page", user_id="u1", run_id="r2")],
+    }
+    store = FakeMidTermRetrievalStore(sessions, pages_by_session)
+    retriever = MidTermRetriever(store, _retriever_config())
+
+    results = retriever.search("risk", {"user_id": "u1", "run_id": "r1"})
+
+    assert [item["id"] for item in results] == ["s1", "p1"]
+    assert store.session_filters == [{"user_id": "u1", "run_id": "r1"}]
+    assert all(call["filters"]["run_id"] == "r1" for call in store.page_filters)
 
 
 def test_sqlite_save_messages_returns_natural_evictions():

@@ -572,17 +572,19 @@ class Memory(MemoryBase):
         return self._midterm_retriever
 
     def _short_term_capacity(self):
-        if self._midterm_enabled():
-            capacity = max(int(self.config.midterm.short_term_capacity), 0)
-            if capacity % 2 != 0:
-                capacity += 1
-                self.config.midterm.short_term_capacity = capacity
-                logger.warning(
-                    "midterm short_term_capacity should be even; using %s to preserve QA pairs.",
-                    capacity,
-                )
-            return capacity
-        return 10
+        capacity = max(int(self.config.midterm.short_term_capacity), 0)
+        if capacity % 2 != 0:
+            capacity += 1
+            self.config.midterm.short_term_capacity = capacity
+            logger.warning(
+                "midterm short_term_capacity should be even; using %s to preserve QA pairs.",
+                capacity,
+            )
+        return capacity
+
+        # if self._midterm_enabled():
+            
+        # return 10
 
     def _expand_evicted_messages_for_qa_pairs(self, evicted_messages, session_scope):
         if not evicted_messages or evicted_messages[-1].get("role") != "user":
@@ -2313,17 +2315,15 @@ class AsyncMemory(MemoryBase):
         return self._midterm_retriever
 
     def _short_term_capacity(self):
-        if self._midterm_enabled():
-            capacity = max(int(self.config.midterm.short_term_capacity), 0)
-            if capacity % 2 != 0:
-                capacity += 1
-                self.config.midterm.short_term_capacity = capacity
-                logger.warning(
-                    "midterm short_term_capacity should be even; using %s to preserve QA pairs.",
-                    capacity,
-                )
-            return capacity
-        return 10
+        capacity = max(int(self.config.midterm.short_term_capacity), 0)
+        if capacity % 2 != 0:
+            capacity += 1
+            self.config.midterm.short_term_capacity = capacity
+            logger.warning(
+                "midterm short_term_capacity should be even; using %s to preserve QA pairs.",
+                capacity,
+            )
+        return capacity
 
     async def _expand_evicted_messages_for_qa_pairs(self, evicted_messages, session_scope):
         if not evicted_messages or evicted_messages[-1].get("role") != "user":
