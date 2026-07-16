@@ -58,6 +58,80 @@ def safe_mean(values: Sequence[Optional[float]]) -> Optional[float]:
     return sum(xs) / len(xs) if xs else None
 
 
+def ordered_turn_index(data: Dict[str, Any]) -> Tuple[Dict[str, int], Dict[str, str], Dict[str, Dict[str, Any]]]:
+    order: Dict[str, int] = {}
+    turn_session: Dict[str, str] = {}
+    turn_by_id: Dict[str, Dict[str, Any]] = {}
+    index = 0
+    for session in data.get("sessions", []):
+        sid = session.get("session_id", "")
+        for turn in session.get("turns", []):
+            tid = turn.get("turn_id")
+            if not tid:
+                continue
+            order[tid] = index
+            turn_session[tid] = sid
+            turn_by_id[tid] = turn
+            index += 1
+    return order, turn_session, turn_by_id
+
+
+def is_knowledge_only(query: Dict[str, Any]) -> bool:
+    return bool(
+        query.get("question_type") == "knowledge_only"
+        or query.get("expected_behavior") == "knowledge_only"
+        or query.get("exclude_from_memory_recall")
+    )
+
+
+def query_label(query: Dict[str, Any]) -> str:
+    return (
+        f"{query.get('query_id', '<unknown>')} "
+        f"Session={query.get('target_session_id', '<unknown>')} "
+        f"Query={query.get('question', '')}"
+    )
+
+
+def regex_matches(pattern: str, text: str) -> bool:
+    return re.search(pattern, text, flags=re.IGNORECASE) is not None
+
+
+def extract_fact_tokens(text: str) -> List[str]:
+    patterns = [
+        r"20\d{2}\s*年\s*\d{1,2}\s*月",
+        r"(?:今年|明年)\s*\d{1,2}\s*月",
+        r"(?<!\d)\d+(?:\.\d+)?\s*%",
+        r"(?<!\d)\d+(?:\.\d+)?\s*万(?:元)?",
+        r"(?<!\d)\d+\s*元",
+        r"一万八",
+        r"十万(?:元)?",
+        r"六万(?:元)?",
+    ]
+    tokens: List[str] = []
+    for pattern in patterns:
+        tokens.extend(match.group(0) for match in re.finditer(pattern, text))
+    return list(dict.fromkeys(token.strip() for token in tokens if token.strip()))
+
+
+def token_in_text(token: str, text: str) -> bool:
+    if "%" in token:
+        number = re.escape(token.replace("%", "").strip())
+        return re.search(rf"(?<!\d){number}\s*%(?!\d)", text) is not None
+    return token in text
+
+
+def count_complete_pairs_after(session: Dict[str, Any], source_order: int, order: Dict[str, int]) -> int:
+    count = 0
+    turns = session.get("turns", [])
+    for index in range(0, len(turns), 2):
+        pair = turns[index:index + 2]
+        if len(pair) != 2:
+            continue
+        if min(order.get(turn.get("turn_id", ""), -1) for turn in pair) > source_order:
+            count += 1
+    return count
+
+
 def prf(retrieved: Sequence[str], relevant: Sequence[str], k: Optional[int] = None) -> Dict[str, Optional[float]]:
     retrieved_list = list(retrieved[:k] if k is not None else retrieved)
     retrieved_set = set(retrieved_list)
@@ -87,6 +161,8 @@ def validate_dataset(data: Dict[str, Any]) -> List[str]:
     session_ids: Set[str] = set()
     turn_ids: Set[str] = set()
     memory_ids: Set[str] = set()
+    order, turn_session, turn_by_id = ordered_turn_index(data)
+    sessions_by_id = {s.get("session_id"): s for s in data.get("sessions", [])}
 
     for session in data.get("sessions", []):
         sid = session.get("session_id")
@@ -104,6 +180,20 @@ def validate_dataset(data: Dict[str, Any]) -> List[str]:
             if tid in turn_ids:
                 errors.append(f"重复turn_id: {tid}")
             turn_ids.add(tid)
+            if turn.get("char_count") != len(turn.get("content", "")):
+                errors.append(f"{sid}.{tid} char_count不匹配")
+
+        turns = session.get("turns", [])
+        if len(turns) % 2:
+            errors.append(f"{sid}消息数不是偶数，无法组成完整问答轮")
+        for index in range(0, len(turns), 2):
+            pair = turns[index:index + 2]
+            if len(pair) != 2:
+                continue
+            if pair[0].get("role") != "user" or pair[1].get("role") != "assistant":
+                errors.append(f"{sid}第{index // 2 + 1}轮角色顺序不是user/assistant")
+            if pair[1].get("responds_to_turn_id") and pair[1].get("responds_to_turn_id") != pair[0].get("turn_id"):
+                errors.append(f"{sid}.{pair[1].get('turn_id')} responds_to_turn_id不指向同轮用户消息")
 
     for memory in data.get("memory_catalog", []):
         mid = memory.get("memory_id")
@@ -116,7 +206,24 @@ def validate_dataset(data: Dict[str, Any]) -> List[str]:
         for tid in memory.get("source_turn_ids", []):
             if tid not in turn_ids:
                 errors.append(f"{mid}引用未知turn_id: {tid}")
+            elif mid not in turn_by_id.get(tid, {}).get("memory_ids", []):
+                errors.append(f"{mid} source_turn_ids包含{tid}，但该turn.memory_ids未标注该Memory")
 
+        status = memory.get("status")
+        if status == "superseded":
+            superseded_by = memory.get("superseded_by")
+            if not superseded_by:
+                errors.append(f"{mid}状态为superseded但缺少superseded_by")
+            elif superseded_by not in memory_ids and superseded_by not in {m.get("memory_id") for m in data.get("memory_catalog", [])}:
+                errors.append(f"{mid}.superseded_by引用未知memory: {superseded_by}")
+        if status == "deleted":
+            deleted_by = memory.get("deleted_by")
+            if not deleted_by:
+                errors.append(f"{mid}状态为deleted但缺少deleted_by")
+            elif deleted_by not in {m.get("memory_id") for m in data.get("memory_catalog", [])}:
+                errors.append(f"{mid}.deleted_by引用未知memory: {deleted_by}")
+
+    memories = {m["memory_id"]: m for m in data.get("memory_catalog", []) if m.get("memory_id")}
     query_ids: Set[str] = set()
     for query in data.get("evaluation_queries", []):
         qid = query.get("query_id")
@@ -126,6 +233,10 @@ def validate_dataset(data: Dict[str, Any]) -> List[str]:
         if qid in query_ids:
             errors.append(f"重复query_id: {qid}")
         query_ids.add(qid)
+        if query.get("question_char_count") != len(query.get("question", "")):
+            errors.append(f"{qid} question_char_count不匹配")
+        if query.get("reference_answer_char_count") != len(query.get("reference_answer", "")):
+            errors.append(f"{qid} reference_answer_char_count不匹配")
         for sid in query.get("visible_session_ids", []):
             if sid not in session_ids:
                 errors.append(f"{qid}引用未知visible session: {sid}")
@@ -144,6 +255,122 @@ def validate_dataset(data: Dict[str, Any]) -> List[str]:
             for mid in query.get(field, []):
                 if mid not in memory_ids:
                     errors.append(f"{qid}.{field}引用未知memory: {mid}")
+                elif field == "required_active_memory_ids" and memories[mid].get("status") != "active":
+                    errors.append(f"{qid}.{field}引用非active memory: {mid}")
+                elif field == "outdated_memory_ids" and memories[mid].get("status") not in {"superseded", "deleted"}:
+                    errors.append(f"{qid}.{field}引用未标记过期/删除的memory: {mid}")
+                elif field == "forbidden_memory_ids" and memories[mid].get("status") not in {"deleted", "forbidden"}:
+                    errors.append(f"{qid}.{field}引用未标记deleted/forbidden的memory: {mid}")
+
+        if is_knowledge_only(query):
+            if "retrieval" in query.get("metric_groups", []):
+                errors.append(f"{query_label(query)} knowledge_only题不能包含retrieval指标")
+            if query.get("required_active_memory_ids") or query.get("answer_turn_ids"):
+                errors.append(f"{query_label(query)} knowledge_only题不应设置Gold Memory/Turn")
+        elif "retrieval" in query.get("metric_groups", []):
+            if not (query.get("required_active_memory_ids") or query.get("answer_turn_ids")):
+                errors.append(f"{query_label(query)} 记忆题缺少Gold Memory ID或Gold Turn ID")
+
+        rule_score = score_answer_rules(query, query.get("reference_answer", ""))
+        if rule_score["required_coverage"] < 1.0:
+            errors.append(
+                f"{query_label(query)} 参考答案未覆盖answer_checks: "
+                f"{rule_score['required_group_results']}"
+            )
+        if rule_score["forbidden_matches"] or rule_score["hard_failure_matches"]:
+            errors.append(
+                f"{query_label(query)} 参考答案命中禁用模式: "
+                f"{rule_score['forbidden_matches'] or rule_score['hard_failure_matches']}"
+            )
+
+        target_sid = query.get("target_session_id")
+        target_session = sessions_by_id.get(target_sid)
+        if target_session and not is_knowledge_only(query) and "retrieval" in query.get("metric_groups", []):
+            leak_patterns = query.get("short_term_leak_patterns", [])
+            recent_turns = target_session.get("turns", [])[-4:]
+            recent_text_by_turn = {
+                turn.get("turn_id", ""): turn.get("content", "")
+                for turn in recent_turns
+            }
+            for pattern in leak_patterns:
+                for tid, text in recent_text_by_turn.items():
+                    if regex_matches(pattern, text):
+                        errors.append(
+                            f"{query_label(query)} 短期窗口泄漏: Turn={tid} pattern={pattern}"
+                        )
+
+            source_orders: List[int] = []
+            for mid in query.get("required_active_memory_ids", []):
+                for tid in memories.get(mid, {}).get("source_turn_ids", []):
+                    if turn_session.get(tid) == target_sid and tid in order:
+                        source_orders.append(order[tid])
+            if source_orders:
+                pairs_after = count_complete_pairs_after(target_session, max(source_orders), order)
+                if pairs_after < 3:
+                    errors.append(
+                        f"{query_label(query)} 目标事实后仅有{pairs_after}轮无关对话，少于3轮"
+                    )
+
+    # Detect future values appearing in assistant answers before their source turns.
+    token_sources: Dict[str, int] = {}
+    for memory in data.get("memory_catalog", []):
+        source_ids = [tid for tid in memory.get("source_turn_ids", []) if tid in order]
+        if not source_ids:
+            continue
+        source_texts = [turn_by_id[tid].get("content", "") for tid in source_ids]
+        candidate_text = str(memory.get("value", "")) + "\n" + "\n".join(source_texts)
+        for token in extract_fact_tokens(candidate_text):
+            matching_sources = [
+                order[tid]
+                for tid in source_ids
+                if token_in_text(token, turn_by_id[tid].get("content", ""))
+            ]
+            source_order = min(matching_sources) if matching_sources else max(order[tid] for tid in source_ids)
+            token_sources[token] = min(token_sources.get(token, source_order), source_order)
+
+    for turn in turn_by_id.values():
+        if turn.get("role") != "assistant":
+            continue
+        tid = turn.get("turn_id", "")
+        content = turn.get("content", "")
+        for token, source_order in token_sources.items():
+            if order.get(tid, -1) < source_order and token_in_text(token, content):
+                errors.append(
+                    f"未来信息泄漏: Session={turn_session.get(tid)} Turn={tid} "
+                    f"提前出现 token={token}"
+                )
+
+    # Deleted concrete values must not reappear after the deletion directive.
+    for memory in data.get("memory_catalog", []):
+        if memory.get("status") != "deleted":
+            continue
+        deleted_by = memory.get("deleted_by")
+        deleted_by_memory = memories.get(deleted_by, {}) if deleted_by else {}
+        delete_sources = [tid for tid in deleted_by_memory.get("source_turn_ids", []) if tid in order]
+        if not delete_sources:
+            continue
+        delete_order = min(order[tid] for tid in delete_sources)
+        value_patterns = [re.escape(token) for token in extract_fact_tokens(str(memory.get("value", "")))]
+        if memory.get("value"):
+            value_patterns.append(re.escape(str(memory["value"])))
+        for turn in turn_by_id.values():
+            tid = turn.get("turn_id", "")
+            if order.get(tid, -1) <= delete_order:
+                continue
+            content = turn.get("content", "")
+            for pattern in value_patterns:
+                if regex_matches(pattern, content):
+                    errors.append(
+                        f"删除后具体值泄漏: deleted_memory={memory.get('memory_id')} "
+                        f"Session={turn_session.get(tid)} Turn={tid} pattern={pattern}"
+                    )
+        for query in data.get("evaluation_queries", []):
+            for pattern in value_patterns:
+                if regex_matches(pattern, query.get("reference_answer", "")):
+                    errors.append(
+                        f"删除后具体值泄漏: deleted_memory={memory.get('memory_id')} "
+                        f"{query_label(query)} reference_answer pattern={pattern}"
+                    )
     return errors
 
 

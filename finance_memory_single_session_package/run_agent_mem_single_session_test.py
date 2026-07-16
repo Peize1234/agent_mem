@@ -305,6 +305,14 @@ def pair_turns(session: Dict[str, Any]) -> List[Tuple[Dict[str, Any], Dict[str, 
 def validate_data(data: Dict[str, Any]) -> None:
     if not data.get("sessions") or not data.get("evaluation_queries"):
         raise ValueError("数据缺少 sessions 或 evaluation_queries")
+    try:
+        from parse_and_evaluate import validate_dataset
+    except ImportError:
+        validate_dataset = None
+    if validate_dataset is not None:
+        errors = validate_dataset(data)
+        if errors:
+            raise ValueError("数据校验失败:\n" + "\n".join(errors))
     seen_turns = set()
     for session in data["sessions"]:
         for user_turn, assistant_turn in pair_turns(session):
@@ -998,6 +1006,27 @@ def build_layered_scores(
     per_query = []
     for item in details:
         query = queries[item["query_id"]]
+        if "retrieval" not in query.get("metric_groups", []):
+            per_query.append({
+                "query_id": item["query_id"],
+                "excluded_from_memory_recall": True,
+                "reason": "metric_groups does not include retrieval",
+                "long_term_fact_recall": None,
+                "long_term_fact_precision": None,
+                "mid_term_turn_recall": None,
+                "mid_term_session_recall": None,
+                "combined_fact_recall": None,
+                "combined_turn_recall": None,
+                "combined_session_recall": None,
+                "retrieved_long_term_count": len(item["search_results"]["long_term"]),
+                "retrieved_mid_term_session_count": len(item["search_results"]["mid_term_sessions"]),
+                "retrieved_mid_term_page_count": len(item["search_results"]["mid_term_pages"]),
+                "short_term_message_count": len(item["short_term_before"]),
+                "session_isolation_violation_count": len(
+                    item.get("session_isolation_violations", [])
+                ),
+            })
+            continue
         evidence = item["retrieval_evidence"]
         required_memories = query.get("required_active_memory_ids", [])
         answer_turns = query.get("answer_turn_ids", [])
@@ -1038,6 +1067,14 @@ def build_layered_scores(
 
     summary = {
         "query_count": len(per_query),
+        "retrieval_query_count": sum(
+            1 for row in per_query if not row.get("excluded_from_memory_recall")
+        ),
+        "memory_recall_excluded_query_ids": [
+            row["query_id"]
+            for row in per_query
+            if row.get("excluded_from_memory_recall")
+        ],
         "long_term_fact_recall_mean": avg("long_term_fact_recall"),
         "long_term_fact_precision_mean": avg("long_term_fact_precision"),
         "mid_term_turn_recall_mean": avg("mid_term_turn_recall"),
