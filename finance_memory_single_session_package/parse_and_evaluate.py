@@ -92,8 +92,70 @@ def query_label(query: Dict[str, Any]) -> str:
     )
 
 
+def validation_error(
+    session_id: Optional[str],
+    item_id: Optional[str],
+    failure_type: str,
+    field: str,
+    reason: str,
+) -> str:
+    return (
+        f"Session ID: {session_id or '-'} | "
+        f"Turn/Query ID: {item_id or '-'} | "
+        f"失败类型: {failure_type} | "
+        f"相关字段: {field} | "
+        f"具体原因: {reason}"
+    )
+
+
 def regex_matches(pattern: str, text: str) -> bool:
     return re.search(pattern, text, flags=re.IGNORECASE) is not None
+
+
+SEMANTIC_ANSWER_CHECK_RULES: Set[str] = {
+    "semantic:q001_wrong_s001_5_percent",
+    "semantic:q004_wrong_s002_2026_11",
+    "semantic:q005_wrong_current_2027_04",
+    "semantic:q006_wrong_current_10_percent",
+    "semantic:q006_recommend_sector_fund_for_down_payment",
+}
+
+
+ANNOTATION_KEYWORDS: Dict[str, Sequence[str]] = {
+    "债券": ("债券", "利率", "久期"),
+    "复利": ("复利", "收益"),
+    "净值": ("净值", "估值"),
+    "估值": ("净值", "估值"),
+    "首付": ("首付", "买房", "购房", "账户"),
+    "购房": ("首付", "买房", "购房", "贷款"),
+    "贷款": ("贷款", "征信", "材料", "流水"),
+    "预算": ("预算", "账本", "开销", "支出", "汇总"),
+    "费用": ("费用", "费率", "申购费", "管理费", "销售服务费"),
+    "份额": ("份额", "A类", "C类", "费率"),
+    "排行榜": ("排行榜", "排名", "收益"),
+    "经理": ("经理", "公告", "策略", "团队"),
+    "扣款": ("扣款", "余额", "通道", "补扣"),
+    "信用卡": ("信用卡", "账单日", "还款日"),
+    "账期": ("账单日", "还款日", "账期"),
+    "存单": ("存单", "自动转存", "期限", "利率"),
+    "报销": ("报销", "冲减", "支出", "收入"),
+    "风格": ("风格", "结构", "表达", "回答", "事实"),
+    "结构": ("结构", "要点", "解释", "回答"),
+    "货币基金": ("货币基金", "七日年化", "万份收益"),
+    "分红": ("分红", "净值", "基金资产"),
+    "确认份额": ("确认份额", "交易日", "下单", "基金公司"),
+    "隐私": ("隐私", "敏感", "授权", "删除", "脱敏", "导出"),
+    "脱敏": ("脱敏", "导出", "隐私", "敏感"),
+}
+
+
+def annotation_mismatch(turn: Dict[str, Any]) -> Optional[str]:
+    label = f"{turn.get('dialogue_stage', '')} {turn.get('answer_focus', '')}"
+    content = turn.get("content", "")
+    for marker, expected_terms in ANNOTATION_KEYWORDS.items():
+        if marker in label and not any(term in content for term in expected_terms):
+            return f"标注包含“{marker}”，但消息内容未出现相关语义: {expected_terms}"
+    return None
 
 
 def extract_fact_tokens(text: str) -> List[str]:
@@ -117,6 +179,14 @@ def token_in_text(token: str, text: str) -> bool:
     if "%" in token:
         number = re.escape(token.replace("%", "").strip())
         return re.search(rf"(?<!\d){number}\s*%(?!\d)", text) is not None
+    date_match = re.fullmatch(r"(20\d{2})\s*年\s*(\d{1,2})\s*月", token)
+    if date_match:
+        year, month = date_match.groups()
+        month_pattern = re.escape(month)
+        if re.search(rf"{year}\s*年\s*{month_pattern}\s*月", text):
+            return True
+        if re.search(rf"(?:今年|明年)\s*{month_pattern}\s*月", text):
+            return True
     return token in text
 
 
@@ -154,6 +224,9 @@ def prf(retrieved: Sequence[str], relevant: Sequence[str], k: Optional[int] = No
 def validate_dataset(data: Dict[str, Any]) -> List[str]:
     errors: List[str] = []
     required_root = ["sessions", "memory_catalog", "evaluation_queries", "judge_rubric"]
+    length_constraints = data.get("length_constraints", {})
+    min_user_chars = int(length_constraints.get("user_turn_chars", {}).get("min", 30))
+    min_assistant_chars = int(length_constraints.get("assistant_turn_chars", {}).get("min", 50))
     for key in required_root:
         if key not in data:
             errors.append(f"缺少根字段: {key}")
@@ -181,19 +254,43 @@ def validate_dataset(data: Dict[str, Any]) -> List[str]:
                 errors.append(f"重复turn_id: {tid}")
             turn_ids.add(tid)
             if turn.get("char_count") != len(turn.get("content", "")):
-                errors.append(f"{sid}.{tid} char_count不匹配")
+                errors.append(validation_error(
+                    sid, tid, "长度标注错误", "char_count",
+                    f"标注={turn.get('char_count')}，实际={len(turn.get('content', ''))}",
+                ))
+            if turn.get("role") == "user" and len(turn.get("content", "")) < min_user_chars:
+                errors.append(validation_error(
+                    sid, tid, "消息长度不足", "content",
+                    f"用户消息长度={len(turn.get('content', ''))}，最小要求={min_user_chars}",
+                ))
+            if turn.get("role") == "assistant" and len(turn.get("content", "")) < min_assistant_chars:
+                errors.append(validation_error(
+                    sid, tid, "消息长度不足", "content",
+                    f"助手消息长度={len(turn.get('content', ''))}，最小要求={min_assistant_chars}",
+                ))
+            mismatch = annotation_mismatch(turn)
+            if mismatch:
+                errors.append(validation_error(
+                    sid, tid, "Turn标注不一致", "dialogue_stage/answer_focus", mismatch,
+                ))
 
         turns = session.get("turns", [])
         if len(turns) % 2:
-            errors.append(f"{sid}消息数不是偶数，无法组成完整问答轮")
+            errors.append(validation_error(sid, None, "结构错误", "turns", "消息数不是偶数，无法组成完整问答轮"))
         for index in range(0, len(turns), 2):
             pair = turns[index:index + 2]
             if len(pair) != 2:
                 continue
             if pair[0].get("role") != "user" or pair[1].get("role") != "assistant":
-                errors.append(f"{sid}第{index // 2 + 1}轮角色顺序不是user/assistant")
+                errors.append(validation_error(
+                    sid, pair[0].get("turn_id"), "结构错误", "role",
+                    f"第{index // 2 + 1}轮角色顺序不是user/assistant",
+                ))
             if pair[1].get("responds_to_turn_id") and pair[1].get("responds_to_turn_id") != pair[0].get("turn_id"):
-                errors.append(f"{sid}.{pair[1].get('turn_id')} responds_to_turn_id不指向同轮用户消息")
+                errors.append(validation_error(
+                    sid, pair[1].get("turn_id"), "Turn标注不一致", "responds_to_turn_id",
+                    "responds_to_turn_id不指向同轮用户消息",
+                ))
 
     for memory in data.get("memory_catalog", []):
         mid = memory.get("memory_id")
@@ -224,6 +321,46 @@ def validate_dataset(data: Dict[str, Any]) -> List[str]:
                 errors.append(f"{mid}.deleted_by引用未知memory: {deleted_by}")
 
     memories = {m["memory_id"]: m for m in data.get("memory_catalog", []) if m.get("memory_id")}
+    for tid, turn in turn_by_id.items():
+        sid = turn_session.get(tid)
+        for mid in turn.get("memory_ids", []):
+            if mid not in memories:
+                errors.append(validation_error(
+                    sid, tid, "Gold Memory ID不存在", "memory_ids",
+                    f"Turn关联了不存在的Memory ID: {mid}",
+                ))
+                continue
+            if tid not in memories[mid].get("source_turn_ids", []):
+                errors.append(validation_error(
+                    sid, tid, "Memory关联不一致", "memory_ids/source_turn_ids",
+                    f"Turn.memory_ids包含{mid}，但该Memory.source_turn_ids未包含本Turn",
+                ))
+
+    for mid, memory in memories.items():
+        subject = memory.get("subject")
+        for tid in memory.get("source_turn_ids", []):
+            if tid not in turn_by_id:
+                continue
+            role = turn_by_id[tid].get("role")
+            if subject == "user" and role != "user":
+                errors.append(validation_error(
+                    turn_session.get(tid), tid, "Memory来源角色不一致", f"memory_catalog.{mid}.source_turn_ids",
+                    f"Memory subject=user，但来源Turn角色为{role}",
+                ))
+            if subject == "assistant" and role != "assistant":
+                errors.append(validation_error(
+                    turn_session.get(tid), tid, "Memory来源角色不一致", f"memory_catalog.{mid}.source_turn_ids",
+                    f"Memory subject=assistant，但来源Turn角色为{role}",
+                ))
+
+        source_text = "\n".join(turn_by_id[tid].get("content", "") for tid in memory.get("source_turn_ids", []) if tid in turn_by_id)
+        for token in extract_fact_tokens(str(memory.get("value", ""))):
+            if not token_in_text(token, source_text):
+                errors.append(validation_error(
+                    None, mid, "Memory文本与来源不一致", "memory_catalog.value/source_turn_ids",
+                    f"Memory值中的事实片段“{token}”未出现在来源Turn中",
+                ))
+
     query_ids: Set[str] = set()
     for query in data.get("evaluation_queries", []):
         qid = query.get("query_id")
@@ -271,17 +408,29 @@ def validate_dataset(data: Dict[str, Any]) -> List[str]:
             if not (query.get("required_active_memory_ids") or query.get("answer_turn_ids")):
                 errors.append(f"{query_label(query)} 记忆题缺少Gold Memory ID或Gold Turn ID")
 
-        rule_score = score_answer_rules(query, query.get("reference_answer", ""))
-        if rule_score["required_coverage"] < 1.0:
-            errors.append(
-                f"{query_label(query)} 参考答案未覆盖answer_checks: "
-                f"{rule_score['required_group_results']}"
-            )
-        if rule_score["forbidden_matches"] or rule_score["hard_failure_matches"]:
-            errors.append(
-                f"{query_label(query)} 参考答案命中禁用模式: "
-                f"{rule_score['forbidden_matches'] or rule_score['hard_failure_matches']}"
-            )
+        has_unknown_semantic_rule = False
+        answer_checks = query.get("answer_checks", {})
+        for field in ("forbidden_patterns", "hard_failure_patterns"):
+            for pattern in answer_checks.get(field, []):
+                if pattern.startswith("semantic:") and pattern not in SEMANTIC_ANSWER_CHECK_RULES:
+                    has_unknown_semantic_rule = True
+                    errors.append(validation_error(
+                        query.get("target_session_id"), qid, "未知语义评分规则", field,
+                        f"未知规则名称: {pattern}",
+                    ))
+
+        if not has_unknown_semantic_rule:
+            rule_score = score_answer_rules(query, query.get("reference_answer", ""))
+            if rule_score["required_coverage"] < 1.0:
+                errors.append(
+                    f"{query_label(query)} 参考答案未覆盖answer_checks: "
+                    f"{rule_score['required_group_results']}"
+                )
+            if rule_score["forbidden_matches"] or rule_score["hard_failure_matches"]:
+                errors.append(
+                    f"{query_label(query)} 参考答案命中禁用模式: "
+                    f"{rule_score['forbidden_matches'] or rule_score['hard_failure_matches']}"
+                )
 
         target_sid = query.get("target_session_id")
         target_session = sessions_by_id.get(target_sid)
@@ -295,9 +444,32 @@ def validate_dataset(data: Dict[str, Any]) -> List[str]:
             for pattern in leak_patterns:
                 for tid, text in recent_text_by_turn.items():
                     if regex_matches(pattern, text):
-                        errors.append(
-                            f"{query_label(query)} 短期窗口泄漏: Turn={tid} pattern={pattern}"
-                        )
+                        errors.append(validation_error(
+                            target_sid, qid, "短期直接答案泄漏", "short_term_leak_patterns",
+                            f"Turn={tid} 命中 pattern={pattern}",
+                        ))
+            semantic_patterns = query.get("semantic_hint_leak_patterns", [])
+            for pattern in semantic_patterns:
+                for tid, text in recent_text_by_turn.items():
+                    if regex_matches(pattern, text):
+                        errors.append(validation_error(
+                            target_sid, qid, "短期语义提示泄漏", "semantic_hint_leak_patterns",
+                            f"Turn={tid} 命中 pattern={pattern}",
+                        ))
+
+            gold_memory_ids = set(
+                query.get("required_active_memory_ids", [])
+                + query.get("supporting_memory_ids", [])
+                + query.get("outdated_memory_ids", [])
+                + query.get("forbidden_memory_ids", [])
+            )
+            for turn in recent_turns:
+                overlap = gold_memory_ids & set(turn.get("memory_ids", []))
+                if overlap:
+                    errors.append(validation_error(
+                        target_sid, qid, "干扰对话错误关联Gold Memory", "turn.memory_ids",
+                        f"最近4条中的Turn={turn.get('turn_id')}关联了目标Memory={sorted(overlap)}",
+                    ))
 
             source_orders: List[int] = []
             for mid in query.get("required_active_memory_ids", []):
@@ -307,9 +479,10 @@ def validate_dataset(data: Dict[str, Any]) -> List[str]:
             if source_orders:
                 pairs_after = count_complete_pairs_after(target_session, max(source_orders), order)
                 if pairs_after < 3:
-                    errors.append(
-                        f"{query_label(query)} 目标事实后仅有{pairs_after}轮无关对话，少于3轮"
-                    )
+                    errors.append(validation_error(
+                        target_sid, qid, "目标事实未离开短期窗口", "required_active_memory_ids",
+                        f"目标事实后仅有{pairs_after}轮完整对话，少于3轮",
+                    ))
 
     # Detect future values appearing in assistant answers before their source turns.
     token_sources: Dict[str, int] = {}
@@ -335,10 +508,10 @@ def validate_dataset(data: Dict[str, Any]) -> List[str]:
         content = turn.get("content", "")
         for token, source_order in token_sources.items():
             if order.get(tid, -1) < source_order and token_in_text(token, content):
-                errors.append(
-                    f"未来信息泄漏: Session={turn_session.get(tid)} Turn={tid} "
-                    f"提前出现 token={token}"
-                )
+                errors.append(validation_error(
+                    turn_session.get(tid), tid, "未来信息泄漏", "content",
+                    f"提前出现后续来源才出现的事实片段: {token}",
+                ))
 
     # Deleted concrete values must not reappear after the deletion directive.
     for memory in data.get("memory_catalog", []):
@@ -360,18 +533,102 @@ def validate_dataset(data: Dict[str, Any]) -> List[str]:
             content = turn.get("content", "")
             for pattern in value_patterns:
                 if regex_matches(pattern, content):
-                    errors.append(
-                        f"删除后具体值泄漏: deleted_memory={memory.get('memory_id')} "
-                        f"Session={turn_session.get(tid)} Turn={tid} pattern={pattern}"
-                    )
+                    errors.append(validation_error(
+                        turn_session.get(tid), tid, "删除后具体值泄漏", "content",
+                        f"deleted_memory={memory.get('memory_id')} pattern={pattern}",
+                    ))
         for query in data.get("evaluation_queries", []):
             for pattern in value_patterns:
                 if regex_matches(pattern, query.get("reference_answer", "")):
-                    errors.append(
-                        f"删除后具体值泄漏: deleted_memory={memory.get('memory_id')} "
-                        f"{query_label(query)} reference_answer pattern={pattern}"
-                    )
+                    errors.append(validation_error(
+                        query.get("target_session_id"), query.get("query_id"),
+                        "删除后具体值泄漏", "reference_answer",
+                        f"deleted_memory={memory.get('memory_id')} pattern={pattern}",
+                    ))
     return errors
+
+
+def pattern_hits(patterns: Sequence[str], turns: Sequence[Dict[str, Any]]) -> List[str]:
+    hits: List[str] = []
+    for pattern in patterns:
+        for turn in turns:
+            if regex_matches(pattern, turn.get("content", "")):
+                hits.append(f"{turn.get('turn_id')} / {pattern}")
+    return hits
+
+
+def build_data_check_report(data: Dict[str, Any]) -> str:
+    sessions, memories, _ = indices(data)
+    _, _, turn_by_id = ordered_turn_index(data)
+    errors = validate_dataset(data)
+    lines = [
+        "# FinanceMemory Single Session 数据检查报告",
+        "",
+        f"- Benchmark: {data.get('benchmark_name')} v{data.get('version')}",
+        f"- Sessions: {len(data.get('sessions', []))}",
+        f"- Turns: {sum(len(s.get('turns', [])) for s in data.get('sessions', []))}",
+        f"- Memories: {len(data.get('memory_catalog', []))}",
+        f"- Queries: {len(data.get('evaluation_queries', []))}",
+        f"- Validation: {'PASS' if not errors else 'FAIL'}",
+        "",
+    ]
+
+    for query in data.get("evaluation_queries", []):
+        qid = query["query_id"]
+        target_sid = query.get("target_session_id")
+        session = sessions.get(target_sid, {"turns": []})
+        recent = session.get("turns", [])[-4:]
+        target_memory_ids = (
+            query.get("required_active_memory_ids", [])
+            + query.get("supporting_memory_ids", [])
+            + query.get("outdated_memory_ids", [])
+            + query.get("forbidden_memory_ids", [])
+        )
+        direct_hits = pattern_hits(query.get("short_term_leak_patterns", []), recent)
+        semantic_hits = pattern_hits(query.get("semantic_hint_leak_patterns", []), recent)
+        related_turns = []
+        for tid in query.get("answer_turn_ids", []) + query.get("forbidden_turn_ids", []):
+            turn = turn_by_id.get(tid, {})
+            related_turns.append(
+                f"{tid}({turn.get('role', '?')}, memory_ids={turn.get('memory_ids', [])})"
+            )
+        memory_status = [
+            f"{mid}({memories.get(mid, {}).get('status', 'missing')})"
+            for mid in target_memory_ids
+        ]
+        query_errors = [
+            err for err in errors
+            if f"Turn/Query ID: {qid}" in err
+            or any(f"Turn/Query ID: {turn.get('turn_id')}" in err for turn in recent)
+        ]
+
+        lines.extend([
+            f"## {qid} / {target_sid}",
+            "",
+            f"- Question: {query.get('question')}",
+            f"- Topic: {query.get('topic', '-')}",
+            f"- Target Memory IDs: {memory_status or ['-']}",
+            f"- Relevant Turns: {related_turns or ['-']}",
+            f"- Direct Answer Leakage: {'YES ' + str(direct_hits) if direct_hits else 'NO'}",
+            f"- Semantic Hint Leakage: {'YES ' + str(semantic_hits) if semantic_hits else 'NO'}",
+            f"- Validation: {'PASS' if not query_errors and not direct_hits and not semantic_hits else 'FAIL'}",
+            "- Last 4 Messages:",
+        ])
+        for turn in recent:
+            content = turn.get("content", "").replace("\n", " ")
+            lines.append(
+                f"  - {turn.get('turn_id')} {turn.get('role')}: {content}"
+            )
+        if query_errors:
+            lines.append("- Validation Errors:")
+            lines.extend(f"  - {err}" for err in query_errors)
+        lines.append("")
+
+    if errors:
+        lines.extend(["## All Validation Errors", ""])
+        lines.extend(f"- {err}" for err in errors)
+        lines.append("")
+    return "\n".join(lines)
 
 
 def indices(data: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
@@ -427,6 +684,145 @@ def match_pattern_group(text: str, patterns: Sequence[str]) -> bool:
     return any(re.search(pattern, text, flags=re.IGNORECASE) is not None for pattern in patterns)
 
 
+def split_clauses(text: str) -> List[str]:
+    return [
+        clause.strip()
+        for clause in re.split(r"[。！？；;\n]", text)
+        if clause.strip()
+    ]
+
+
+def candidate_is_invalidated(text: str, match: re.Match[str]) -> bool:
+    before = text[max(0, match.start() - 18):match.start()]
+    after = text[match.end():match.end() + 24]
+    direct_before = (
+        r"(?:不是|并非|并不是|不是后来的|并非后来的|不是后来更新的|不属于|不再是|已不是|已经不是"
+        r"|不能再把|不能把|不可把|不应把|不要把|别把|不再把|不可将|不能将|不应将|不要将|别将|不把).{0,6}$"
+    )
+    direct_after = (
+        r"^(?:属于|是|为)?(?:后续会话|后续更新|后续|后来更新|后来)"
+        r"|^(?:只是|仅是|仅为|原来是|原本是)?(?:是|为)?(?:旧值|旧日期|旧计划|历史值|历史日期)"
+        r"|^(?:已经|已)?失效"
+        r"|^已经被.{0,10}(?:替代|更新)"
+        r"|^被.{0,10}(?:替代|更新)"
+        r"|^(?:不能|不应|不可|不再|不要).{0,12}(?:作为|当作|算作|视为|继续|使用|执行)"
+        r"|^不是.{0,10}(?:本次|这次|S001|S002|当前有效|当前风险|当前上限).{0,12}(?:风险值|风险上限|首付日期|上限)"
+    )
+    before_says_value_instead = re.search(r"(而是|就是|改为|更新为|变成|调整为)\s*$", before) is not None
+    before_invalidates = (
+        not before_says_value_instead
+        and re.search(direct_before, before, flags=re.IGNORECASE) is not None
+    )
+    return (
+        before_invalidates
+        or re.search(direct_after, after, flags=re.IGNORECASE) is not None
+    )
+
+
+def has_active_value_match(text: str, value_pattern: str, context_pattern: str) -> bool:
+    if not re.search(context_pattern, text, flags=re.IGNORECASE):
+        return False
+    for match in re.finditer(value_pattern, text, flags=re.IGNORECASE):
+        if not candidate_is_invalidated(text, match):
+            return True
+    return False
+
+
+def has_current_value_match(text: str, value_pattern: str, current_pattern: str) -> bool:
+    for match in re.finditer(value_pattern, text, flags=re.IGNORECASE):
+        if candidate_is_invalidated(text, match):
+            continue
+        before = text[max(0, match.start() - 24):match.start()]
+        after = text[match.end():match.end() + 30]
+        if re.search(current_pattern, before, flags=re.IGNORECASE):
+            return True
+        if re.search(current_pattern, after, flags=re.IGNORECASE):
+            return True
+        if re.search(r"(而是|就是|仍按|仍然按|继续按|作为|执行|有效)", before + after, flags=re.IGNORECASE):
+            return True
+    return False
+
+
+def decision_verb_is_negated(text: str, match: re.Match[str]) -> bool:
+    before = text[max(0, match.start() - 8):match.start()]
+    after = text[match.end():match.end() + 8]
+    return (
+        re.search(r"(不|并不|并非|不是很|不太|不怎么|不宜)$", before) is not None
+        or re.search(r"^(不要|别|不应|不应该|不能|不可|不宜|不适合)", after) is not None
+    )
+
+
+def sector_recommendation_is_negated(clause: str) -> bool:
+    negative = (
+        r"(不建议|不太建议|不是很建议|不怎么建议|建议不要|不推荐|不适合|不应|不应该|不能|不可|不要|别|避免|不宜)"
+    )
+    allocation_terms = r"(首付|首付款|首付资金|新能源|行业基金|大部分|主要|全部)"
+    return (
+        re.search(rf"{negative}[^。！？；;]{{0,40}}{allocation_terms}", clause) is not None
+        or re.search(rf"{allocation_terms}[^。！？；;]{{0,40}}{negative}", clause) is not None
+    )
+
+
+def q006_recommend_sector_fund_for_down_payment(answer: str) -> bool:
+    positive_decision = r"(建议|推荐|适合|可以|可|应当|应该|宜|考虑)"
+    quoted_or_question = r"(用户|题目|问题是|询问|问的是|是否|能否|能不能|可不可以|吗[？?]?)"
+    required_terms = [
+        r"(首付|首付款|首付资金)",
+        r"(大部分|主要|全部|多数|大比例|重仓|集中)",
+        r"(投入|买|购买|配置|放进|投向)",
+        r"(新能源|行业基金)",
+    ]
+    for clause in split_clauses(answer):
+        if re.search(quoted_or_question, clause):
+            continue
+        if not all(re.search(pattern, clause) for pattern in required_terms):
+            continue
+        if sector_recommendation_is_negated(clause):
+            continue
+        for match in re.finditer(positive_decision, clause):
+            if not decision_verb_is_negated(clause, match):
+                return True
+    return False
+
+
+def semantic_hard_failure_match(rule: str, answer: str) -> bool:
+    if rule not in SEMANTIC_ANSWER_CHECK_RULES:
+        raise ValueError(f"未知semantic规则: {rule}")
+
+    clauses = split_clauses(answer)
+
+    if rule == "semantic:q001_wrong_s001_5_percent":
+        value = r"5\s*%"
+        context = r"(本次|这次|S001|第一次|当时|历史值|投资画像|明确说|风险值|风险上限|亏损|比例)"
+        return any(has_active_value_match(clause, value, context) for clause in clauses)
+
+    if rule == "semantic:q004_wrong_s002_2026_11":
+        value = r"(2026\s*年\s*11\s*月|今年11月)"
+        context = r"(本次|这次|S002|购房会话|首付|日期|计划|买房|付款)"
+        return any(has_active_value_match(clause, value, context) for clause in clauses)
+
+    if rule == "semantic:q005_wrong_current_2027_04":
+        value = r"(2027\s*年\s*4\s*月|明年4月)"
+        current_context = r"(当前|最新|现在|目前|仍然|仍|还|继续|有效|当前日期|当前计划|执行|按)"
+        return any(has_current_value_match(clause, value, current_context) for clause in clauses)
+
+    if rule == "semantic:q006_wrong_current_10_percent":
+        value = r"10\s*%"
+        current_context = r"(当前|最新|现在|目前|仍然|仍|继续|有效|风险上限|最多接受|可接受|本金亏损|亏损上限)"
+        return any(has_current_value_match(clause, value, current_context) for clause in clauses)
+
+    if rule == "semantic:q006_recommend_sector_fund_for_down_payment":
+        return q006_recommend_sector_fund_for_down_payment(answer)
+
+    raise ValueError(f"未知semantic规则: {rule}")
+
+
+def match_answer_check(pattern: str, answer: str) -> bool:
+    if pattern.startswith("semantic:"):
+        return semantic_hard_failure_match(pattern, answer)
+    return re.search(pattern, answer, flags=re.IGNORECASE) is not None
+
+
 def score_answer_rules(query: Dict[str, Any], answer: str) -> Dict[str, Any]:
     checks = query.get("answer_checks", {})
     required_groups = checks.get("required_pattern_groups", [])
@@ -441,12 +837,12 @@ def score_answer_rules(query: Dict[str, Any], answer: str) -> Dict[str, Any]:
     forbidden_matches = [
         pattern
         for pattern in forbidden_patterns
-        if re.search(pattern, answer, flags=re.IGNORECASE)
+        if match_answer_check(pattern, answer)
     ]
     hard_failure_matches = [
         pattern
         for pattern in hard_failure_patterns
-        if re.search(pattern, answer, flags=re.IGNORECASE)
+        if match_answer_check(pattern, answer)
     ]
 
     no_forbidden = 1.0 if not forbidden_matches else 0.0
@@ -758,6 +1154,10 @@ def main() -> None:
     p_eval.add_argument("--pred", required=True)
     p_eval.add_argument("--out", required=True)
 
+    p_report = sub.add_parser("check-report")
+    p_report.add_argument("--data", required=True)
+    p_report.add_argument("--out", required=True)
+
     args = parser.parse_args()
     data = load_json(args.data)
     errors = validate_dataset(data)
@@ -798,6 +1198,10 @@ def main() -> None:
         )
         print(json.dumps(report["summary"], ensure_ascii=False, indent=2))
         print(f"完整报告已写出: {args.out}")
+    elif args.command == "check-report":
+        report = build_data_check_report(data)
+        Path(args.out).write_text(report + "\n", encoding="utf-8")
+        print(f"数据检查报告已写出: {args.out}")
 
 
 if __name__ == "__main__":
