@@ -1,6 +1,10 @@
 {
   "summary": {
     "query_count": 9,
+    "retrieval_query_count": 8,
+    "memory_recall_excluded_query_ids": [
+      "Q002"
+    ],
     "long_term_fact_recall_mean": 0.0,
     "long_term_fact_precision_mean": 0.0,
     "mid_term_turn_recall_mean": 0.0,
@@ -28,13 +32,15 @@
     },
     {
       "query_id": "Q002",
-      "long_term_fact_recall": 0.0,
-      "long_term_fact_precision": 0.0,
-      "mid_term_turn_recall": 0.0,
-      "mid_term_session_recall": 0.0,
-      "combined_fact_recall": 0.0,
-      "combined_turn_recall": 0.0,
-      "combined_session_recall": 0.0,
+      "excluded_from_memory_recall": true,
+      "reason": "metric_groups does not include retrieval",
+      "long_term_fact_recall": null,
+      "long_term_fact_precision": null,
+      "mid_term_turn_recall": null,
+      "mid_term_session_recall": null,
+      "combined_fact_recall": null,
+      "combined_turn_recall": null,
+      "combined_session_recall": null,
       "retrieved_long_term_count": 0,
       "retrieved_mid_term_session_count": 0,
       "retrieved_mid_term_page_count": 0,

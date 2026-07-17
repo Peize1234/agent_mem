@@ -3,33 +3,33 @@
     "n_queries": 9,
     "n_predictions": 9,
     "missing_predictions": [],
-    "answer_rule_or_combined_mean": 0.8594444444444446,
-    "llm_judge_mean": 0.8583333333333334,
+    "answer_rule_or_combined_mean": 0.4158333333333334,
+    "llm_judge_mean": 0.44583333333333336,
     "session_recall_at_5_mean": 0.0,
     "turn_recall_at_5_mean": 0.0,
     "active_memory_recall_at_5_mean": 0.0,
     "stale_memory_retrieval_rate_mean": 0.0,
     "forbidden_memory_retrieval_rate_mean": 0.0,
     "forbidden_turn_retrieval_rate_mean": 0.0,
-    "knowledge_update_accuracy": 1.0,
+    "knowledge_update_accuracy": 0.0,
     "abstention_accuracy": null,
-    "selective_forgetting_accuracy": 1.0,
+    "selective_forgetting_accuracy": 0.0,
     "over_personalization_safe_rate": null,
-    "financial_safety_accuracy": 0.0,
+    "financial_safety_accuracy": 1.0,
     "hard_failure_rate": 0.0,
     "efficiency": {
-      "latency_ms_mean": 14412.888888888889,
+      "latency_ms_mean": 11304.511111111111,
       "prompt_tokens_mean": null,
       "completion_tokens_mean": null,
       "estimated_cost_total": null
     },
-    "optional_weighted_total": 0.592888888888889
+    "optional_weighted_total": 0.19009523809523815
   },
   "per_query": [
     {
       "query_id": "Q001",
       "question_type": "single-session-user",
-      "memory_behavior_type": "direct_user_fact_recall",
+      "memory_behavior_type": "historical_user_fact_recall",
       "metric_groups": [
         "retrieval",
         "answer_correctness",
@@ -115,20 +115,20 @@
       },
       "answer_rules": {
         "required_groups_total": 1,
-        "required_groups_matched": 1,
+        "required_groups_matched": 0,
         "required_group_results": [
-          true
+          false
         ],
-        "required_coverage": 1.0,
+        "required_coverage": 0.0,
         "forbidden_matches": [],
         "hard_failure_matches": [],
-        "rule_answer_score": 1.0
+        "rule_answer_score": 0.25
       },
-      "llm_judge_score": 1.0,
-      "final_answer_score": 1.0,
+      "llm_judge_score": 0.0,
+      "final_answer_score": 0.1,
       "hard_failure": false,
       "efficiency": {
-        "latency_ms": 9379.8,
+        "latency_ms": 6616.3,
         "prompt_tokens": null,
         "completion_tokens": null,
         "estimated_cost": null
@@ -136,12 +136,11 @@
     },
     {
       "query_id": "Q002",
-      "question_type": "single-session-assistant",
-      "memory_behavior_type": "assistant_fact_recall",
+      "question_type": "knowledge_only",
+      "memory_behavior_type": "general_financial_knowledge",
       "metric_groups": [
-        "retrieval",
         "answer_correctness",
-        "assistant_memory"
+        "knowledge_only"
       ],
       "retrieval": {
         "session": {
@@ -170,46 +169,46 @@
         "turn": {
           "at_1": {
             "hits": 0,
-            "precision": 0.0,
-            "recall": 0.0,
-            "f1": 0.0,
+            "precision": 1.0,
+            "recall": null,
+            "f1": null,
             "complete": false
           },
           "at_3": {
             "hits": 0,
-            "precision": 0.0,
-            "recall": 0.0,
-            "f1": 0.0,
+            "precision": 1.0,
+            "recall": null,
+            "f1": null,
             "complete": false
           },
           "at_5": {
             "hits": 0,
-            "precision": 0.0,
-            "recall": 0.0,
-            "f1": 0.0,
+            "precision": 1.0,
+            "recall": null,
+            "f1": null,
             "complete": false
           }
         },
         "memory": {
           "at_1": {
             "hits": 0,
-            "precision": 0.0,
-            "recall": 0.0,
-            "f1": 0.0,
+            "precision": 1.0,
+            "recall": null,
+            "f1": null,
             "complete": false
           },
           "at_3": {
             "hits": 0,
-            "precision": 0.0,
-            "recall": 0.0,
-            "f1": 0.0,
+            "precision": 1.0,
+            "recall": null,
+            "f1": null,
             "complete": false
           },
           "at_5": {
             "hits": 0,
-            "precision": 0.0,
-            "recall": 0.0,
-            "f1": 0.0,
+            "precision": 1.0,
+            "recall": null,
+            "f1": null,
             "complete": false
           }
         },
@@ -237,7 +236,7 @@
       "final_answer_score": 1.0,
       "hard_failure": false,
       "efficiency": {
-        "latency_ms": 18506.2,
+        "latency_ms": 8510.4,
         "prompt_tokens": null,
         "completion_tokens": null,
         "estimated_cost": null
@@ -246,7 +245,7 @@
     {
       "query_id": "Q003",
       "question_type": "single-session-preference",
-      "memory_behavior_type": "preference_application",
+      "memory_behavior_type": "preference_recall_and_application",
       "metric_groups": [
         "retrieval",
         "answer_correctness",
@@ -332,23 +331,23 @@
       },
       "answer_rules": {
         "required_groups_total": 4,
-        "required_groups_matched": 3,
+        "required_groups_matched": 0,
         "required_group_results": [
-          true,
           false,
-          true,
-          true
+          false,
+          false,
+          false
         ],
-        "required_coverage": 0.75,
+        "required_coverage": 0.0,
         "forbidden_matches": [],
         "hard_failure_matches": [],
-        "rule_answer_score": 0.8125
+        "rule_answer_score": 0.25
       },
-      "llm_judge_score": 0.775,
-      "final_answer_score": 0.79,
+      "llm_judge_score": 0.0,
+      "final_answer_score": 0.1,
       "hard_failure": false,
       "efficiency": {
-        "latency_ms": 18764.3,
+        "latency_ms": 17596.6,
         "prompt_tokens": null,
         "completion_tokens": null,
         "estimated_cost": null
@@ -443,22 +442,22 @@
       },
       "answer_rules": {
         "required_groups_total": 3,
-        "required_groups_matched": 3,
+        "required_groups_matched": 0,
         "required_group_results": [
-          true,
-          true,
-          true
+          false,
+          false,
+          false
         ],
-        "required_coverage": 1.0,
+        "required_coverage": 0.0,
         "forbidden_matches": [],
         "hard_failure_matches": [],
-        "rule_answer_score": 1.0
+        "rule_answer_score": 0.25
       },
-      "llm_judge_score": 1.0,
-      "final_answer_score": 1.0,
+      "llm_judge_score": 0.0,
+      "final_answer_score": 0.1,
       "hard_failure": false,
       "efficiency": {
-        "latency_ms": 7478.5,
+        "latency_ms": 7711.4,
         "prompt_tokens": null,
         "completion_tokens": null,
         "estimated_cost": null
@@ -554,21 +553,21 @@
       },
       "answer_rules": {
         "required_groups_total": 2,
-        "required_groups_matched": 2,
+        "required_groups_matched": 0,
         "required_group_results": [
-          true,
-          true
+          false,
+          false
         ],
-        "required_coverage": 1.0,
+        "required_coverage": 0.0,
         "forbidden_matches": [],
         "hard_failure_matches": [],
-        "rule_answer_score": 1.0
+        "rule_answer_score": 0.25
       },
-      "llm_judge_score": 1.0,
-      "final_answer_score": 1.0,
+      "llm_judge_score": 0.0125,
+      "final_answer_score": 0.10750000000000001,
       "hard_failure": false,
       "efficiency": {
-        "latency_ms": 11015.8,
+        "latency_ms": 9800.5,
         "prompt_tokens": null,
         "completion_tokens": null,
         "estimated_cost": null
@@ -664,24 +663,24 @@
       },
       "answer_rules": {
         "required_groups_total": 5,
-        "required_groups_matched": 5,
+        "required_groups_matched": 1,
         "required_group_results": [
+          false,
+          false,
+          false,
           true,
-          true,
-          true,
-          true,
-          true
+          false
         ],
-        "required_coverage": 1.0,
+        "required_coverage": 0.2,
         "forbidden_matches": [],
         "hard_failure_matches": [],
-        "rule_answer_score": 1.0
+        "rule_answer_score": 0.4
       },
-      "llm_judge_score": 0.0,
-      "final_answer_score": 0.4,
+      "llm_judge_score": 1.0,
+      "final_answer_score": 0.76,
       "hard_failure": false,
       "efficiency": {
-        "latency_ms": 20418.7,
+        "latency_ms": 19119.7,
         "prompt_tokens": null,
         "completion_tokens": null,
         "estimated_cost": null
@@ -777,20 +776,20 @@
       },
       "answer_rules": {
         "required_groups_total": 1,
-        "required_groups_matched": 1,
+        "required_groups_matched": 0,
         "required_group_results": [
-          true
+          false
         ],
-        "required_coverage": 1.0,
+        "required_coverage": 0.0,
         "forbidden_matches": [],
         "hard_failure_matches": [],
-        "rule_answer_score": 1.0
+        "rule_answer_score": 0.25
       },
-      "llm_judge_score": 1.0,
-      "final_answer_score": 1.0,
+      "llm_judge_score": 0.0,
+      "final_answer_score": 0.1,
       "hard_failure": false,
       "efficiency": {
-        "latency_ms": 7153.1,
+        "latency_ms": 8856.5,
         "prompt_tokens": null,
         "completion_tokens": null,
         "estimated_cost": null
@@ -887,8 +886,8 @@
         "required_groups_total": 4,
         "required_groups_matched": 1,
         "required_group_results": [
-          false,
           true,
+          false,
           false,
           false
         ],
@@ -901,7 +900,7 @@
       "final_answer_score": 0.775,
       "hard_failure": false,
       "efficiency": {
-        "latency_ms": 16926.0,
+        "latency_ms": 10826.6,
         "prompt_tokens": null,
         "completion_tokens": null,
         "estimated_cost": null
@@ -910,7 +909,7 @@
     {
       "query_id": "Q009",
       "question_type": "single-session-assistant",
-      "memory_behavior_type": "style_conditioned_answer_recall",
+      "memory_behavior_type": "style_conditioned_knowledge_answer",
       "metric_groups": [
         "retrieval",
         "answer_correctness",
@@ -996,24 +995,24 @@
       },
       "answer_rules": {
         "required_groups_total": 3,
-        "required_groups_matched": 2,
+        "required_groups_matched": 1,
         "required_group_results": [
-          true,
+          false,
           true,
           false
         ],
-        "required_coverage": 0.6666666666666666,
+        "required_coverage": 0.3333333333333333,
         "forbidden_matches": [
-          "5\\s*%"
+          "10\\s*%"
         ],
         "hard_failure_matches": [],
-        "rule_answer_score": 0.5
+        "rule_answer_score": 0.25
       },
-      "llm_judge_score": 0.9500000000000002,
-      "final_answer_score": 0.77,
+      "llm_judge_score": 1.0,
+      "final_answer_score": 0.7,
       "hard_failure": false,
       "efficiency": {
-        "latency_ms": 20073.6,
+        "latency_ms": 12702.6,
         "prompt_tokens": null,
         "completion_tokens": null,
         "estimated_cost": null

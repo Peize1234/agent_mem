@@ -1,5 +1,5 @@
 {
-  "run_name": "single_session_midterm_on",
+  "run_name": "single_session_longterm_on_midterm_on",
   "user_id": "invest_user_001",
   "data": "/home/peize/Code/htzq/mem0/finance_memory_single_session_package/finance_memory_single_session_timeline.json",
   "evaluator": "/home/peize/Code/htzq/mem0/finance_memory_single_session_package/parse_and_evaluate.py",
@@ -30,12 +30,12 @@
     "vector_store": {
       "provider": "qdrant",
       "config": {
-        "collection_name": "agent_mem_single_session_midterm_on",
-        "path": "/home/peize/Code/htzq/mem0/finance_memory_single_session_package/results/single_session_midterm_on/qdrant",
+        "collection_name": "agent_mem_single_session_longterm_on_midterm_on",
+        "path": "/home/peize/Code/htzq/mem0/finance_memory_single_session_package/results/single_session_longterm_on_midterm_on/qdrant",
         "embedding_model_dims": 512
       }
     },
-    "history_db_path": "/home/peize/Code/htzq/mem0/finance_memory_single_session_package/results/single_session_midterm_on/history.db",
+    "history_db_path": "/home/peize/Code/htzq/mem0/finance_memory_single_session_package/results/single_session_longterm_on_midterm_on/history.db",
     "midterm": {
       "enabled": true,
       "short_term_capacity": 4,
@@ -45,5 +45,5 @@
       "max_total_pages": 5
     }
   },
-  "started_at": "2026-07-16T10:31:27.626748"
+  "started_at": "2026-07-16T17:02:20.970383"
 }
