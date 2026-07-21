@@ -373,6 +373,50 @@ def _build_session_scope(filters):
     return "&".join(parts)
 
 
+def _normalize_context_request(query: str, user_id: str, session_id: str) -> tuple[str, str, str]:
+    """Normalize identifiers and query used by unified context retrieval."""
+    normalized_user_id = normalize_profile_user_id(user_id)
+    normalized_session_id = normalize_memory_identifier(session_id, "session_id", allow_none=False)
+    normalized_query = _validate_and_trim_search_query(query)
+    return normalized_query, normalized_user_id, normalized_session_id
+
+
+def _assemble_retrieved_context(
+    *,
+    query: str,
+    user_id: str,
+    session_id: str,
+    search_result: Any,
+    profile_result: Dict[str, Any],
+    short_term_messages: list[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Build the stable context payload shared by sync and async APIs."""
+    retrieved_memories = (
+        search_result["results"]
+        if isinstance(search_result, dict) and "results" in search_result
+        else search_result
+    )
+    messages = []
+    for message in short_term_messages:
+        context_message = {
+            "role": message.get("role"),
+            "content": message.get("content"),
+        }
+        name = message.get("name")
+        if isinstance(name, str) and name.strip():
+            context_message["name"] = name
+        messages.append(context_message)
+
+    return {
+        "user_id": user_id,
+        "session_id": session_id,
+        "query": query,
+        "profile": profile_result["profile"],
+        "short_term_messages": messages,
+        "retrieved_memories": retrieved_memories,
+    }
+
+
 def _entity_collection_name(provider: str, collection_name: str) -> str:
     separator = "-" if provider == "s3_vectors" else "_"
     return f"{collection_name}{separator}entities"
@@ -587,6 +631,56 @@ class Memory(MemoryBase):
         """Return a user's current profile shared across all runs."""
         normalized_user_id = normalize_profile_user_id(user_id)
         return self.profile_manager.get_profile(normalized_user_id, include_metadata=include_metadata)
+
+    def retrieve_context(
+        self,
+        query: str,
+        *,
+        user_id: str,
+        session_id: str,
+        top_k: int = 20,
+        threshold: float = 0.1,
+        rerank: bool = False,
+        explain: bool = False,
+        include_profile_metadata: bool = False,
+    ) -> Dict[str, Any]:
+        """Retrieve session memories, short-term messages, and the user's cross-session profile."""
+        normalized_query, normalized_user_id, normalized_session_id = _normalize_context_request(
+            query,
+            user_id,
+            session_id,
+        )
+        filters = {
+            "user_id": normalized_user_id,
+            "run_id": normalized_session_id,
+        }
+        session_scope = _build_session_scope(filters)
+
+        search_result = self.search(
+            normalized_query,
+            top_k=top_k,
+            threshold=threshold,
+            rerank=rerank,
+            explain=explain,
+            filters=filters,
+        )
+        profile_result = self.get_profile(
+            normalized_user_id,
+            include_metadata=include_profile_metadata,
+        )
+        short_term_messages = self.db.get_last_messages(
+            session_scope,
+            limit=self._short_term_capacity(),
+        )
+
+        return _assemble_retrieved_context(
+            query=normalized_query,
+            user_id=normalized_user_id,
+            session_id=normalized_session_id,
+            search_result=search_result,
+            profile_result=profile_result,
+            short_term_messages=short_term_messages,
+        )
 
     def update_profile(self, user_id: str, messages):
         """Explicitly extract and apply profile updates from user messages."""
@@ -2427,6 +2521,60 @@ class AsyncMemory(MemoryBase):
             self.profile_manager.get_profile,
             normalized_user_id,
             include_metadata,
+        )
+
+    async def retrieve_context(
+        self,
+        query: str,
+        *,
+        user_id: str,
+        session_id: str,
+        top_k: int = 20,
+        threshold: float = 0.1,
+        rerank: bool = False,
+        explain: bool = False,
+        include_profile_metadata: bool = False,
+    ) -> Dict[str, Any]:
+        """Asynchronously retrieve session memories, messages, and the cross-session profile."""
+        normalized_query, normalized_user_id, normalized_session_id = _normalize_context_request(
+            query,
+            user_id,
+            session_id,
+        )
+        filters = {
+            "user_id": normalized_user_id,
+            "run_id": normalized_session_id,
+        }
+        session_scope = _build_session_scope(filters)
+        short_term_limit = self._short_term_capacity()
+
+        search_result, profile_result, short_term_messages = await asyncio.gather(
+            self.search(
+                normalized_query,
+                top_k=top_k,
+                threshold=threshold,
+                rerank=rerank,
+                explain=explain,
+                filters=filters,
+            ),
+            self.get_profile(
+                normalized_user_id,
+                include_metadata=include_profile_metadata,
+            ),
+            asyncio.to_thread(
+                self.db.get_last_messages,
+                session_scope,
+                short_term_limit,
+            ),
+        )
+
+        return _assemble_retrieved_context(
+            query=normalized_query,
+            user_id=normalized_user_id,
+            session_id=normalized_session_id,
+            search_result=search_result,
+            profile_result=profile_result,
+            short_term_messages=short_term_messages,
         )
 
     async def update_profile(self, user_id: str, messages):

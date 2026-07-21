@@ -1,12 +1,14 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, TYPE_CHECKING
 
 from mem0.configs.base import UserProfileConfig
 from mem0.memory.profile_schema import ProfileUpdatePlan
 from mem0.memory.profile_validator import serialize_profile_value, validate_operation
 
+if TYPE_CHECKING:
+    from mem0.memory.storage import SQLiteManager
 
 class ProfileManager:
-    def __init__(self, db, config: Optional[UserProfileConfig] = None):
+    def __init__(self, db: SQLiteManager, config: Optional[UserProfileConfig] = None):
         self.db = db
         self.config = config or UserProfileConfig()
 
