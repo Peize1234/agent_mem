@@ -409,7 +409,7 @@ def test_product_question_does_not_generate_preference(profile_manager):
 
     assert plan.operations == []
     system_prompt = llm.calls[0]["messages"][0]["content"]
-    assert "A question about a product is not evidence that the user prefers that product." in system_prompt
+    assert "用户询问某个产品，并不代表用户偏好该产品。" in system_prompt
 
 
 def test_assistant_messages_are_excluded_from_profile_payload(db):
