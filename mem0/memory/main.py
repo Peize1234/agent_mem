@@ -51,6 +51,13 @@ from mem0.memory.notices import (
     get_temporal_feature_error_message,
     get_temporal_feature_error_message_async,
 )
+from mem0.memory.profile_manager import ProfileManager
+from mem0.memory.profile_updater import ProfileUpdater
+from mem0.memory.profile_validator import (
+    normalize_memory_identifier,
+    normalize_profile_user_id,
+    select_profile_user_messages,
+)
 from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
@@ -165,18 +172,7 @@ def _validate_and_trim_entity_id(value: Optional[str], name: str) -> Optional[st
     Raises:
         ValueError: If entity ID is invalid
     """
-    if value is None:
-        return None
-    trimmed = value.strip()
-    if trimmed == "":
-        raise ValueError(
-            f"Invalid {name}: cannot be empty or whitespace-only. Provide a valid identifier."
-        )
-    if any(c.isspace() for c in trimmed):
-        raise ValueError(
-            f"Invalid {name}: cannot contain whitespace. Provide a valid identifier without spaces."
-        )
-    return trimmed
+    return normalize_memory_identifier(value, name)
 
 
 def _validate_search_params(threshold: Optional[float] = None, top_k: Optional[int] = None) -> None:
@@ -475,6 +471,8 @@ class Memory(MemoryBase):
         self._midterm_memory = None
         self._midterm_updater = None
         self._midterm_retriever = None
+        self._profile_manager = None
+        self._profile_updater = None
         self._last_evicted_messages = []
 
         if MEM0_TELEMETRY:
@@ -570,6 +568,84 @@ class Memory(MemoryBase):
         if self._midterm_retriever is None:
             self._midterm_retriever = MidTermRetriever(self.midterm_memory, self.config.midterm)
         return self._midterm_retriever
+
+    @property
+    def profile_manager(self):
+        """Lazily initialize profile storage and assembly without touching the LLM."""
+        if self._profile_manager is None:
+            self._profile_manager = ProfileManager(self.db, self.config.profile)
+        return self._profile_manager
+
+    @property
+    def profile_updater(self):
+        """Lazily initialize the LLM-backed profile plan generator."""
+        if self._profile_updater is None:
+            self._profile_updater = ProfileUpdater(self.llm, self.config.profile)
+        return self._profile_updater
+
+    def get_profile(self, user_id: str, include_metadata: Optional[bool] = None):
+        """Return a user's current profile shared across all runs."""
+        normalized_user_id = normalize_profile_user_id(user_id)
+        return self.profile_manager.get_profile(normalized_user_id, include_metadata=include_metadata)
+
+    def update_profile(self, user_id: str, messages):
+        """Explicitly extract and apply profile updates from user messages."""
+        normalized_user_id = normalize_profile_user_id(user_id)
+        profile_config = getattr(self.config, "profile", None)
+        if profile_config is None or profile_config.enabled is not True:
+            raise ValueError(
+                "User profile updates are disabled; set profile.enabled=True before calling update_profile"
+            )
+        plan = self._generate_profile_update_plan(normalized_user_id, messages)
+        if plan is None:
+            return self.profile_manager.get_profile(normalized_user_id)
+        return self.profile_manager.apply_update_plan(normalized_user_id, plan)
+
+    def delete_profile_value(self, user_id: str, attribute_key: str):
+        """Delete one current profile value for a user."""
+        normalized_user_id = normalize_profile_user_id(user_id)
+        return self.profile_manager.delete_value(normalized_user_id, attribute_key)
+
+    def delete_profile(self, user_id: str):
+        """Delete all current profile values for a user."""
+        normalized_user_id = normalize_profile_user_id(user_id)
+        return self.profile_manager.delete_profile(normalized_user_id)
+
+    def create_profile_attribute(self, definition):
+        """Create a manually managed profile attribute definition."""
+        return self.profile_manager.create_attribute(definition)
+
+    def _generate_profile_update_plan(self, user_id, messages):
+        normalized_user_id = normalize_profile_user_id(user_id)
+        user_messages = select_profile_user_messages(messages, self.config.profile.max_input_user_messages)
+        if not user_messages:
+            return None
+        current_profile = self.profile_manager.get_profile(normalized_user_id)
+        attribute_catalog = self.profile_manager.list_attributes()
+        return self.profile_updater.generate_update_plan(
+            current_profile=current_profile,
+            attribute_catalog=attribute_catalog,
+            messages=user_messages,
+        )
+
+    def _update_profile_after_add(self, user_id, messages):
+        profile_config = getattr(self.config, "profile", None)
+        if (
+            profile_config is None
+            or profile_config.enabled is not True
+            or profile_config.update_on_add is not True
+            or not user_id
+        ):
+            return
+
+        try:
+            normalized_user_id = normalize_profile_user_id(user_id)
+            plan = self._generate_profile_update_plan(normalized_user_id, messages)
+            if plan is None:
+                return
+            self.profile_manager.apply_update_plan(normalized_user_id, plan)
+        except Exception as exc:
+            logger.warning("Automatic profile update failed for user %s: %s", user_id, exc)
 
     def _short_term_capacity(self):
         capacity = max(int(self.config.midterm.short_term_capacity), 0)
@@ -885,6 +961,7 @@ class Memory(MemoryBase):
             run_id=run_id,
             input_metadata=metadata,
         )
+        normalized_user_id = effective_filters.get("user_id")
         if normalized_expiration_date is not None:
             processed_metadata["expiration_date"] = normalized_expiration_date
 
@@ -912,6 +989,7 @@ class Memory(MemoryBase):
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
             results = self._create_procedural_memory(messages, metadata=processed_metadata, prompt=prompt)
+            self._update_profile_after_add(normalized_user_id, messages)
             scale_threshold_notice = detect_scale_threshold_from_add_result(self, results)
             if temporal_usage_notice:
                 display_temporal_usage_notice(self, "sync", "add", *temporal_usage_notice)
@@ -928,7 +1006,11 @@ class Memory(MemoryBase):
 
         self._last_evicted_messages = []
         vector_store_result = self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
+
+        # TODO: 现在如果pop出来的对话是user的，那会额外pop出模型的回答，这个pop出的回答好像没有进入原始的长期记忆
         self._process_midterm_evictions(self._last_evicted_messages, effective_filters)
+        self._update_profile_after_add(normalized_user_id, messages)
+
         scale_threshold_notice = detect_scale_threshold_from_add_result(self, vector_store_result)
         if temporal_usage_notice:
             display_temporal_usage_notice(self, "sync", "add", *temporal_usage_notice)
@@ -1586,6 +1668,8 @@ class Memory(MemoryBase):
             )
         else:
             display_first_run_notice(self, "sync", "search")
+
+        # TODO: 返回结果只有中期和长期的memory，没有短期的
         return {"results": original_memories}
 
     def _process_metadata_filters(self, metadata_filters: Dict[str, Any]) -> Dict[str, Any]:
@@ -2178,6 +2262,8 @@ class Memory(MemoryBase):
         self.db.reset()
         self.db.close()
         self.db = SQLiteManager(self.config.history_db_path)
+        self._profile_manager = None
+        self._profile_updater = None
 
         if hasattr(self.vector_store, "reset"):
             self.vector_store = VectorStoreFactory.reset(self.vector_store)
@@ -2209,6 +2295,8 @@ class Memory(MemoryBase):
 
 
 class AsyncMemory(MemoryBase):
+    """Asynchronous memory API with cross-session user profile support."""
+
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
 
@@ -2229,6 +2317,10 @@ class AsyncMemory(MemoryBase):
         self._midterm_memory = None
         self._midterm_updater = None
         self._midterm_retriever = None
+        self._profile_manager = None
+        self._profile_updater = None
+        self._profile_user_locks = {}
+        self._profile_user_locks_guard = asyncio.Lock()
         self._last_evicted_messages = []
 
         # Initialize reranker if configured
@@ -2313,6 +2405,102 @@ class AsyncMemory(MemoryBase):
         if self._midterm_retriever is None:
             self._midterm_retriever = MidTermRetriever(self.midterm_memory, self.config.midterm)
         return self._midterm_retriever
+
+    @property
+    def profile_manager(self):
+        """Lazily initialize profile storage without touching the LLM."""
+        if self._profile_manager is None:
+            self._profile_manager = ProfileManager(self.db, self.config.profile)
+        return self._profile_manager
+
+    @property
+    def profile_updater(self):
+        """Lazily initialize the LLM-backed profile plan generator."""
+        if self._profile_updater is None:
+            self._profile_updater = ProfileUpdater(self.llm, self.config.profile)
+        return self._profile_updater
+
+    async def get_profile(self, user_id: str, include_metadata: Optional[bool] = None):
+        """Return a user's current profile without blocking the event loop."""
+        normalized_user_id = normalize_profile_user_id(user_id)
+        return await asyncio.to_thread(
+            self.profile_manager.get_profile,
+            normalized_user_id,
+            include_metadata,
+        )
+
+    async def update_profile(self, user_id: str, messages):
+        """Explicitly extract and apply profile updates for a user."""
+        normalized_user_id = normalize_profile_user_id(user_id)
+        profile_config = getattr(self.config, "profile", None)
+        if profile_config is None or profile_config.enabled is not True:
+            raise ValueError(
+                "User profile updates are disabled; set profile.enabled=True before calling update_profile"
+            )
+
+        user_lock = await self._get_profile_user_lock(normalized_user_id)
+        async with user_lock:
+            plan = await self._generate_profile_update_plan(normalized_user_id, messages)
+            if plan is None:
+                return await asyncio.to_thread(self.profile_manager.get_profile, normalized_user_id)
+            return await asyncio.to_thread(self.profile_manager.apply_update_plan, normalized_user_id, plan)
+
+    async def delete_profile_value(self, user_id: str, attribute_key: str):
+        """Delete one current profile value for a user."""
+        normalized_user_id = normalize_profile_user_id(user_id)
+        return await asyncio.to_thread(self.profile_manager.delete_value, normalized_user_id, attribute_key)
+
+    async def delete_profile(self, user_id: str):
+        """Delete all current profile values for a user."""
+        normalized_user_id = normalize_profile_user_id(user_id)
+        return await asyncio.to_thread(self.profile_manager.delete_profile, normalized_user_id)
+
+    async def create_profile_attribute(self, definition):
+        """Create a dynamically managed profile attribute definition."""
+        return await asyncio.to_thread(self.profile_manager.create_attribute, definition)
+
+    async def _get_profile_user_lock(self, user_id: str) -> asyncio.Lock:
+        normalized_user_id = normalize_profile_user_id(user_id)
+        async with self._profile_user_locks_guard:
+            lock = self._profile_user_locks.get(normalized_user_id)
+            if lock is None:
+                lock = asyncio.Lock()
+                self._profile_user_locks[normalized_user_id] = lock
+            return lock
+
+    async def _generate_profile_update_plan(self, user_id, messages):
+        normalized_user_id = normalize_profile_user_id(user_id)
+        user_messages = select_profile_user_messages(messages, self.config.profile.max_input_user_messages)
+        if not user_messages:
+            return None
+        current_profile = await asyncio.to_thread(self.profile_manager.get_profile, normalized_user_id)
+        attribute_catalog = await asyncio.to_thread(self.profile_manager.list_attributes)
+        return await self.profile_updater.generate_update_plan_async(
+            current_profile=current_profile,
+            attribute_catalog=attribute_catalog,
+            messages=user_messages,
+        )
+
+    async def _update_profile_after_add(self, user_id, messages):
+        profile_config = getattr(self.config, "profile", None)
+        if (
+            profile_config is None
+            or profile_config.enabled is not True
+            or profile_config.update_on_add is not True
+            or not user_id
+        ):
+            return
+
+        try:
+            normalized_user_id = normalize_profile_user_id(user_id)
+            user_lock = await self._get_profile_user_lock(normalized_user_id)
+            async with user_lock:
+                plan = await self._generate_profile_update_plan(normalized_user_id, messages)
+                if plan is None:
+                    return
+                await asyncio.to_thread(self.profile_manager.apply_update_plan, normalized_user_id, plan)
+        except Exception as exc:
+            logger.warning("Automatic profile update failed for user %s: %s", user_id, exc)
 
     def _short_term_capacity(self):
         capacity = max(int(self.config.midterm.short_term_capacity), 0)
@@ -2615,6 +2803,7 @@ class AsyncMemory(MemoryBase):
         processed_metadata, effective_filters = _build_filters_and_metadata(
             user_id=user_id, agent_id=agent_id, run_id=run_id, input_metadata=metadata
         )
+        normalized_user_id = effective_filters.get("user_id")
         if normalized_expiration_date is not None:
             processed_metadata["expiration_date"] = normalized_expiration_date
 
@@ -2641,6 +2830,7 @@ class AsyncMemory(MemoryBase):
             results = await self._create_procedural_memory(
                 messages, metadata=processed_metadata, prompt=prompt, llm=llm
             )
+            await self._update_profile_after_add(normalized_user_id, messages)
             scale_threshold_notice = await asyncio.to_thread(detect_scale_threshold_from_add_result, self, results)
             if temporal_usage_notice:
                 await display_temporal_usage_notice_async(self, "async", "add", *temporal_usage_notice)
@@ -2658,6 +2848,7 @@ class AsyncMemory(MemoryBase):
         self._last_evicted_messages = []
         vector_store_result = await self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
         await asyncio.to_thread(self._process_midterm_evictions, self._last_evicted_messages, effective_filters)
+        await self._update_profile_after_add(normalized_user_id, messages)
         scale_threshold_notice = await asyncio.to_thread(detect_scale_threshold_from_add_result, self, vector_store_result)
         if temporal_usage_notice:
             await display_temporal_usage_notice_async(self, "async", "add", *temporal_usage_notice)
@@ -3941,9 +4132,13 @@ class AsyncMemory(MemoryBase):
         logger.warning("Resetting all memories")
 
         await asyncio.to_thread(self._reset_midterm_state)
+        self._profile_manager = None
+        self._profile_updater = None
+        async with self._profile_user_locks_guard:
+            self._profile_user_locks.clear()
         await asyncio.to_thread(self.db.reset)
         await asyncio.to_thread(self.db.close)
-        self.db = SQLiteManager(self.config.history_db_path)
+        self.db = await asyncio.to_thread(SQLiteManager, self.config.history_db_path)
 
         if hasattr(self.vector_store, "reset"):
             self.vector_store = await asyncio.to_thread(VectorStoreFactory.reset, self.vector_store)
@@ -3968,6 +4163,9 @@ class AsyncMemory(MemoryBase):
 
     def close(self):
         """Release resources held by this AsyncMemory instance."""
+        self._profile_manager = None
+        self._profile_updater = None
+        self._profile_user_locks.clear()
         if hasattr(self, "db") and self.db is not None:
             self.db.close()
             self.db = None

@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -41,6 +41,18 @@ class MidTermMemoryConfig(BaseModel):
     promotion_heat_threshold: float = Field(5.0, description="Reserved threshold for promoting hot sessions")
 
 
+class UserProfileConfig(BaseModel):
+    enabled: bool = False
+    update_on_add: bool = True
+    extraction_mode: Literal["explicit_only", "explicit_and_inferred"] = "explicit_only"
+    allow_dynamic_attributes: bool = False
+    max_dynamic_attributes: int = Field(100, ge=0)
+    max_input_user_messages: int = Field(4, ge=1)
+    max_operations_per_update: int = Field(8, ge=1)
+    max_value_json_bytes: int = Field(16384, ge=1)
+    include_metadata_by_default: bool = False
+
+
 class MemoryConfig(BaseModel):
     vector_store: VectorStoreConfig = Field(
         description="Configuration for the vector store",
@@ -73,6 +85,10 @@ class MemoryConfig(BaseModel):
     midterm: MidTermMemoryConfig = Field(
         description="Configuration for the optional mid-term memory layer",
         default_factory=MidTermMemoryConfig,
+    )
+    profile: UserProfileConfig = Field(
+        description="Configuration for the cross-session user profile layer",
+        default_factory=UserProfileConfig,
     )
 
 
