@@ -53,20 +53,19 @@ def memory_custom_instance():
 
 
 def test_add(memory_instance):
-    memory_instance._add_to_vector_store = Mock(return_value=[{"memory": "Test memory", "event": "ADD"}])
+    memory_instance._process_evicted_long_term_memories = Mock()
 
     result = memory_instance.add(messages=[{"role": "user", "content": "Test message"}], user_id="test_user")
 
     assert "results" in result
-    assert result["results"] == [{"memory": "Test memory", "event": "ADD"}]
-
-    memory_instance._add_to_vector_store.assert_called_once_with(
-        [{"role": "user", "content": "Test message"}], {"user_id": "test_user"}, {"user_id": "test_user"}, True, prompt=None
-    )
+    assert result["results"] == []
+    memory_instance._process_evicted_long_term_memories.assert_not_called()
 
 
 def test_add_stores_expiration_date(memory_instance):
-    memory_instance._add_to_vector_store = Mock(return_value=[{"memory": "Test memory", "event": "ADD"}])
+    evicted_messages = [{"role": "user", "content": "Test message"}]
+    memory_instance._save_short_term_messages = Mock(return_value=evicted_messages)
+    memory_instance._process_evicted_long_term_memories = Mock(return_value=[{"memory": "Test memory", "event": "ADD"}])
 
     memory_instance.add(
         messages=[{"role": "user", "content": "Test message"}],
@@ -74,11 +73,11 @@ def test_add_stores_expiration_date(memory_instance):
         expiration_date="2999-01-01",
     )
 
-    memory_instance._add_to_vector_store.assert_called_once_with(
-        [{"role": "user", "content": "Test message"}],
+    memory_instance._process_evicted_long_term_memories.assert_called_once_with(
+        evicted_messages,
         {"user_id": "test_user", "expiration_date": "2999-01-01"},
         {"user_id": "test_user"},
-        True,
+        infer=True,
         prompt=None,
     )
 

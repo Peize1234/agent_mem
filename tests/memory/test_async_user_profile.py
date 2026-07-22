@@ -76,6 +76,7 @@ def _build_async_memory(db, *, config=None, llm=None):
         llm=SimpleNamespace(config={}),
         history_db_path=db.db_path,
         vector_store=SimpleNamespace(provider="mock", config=SimpleNamespace()),
+        midterm=SimpleNamespace(enabled=False, short_term_capacity=2),
     )
     memory.db = db
     memory.llm = llm or _RecordingSyncLLM()
@@ -84,7 +85,6 @@ def _build_async_memory(db, *, config=None, llm=None):
     memory._profile_user_locks = {}
     memory._profile_user_locks_guard = asyncio.Lock()
     memory._entity_store = None
-    memory._last_evicted_messages = []
     return memory
 
 
@@ -192,7 +192,8 @@ async def test_async_automatic_update_respects_update_on_add_switch(db):
 @pytest.mark.asyncio
 async def test_async_add_profile_failure_preserves_result(db, monkeypatch, caplog):
     memory = _build_async_memory(db)
-    memory._add_to_vector_store = AsyncMock(return_value=[{"id": "memory-1", "event": "ADD"}])
+    memory._save_short_term_messages = AsyncMock(return_value=[{"role": "user", "content": "I prefer ETFs"}])
+    memory._process_evicted_long_term_memories = AsyncMock(return_value=[{"id": "memory-1", "event": "ADD"}])
     memory._process_midterm_evictions = MagicMock()
     memory._profile_updater = MagicMock()
     memory._profile_updater.generate_update_plan_async = AsyncMock(side_effect=RuntimeError("LLM unavailable"))
@@ -226,7 +227,7 @@ async def test_async_procedural_add_updates_normalized_profile(db, monkeypatch):
 @pytest.mark.asyncio
 async def test_async_add_with_infer_false_still_updates_profile(db, monkeypatch):
     memory = _build_async_memory(db)
-    memory._add_to_vector_store = AsyncMock(return_value=[{"id": "memory-1", "event": "ADD"}])
+    memory._process_evicted_long_term_memories = AsyncMock()
     memory._process_midterm_evictions = MagicMock()
     memory._profile_updater = MagicMock()
     memory._profile_updater.generate_update_plan_async = AsyncMock(return_value=_append_product_plan())
@@ -234,7 +235,8 @@ async def test_async_add_with_infer_false_still_updates_profile(db, monkeypatch)
 
     result = await memory.add("I prefer ETFs", user_id="user-1", run_id="run-1", infer=False)
 
-    assert result == {"results": [{"id": "memory-1", "event": "ADD"}]}
+    assert result == {"results": []}
+    memory._process_evicted_long_term_memories.assert_not_awaited()
     assert (await memory.get_profile("user-1"))["profile"]["preferred_products"] == ["ETF"]
 
 

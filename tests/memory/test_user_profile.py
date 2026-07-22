@@ -513,6 +513,7 @@ def _memory_with_profile_storage(db, config=None):
     memory.config = SimpleNamespace(
         profile=profile_config,
         llm=SimpleNamespace(config={}),
+        midterm=SimpleNamespace(enabled=False, short_term_capacity=2),
     )
     memory.db = db
     memory._profile_manager = ProfileManager(db, profile_config)
@@ -546,16 +547,19 @@ def test_disabled_profile_does_not_call_llm():
 
 def test_memory_add_and_profile_apis_share_normalized_user_id(db, monkeypatch):
     memory = _memory_with_profile_storage(db)
-    memory._add_to_vector_store = MagicMock(return_value=[{"id": "memory-1", "event": "ADD"}])
+    evicted_messages = [{"role": "user", "content": "I prefer ETFs"}]
+    memory._save_short_term_messages = MagicMock(return_value=evicted_messages)
+    memory._process_evicted_long_term_memories = MagicMock(return_value=[{"id": "memory-1", "event": "ADD"}])
     memory._process_midterm_evictions = MagicMock()
     _disable_sync_add_notices(monkeypatch)
 
     result = memory.add("I prefer ETFs", user_id=" user-1 ", run_id="run-1", infer=False)
 
     assert result == {"results": [{"id": "memory-1", "event": "ADD"}]}
-    _, metadata, effective_filters, *_ = memory._add_to_vector_store.call_args.args
+    _, metadata, effective_filters = memory._process_evicted_long_term_memories.call_args.args
     assert metadata["user_id"] == "user-1"
     assert effective_filters["user_id"] == "user-1"
+    assert memory._process_evicted_long_term_memories.call_args.kwargs["infer"] is False
     assert memory._process_midterm_evictions.call_args.args[1]["user_id"] == "user-1"
     assert memory.get_profile(" user-1 ") == memory.get_profile("user-1")
     assert memory.get_profile("user-1")["profile"]["preferred_products"] == ["ETF"]
@@ -569,11 +573,31 @@ def test_profile_and_memory_layers_use_the_same_normalized_user_id(db, monkeypat
     memory._process_midterm_evictions = MagicMock()
     _disable_sync_add_notices(monkeypatch)
 
-    memory.add("I prefer ETFs", user_id=" user-1 ", run_id="run-1", infer=False)
+    memory.add(
+        [
+            {"role": "user", "content": "I prefer ETFs"},
+            {"role": "assistant", "content": "Noted"},
+        ],
+        user_id=" user-1 ",
+        run_id="run-1",
+        infer=False,
+    )
+    memory.add(
+        [
+            {"role": "user", "content": "I prefer bonds"},
+            {"role": "assistant", "content": "Noted again"},
+        ],
+        user_id=" user-1 ",
+        run_id="run-1",
+        infer=False,
+    )
 
     long_term_metadata = memory._create_memory.call_args.args[2]
     assert long_term_metadata["user_id"] == "user-1"
-    assert db.get_messages("run_id=run-1&user_id=user-1")[0]["content"] == "I prefer ETFs"
+    assert [message["content"] for message in db.get_messages("run_id=run-1&user_id=user-1")] == [
+        "I prefer bonds",
+        "Noted again",
+    ]
     assert memory._process_midterm_evictions.call_args.args[1]["user_id"] == "user-1"
     assert memory.get_profile("user-1")["profile"]["preferred_products"] == ["ETF"]
 
@@ -674,7 +698,8 @@ def test_automatic_update_failure_does_not_escape_add_path(caplog):
 def test_profile_failure_preserves_memory_add_result(monkeypatch):
     memory = _memory_for_automatic_update(UserProfileConfig(enabled=True))
     memory.config.llm = SimpleNamespace(config={})
-    memory._add_to_vector_store = MagicMock(return_value=[{"id": "memory-1", "event": "ADD"}])
+    memory._save_short_term_messages = MagicMock(return_value=[{"role": "user", "content": "I prefer ETFs"}])
+    memory._process_evicted_long_term_memories = MagicMock(return_value=[{"id": "memory-1", "event": "ADD"}])
     memory._process_midterm_evictions = MagicMock()
     memory._profile_updater.generate_update_plan.side_effect = RuntimeError("LLM unavailable")
     monkeypatch.setattr("mem0.memory.main.detect_scale_threshold_from_add_result", lambda *args: None)

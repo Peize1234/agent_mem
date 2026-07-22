@@ -6,6 +6,7 @@ import pytest
 
 from mem0 import Memory
 from mem0.configs.base import MemoryConfig, MidTermMemoryConfig
+from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT, MIDTERM_SESSION_MERGE_PROMPT
 from mem0.memory.midterm_retriever import MidTermRetriever
 from mem0.memory.midterm_updater import MidTermUpdater
 from mem0.memory.storage import SQLiteManager
@@ -37,9 +38,9 @@ class FakeLLM:
     def generate_response(self, messages, response_format=None, **kwargs):
         system = messages[0]["content"] if messages else ""
         user_prompt = messages[-1]["content"] if messages else ""
-        if "Summarize one evicted" in system:
+        if "将一轮已从短期记忆淘汰" in system:
             return json.dumps(self._page_summary(user_prompt), ensure_ascii=False)
-        if "Merge an existing mid-term session summary" in system:
+        if "将现有的中期记忆会话摘要" in system:
             payload = json.loads(user_prompt)
             existing = payload.get("existing_session", {})
             new_page = payload.get("new_page", {})
@@ -76,6 +77,17 @@ class FakeLLM:
         if "债券基金" in text or "基金配置" in text:
             return "用户偏好较高比例配置债券基金。"
         return None
+
+
+def test_midterm_prompts_are_chinese_and_preserve_json_contract():
+    assert "只返回一个 JSON 对象" in MIDTERM_PAGE_SUMMARY_PROMPT
+    assert "用户的意图、偏好、约束和讨论主题" in MIDTERM_PAGE_SUMMARY_PROMPT
+    assert "summary" in MIDTERM_PAGE_SUMMARY_PROMPT
+    assert "keywords" in MIDTERM_PAGE_SUMMARY_PROMPT
+    assert "只返回一个 JSON 对象" in MIDTERM_SESSION_MERGE_PROMPT
+    assert "整个会话" in MIDTERM_SESSION_MERGE_PROMPT
+    assert "summary" in MIDTERM_SESSION_MERGE_PROMPT
+    assert "keywords" in MIDTERM_SESSION_MERGE_PROMPT
 
 
 class InMemoryVectorStore:
@@ -524,14 +536,30 @@ def test_memory_reset_clears_midterm_and_lazy_state(tmp_path, fake_memory_env):
     assert memory._midterm_memory is None
     assert memory._midterm_updater is None
     assert memory._midterm_retriever is None
-    assert memory._last_evicted_messages == []
+    legacy_eviction_attribute = "_last_" + "evicted_messages"
+    assert not hasattr(memory, legacy_eviction_attribute)
     assert memory.midterm_memory.list_pages(filters={"user_id": "u1"}, top_k=10) == []
     assert memory.midterm_memory.list_sessions(filters={"user_id": "u1"}, top_k=10) == []
 
 
 def test_midterm_disabled_preserves_search_shape_and_lazy_state(tmp_path, fake_memory_env):
     memory = Memory(_memory_config(tmp_path, enabled=False, collection_name="midterm_disabled"))
-    memory.add("用户偏好保守投资。", user_id="u1", infer=False)
+    memory.add(
+        [
+            {"role": "user", "content": "用户偏好保守投资。"},
+            {"role": "assistant", "content": "我会记住。"},
+        ],
+        user_id="u1",
+        infer=False,
+    )
+    memory.add(
+        [
+            {"role": "user", "content": "用户关注流动性。"},
+            {"role": "assistant", "content": "我会纳入考虑。"},
+        ],
+        user_id="u1",
+        infer=False,
+    )
 
     result = memory.search("保守投资", filters={"user_id": "u1"}, top_k=3)
     assert result["results"]

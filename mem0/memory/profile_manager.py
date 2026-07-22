@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Any, Dict, Optional, TYPE_CHECKING
 
 from mem0.configs.base import UserProfileConfig
@@ -6,6 +8,7 @@ from mem0.memory.profile_validator import serialize_profile_value, validate_oper
 
 if TYPE_CHECKING:
     from mem0.memory.storage import SQLiteManager
+
 
 class ProfileManager:
     def __init__(self, db: SQLiteManager, config: Optional[UserProfileConfig] = None):

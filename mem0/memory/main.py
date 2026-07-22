@@ -517,7 +517,6 @@ class Memory(MemoryBase):
         self._midterm_retriever = None
         self._profile_manager = None
         self._profile_updater = None
-        self._last_evicted_messages = []
 
         if MEM0_TELEMETRY:
             # Create telemetry config manually to avoid deepcopy issues with thread locks
@@ -752,10 +751,6 @@ class Memory(MemoryBase):
             )
         return capacity
 
-        # if self._midterm_enabled():
-            
-        # return 10
-
     def _expand_evicted_messages_for_qa_pairs(self, evicted_messages, session_scope):
         if not evicted_messages or evicted_messages[-1].get("role") != "user":
             return evicted_messages or []
@@ -769,20 +764,16 @@ class Memory(MemoryBase):
         return [*evicted_messages, assistant_message]
 
     def _save_short_term_messages(self, messages, session_scope):
-        if self._midterm_enabled():
-            evicted_messages = self.db.save_messages(
+        evicted_messages = (
+            self.db.save_messages(
                 messages,
                 session_scope,
                 max_messages=self._short_term_capacity(),
                 return_evicted=True,
-            ) or []
-            evicted_messages = self._expand_evicted_messages_for_qa_pairs(evicted_messages, session_scope)
-            self._last_evicted_messages = evicted_messages
-            return evicted_messages
-
-        self.db.save_messages(messages, session_scope)
-        self._last_evicted_messages = []
-        return []
+            )
+            or []
+        )
+        return self._expand_evicted_messages_for_qa_pairs(evicted_messages, session_scope)
 
     def _process_midterm_evictions(self, evicted_messages, filters):
         if not self._midterm_enabled() or not evicted_messages:
@@ -812,7 +803,6 @@ class Memory(MemoryBase):
         self._midterm_memory = None
         self._midterm_updater = None
         self._midterm_retriever = None
-        self._last_evicted_messages = []
 
     @staticmethod
     def _normalize_entity_text(value: str) -> str:
@@ -1022,9 +1012,9 @@ class Memory(MemoryBase):
             timestamp (Any, optional): Platform-only temporal parameter. Not supported in OSS.
             expiration_date (Any, optional): Date in YYYY-MM-DD format. Expired memories are hidden
                 from search and get_all unless show_expired is True.
-            infer (bool, optional): If True (default), an LLM is used to extract key facts from
-                'messages' and decide whether to add, update, or delete related memories.
-                If False, 'messages' are added as raw memories directly.
+            infer (bool, optional): Controls how messages evicted from the short-term window migrate
+                to long-term memory. If True (default), an LLM extracts facts from evicted messages.
+                If False, evicted non-system messages are written as raw long-term memories.
             memory_type (str, optional): Specifies the type of memory. Currently, only
                 `MemoryType.PROCEDURAL.value` ("procedural_memory") is explicitly handled for
                 creating procedural memories (typically requires 'agent_id'). Otherwise, memories
@@ -1098,13 +1088,23 @@ class Memory(MemoryBase):
         else:
             messages = parse_vision_messages(messages)
 
-        self._last_evicted_messages = []
-        vector_store_result = self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
+        # Layered migration order: short-term first; evictions then flow to mid-term and long-term.
+        session_scope = _build_session_scope(effective_filters)
 
-        # TODO: 现在如果pop出来的对话是user的，那会额外pop出模型的回答，这个pop出的回答好像没有进入原始的长期记忆
-        self._process_midterm_evictions(self._last_evicted_messages, effective_filters)
+        evicted_messages = self._save_short_term_messages(messages, session_scope)
         self._update_profile_after_add(normalized_user_id, messages)
 
+        vector_store_result = []
+        if evicted_messages:
+            self._process_midterm_evictions(evicted_messages, effective_filters)
+            vector_store_result = self._process_evicted_long_term_memories(
+                evicted_messages,
+                processed_metadata,
+                effective_filters,
+                infer=infer,
+                prompt=prompt,
+            )
+        
         scale_threshold_notice = detect_scale_threshold_from_add_result(self, vector_store_result)
         if temporal_usage_notice:
             display_temporal_usage_notice(self, "sync", "add", *temporal_usage_notice)
@@ -1114,11 +1114,18 @@ class Memory(MemoryBase):
             display_first_run_notice(self, "sync", "add")
         return {"results": vector_store_result}
 
-    def _add_to_vector_store(self, messages, metadata, filters, infer, prompt=None):
+    def _process_evicted_long_term_memories(
+        self,
+        evicted_messages,
+        metadata,
+        filters,
+        *,
+        infer=True,
+        prompt=None,
+    ):
         if not infer:
             returned_memories = []
-            session_scope = _build_session_scope(filters)
-            for message_dict in messages:
+            for message_dict in evicted_messages:
                 if (
                     not isinstance(message_dict, dict)
                     or message_dict.get("role") is None
@@ -1150,21 +1157,20 @@ class Memory(MemoryBase):
                         "role": message_dict["role"],
                     }
                 )
-            self._save_short_term_messages(messages, session_scope)
             return returned_memories
 
         # === V3 PHASED BATCH PIPELINE ===
 
         # Phase 0: Context gathering
         session_scope = _build_session_scope(filters)
-        last_messages = self.db.get_last_messages(session_scope, limit=self._short_term_capacity())
-        parsed_messages = parse_messages(messages)
+        retained_messages = self.db.get_last_messages(session_scope, limit=self._short_term_capacity())
+        parsed_evicted_messages = parse_messages(evicted_messages)
 
         # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        query_embedding = self.embedding_model.embed(parsed_messages, "search")
+        query_embedding = self.embedding_model.embed(parsed_evicted_messages, "search")
         existing_results = self.vector_store.search(
-            query=parsed_messages,
+            query=parsed_evicted_messages,
             vectors=query_embedding,
             top_k=10,
             filters=search_filters,
@@ -1187,8 +1193,8 @@ class Memory(MemoryBase):
 
         user_prompt = generate_additive_extraction_prompt(
             existing_memories=existing_memories,
-            new_messages=parsed_messages,
-            last_k_messages=last_messages,
+            new_messages=parsed_evicted_messages,
+            last_k_messages=retained_messages,
             custom_instructions=custom_instr,
         )
 
@@ -1224,8 +1230,6 @@ class Memory(MemoryBase):
             extracted_memories = []
 
         if not extracted_memories:
-            # Save messages even if nothing extracted
-            self._save_short_term_messages(messages, session_scope)
             return []
 
         # Phase 3: Batch embed all extracted memory texts
@@ -1279,7 +1283,6 @@ class Memory(MemoryBase):
             records.append((memory_id, text, embed_map[text], mem_metadata))
 
         if not records:
-            self._save_short_term_messages(messages, session_scope)
             return []
 
         # Phase 6: Batch persist
@@ -1429,9 +1432,6 @@ class Memory(MemoryBase):
         except Exception as e:
             logger.warning(f"Batch entity linking failed: {e}")
 
-        # Phase 8: Save messages + return
-        self._save_short_term_messages(messages, session_scope)
-
         returned_memories = [
             {"id": r[0], "memory": r[1], "event": "ADD"}
             for r in records
@@ -1444,6 +1444,16 @@ class Memory(MemoryBase):
             {"version": self.api_version, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"},
         )
         return returned_memories
+
+    def _add_to_vector_store(self, messages, metadata, filters, infer, prompt=None):
+        """Compatibility alias treating ``messages`` as an already-evicted long-term batch."""
+        return self._process_evicted_long_term_memories(
+            messages,
+            metadata,
+            filters,
+            infer=infer,
+            prompt=prompt,
+        )
 
     def get(self, memory_id):
         """
@@ -2415,7 +2425,6 @@ class AsyncMemory(MemoryBase):
         self._profile_updater = None
         self._profile_user_locks = {}
         self._profile_user_locks_guard = asyncio.Lock()
-        self._last_evicted_messages = []
 
         # Initialize reranker if configured
         self.reranker = None
@@ -2674,21 +2683,17 @@ class AsyncMemory(MemoryBase):
         return [*evicted_messages, assistant_message]
 
     async def _save_short_term_messages(self, messages, session_scope):
-        if self._midterm_enabled():
-            evicted_messages = await asyncio.to_thread(
+        evicted_messages = (
+            await asyncio.to_thread(
                 self.db.save_messages,
                 messages,
                 session_scope,
                 self._short_term_capacity(),
                 True,
-            ) or []
-            evicted_messages = await self._expand_evicted_messages_for_qa_pairs(evicted_messages, session_scope)
-            self._last_evicted_messages = evicted_messages
-            return evicted_messages
-
-        await asyncio.to_thread(self.db.save_messages, messages, session_scope)
-        self._last_evicted_messages = []
-        return []
+            )
+            or []
+        )
+        return await self._expand_evicted_messages_for_qa_pairs(evicted_messages, session_scope)
 
     def _process_midterm_evictions(self, evicted_messages, filters):
         if not self._midterm_enabled() or not evicted_messages:
@@ -2718,7 +2723,6 @@ class AsyncMemory(MemoryBase):
         self._midterm_memory = None
         self._midterm_updater = None
         self._midterm_retriever = None
-        self._last_evicted_messages = []
 
     @staticmethod
     def _normalize_entity_text(value: str) -> str:
@@ -2935,7 +2939,8 @@ class AsyncMemory(MemoryBase):
             timestamp (Any, optional): Platform-only temporal parameter. Not supported in OSS.
             expiration_date (Any, optional): Date in YYYY-MM-DD format. Expired memories are hidden
                 from search and get_all unless show_expired is True.
-            infer (bool, optional): Whether to infer the memories. Defaults to True.
+            infer (bool, optional): Whether to infer long-term facts from messages evicted from the
+                short-term window. If False, evicted messages are written directly. Defaults to True.
             memory_type (str, optional): Type of memory to create. Defaults to None.
                                          Pass "procedural_memory" to create procedural memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
@@ -2993,10 +2998,23 @@ class AsyncMemory(MemoryBase):
         else:
             messages = parse_vision_messages(messages)
 
-        self._last_evicted_messages = []
-        vector_store_result = await self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
-        await asyncio.to_thread(self._process_midterm_evictions, self._last_evicted_messages, effective_filters)
+        # Keep each add's evictions local so concurrent sessions cannot overwrite one another.
+        session_scope = _build_session_scope(effective_filters)
+        
+        evicted_messages = await self._save_short_term_messages(messages, session_scope)
         await self._update_profile_after_add(normalized_user_id, messages)
+
+        vector_store_result = []
+        if evicted_messages:
+            await asyncio.to_thread(self._process_midterm_evictions, evicted_messages, effective_filters)
+            vector_store_result = await self._process_evicted_long_term_memories(
+                evicted_messages,
+                processed_metadata,
+                effective_filters,
+                infer=infer,
+                prompt=prompt,
+            )
+        
         scale_threshold_notice = await asyncio.to_thread(detect_scale_threshold_from_add_result, self, vector_store_result)
         if temporal_usage_notice:
             await display_temporal_usage_notice_async(self, "async", "add", *temporal_usage_notice)
@@ -3006,18 +3024,18 @@ class AsyncMemory(MemoryBase):
             await display_first_run_notice_async(self, "async", "add")
         return {"results": vector_store_result}
 
-    async def _add_to_vector_store(
+    async def _process_evicted_long_term_memories(
         self,
-        messages: list,
+        evicted_messages: list,
         metadata: dict,
         effective_filters: dict,
-        infer: bool,
+        *,
+        infer: bool = True,
         prompt: Optional[str] = None,
     ):
         if not infer:
             returned_memories = []
-            session_scope = _build_session_scope(effective_filters)
-            for message_dict in messages:
+            for message_dict in evicted_messages:
                 if (
                     not isinstance(message_dict, dict)
                     or message_dict.get("role") is None
@@ -3049,22 +3067,25 @@ class AsyncMemory(MemoryBase):
                         "role": message_dict["role"],
                     }
                 )
-            await self._save_short_term_messages(messages, session_scope)
             return returned_memories
 
         # === V3 PHASED BATCH PIPELINE (async) ===
 
         # Phase 0: Context gathering
         session_scope = _build_session_scope(effective_filters)
-        last_messages = await asyncio.to_thread(self.db.get_last_messages, session_scope, self._short_term_capacity())
-        parsed_messages = parse_messages(messages)
+        retained_messages = await asyncio.to_thread(
+            self.db.get_last_messages,
+            session_scope,
+            self._short_term_capacity(),
+        )
+        parsed_evicted_messages = parse_messages(evicted_messages)
 
         # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in effective_filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        query_embedding = await asyncio.to_thread(self.embedding_model.embed, parsed_messages, "search")
+        query_embedding = await asyncio.to_thread(self.embedding_model.embed, parsed_evicted_messages, "search")
         existing_results = await asyncio.to_thread(
             self.vector_store.search,
-            query=parsed_messages,
+            query=parsed_evicted_messages,
             vectors=query_embedding,
             top_k=10,
             filters=search_filters,
@@ -3087,8 +3108,8 @@ class AsyncMemory(MemoryBase):
 
         user_prompt = generate_additive_extraction_prompt(
             existing_memories=existing_memories,
-            new_messages=parsed_messages,
-            last_k_messages=last_messages,
+            new_messages=parsed_evicted_messages,
+            last_k_messages=retained_messages,
             custom_instructions=custom_instr,
         )
 
@@ -3123,7 +3144,6 @@ class AsyncMemory(MemoryBase):
             extracted_memories = []
 
         if not extracted_memories:
-            await self._save_short_term_messages(messages, session_scope)
             return []
 
         # Phase 3: Batch embed all extracted memory texts
@@ -3175,7 +3195,6 @@ class AsyncMemory(MemoryBase):
             records.append((memory_id, text, embed_map[text], mem_metadata))
 
         if not records:
-            await self._save_short_term_messages(messages, session_scope)
             return []
 
         # Phase 6: Batch persist
@@ -3325,9 +3344,6 @@ class AsyncMemory(MemoryBase):
         except Exception as e:
             logger.warning(f"Batch entity linking failed (async): {e}")
 
-        # Phase 8: Save messages + return
-        await self._save_short_term_messages(messages, session_scope)
-
         returned_memories = [
             {"id": r[0], "memory": r[1], "event": "ADD"}
             for r in records
@@ -3340,6 +3356,23 @@ class AsyncMemory(MemoryBase):
             {"version": self.api_version, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"},
         )
         return returned_memories
+
+    async def _add_to_vector_store(
+        self,
+        messages: list,
+        metadata: dict,
+        effective_filters: dict,
+        infer: bool,
+        prompt: Optional[str] = None,
+    ):
+        """Compatibility alias treating ``messages`` as an already-evicted long-term batch."""
+        return await self._process_evicted_long_term_memories(
+            messages,
+            metadata,
+            effective_filters,
+            infer=infer,
+            prompt=prompt,
+        )
 
     async def get(self, memory_id):
         """

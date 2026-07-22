@@ -1,18 +1,18 @@
 MIDTERM_PAGE_SUMMARY_PROMPT = """
-Summarize one evicted user/assistant dialogue turn for mid-term conversational memory.
+将一轮已从短期记忆淘汰的用户/助手对话总结为中期对话记忆。
 
-Return only a JSON object with:
-- summary: a concise sentence about what the user discussed or revealed
-- keywords: 3 to 8 short topic keywords
+只返回一个 JSON 对象，包含：
+- summary：用一句简洁的话概括用户讨论或透露的内容
+- keywords：3 至 8 个简短的主题关键词
 
-Prefer user intent, preferences, constraints, and topics. Do not make the assistant's long answer
-the main topic unless it is essential for understanding the user's request.
+优先提炼用户的意图、偏好、约束和讨论主题。除非助手的长篇回答对于理解用户请求至关重要，
+否则不要将其作为主要主题。
 """
 
 MIDTERM_SESSION_MERGE_PROMPT = """
-Merge an existing mid-term session summary with a new dialogue page summary.
+将现有的中期记忆会话摘要与新的对话页面摘要合并。
 
-Return only a JSON object with:
-- summary: a concise topic-level summary for the whole session
-- keywords: 5 to 12 short topic keywords
+只返回一个 JSON 对象，包含：
+- summary：针对整个会话的简洁主题级摘要
+- keywords：5 至 12 个简短的主题关键词
 """
