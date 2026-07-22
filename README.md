@@ -122,12 +122,18 @@ Just testing? Use the library. Building for a team? Self-hosted. Want zero ops? 
 pip install mem0ai
 ```
 
-For enhanced hybrid search with BM25 keyword matching and entity extraction, install with NLP support:
+For enhanced hybrid search with BM25 keyword matching and English/Chinese entity extraction, install the NLP and
+extras dependency groups from a source checkout, then install both spaCy language models:
 
 ```bash
-pip install mem0ai[nlp]
+pip install -e ".[nlp,extras]"
 python -m spacy download en_core_web_sm
+python -m spacy download zh_core_web_sm
 ```
+
+`en_core_web_sm` provides English entity extraction and BM25 lemmatization, `zh_core_web_sm` provides Chinese NER,
+and Jieba provides Chinese BM25 tokenization. If the Chinese model is unavailable, entity extraction safely falls
+back to the financial dictionary and strict regular expressions, but full Chinese NER is not available.
 
 Install sdk via npm:
 

@@ -22,9 +22,10 @@ import unicodedata
 from pathlib import Path
 from types import ModuleType
 
+from mem0.utils.language import contains_chinese
+
 logger = logging.getLogger(__name__)
 
-_CHINESE_RE = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
 _THOUSANDS_SEPARATOR_RE = re.compile(r"(?<=\d),(?=\d{3}(?:\D|$))")
 _PERCENT_RE = re.compile(r"(\d+(?:\.\d+)?)%")
 _BASIC_TOKEN_RE = re.compile(r"[a-z0-9]+(?:\.[0-9]+)?|[\u3400-\u4dbf\u4e00-\u9fff]+")
@@ -39,10 +40,6 @@ def _normalize_text(text: str) -> str:
     normalized = unicodedata.normalize("NFKC", text).lower()
     normalized = _THOUSANDS_SEPARATOR_RE.sub("", normalized)
     return _PERCENT_RE.sub(r"\1", normalized)
-
-
-def _contains_chinese(text: str) -> bool:
-    return bool(_CHINESE_RE.search(text))
 
 
 def _is_search_token(token: str) -> bool:
@@ -81,13 +78,16 @@ def _segment_chinese_for_bm25(text: str) -> str:
         import jieba
     except ImportError:
         logger.warning(
-            "jieba not installed - Chinese BM25 tokenization disabled. "
-            'Install it with: pip install "mem0ai[extras]"'
+            'jieba not installed - Chinese BM25 tokenization disabled. Install it with: pip install "mem0ai[extras]"'
         )
-        return _basic_tokenize(text)
+        return text
 
-    _load_finance_dict(jieba)
-    return _join_tokens(jieba.lcut(text, cut_all=False))
+    try:
+        _load_finance_dict(jieba)
+        return _join_tokens(jieba.lcut(text, cut_all=False))
+    except Exception as e:
+        logger.warning(f"Chinese BM25 tokenization failed; using original text: {e}")
+        return text
 
 
 def lemmatize_for_bm25(text: str) -> str:
@@ -100,7 +100,7 @@ def lemmatize_for_bm25(text: str) -> str:
     if not normalized_text:
         return ""
 
-    if _contains_chinese(normalized_text):
+    if contains_chinese(normalized_text):
         return _segment_chinese_for_bm25(normalized_text)
 
     from mem0.utils.spacy_models import get_nlp_lemma
