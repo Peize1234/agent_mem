@@ -13,9 +13,18 @@ logger = logging.getLogger(__name__)
 
 _nlp_full = None
 _nlp_lemma = None
+_nlp_chinese = None
 _load_failed_full = False
 _load_failed_lemma = False
+_load_failed_chinese = False
 _lock = threading.Lock()
+
+_CHINESE_MODEL_NAMES = (
+    "zh_core_web_trf",
+    "zh_core_web_lg",
+    "zh_core_web_md",
+    "zh_core_web_sm",
+)
 
 
 def _ensure_model_available():
@@ -23,9 +32,7 @@ def _ensure_model_available():
     try:
         import spacy
     except ImportError:
-        raise ImportError(
-            "spaCy is not installed. Install it with: pip install mem0ai[nlp]"
-        )
+        raise ImportError("spaCy is not installed. Install it with: pip install mem0ai[nlp]")
 
     if not spacy.util.is_package("en_core_web_sm"):
         logger.info("Downloading spaCy model en_core_web_sm...")
@@ -89,3 +96,34 @@ def get_nlp_lemma():
             _load_failed_lemma = True
             return None
     return _nlp_lemma
+
+
+def get_nlp_chinese():
+    """Return the best installed Chinese spaCy NER model, without downloading one."""
+    global _nlp_chinese, _load_failed_chinese
+    if _load_failed_chinese:
+        return None
+    if _nlp_chinese is not None:
+        return _nlp_chinese
+
+    with _lock:
+        if _nlp_chinese is not None:
+            return _nlp_chinese
+        if _load_failed_chinese:
+            return None
+        try:
+            import spacy
+
+            model_name = next((name for name in _CHINESE_MODEL_NAMES if spacy.util.is_package(name)), None)
+            if model_name is None:
+                raise RuntimeError("no installed Chinese spaCy model (tried " + ", ".join(_CHINESE_MODEL_NAMES) + ")")
+            _nlp_chinese = spacy.load(model_name)
+            logger.info("Chinese spaCy model loaded: %s", model_name)
+        except Exception as e:
+            logger.warning(
+                "Chinese spaCy NER unavailable; using financial dictionary and strict patterns only: %s",
+                e,
+            )
+            _load_failed_chinese = True
+            return None
+    return _nlp_chinese
