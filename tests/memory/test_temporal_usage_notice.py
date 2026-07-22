@@ -12,7 +12,8 @@ def make_sync_memory():
     memory.config = SimpleNamespace(llm=SimpleNamespace(config={}))
     memory.api_version = "v1.1"
     memory.reranker = None
-    memory._add_to_vector_store = MagicMock(return_value=[])
+    memory._save_short_term_messages = MagicMock(return_value=[])
+    memory._process_evicted_long_term_memories = MagicMock(return_value=[])
     memory._search_vector_store = MagicMock(return_value=[])
     return memory
 
@@ -22,7 +23,8 @@ def make_async_memory():
     memory.config = SimpleNamespace(llm=SimpleNamespace(config={}))
     memory.api_version = "v1.1"
     memory.reranker = None
-    memory._add_to_vector_store = AsyncMock(return_value=[])
+    memory._save_short_term_messages = AsyncMock(return_value=[])
+    memory._process_evicted_long_term_memories = AsyncMock(return_value=[])
     memory._search_vector_store = AsyncMock(return_value=[])
     return memory
 
@@ -43,7 +45,7 @@ def test_sync_add_temporal_metadata_triggers_notice_after_success(monkeypatch):
     )
 
     assert result == {"results": []}
-    memory._add_to_vector_store.assert_called_once()
+    memory._process_evicted_long_term_memories.assert_not_called()
     temporal_notice.assert_called_once_with(memory, "sync", "add", "metadata", "date_like_metadata")
     first_run_notice.assert_not_called()
 
@@ -63,7 +65,8 @@ def test_sync_add_non_temporal_metadata_uses_first_run_notice(monkeypatch):
 
 def test_sync_add_failure_does_not_trigger_temporal_usage_notice(monkeypatch):
     memory = make_sync_memory()
-    memory._add_to_vector_store.side_effect = RuntimeError("vector failure")
+    memory._save_short_term_messages.return_value = [{"role": "user", "content": "The user visited Paris."}]
+    memory._process_evicted_long_term_memories.side_effect = RuntimeError("vector failure")
     temporal_notice = MagicMock()
     first_run_notice = MagicMock()
     monkeypatch.setattr(memory_main, "display_temporal_usage_notice", temporal_notice)
@@ -145,7 +148,7 @@ async def test_async_add_temporal_metadata_triggers_notice_after_success(monkeyp
     )
 
     assert result == {"results": []}
-    memory._add_to_vector_store.assert_awaited_once()
+    memory._process_evicted_long_term_memories.assert_not_awaited()
     temporal_notice.assert_awaited_once_with(memory, "async", "add", "metadata", "date_like_metadata")
     first_run_notice.assert_not_awaited()
 

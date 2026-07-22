@@ -268,7 +268,9 @@ def test_public_add_succeeds_when_first_run_flag_eval_fails(notice_harness):
     telemetry.posthog.evaluate_flags.side_effect = RuntimeError("network unavailable")
     memory = Memory.__new__(Memory)
     memory.config = SimpleNamespace(llm=SimpleNamespace(config={}))
-    memory._add_to_vector_store = MagicMock(return_value=[{"event": "ADD", "memory": "likes tea"}])
+    evicted_messages = [{"role": "user", "content": "The user likes tea."}]
+    memory._save_short_term_messages = MagicMock(return_value=evicted_messages)
+    memory._process_evicted_long_term_memories = MagicMock(return_value=[{"event": "ADD", "memory": "likes tea"}])
 
     result = Memory.add(memory, "The user likes tea.", user_id="u1", infer=False)
 

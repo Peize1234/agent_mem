@@ -702,6 +702,7 @@ def test_add_infer_false_embeds_once(mock_sqlite, mock_llm_factory, mock_vector_
 
     from mem0.memory.main import Memory as MemoryClass
     memory = MemoryClass(MemoryConfig())
+    memory._save_short_term_messages = MagicMock(return_value=[{"role": "user", "content": "foo"}])
 
     memory.add("foo", user_id="test_user", infer=False)
 
@@ -744,8 +745,12 @@ def test_add_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm_fa
 
     from mem0.memory.main import Memory as MemoryClass
     memory = MemoryClass(MemoryConfig())
+    memory._save_short_term_messages = MagicMock(
+        return_value=[{"role": "user", "content": "I like Python"}]
+    )
 
-    memory.add("I like Python", user_id="test_user", infer=True)
+    with patch("mem0.memory.main.extract_entities_batch", return_value=[[]]):
+        memory.add("I like Python", user_id="test_user", infer=True)
 
     # V3 pipeline: embed called once for search query (Phase 1),
     # embed_batch called once for extracted memories (Phase 3)
@@ -801,8 +806,12 @@ def test_update_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm
 
     from mem0.memory.main import Memory as MemoryClass
     memory = MemoryClass(MemoryConfig())
+    memory._save_short_term_messages = MagicMock(
+        return_value=[{"role": "user", "content": "I love Python now"}]
+    )
 
-    memory.add("I love Python now", user_id="test_user", infer=True)
+    with patch("mem0.memory.main.extract_entities_batch", return_value=[[]]):
+        memory.add("I love Python now", user_id="test_user", infer=True)
 
     # V3 pipeline: embed called once for search query (Phase 1),
     # embed_batch called once for extracted memories (Phase 3)

@@ -389,10 +389,7 @@ def apply_fair_short_window_patch(memory, capacity: int) -> None:
     """
     让short_term_capacity与midterm.enabled解耦。
 
-    原仓库在中期关闭时会走SQLiteManager.save_messages()的默认max_messages=10，
-    导致消融实验的短期窗口从4变成10。此补丁只作用于当前测试进程：
-    - 中期开启：保留capacity条，淘汰QA进入中期；
-    - 中期关闭：仍保留capacity条，但淘汰内容直接丢弃。
+    此补丁只作用于当前测试进程，固定短期窗口容量并返回完整 QA 淘汰结果。
     """
     from types import MethodType
 
@@ -404,23 +401,17 @@ def apply_fair_short_window_patch(memory, capacity: int) -> None:
         return capacity
 
     def fixed_save_short_term(self, messages, session_scope):
-        enabled = bool(getattr(self, "_midterm_enabled", lambda: False)())
-        evicted = self.db.save_messages(
-            messages,
-            session_scope,
-            max_messages=capacity,
-            return_evicted=enabled,
+        evicted = (
+            self.db.save_messages(
+                messages,
+                session_scope,
+                max_messages=capacity,
+                return_evicted=True,
+            )
+            or []
         )
-        if enabled:
-            evicted = evicted or []
-            expand = getattr(self, "_expand_evicted_messages_for_qa_pairs", None)
-            if callable(expand):
-                evicted = expand(evicted, session_scope)
-            self._last_evicted_messages = evicted
-            return evicted
-
-        self._last_evicted_messages = []
-        return []
+        expand = getattr(self, "_expand_evicted_messages_for_qa_pairs", None)
+        return expand(evicted, session_scope) if callable(expand) else evicted
 
     memory._short_term_capacity = MethodType(fixed_capacity, memory)
     memory._save_short_term_messages = MethodType(fixed_save_short_term, memory)
