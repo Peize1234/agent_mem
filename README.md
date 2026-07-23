@@ -135,6 +135,21 @@ python -m spacy download zh_core_web_sm
 and Jieba provides Chinese BM25 tokenization. If the Chinese model is unavailable, entity extraction safely falls
 back to the financial dictionary and strict regular expressions, but full Chinese NER is not available.
 
+Qdrant uses the existing FastEmbed `Qdrant/bm25` route by default. For Chinese memories, select the local,
+download-free sparse encoder and matching Jieba preprocessing explicitly:
+
+```python
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {"bm25_language": "zh"},
+    }
+}
+```
+
+Use `bm25_language="en"` (the default) for the FastEmbed route. Changing this value changes sparse token indices,
+so existing memory sparse vectors must be regenerated before searching with the new route.
+
 Install sdk via npm:
 
 ```bash

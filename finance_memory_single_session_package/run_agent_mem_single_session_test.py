@@ -368,6 +368,7 @@ def build_memory(args: argparse.Namespace, run_dir: Path):
                 "collection_name": collection_name,
                 "path": str(qdrant_path),
                 "embedding_model_dims": args.embedding_dims,
+                "bm25_language": "zh",
             },
         },
         "history_db_path": str(history_path),

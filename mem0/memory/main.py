@@ -100,6 +100,47 @@ def _vector_store_list_rows(listed):
     return []
 
 
+def _configured_bm25_language(config: MemoryConfig) -> str | None:
+    """Return an explicit language only for Qdrant's configurable BM25 route."""
+    if config.vector_store.provider != "qdrant":
+        return None
+    return getattr(config.vector_store.config, "bm25_language", "en")
+
+
+def _additive_midterm_context(memory, query, filters):
+    """Return the session summary and related page context declared by the additive prompt."""
+    if not memory._midterm_enabled():
+        return "", []
+
+    try:
+        results = memory.midterm_retriever.search(query, filters)
+    except Exception as exc:
+        logger.warning("Mid-term context retrieval for long-term extraction failed: %s", exc)
+        return "", []
+
+    session_summaries = []
+    related_memories = []
+    for result in results:
+        source = result.get("source")
+        summary = str(result.get("summary") or result.get("memory") or "").strip()
+        if source == "mid_term_session":
+            if summary and summary not in session_summaries:
+                session_summaries.append(summary)
+            continue
+
+        related_memory = {
+            key: result.get(key)
+            for key in ("source", "summary", "raw_dialogue", "created_at")
+            if result.get(key) not in (None, "")
+        }
+        if not related_memory and summary:
+            related_memory["summary"] = summary
+        if related_memory:
+            related_memories.append(related_memory)
+
+    return "\n".join(session_summaries), related_memories
+
+
 # Fields that hold runtime auth/connection objects and must be preserved.
 # These are non-serializable objects (e.g. AWSV4SignerAuth, RequestsHttpConnection)
 # needed by clients like OpenSearch — not sensitive strings to redact.
@@ -487,6 +528,7 @@ class _AsyncOSSProject:
 class Memory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
+        self._bm25_language = _configured_bm25_language(config)
 
         self.embedding_model = EmbedderFactory.create(
             self.config.embedder.provider,
@@ -1163,8 +1205,13 @@ class Memory(MemoryBase):
 
         # Phase 0: Context gathering
         session_scope = _build_session_scope(filters)
-        retained_messages = self.db.get_last_messages(session_scope, limit=self._short_term_capacity())
+        short_term_context = self.db.get_last_messages(session_scope, limit=self._short_term_capacity())
         parsed_evicted_messages = parse_messages(evicted_messages)
+        session_summary, existing_related_memories = _additive_midterm_context(
+            self,
+            parsed_evicted_messages,
+            filters,
+        )
 
         # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
@@ -1176,12 +1223,9 @@ class Memory(MemoryBase):
             filters=search_filters,
         )
 
-        # Map UUIDs to integers (anti-hallucination)
-        existing_memories = []
-        uuid_mapping = {}
-        for idx, mem in enumerate(existing_results):
-            uuid_mapping[str(idx)] = mem.id
-            existing_memories.append({"id": str(idx), "text": mem.payload.get("data", "")})
+        existing_long_term_memories = [
+            {"id": str(mem.id), "text": mem.payload.get("data", "")} for mem in existing_results
+        ]
 
         # Phase 2: LLM extraction (single call)
         is_agent_scoped = bool(filters.get("agent_id")) and not filters.get("user_id")
@@ -1192,9 +1236,11 @@ class Memory(MemoryBase):
         custom_instr = prompt or self.custom_instructions
 
         user_prompt = generate_additive_extraction_prompt(
-            existing_memories=existing_memories,
-            new_messages=parsed_evicted_messages,
-            last_k_messages=retained_messages,
+            new_messages=evicted_messages,
+            session_summary=session_summary,
+            existing_long_term_memories=existing_long_term_memories,
+            existing_related_memories=existing_related_memories,
+            short_term_context=short_term_context,
             custom_instructions=custom_instr,
         )
 
@@ -1267,7 +1313,7 @@ class Memory(MemoryBase):
                 continue
             seen_hashes.add(mem_hash)
 
-            text_lemmatized = lemmatize_for_bm25(text)
+            text_lemmatized = lemmatize_for_bm25(text, language=getattr(self, "_bm25_language", None))
 
             memory_id = str(uuid.uuid4())
             mem_metadata = deepcopy(metadata)
@@ -1886,7 +1932,7 @@ class Memory(MemoryBase):
             threshold = 0.1
 
         # Step 1: Preprocess query
-        query_lemmatized = lemmatize_for_bm25(query)
+        query_lemmatized = lemmatize_for_bm25(query, language=getattr(self, "_bm25_language", None))
         query_entities = extract_entities(query)
 
         # Step 2: Embed query
@@ -2199,7 +2245,9 @@ class Memory(MemoryBase):
         if "created_at" not in new_metadata:
             new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
         new_metadata["updated_at"] = new_metadata["created_at"]
-        new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
+        new_metadata["text_lemmatized"] = lemmatize_for_bm25(
+            data, language=getattr(self, "_bm25_language", None)
+        )
 
         self.vector_store.insert(
             vectors=[embeddings],
@@ -2283,7 +2331,9 @@ class Memory(MemoryBase):
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
+        new_metadata["text_lemmatized"] = lemmatize_for_bm25(
+            data, language=getattr(self, "_bm25_language", None)
+        )
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
@@ -2403,6 +2453,7 @@ class AsyncMemory(MemoryBase):
 
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
+        self._bm25_language = _configured_bm25_language(config)
 
         self.embedding_model = EmbedderFactory.create(
             self.config.embedder.provider,
@@ -3073,12 +3124,18 @@ class AsyncMemory(MemoryBase):
 
         # Phase 0: Context gathering
         session_scope = _build_session_scope(effective_filters)
-        retained_messages = await asyncio.to_thread(
+        short_term_context = await asyncio.to_thread(
             self.db.get_last_messages,
             session_scope,
             self._short_term_capacity(),
         )
         parsed_evicted_messages = parse_messages(evicted_messages)
+        session_summary, existing_related_memories = await asyncio.to_thread(
+            _additive_midterm_context,
+            self,
+            parsed_evicted_messages,
+            effective_filters,
+        )
 
         # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in effective_filters.items() if k in ("user_id", "agent_id", "run_id") and v}
@@ -3091,12 +3148,9 @@ class AsyncMemory(MemoryBase):
             filters=search_filters,
         )
 
-        # Map UUIDs to integers (anti-hallucination)
-        existing_memories = []
-        uuid_mapping = {}
-        for idx, mem in enumerate(existing_results):
-            uuid_mapping[str(idx)] = mem.id
-            existing_memories.append({"id": str(idx), "text": mem.payload.get("data", "")})
+        existing_long_term_memories = [
+            {"id": str(mem.id), "text": mem.payload.get("data", "")} for mem in existing_results
+        ]
 
         # Phase 2: LLM extraction (single call)
         is_agent_scoped = bool(effective_filters.get("agent_id")) and not effective_filters.get("user_id")
@@ -3107,9 +3161,11 @@ class AsyncMemory(MemoryBase):
         custom_instr = prompt or self.custom_instructions
 
         user_prompt = generate_additive_extraction_prompt(
-            existing_memories=existing_memories,
-            new_messages=parsed_evicted_messages,
-            last_k_messages=retained_messages,
+            new_messages=evicted_messages,
+            session_summary=session_summary,
+            existing_long_term_memories=existing_long_term_memories,
+            existing_related_memories=existing_related_memories,
+            short_term_context=short_term_context,
             custom_instructions=custom_instr,
         )
 
@@ -3179,7 +3235,7 @@ class AsyncMemory(MemoryBase):
                 continue
             seen_hashes.add(mem_hash)
 
-            text_lemmatized = lemmatize_for_bm25(text)
+            text_lemmatized = lemmatize_for_bm25(text, language=getattr(self, "_bm25_language", None))
 
             memory_id = str(uuid.uuid4())
             mem_metadata = deepcopy(metadata)
@@ -3810,7 +3866,11 @@ class AsyncMemory(MemoryBase):
             threshold = 0.1
 
         # Step 1: Preprocess query (CPU-bound)
-        query_lemmatized = await asyncio.to_thread(lemmatize_for_bm25, query)
+        query_lemmatized = await asyncio.to_thread(
+            lemmatize_for_bm25,
+            query,
+            language=getattr(self, "_bm25_language", None),
+        )
         query_entities = await asyncio.to_thread(extract_entities, query)
 
         # Step 2: Embed query
@@ -4128,7 +4188,9 @@ class AsyncMemory(MemoryBase):
         if "created_at" not in new_metadata:
             new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
         new_metadata["updated_at"] = new_metadata["created_at"]
-        new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
+        new_metadata["text_lemmatized"] = lemmatize_for_bm25(
+            data, language=getattr(self, "_bm25_language", None)
+        )
 
         await asyncio.to_thread(
             self.vector_store.insert,
@@ -4230,7 +4292,9 @@ class AsyncMemory(MemoryBase):
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
+        new_metadata["text_lemmatized"] = lemmatize_for_bm25(
+            data, language=getattr(self, "_bm25_language", None)
+        )
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 

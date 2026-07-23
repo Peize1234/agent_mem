@@ -83,6 +83,7 @@ def test_write_and_query_paths_share_entity_extractor():
 
 def test_sync_document_and_query_use_same_bm25_preprocessor():
     memory = _memory_shell(Memory)
+    memory._bm25_language = "zh"
     text = "华夏沪深300ETF适合长期持有吗"
 
     with (
@@ -95,12 +96,14 @@ def test_sync_document_and_query_use_same_bm25_preprocessor():
     payload = memory.vector_store.insert.call_args.kwargs["payloads"][0]
     keyword_query = memory.vector_store.keyword_search.call_args.kwargs["query"]
     assert preprocess.call_count == 2
-    assert payload["text_lemmatized"] == keyword_query == lemmatize_for_bm25(text)
+    assert all(call.kwargs == {"language": "zh"} for call in preprocess.call_args_list)
+    assert payload["text_lemmatized"] == keyword_query == lemmatize_for_bm25(text, language="zh")
 
 
 @pytest.mark.asyncio
 async def test_async_document_and_query_use_same_bm25_preprocessor():
     memory = _memory_shell(AsyncMemory)
+    memory._bm25_language = "zh"
     text = "华夏沪深300ETF适合长期持有吗"
 
     with (
@@ -114,4 +117,5 @@ async def test_async_document_and_query_use_same_bm25_preprocessor():
     payload = memory.vector_store.insert.call_args.kwargs["payloads"][0]
     keyword_query = memory.vector_store.keyword_search.call_args.kwargs["query"]
     assert preprocess.call_count == 2
-    assert payload["text_lemmatized"] == keyword_query == lemmatize_for_bm25(text)
+    assert all(call.kwargs == {"language": "zh"} for call in preprocess.call_args_list)
+    assert payload["text_lemmatized"] == keyword_query == lemmatize_for_bm25(text, language="zh")

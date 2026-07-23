@@ -13,6 +13,29 @@ def ensure_spacy():
 
 
 class TestLemmatizeForBm25:
+    def test_none_language_preserves_automatic_detection(self, monkeypatch):
+        from mem0.utils import lemmatization
+
+        monkeypatch.setattr(lemmatization, "_segment_chinese_for_bm25", lambda text: f"zh:{text}")
+
+        text = "用户关注指数基金"
+        assert lemmatization.lemmatize_for_bm25(text, language=None) == lemmatization.lemmatize_for_bm25(text)
+
+    def test_explicit_language_selects_requested_route(self, monkeypatch):
+        from mem0.utils import lemmatization
+
+        monkeypatch.setattr(lemmatization, "_segment_chinese_for_bm25", lambda text: f"zh:{text}")
+        monkeypatch.setattr("mem0.utils.spacy_models.get_nlp_lemma", lambda: None)
+
+        assert lemmatization.lemmatize_for_bm25("Portfolio ETF", language="zh") == "zh:portfolio etf"
+        assert lemmatization.lemmatize_for_bm25("用户关注ETF", language="en") == "用户关注 etf"
+
+    def test_invalid_language_is_rejected(self):
+        from mem0.utils.lemmatization import lemmatize_for_bm25
+
+        with pytest.raises(ValueError, match="language must be one of"):
+            lemmatize_for_bm25("text", language="fr")
+
     def test_basic_lemmatization(self, ensure_spacy):
         from mem0.utils.lemmatization import lemmatize_for_bm25
 

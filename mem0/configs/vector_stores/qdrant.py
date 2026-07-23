@@ -1,4 +1,4 @@
-from typing import Any, ClassVar, Dict, Optional
+from typing import Any, ClassVar, Dict, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -21,6 +21,10 @@ class QdrantConfig(BaseModel):
         description="Whether to force HTTPS on or off. Explicit schemes in url take precedence.",
     )
     on_disk: Optional[bool] = Field(False,description="Enables persistent storage. Vectors are kept on disk (True) or in memory (False). Does not delete the local database path.")
+    bm25_language: Literal["en", "zh"] = Field(
+        "en",
+        description="BM25 sparse encoder language: FastEmbed for English or the local Jieba-tokenized Chinese encoder",
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -28,7 +32,7 @@ class QdrantConfig(BaseModel):
         host, port, path, url, api_key = (
             values.get("host"),
             values.get("port"),
-            values.get("path"),
+            values.get("path", cls.model_fields["path"].default),
             values.get("url"),
             values.get("api_key"),
         )

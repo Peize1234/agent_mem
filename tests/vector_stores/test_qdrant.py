@@ -91,7 +91,7 @@ class TestQdrant(unittest.TestCase):
         """BM25 encoding must be done in a single batch call, not per-row.
 
         Regression test for the optimization that switched from looping over
-        `_encode_bm25(text)` to a single `encoder.embed(all_texts)` call.
+        `_encode_bm25_document(text)` to a single `encoder.embed(all_texts)` call.
         """
         # Pretend the collection has the bm25 sparse slot (set up by create_col
         # on a v3 collection) and stub the encoder to return predictable sparse
@@ -155,16 +155,16 @@ class TestQdrant(unittest.TestCase):
         so a single bad input doesn't drop BM25 for the whole batch."""
         self.qdrant._has_bm25_slot = True
 
-        # Batch call raises; per-row _encode_bm25 should be used as fallback.
+        # Batch call raises; per-row document encoding should be used as fallback.
         encoder_mock = MagicMock()
         encoder_mock.embed.side_effect = RuntimeError("batch failed")
         self.qdrant._bm25_encoder = encoder_mock
 
         # Use a real SparseVector — PointStruct validates the vector dict via
         # Pydantic, which would coerce a bare MagicMock into [] (MagicMock is
-        # iterable). _encode_bm25's real return type is SparseVector.
+        # iterable). _encode_bm25_document's real return type is SparseVector.
         fallback_sparse = SparseVector(indices=[7], values=[0.9])
-        with patch.object(self.qdrant, "_encode_bm25", return_value=fallback_sparse) as fallback:
+        with patch.object(self.qdrant, "_encode_bm25_document", return_value=fallback_sparse) as fallback:
             self.qdrant.insert(
                 vectors=[[0.1, 0.2], [0.3, 0.4]],
                 payloads=[{"data": "a"}, {"data": "b"}],
@@ -1054,3 +1054,43 @@ class TestQdrantDatetimeRangeFilters(unittest.TestCase):
 
         self.assertIs(result, encoder)
         fastembed.SparseTextEmbedding.assert_called_once_with(model_name="Qdrant/bm25", disable_stemmer=True)
+
+    def test_chinese_bm25_encoder_skips_fastembed(self):
+        fastembed = MagicMock()
+        chinese_qdrant = Qdrant(
+            collection_name="chinese_collection",
+            embedding_model_dims=128,
+            client=self.client_mock,
+            bm25_language="zh",
+        )
+
+        with patch.dict("sys.modules", {"fastembed": fastembed}):
+            encoder = chinese_qdrant._get_bm25_encoder()
+
+        from mem0.utils.bm25_sparse import ChineseBM25SparseEncoder
+
+        self.assertIsInstance(encoder, ChineseBM25SparseEncoder)
+        fastembed.SparseTextEmbedding.assert_not_called()
+
+    def test_keyword_search_uses_query_encoder(self):
+        self.qdrant._has_bm25_slot = True
+        encoder = MagicMock()
+        encoder.query_embed.return_value = iter(
+            [MagicMock(indices=MagicMock(tolist=lambda: [7]), values=MagicMock(tolist=lambda: [1.0]))]
+        )
+        self.qdrant._bm25_encoder = encoder
+        self.client_mock.query_points.return_value = MagicMock(points=[])
+
+        self.qdrant.keyword_search("portfolio", top_k=3)
+
+        encoder.query_embed.assert_called_once_with(["portfolio"])
+        encoder.embed.assert_not_called()
+
+    def test_invalid_bm25_language_fails_before_client_initialization(self):
+        with self.assertRaisesRegex(ValueError, "bm25_language must be either 'en' or 'zh'"):
+            Qdrant(
+                collection_name="invalid",
+                embedding_model_dims=128,
+                client=self.client_mock,
+                bm25_language="fr",
+            )
