@@ -194,14 +194,26 @@ def test_infer_false_directly_writes_only_evicted_messages_without_llm():
         db.close()
 
 
-def test_infer_true_uses_evicted_messages_as_subject_and_retained_messages_only_as_context(monkeypatch):
+def test_infer_true_passes_declared_additive_prompt_inputs(monkeypatch):
     db = SQLiteManager(":memory:")
     try:
         memory = _sync_memory(db, capacity=4)
         memory.embedding_model = MagicMock()
         memory.embedding_model.embed.return_value = [0.1, 0.2]
         memory.vector_store = MagicMock()
-        memory.vector_store.search.return_value = []
+        memory.vector_store.search.return_value = [
+            SimpleNamespace(id="long-term-1", payload={"data": "现有长期记忆"})
+        ]
+        memory._midterm_retriever = MagicMock()
+        memory._midterm_retriever.search.return_value = [
+            {"id": "session-internal-id", "source": "mid_term_session", "summary": "当前会话摘要"},
+            {
+                "id": "page-internal-id",
+                "source": "mid_term_page",
+                "summary": "相关中期记忆",
+                "raw_dialogue": "User: 历史问题",
+            },
+        ]
         memory.llm = MagicMock()
         memory.llm.generate_response.return_value = '{"memory": []}'
         prompt_builder = MagicMock(return_value="extraction prompt")
@@ -218,10 +230,16 @@ def test_infer_true_uses_evicted_messages_as_subject_and_retained_messages_only_
 
         assert result == []
         prompt_kwargs = prompt_builder.call_args.kwargs
-        assert "u1" in prompt_kwargs["new_messages"]
-        assert "a1" in prompt_kwargs["new_messages"]
-        assert "u2" not in prompt_kwargs["new_messages"]
-        assert _contents(prompt_kwargs["last_k_messages"]) == ["u2", "a2"]
+        assert _contents(prompt_kwargs["new_messages"]) == ["u1", "a1"]
+        assert prompt_kwargs["session_summary"] == "当前会话摘要"
+        assert prompt_kwargs["existing_long_term_memories"] == [
+            {"id": "long-term-1", "text": "现有长期记忆"}
+        ]
+        assert prompt_kwargs["existing_related_memories"] == [
+            {"source": "mid_term_page", "summary": "相关中期记忆", "raw_dialogue": "User: 历史问题"}
+        ]
+        assert _contents(prompt_kwargs["short_term_context"]) == ["u2", "a2"]
+        assert "subsequent_messages" not in prompt_kwargs
         memory.llm.generate_response.assert_called_once()
     finally:
         db.close()
@@ -285,6 +303,63 @@ async def test_async_short_term_save_uses_to_thread(monkeypatch):
         assert calls[0][0].__self__ is db
         assert calls[0][0].__name__ == "save_messages"
         assert calls[0][1][2:] == (2, True)
+    finally:
+        db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_infer_true_passes_declared_additive_prompt_inputs(monkeypatch):
+    db = SQLiteManager(":memory:")
+    try:
+        memory = _async_memory(db, capacity=4)
+
+        async def to_thread(function, *args, **kwargs):
+            return function(*args, **kwargs)
+
+        monkeypatch.setattr(memory_main.asyncio, "to_thread", to_thread)
+        memory.embedding_model = MagicMock()
+        memory.embedding_model.embed.return_value = [0.1, 0.2]
+        memory.vector_store = MagicMock()
+        memory.vector_store.search.return_value = [
+            SimpleNamespace(id="long-term-1", payload={"data": "现有长期记忆"})
+        ]
+        memory._midterm_retriever = MagicMock()
+        memory._midterm_retriever.search.return_value = [
+            {"id": "session-internal-id", "source": "mid_term_session", "summary": "当前会话摘要"},
+            {
+                "id": "page-internal-id",
+                "source": "mid_term_page",
+                "summary": "相关中期记忆",
+                "raw_dialogue": "User: 历史问题",
+            },
+        ]
+        memory.llm = MagicMock()
+        memory.llm.generate_response.return_value = '{"memory": []}'
+        prompt_builder = MagicMock(return_value="extraction prompt")
+        monkeypatch.setattr(memory_main, "generate_additive_extraction_prompt", prompt_builder)
+        db.save_messages(_qa(2), "run_id=r1&user_id=u1", max_messages=4)
+
+        result = await AsyncMemory._process_evicted_long_term_memories(
+            memory,
+            _qa(1),
+            {"user_id": "u1"},
+            {"user_id": "u1", "run_id": "r1"},
+            infer=True,
+        )
+
+        assert result == []
+        prompt_kwargs = prompt_builder.call_args.kwargs
+        assert _contents(prompt_kwargs["new_messages"]) == ["u1", "a1"]
+        assert prompt_kwargs["session_summary"] == "当前会话摘要"
+        assert prompt_kwargs["existing_long_term_memories"] == [
+            {"id": "long-term-1", "text": "现有长期记忆"}
+        ]
+        assert prompt_kwargs["existing_related_memories"] == [
+            {"source": "mid_term_page", "summary": "相关中期记忆", "raw_dialogue": "User: 历史问题"}
+        ]
+        assert _contents(prompt_kwargs["short_term_context"]) == ["u2", "a2"]
+        assert "subsequent_messages" not in prompt_kwargs
+        memory.llm.generate_response.assert_called_once()
     finally:
         db.close()
 

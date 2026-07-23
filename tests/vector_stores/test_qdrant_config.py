@@ -1,5 +1,8 @@
 from unittest.mock import MagicMock
 
+import pytest
+from pydantic import ValidationError
+
 from mem0.configs.vector_stores.qdrant import QdrantConfig
 from mem0.vector_stores import qdrant as qdrant_module
 
@@ -13,6 +16,19 @@ def test_qdrant_config_accepts_explicit_https_false():
     )
 
     assert config.https is False
+
+
+def test_qdrant_config_defaults_to_english_bm25():
+    assert QdrantConfig().bm25_language == "en"
+
+
+def test_qdrant_config_accepts_chinese_bm25():
+    assert QdrantConfig(bm25_language="zh").bm25_language == "zh"
+
+
+def test_qdrant_config_rejects_invalid_bm25_language():
+    with pytest.raises(ValidationError, match="en.*zh"):
+        QdrantConfig(bm25_language="fr")
 
 
 def test_qdrant_passes_explicit_https_to_client(monkeypatch):

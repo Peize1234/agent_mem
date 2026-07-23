@@ -90,17 +90,22 @@ def _segment_chinese_for_bm25(text: str) -> str:
         return text
 
 
-def lemmatize_for_bm25(text: str) -> str:
+def lemmatize_for_bm25(text: str, language: str | None = None) -> str:
     """Normalize and tokenize text for BM25 matching.
 
-    Chinese text is segmented with Jieba and English text keeps the existing
-    spaCy lemmatization flow. Returns a space-joined string for full-text search.
+    ``language=None`` preserves automatic language detection for compatibility.
+    Explicit Qdrant routes pass ``en`` or ``zh`` so documents and queries use
+    the same preprocessing.
     """
+    if language not in {None, "en", "zh"}:
+        raise ValueError("language must be one of: 'en', 'zh', or None")
+
     normalized_text = _normalize_text(text)
     if not normalized_text:
         return ""
 
-    if contains_chinese(normalized_text):
+    selected_language = language or ("zh" if contains_chinese(normalized_text) else "en")
+    if selected_language == "zh":
         return _segment_chinese_for_bm25(normalized_text)
 
     from mem0.utils.spacy_models import get_nlp_lemma
