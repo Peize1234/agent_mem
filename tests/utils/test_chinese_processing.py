@@ -111,6 +111,24 @@ def test_installed_chinese_ner_model_is_used():
     chinese_nlp.assert_called_once_with(text)
 
 
+@pytest.mark.parametrize("entity_text", ["账单日用于", "账单日", "还款日"])
+def test_chinese_ner_rejects_predicate_tailed_and_generic_financial_terms(entity_text):
+    text = f"助手解释{entity_text}确定当期应还金额。"
+    chinese_nlp = MagicMock(return_value=_chinese_doc(text, entity_text))
+
+    with patch("mem0.utils.spacy_models.get_nlp_chinese", return_value=chinese_nlp):
+        assert extract_entities(text) == []
+
+
+def test_chinese_batch_ner_rejects_predicate_tailed_false_positive():
+    text = "助手解释账单日用于确定当期应还金额。"
+    chinese_nlp = MagicMock()
+    chinese_nlp.pipe.return_value = [_chinese_doc(text, "账单日用于")]
+
+    with patch("mem0.utils.spacy_models.get_nlp_chinese", return_value=chinese_nlp):
+        assert extract_entities_batch([text]) == [[]]
+
+
 def test_whole_chinese_sentence_from_ner_is_filtered():
     text = "用户计划在2027年4月前后买房并开始准备首付。"
     chinese_nlp = MagicMock(return_value=_chinese_doc(text, text))
@@ -167,9 +185,13 @@ def test_financial_names_indexes_stocks_and_codes_are_preserved():
         ("比如沪深300指数", "沪深300指数"),
         ("诸如华夏沪深300ETF", "华夏沪深300ETF"),
         ("如意宝货币基金", "如意宝货币基金"),
+        ("并推荐货币基金", "货币基金"),
+        ("助手推荐货币基金", "货币基金"),
+        ("中欧投资基金", "中欧投资基金"),
+        ("华夏回报二号证券投资基金", "华夏回报二号证券投资基金"),
     ],
 )
-def test_chinese_financial_example_prefix_normalization(raw_name, expected):
+def test_chinese_financial_name_normalization(raw_name, expected):
     assert _normalize_chinese_financial_name(raw_name) == expected
 
 
@@ -189,6 +211,8 @@ def test_chinese_financial_example_prefix_is_not_persisted():
         ("用户喜欢如意宝货币基金。", ("FINANCIAL_PRODUCT", "如意宝货币基金")),
         ("如货币基金。", ("FINANCIAL_PRODUCT", "货币基金")),
         ("例如货币基金。", ("FINANCIAL_PRODUCT", "货币基金")),
+        ("并推荐货币基金。", ("FINANCIAL_PRODUCT", "货币基金")),
+        ("用户持有华夏回报二号证券投资基金。", ("FINANCIAL_PRODUCT", "华夏回报二号证券投资基金")),
     ],
 )
 def test_chinese_financial_entity_boundaries(text, expected):
@@ -198,6 +222,16 @@ def test_chinese_financial_entity_boundaries(text, expected):
     assert expected in entities
     assert ("FINANCIAL_PRODUCT", "喜欢如货币基金") not in entities
     assert ("FINANCIAL_PRODUCT", "如货币基金") not in entities
+    assert ("FINANCIAL_PRODUCT", "推荐货币基金") not in entities
+
+
+def test_chinese_batch_extracts_recommended_product_without_action_prefix():
+    text = (
+        "用户询问首付10万元是否应与长期定投放在一起，助手建议单独建立账户管理，"
+        "理由包括资金用途与时间匹配、风险承受能力差异，并推荐货币基金、短期理财等低风险工具"
+    )
+    with patch("mem0.utils.spacy_models.get_nlp_chinese", return_value=None):
+        assert extract_entities_batch([text]) == [[("FINANCIAL_PRODUCT", "货币基金")]]
 
 
 def test_financial_entity_term_set_is_cached():

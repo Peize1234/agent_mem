@@ -44,13 +44,8 @@ _CHINESE_FINANCIAL_NAME_RE = re.compile(
     r"[A-Za-z0-9\u3400-\u9fff]{2,32}?(?:ETF|LOF|(?:指数|混合|债券|货币|股票|联接)?基金|指数|股票)",
     re.IGNORECASE,
 )
-_CHINESE_ENTITY_CUES = (
+_CHINESE_FINANCIAL_ACTION_CUES = (
     "投资于",
-    "长期关注",
-    "长期持有",
-    "开始关注",
-    "计划购买",
-    "计划买入",
     "关注",
     "持有",
     "喜欢",
@@ -61,8 +56,28 @@ _CHINESE_ENTITY_CUES = (
     "选择",
     "偏好",
     "看好",
+    "推荐",
     "投资",
 )
+_CHINESE_FINANCIAL_CONTEXT_PREFIXES = (
+    "用户",
+    "客户",
+    "本人",
+    "助手",
+    "开始",
+    "计划",
+    "长期",
+    "可以",
+    "建议",
+    "并",
+    "也",
+    "将",
+    "已",
+    "我",
+    "其",
+    "可",
+)
+_CHINESE_GENERIC_FINANCIAL_HEADS = {"基金", "指数", "股票"}
 _CHINESE_ACCEPTED_NER_LABELS = {
     "PERSON",
     "ORG",
@@ -74,6 +89,38 @@ _CHINESE_ACCEPTED_NER_LABELS = {
     "EVENT",
     "NORP",
     "LAW",
+}
+_CHINESE_NER_PREDICATE_SUFFIXES = (
+    "适用于",
+    "用于",
+    "属于",
+    "包括",
+    "包含",
+    "表示",
+    "说明",
+    "解释",
+    "认为",
+    "建议",
+    "确定",
+    "需要",
+    "计划",
+    "希望",
+    "影响",
+    "可以",
+    "应该",
+    "能够",
+    "可能",
+    "进行",
+    "提供",
+)
+_CHINESE_GENERIC_NER_TERMS = {
+    "账单日",
+    "还款日",
+    "消费日",
+    "交易日",
+    "截止日",
+    "截止日期",
+    "统计截止日期",
 }
 _RATIO_EXEMPT_ENTITY_TYPES = {
     "FINANCIAL_PRODUCT",
@@ -853,13 +900,34 @@ def _strip_example_prefix(text: str) -> str:
     return cleaned
 
 
+def _strip_chinese_financial_context(text: str) -> str:
+    """Strip leading speakers and discourse markers from a financial name candidate."""
+    cleaned = text
+    while cleaned:
+        prefix = next(
+            (prefix for prefix in _CHINESE_FINANCIAL_CONTEXT_PREFIXES if cleaned.startswith(prefix)),
+            None,
+        )
+        if prefix is None:
+            break
+        cleaned = cleaned[len(prefix) :]
+    return cleaned
+
+
 def _normalize_chinese_financial_name(text: str) -> str:
     cleaned = _strip_example_prefix(text).strip(" \t:：()（）[]【】")
-    cue_positions = [(cleaned.rfind(cue), cue) for cue in _CHINESE_ENTITY_CUES if cue in cleaned]
+    cue_positions = [
+        (match.start(), cue)
+        for cue in _CHINESE_FINANCIAL_ACTION_CUES
+        for match in re.finditer(re.escape(cue), cleaned)
+        if not _strip_chinese_financial_context(cleaned[: match.start()])
+    ]
     if cue_positions:
-        position, cue = max(cue_positions, key=lambda item: item[0])
-        cleaned = cleaned[position + len(cue) :]
-    cleaned = re.sub(r"^(?:用户|客户|本人|我|其|并|也|将|已|开始|计划|长期)+", "", cleaned)
+        position, cue = max(cue_positions, key=lambda item: (item[0], len(item[1])))
+        cleaned = cleaned[position + len(cue) :].lstrip("和及与的")
+        if cleaned in _CHINESE_GENERIC_FINANCIAL_HEADS:
+            return ""
+    cleaned = _strip_chinese_financial_context(cleaned)
     return _strip_example_prefix(cleaned).lstrip("和及与的")
 
 
@@ -867,11 +935,19 @@ def _add_chinese_ner_candidates(doc, candidates: list[_EntityCandidate]) -> None
     for ent in doc.ents:
         if ent.label_ not in _CHINESE_ACCEPTED_NER_LABELS:
             continue
+        entity_text = _clean_text(ent.text)
+        # Chinese NER models can absorb a following predicate into an ORG span
+        # (for example, "账单日用于"). Generic financial dates are concepts,
+        # not named entities, even when the model labels them as ORG/GPE.
+        if entity_text in _CHINESE_GENERIC_NER_TERMS or any(
+            entity_text.endswith(suffix) for suffix in _CHINESE_NER_PREDICATE_SUFFIXES
+        ):
+            continue
         entity_type = "FINANCIAL_PRODUCT" if ent.label_ == "PRODUCT" else "PROPER"
         _add_candidate(
             candidates,
             entity_type,
-            ent.text,
+            entity_text,
             "chinese_spacy_ner",
             ent.start_char,
             ent.end_char,
@@ -898,25 +974,27 @@ def _add_chinese_financial_candidates(text: str, candidates: list[_EntityCandida
     for fragment_match in re.finditer(r"[^，。！？；、,;\r\n]+", text):
         fragment = fragment_match.group(0)
         for match in _CHINESE_FINANCIAL_NAME_RE.finditer(fragment):
-            raw_name = _normalize_chinese_financial_name(match.group(0))
-            if not raw_name:
+            matched_name = match.group(0)
+            name = _normalize_chinese_financial_name(matched_name)
+            if not name:
                 continue
-            upper = raw_name.upper()
-            if "ETF" in upper or "LOF" in upper or raw_name.endswith("基金"):
+            upper = name.upper()
+            if "ETF" in upper or "LOF" in upper or name.endswith("基金"):
                 entity_type = "FINANCIAL_PRODUCT"
-            elif raw_name.endswith("指数"):
+            elif name.endswith("指数"):
                 entity_type = "INDEX"
             else:
                 entity_type = "STOCK"
-                raw_name = raw_name.removesuffix("股票")
-            start = fragment_match.start() + match.start()
+                name = name.removesuffix("股票")
+            name_offset = matched_name.rfind(name)
+            start = fragment_match.start() + match.start() + max(name_offset, 0)
             _add_candidate(
                 candidates,
                 entity_type,
-                raw_name,
+                name,
                 "financial_name_pattern",
                 start,
-                fragment_match.start() + match.end(),
+                start + len(name),
                 0.98,
                 0,
             )
