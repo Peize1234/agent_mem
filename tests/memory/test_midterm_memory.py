@@ -476,8 +476,13 @@ def test_memory_add_infer_true_updates_long_and_midterm(tmp_path, fake_memory_en
         add_results.extend(add_result["results"])
 
     assert add_results
-    assert memory.midterm_memory.list_pages(filters=filters, top_k=10)
-    assert memory.midterm_memory.list_sessions(filters=filters, top_k=10)
+    pages = memory.midterm_memory.list_pages(filters=filters, top_k=10)
+    sessions = memory.midterm_memory.list_sessions(filters=filters, top_k=10)
+    assert pages
+    assert sessions
+    for row in [*pages, *sessions]:
+        assert row.payload["created_at"].endswith("+08:00")
+        assert row.payload["updated_at"].endswith("+08:00")
 
     search_result = memory.search("我能接受多大亏损？", filters=filters, top_k=5)
     sources = {item.get("source") for item in search_result["results"]}

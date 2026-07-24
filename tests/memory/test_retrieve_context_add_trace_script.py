@@ -717,6 +717,8 @@ def _comprehensive_snapshot():
                         "linked_memory_ids": ["long-1"],
                         "user_id": "user-1",
                         "run_id": "run-1",
+                        "created_at": "2026-07-21T10:00:00+08:00",
+                        "updated_at": "2026-07-21T10:05:00+08:00",
                     },
                 }
             ],
@@ -754,6 +756,11 @@ def test_database_snapshot_renders_each_store_as_separate_tables():
     assert "session-1" in rendered and "page-1" in rendered
     assert "## Entity Store" in rendered
     assert "状态：已初始化" in rendered
+    assert (
+        "| id | data | entity_type | linked_memory_ids | user_id | run_id | created_at | updated_at |" in rendered
+    )
+    assert "2026-07-21T10:00:00+08:00" in rendered
+    assert "2026-07-21T10:05:00+08:00" in rendered
     assert "## 用户画像" in rendered
     assert "conservative" in rendered
     assert "## 数据库快照警告" in rendered

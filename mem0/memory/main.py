@@ -9,7 +9,7 @@ import time
 import uuid
 import warnings
 from copy import deepcopy
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from typing import Any, Dict, Optional
 
 from pydantic import ValidationError
@@ -82,6 +82,7 @@ from mem0.utils.scoring import (
     normalize_bm25,
     score_and_rank,
 )
+from mem0.utils.timestamps import beijing_now, beijing_now_iso, normalize_iso_timestamp_to_beijing
 from mem0.vector_stores.base import VectorStoreBase
 
 # Suppress SWIG deprecation warnings globally
@@ -98,6 +99,30 @@ def _vector_store_list_rows(listed):
     if isinstance(listed, (list, tuple)):
         return listed
     return []
+
+
+def _new_entity_payload(entity_text, entity_type, linked_memory_ids, filters):
+    """Build a timestamped payload for a newly created entity."""
+    now = beijing_now_iso()
+    return {
+        "data": entity_text,
+        "entity_type": entity_type,
+        "linked_memory_ids": sorted(linked_memory_ids),
+        **filters,
+        "created_at": now,
+        "updated_at": now,
+    }
+
+
+def _update_entity_payload(payload, linked_memory_ids):
+    """Copy an entity payload, preserving creation time and refreshing update time."""
+    now = beijing_now_iso()
+    return {
+        **payload,
+        "linked_memory_ids": sorted(linked_memory_ids),
+        "created_at": normalize_iso_timestamp_to_beijing(payload.get("created_at")) or now,
+        "updated_at": now,
+    }
 
 
 def _configured_bm25_language(config: MemoryConfig) -> str | None:
@@ -305,19 +330,6 @@ def _safe_deepcopy_config(config):
             return type("Config", (), clone_dict)()
 
 
-def _normalize_iso_timestamp_to_utc(timestamp: Optional[str]) -> Optional[str]:
-    """Normalize timezone-aware ISO timestamps to UTC without rewriting naive values."""
-    if not timestamp:
-        return timestamp
-    try:
-        parsed = datetime.fromisoformat(timestamp)
-    except ValueError:
-        return timestamp
-    if parsed.tzinfo is None:
-        return timestamp
-    return parsed.astimezone(timezone.utc).isoformat()
-
-
 def _build_filters_and_metadata(
     *,  # Enforce keyword-only arguments
     user_id: Optional[str] = None,
@@ -485,7 +497,7 @@ def _payload_is_expired(payload: Optional[Dict[str, Any]]) -> bool:
     if not expiration_date:
         return False
     try:
-        return date.fromisoformat(str(expiration_date)) < datetime.now(timezone.utc).date()
+        return date.fromisoformat(str(expiration_date)) < beijing_now().date()
     except ValueError:
         return False
 
@@ -892,8 +904,7 @@ class Memory(MemoryBase):
                 payload = match.payload or {}
                 linked_ids = payload.get("linked_memory_ids", [])
                 if memory_id not in linked_ids:
-                    linked_ids.append(memory_id)
-                    payload["linked_memory_ids"] = linked_ids
+                    payload = _update_entity_payload(payload, [*linked_ids, memory_id])
                     self.entity_store.update(
                         vector_id=match.id,
                         vector=None,
@@ -902,12 +913,12 @@ class Memory(MemoryBase):
             else:
                 # Create new entity
                 entity_id = str(uuid.uuid4())
-                entity_payload = {
-                    "data": entity_text,
-                    "entity_type": entity_type,
-                    "linked_memory_ids": [memory_id],
-                    **{k: v for k, v in search_filters.items()},
-                }
+                entity_payload = _new_entity_payload(
+                    entity_text,
+                    entity_type,
+                    [memory_id],
+                    search_filters,
+                )
                 self.entity_store.insert(
                     vectors=[entity_embedding],
                     ids=[entity_id],
@@ -957,7 +968,7 @@ class Memory(MemoryBase):
                         except Exception as e:
                             logger.debug(f"Entity re-embed failed for '{entity_text}': {e}")
                             continue
-                        new_payload = {**payload, "linked_memory_ids": remaining}
+                        new_payload = _update_entity_payload(payload, remaining)
                         try:
                             self.entity_store.update(
                                 vector_id=row.id,
@@ -1320,8 +1331,9 @@ class Memory(MemoryBase):
             mem_metadata["data"] = text
             mem_metadata["text_lemmatized"] = text_lemmatized
             mem_metadata["hash"] = mem_hash
-            if "created_at" not in mem_metadata:
-                mem_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
+            mem_metadata["created_at"] = (
+                normalize_iso_timestamp_to_beijing(mem_metadata.get("created_at")) or beijing_now_iso()
+            )
             mem_metadata["updated_at"] = mem_metadata["created_at"]
             if mem.get("attributed_to"):
                 mem_metadata["attributed_to"] = mem["attributed_to"]
@@ -1445,7 +1457,7 @@ class Memory(MemoryBase):
                             payload = match.payload or {}
                             linked = set(payload.get("linked_memory_ids", []))
                             linked |= memory_ids
-                            payload["linked_memory_ids"] = sorted(linked)
+                            payload = _update_entity_payload(payload, linked)
                             try:
                                 self.entity_store.update(
                                     vector_id=match.id,
@@ -1458,12 +1470,9 @@ class Memory(MemoryBase):
                             # New entity — collect for batch insert
                             to_insert_vectors.append(valid_vectors[j])
                             to_insert_ids.append(str(uuid.uuid4()))
-                            to_insert_payloads.append({
-                                "data": entity_text,
-                                "entity_type": entity_type,
-                                "linked_memory_ids": sorted(memory_ids),
-                                **search_filters,
-                            })
+                            to_insert_payloads.append(
+                                _new_entity_payload(entity_text, entity_type, memory_ids, search_filters)
+                            )
 
                     # 7e: Single batch insert for all new entities
                     if to_insert_vectors:
@@ -2242,8 +2251,9 @@ class Memory(MemoryBase):
         new_metadata = deepcopy(metadata) if metadata is not None else {}
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        if "created_at" not in new_metadata:
-            new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
+        new_metadata["created_at"] = (
+            normalize_iso_timestamp_to_beijing(new_metadata.get("created_at")) or beijing_now_iso()
+        )
         new_metadata["updated_at"] = new_metadata["created_at"]
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(
             data, language=getattr(self, "_bm25_language", None)
@@ -2334,8 +2344,8 @@ class Memory(MemoryBase):
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(
             data, language=getattr(self, "_bm25_language", None)
         )
-        new_metadata["created_at"] = existing_memory.payload.get("created_at")
-        new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
+        new_metadata["created_at"] = normalize_iso_timestamp_to_beijing(existing_memory.payload.get("created_at"))
+        new_metadata["updated_at"] = beijing_now_iso()
 
         # actor_id is immutable after creation (issue #4490)
         if "actor_id" in existing_memory.payload:
@@ -2380,8 +2390,8 @@ class Memory(MemoryBase):
             if existing_memory is None:
                 raise ValueError(f"Memory with id {memory_id} not found. Please provide a valid 'memory_id'")
         prev_value = existing_memory.payload.get("data", "")
-        created_at = _normalize_iso_timestamp_to_utc(existing_memory.payload.get("created_at"))
-        updated_at = datetime.now(timezone.utc).isoformat()
+        created_at = normalize_iso_timestamp_to_beijing(existing_memory.payload.get("created_at"))
+        updated_at = beijing_now_iso()
         payload = existing_memory.payload or {}
         session_filters = {k: payload[k] for k in ("user_id", "agent_id", "run_id") if payload.get(k)}
         self.vector_store.delete(vector_id=memory_id)
@@ -2823,8 +2833,7 @@ class AsyncMemory(MemoryBase):
                 payload = match.payload or {}
                 linked_ids = payload.get("linked_memory_ids", [])
                 if memory_id not in linked_ids:
-                    linked_ids.append(memory_id)
-                    payload["linked_memory_ids"] = linked_ids
+                    payload = _update_entity_payload(payload, [*linked_ids, memory_id])
                     await asyncio.to_thread(
                         self.entity_store.update,
                         vector_id=match.id,
@@ -2833,12 +2842,12 @@ class AsyncMemory(MemoryBase):
                     )
             else:
                 entity_id = str(uuid.uuid4())
-                entity_payload = {
-                    "data": entity_text,
-                    "entity_type": entity_type,
-                    "linked_memory_ids": [memory_id],
-                    **{k: v for k, v in search_filters.items()},
-                }
+                entity_payload = _new_entity_payload(
+                    entity_text,
+                    entity_type,
+                    [memory_id],
+                    search_filters,
+                )
                 await asyncio.to_thread(
                     self.entity_store.insert,
                     vectors=[entity_embedding],
@@ -2899,7 +2908,7 @@ class AsyncMemory(MemoryBase):
                         except Exception as e:
                             logger.debug(f"Entity re-embed failed for '{entity_text}' (async): {e}")
                             continue
-                        new_payload = {**payload, "linked_memory_ids": remaining}
+                        new_payload = _update_entity_payload(payload, remaining)
                         try:
                             await asyncio.to_thread(
                                 self.entity_store.update,
@@ -3242,8 +3251,9 @@ class AsyncMemory(MemoryBase):
             mem_metadata["data"] = text
             mem_metadata["text_lemmatized"] = text_lemmatized
             mem_metadata["hash"] = mem_hash
-            if "created_at" not in mem_metadata:
-                mem_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
+            mem_metadata["created_at"] = (
+                normalize_iso_timestamp_to_beijing(mem_metadata.get("created_at")) or beijing_now_iso()
+            )
             mem_metadata["updated_at"] = mem_metadata["created_at"]
             if mem.get("attributed_to"):
                 mem_metadata["attributed_to"] = mem["attributed_to"]
@@ -3366,7 +3376,7 @@ class AsyncMemory(MemoryBase):
                             payload = match.payload or {}
                             linked = set(payload.get("linked_memory_ids", []))
                             linked |= memory_ids
-                            payload["linked_memory_ids"] = sorted(linked)
+                            payload = _update_entity_payload(payload, linked)
                             try:
                                 await asyncio.to_thread(
                                     self.entity_store.update,
@@ -3379,12 +3389,9 @@ class AsyncMemory(MemoryBase):
                         else:
                             to_insert_vectors.append(valid_vectors[j])
                             to_insert_ids.append(str(uuid.uuid4()))
-                            to_insert_payloads.append({
-                                "data": entity_text,
-                                "entity_type": entity_type,
-                                "linked_memory_ids": sorted(memory_ids),
-                                **search_filters,
-                            })
+                            to_insert_payloads.append(
+                                _new_entity_payload(entity_text, entity_type, memory_ids, search_filters)
+                            )
 
                     # 7e: Batch insert new entities
                     if to_insert_vectors:
@@ -4185,8 +4192,9 @@ class AsyncMemory(MemoryBase):
         new_metadata = deepcopy(metadata) if metadata is not None else {}
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        if "created_at" not in new_metadata:
-            new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
+        new_metadata["created_at"] = (
+            normalize_iso_timestamp_to_beijing(new_metadata.get("created_at")) or beijing_now_iso()
+        )
         new_metadata["updated_at"] = new_metadata["created_at"]
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(
             data, language=getattr(self, "_bm25_language", None)
@@ -4295,8 +4303,8 @@ class AsyncMemory(MemoryBase):
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(
             data, language=getattr(self, "_bm25_language", None)
         )
-        new_metadata["created_at"] = existing_memory.payload.get("created_at")
-        new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
+        new_metadata["created_at"] = normalize_iso_timestamp_to_beijing(existing_memory.payload.get("created_at"))
+        new_metadata["updated_at"] = beijing_now_iso()
 
         # actor_id is immutable after creation (issue #4490)
         if "actor_id" in existing_memory.payload:
@@ -4343,8 +4351,8 @@ class AsyncMemory(MemoryBase):
             if existing_memory is None:
                 raise ValueError(f"Memory with id {memory_id} not found. Please provide a valid 'memory_id'")
         prev_value = existing_memory.payload.get("data", "")
-        created_at = _normalize_iso_timestamp_to_utc(existing_memory.payload.get("created_at"))
-        updated_at = datetime.now(timezone.utc).isoformat()
+        created_at = normalize_iso_timestamp_to_beijing(existing_memory.payload.get("created_at"))
+        updated_at = beijing_now_iso()
         payload = existing_memory.payload or {}
         session_filters = {k: payload[k] for k in ("user_id", "agent_id", "run_id") if payload.get(k)}
 

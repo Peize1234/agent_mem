@@ -1,3 +1,4 @@
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -5,6 +6,7 @@ import pytest
 from mem0.memory.main import AsyncMemory, Memory
 from mem0.utils.entity_extraction import extract_entities
 from mem0.utils.lemmatization import lemmatize_for_bm25
+from mem0.utils.timestamps import BEIJING_TIMEZONE
 
 
 def _memory_shell(memory_type):
@@ -28,6 +30,12 @@ def _inserted_entity_payload(memory):
     return payloads[0]
 
 
+def _entity_data(payload):
+    assert payload["created_at"] == payload["updated_at"]
+    assert datetime.fromisoformat(payload["created_at"]).utcoffset() == BEIJING_TIMEZONE.utcoffset(None)
+    return {key: value for key, value in payload.items() if key not in {"created_at", "updated_at"}}
+
+
 async def _run_inline(function, *args, **kwargs):
     """Deterministic stand-in for asyncio.to_thread in unit tests."""
     return function(*args, **kwargs)
@@ -40,7 +48,7 @@ def test_sync_entity_store_persists_entity_not_long_term_memory():
     with patch("mem0.utils.spacy_models.get_nlp_chinese", return_value=None):
         memory._link_entities_for_memory("memory-1", text, {"user_id": "user-1"})
 
-    assert _inserted_entity_payload(memory) == {
+    assert _entity_data(_inserted_entity_payload(memory)) == {
         "data": "华夏沪深300ETF",
         "entity_type": "FINANCIAL_PRODUCT",
         "linked_memory_ids": ["memory-1"],
@@ -61,7 +69,7 @@ async def test_async_entity_store_matches_sync_behavior():
         sync_memory._link_entities_for_memory("memory-1", text, {"run_id": "run-1"})
         await async_memory._link_entities_for_memory("memory-1", text, {"run_id": "run-1"})
 
-    assert _inserted_entity_payload(async_memory) == _inserted_entity_payload(sync_memory)
+    assert _entity_data(_inserted_entity_payload(async_memory)) == _entity_data(_inserted_entity_payload(sync_memory))
 
 
 def test_write_and_query_paths_share_entity_extractor():

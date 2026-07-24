@@ -757,6 +757,9 @@ def test_add_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm_fa
     assert embedder.embed.call_count == 1
     assert embedder.embed_batch.call_count == 1
     mock_vector_store.insert.assert_called_once()
+    payload = mock_vector_store.insert.call_args.kwargs["payloads"][0]
+    assert payload["created_at"].endswith("+08:00")
+    assert payload["updated_at"].endswith("+08:00")
 
 
 @patch('mem0.utils.factory.EmbedderFactory.create')
@@ -853,7 +856,7 @@ def test_delete_memory_history_has_timestamps(mock_sqlite, mock_llm_factory, moc
     memory.delete("mem-123")
 
     call_kwargs = memory.db.add_history.call_args.kwargs
-    assert call_kwargs["created_at"] == "2024-01-01T00:00:00+00:00"
+    assert call_kwargs["created_at"] == "2024-01-01T08:00:00+08:00"
     assert call_kwargs["updated_at"] is not None
     datetime.fromisoformat(call_kwargs["updated_at"])  # verify valid ISO timestamp
 
@@ -862,8 +865,10 @@ def test_delete_memory_history_has_timestamps(mock_sqlite, mock_llm_factory, moc
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
 @patch('mem0.memory.main.SQLiteManager')
-def test_delete_memory_normalizes_non_utc_created_at(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
-    """Test that non-UTC created_at timestamps are normalized to UTC on delete."""
+def test_delete_memory_normalizes_created_at_to_beijing(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    """Test that created_at timestamps are normalized to Beijing time on delete."""
     mock_embedder_factory.return_value = MagicMock()
     mock_vector_store = MagicMock()
     mock_vector_factory.return_value = mock_vector_store
@@ -886,7 +891,7 @@ def test_delete_memory_normalizes_non_utc_created_at(mock_sqlite, mock_llm_facto
     memory.delete("mem-123")
 
     call_kwargs = memory.db.add_history.call_args.kwargs
-    assert call_kwargs["created_at"] == "2024-01-01T00:00:00+00:00"  # normalized to UTC
+    assert call_kwargs["created_at"] == "2024-01-01T08:00:00+08:00"
 
 
 @patch('mem0.utils.factory.EmbedderFactory.create')
@@ -955,7 +960,7 @@ async def test_async_delete_memory_history_has_timestamps(mock_sqlite, mock_llm_
     await memory.delete("mem-123")
 
     call_kwargs = memory.db.add_history.call_args.kwargs
-    assert call_kwargs["created_at"] == "2024-01-01T00:00:00+00:00"
+    assert call_kwargs["created_at"] == "2024-01-01T08:00:00+08:00"
     assert call_kwargs["updated_at"] is not None
     datetime.fromisoformat(call_kwargs["updated_at"])  # verify valid ISO timestamp
 

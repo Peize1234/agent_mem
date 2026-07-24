@@ -1,6 +1,6 @@
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock
 
@@ -8,6 +8,7 @@ import pytest
 
 from mem0.exceptions import LLMError
 from mem0.memory.main import AsyncMemory, Memory
+from mem0.utils.timestamps import BEIJING_TIMEZONE
 
 
 def _setup_mocks(mocker):
@@ -306,17 +307,16 @@ def _build_memory_instance(mocker, memory_cls):
     return memory
 
 
-def _assert_utc_timestamp(timestamp: str):
+def _assert_beijing_timestamp(timestamp: str):
     parsed = datetime.fromisoformat(timestamp)
-    assert parsed.tzinfo == timezone.utc
-    assert parsed.utcoffset().total_seconds() == 0
+    assert parsed.utcoffset() == BEIJING_TIMEZONE.utcoffset(None)
 
 
-def test_create_memory_uses_utc_timestamps(mocker):
+def test_create_memory_uses_beijing_timestamps(mocker):
     memory = _build_memory_instance(mocker, Memory)
     memory._create_memory("new memory", {"new memory": [0.1, 0.2, 0.3]}, metadata={})
     payload = memory.vector_store.insert.call_args.kwargs["payloads"][0]
-    _assert_utc_timestamp(payload["created_at"])
+    _assert_beijing_timestamp(payload["created_at"])
 
 
 def test_create_memory_sets_updated_at(mocker):
@@ -325,39 +325,39 @@ def test_create_memory_sets_updated_at(mocker):
     payload = memory.vector_store.insert.call_args.kwargs["payloads"][0]
     assert "updated_at" in payload
     assert payload["updated_at"] == payload["created_at"]
-    _assert_utc_timestamp(payload["updated_at"])
+    _assert_beijing_timestamp(payload["updated_at"])
 
     # History should also receive updated_at
     history_kwargs = memory.db.add_history.call_args
     assert history_kwargs.kwargs["updated_at"] == payload["updated_at"]
 
 
-def test_create_memory_preserves_existing_created_at(mocker):
+def test_create_memory_normalizes_existing_created_at_to_beijing(mocker):
     memory = _build_memory_instance(mocker, Memory)
     custom_ts = "2023-05-06T09:19:20+00:00"
     memory._create_memory("new memory", {"new memory": [0.1, 0.2, 0.3]}, metadata={"created_at": custom_ts})
     payload = memory.vector_store.insert.call_args.kwargs["payloads"][0]
-    assert payload["created_at"] == custom_ts
-    assert payload["updated_at"] == custom_ts
+    assert payload["created_at"] == "2023-05-06T17:19:20+08:00"
+    assert payload["updated_at"] == payload["created_at"]
 
 
-def test_update_memory_uses_utc_timestamps(mocker):
+def test_update_memory_uses_beijing_timestamps(mocker):
     memory = _build_memory_instance(mocker, Memory)
     memory.vector_store.get.return_value = MagicMock(
         payload={"data": "old memory", "created_at": "2026-03-17T17:00:00-07:00"}
     )
     memory._update_memory("memory-id", "new memory", {"new memory": [0.1, 0.2, 0.3]}, metadata={})
     payload = memory.vector_store.update.call_args.kwargs["payload"]
-    assert payload["created_at"] == "2026-03-17T17:00:00-07:00"
-    assert payload["updated_at"] is not None
+    assert payload["created_at"] == "2026-03-18T08:00:00+08:00"
+    _assert_beijing_timestamp(payload["updated_at"])
 
 
 @pytest.mark.asyncio
-async def test_async_create_memory_uses_utc_timestamps(mocker):
+async def test_async_create_memory_uses_beijing_timestamps(mocker):
     memory = _build_memory_instance(mocker, AsyncMemory)
     await memory._create_memory("new memory", {"new memory": [0.1, 0.2, 0.3]}, metadata={})
     payload = memory.vector_store.insert.call_args.kwargs["payloads"][0]
-    _assert_utc_timestamp(payload["created_at"])
+    _assert_beijing_timestamp(payload["created_at"])
 
 
 @pytest.mark.asyncio
@@ -367,7 +367,7 @@ async def test_async_create_memory_sets_updated_at(mocker):
     payload = memory.vector_store.insert.call_args.kwargs["payloads"][0]
     assert "updated_at" in payload
     assert payload["updated_at"] == payload["created_at"]
-    _assert_utc_timestamp(payload["updated_at"])
+    _assert_beijing_timestamp(payload["updated_at"])
 
     # History should also receive updated_at
     history_kwargs = memory.db.add_history.call_args
@@ -375,25 +375,25 @@ async def test_async_create_memory_sets_updated_at(mocker):
 
 
 @pytest.mark.asyncio
-async def test_async_create_memory_preserves_existing_created_at(mocker):
+async def test_async_create_memory_normalizes_existing_created_at_to_beijing(mocker):
     memory = _build_memory_instance(mocker, AsyncMemory)
     custom_ts = "2023-05-06T09:19:20+00:00"
     await memory._create_memory("new memory", {"new memory": [0.1, 0.2, 0.3]}, metadata={"created_at": custom_ts})
     payload = memory.vector_store.insert.call_args.kwargs["payloads"][0]
-    assert payload["created_at"] == custom_ts
-    assert payload["updated_at"] == custom_ts
+    assert payload["created_at"] == "2023-05-06T17:19:20+08:00"
+    assert payload["updated_at"] == payload["created_at"]
 
 
 @pytest.mark.asyncio
-async def test_async_update_memory_uses_utc_timestamps(mocker):
+async def test_async_update_memory_uses_beijing_timestamps(mocker):
     memory = _build_memory_instance(mocker, AsyncMemory)
     memory.vector_store.get.return_value = MagicMock(
         payload={"data": "old memory", "created_at": "2026-03-17T17:00:00-07:00"}
     )
     await memory._update_memory("memory-id", "new memory", {"new memory": [0.1, 0.2, 0.3]}, metadata={})
     payload = memory.vector_store.update.call_args.kwargs["payload"]
-    assert payload["created_at"] == "2026-03-17T17:00:00-07:00"
-    assert payload["updated_at"] is not None
+    assert payload["created_at"] == "2026-03-18T08:00:00+08:00"
+    _assert_beijing_timestamp(payload["updated_at"])
 
 
 def test_create_then_search_and_get_all_return_same_timestamps(mocker):
@@ -463,7 +463,7 @@ def test_update_preserves_created_at_and_updates_updated_at(mocker):
     assert updated_payload["created_at"] == original_created_at
     # updated_at must be set and different from creation time (or at least present)
     assert updated_payload["updated_at"] is not None
-    _assert_utc_timestamp(updated_payload["updated_at"])
+    _assert_beijing_timestamp(updated_payload["updated_at"])
 
 
 def test_search_and_get_all_consistent_after_update(mocker):
@@ -740,6 +740,114 @@ async def test_async_update_preserves_actor_id_when_different_actor_updates(mock
 
 def _make_match(score, linked_memory_ids):
     return SimpleNamespace(score=score, payload={"linked_memory_ids": linked_memory_ids})
+
+
+class TestEntityTimestamps:
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        _setup_mocks(mocker)
+        memory = Memory()
+        memory.embedding_model = Mock()
+        memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+        memory._entity_store = Mock()
+        memory._entity_store.search.return_value = []
+        return memory
+
+    @pytest.fixture
+    def mock_async_memory(self, mocker):
+        _setup_mocks(mocker)
+        memory = AsyncMemory()
+        memory.embedding_model = Mock()
+        memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+        memory._entity_store = Mock()
+        memory._entity_store.search.return_value = []
+        return memory
+
+    def test_sync_entity_create_and_update_timestamps(self, mocker, mock_memory):
+        created_at = "2026-07-23T10:00:00+08:00"
+        updated_at = "2026-07-23T10:05:00+08:00"
+        mocker.patch("mem0.memory.main.beijing_now_iso", side_effect=[created_at, updated_at])
+
+        created_row = SimpleNamespace(
+            id="entity-1",
+            payload={
+                "data": "货币基金",
+                "entity_type": "FINANCIAL_PRODUCT",
+                "linked_memory_ids": ["memory-1"],
+                "user_id": "user-1",
+                "created_at": created_at,
+                "updated_at": created_at,
+            },
+        )
+        mock_memory._entity_store.list.side_effect = [[], [created_row]]
+
+        mock_memory._upsert_entity(
+            "货币基金",
+            "FINANCIAL_PRODUCT",
+            "memory-1",
+            {"user_id": "user-1"},
+        )
+        mock_memory._upsert_entity(
+            "货币基金",
+            "FINANCIAL_PRODUCT",
+            "memory-2",
+            {"user_id": "user-1"},
+        )
+
+        inserted = mock_memory._entity_store.insert.call_args.kwargs["payloads"][0]
+        assert inserted["created_at"] == created_at
+        assert inserted["updated_at"] == created_at
+
+        updated = mock_memory._entity_store.update.call_args.kwargs["payload"]
+        assert updated["linked_memory_ids"] == ["memory-1", "memory-2"]
+        assert updated["created_at"] == created_at
+        assert updated["updated_at"] == updated_at
+
+    @pytest.mark.asyncio
+    async def test_async_entity_create_and_update_timestamps(self, mocker, mock_async_memory):
+        created_at = "2026-07-23T11:00:00+08:00"
+        updated_at = "2026-07-23T11:05:00+08:00"
+        mocker.patch("mem0.memory.main.beijing_now_iso", side_effect=[created_at, updated_at])
+
+        async def run_inline(function, *args, **kwargs):
+            return function(*args, **kwargs)
+
+        mocker.patch("mem0.memory.main.asyncio.to_thread", new=run_inline)
+
+        created_row = SimpleNamespace(
+            id="entity-1",
+            payload={
+                "data": "货币基金",
+                "entity_type": "FINANCIAL_PRODUCT",
+                "linked_memory_ids": ["memory-1"],
+                "user_id": "user-1",
+                "created_at": created_at,
+                "updated_at": created_at,
+            },
+        )
+        mock_async_memory._entity_store.list.side_effect = [[], [created_row]]
+
+        await mock_async_memory._upsert_entity_async(
+            "货币基金",
+            "FINANCIAL_PRODUCT",
+            "memory-1",
+            {"user_id": "user-1"},
+        )
+        await mock_async_memory._upsert_entity_async(
+            "货币基金",
+            "FINANCIAL_PRODUCT",
+            "memory-2",
+            {"user_id": "user-1"},
+        )
+
+        inserted = mock_async_memory._entity_store.insert.call_args.kwargs["payloads"][0]
+        assert inserted["created_at"] == created_at
+        assert inserted["updated_at"] == created_at
+
+        updated = mock_async_memory._entity_store.update.call_args.kwargs["payload"]
+        assert updated["linked_memory_ids"] == ["memory-1", "memory-2"]
+        assert updated["created_at"] == created_at
+        assert updated["updated_at"] == updated_at
 
 
 class TestEntityBoostParallelism:

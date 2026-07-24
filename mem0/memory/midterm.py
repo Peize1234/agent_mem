@@ -1,16 +1,13 @@
 import copy
 import logging
 import math
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from mem0.utils.factory import VectorStoreFactory
+from mem0.utils.timestamps import BEIJING_TIMEZONE, beijing_now_iso
 
 logger = logging.getLogger(__name__)
-
-
-def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 def vector_rows(listed) -> List[Any]:
@@ -33,12 +30,12 @@ def compute_recency(last_visit_time: Optional[str], now: Optional[str] = None, t
     if not last_visit_time:
         return 1.0
     try:
-        current = datetime.fromisoformat(now or utc_now())
+        current = datetime.fromisoformat(now or beijing_now_iso())
         previous = datetime.fromisoformat(last_visit_time)
         if current.tzinfo is None:
-            current = current.replace(tzinfo=timezone.utc)
+            current = current.replace(tzinfo=BEIJING_TIMEZONE)
         if previous.tzinfo is None:
-            previous = previous.replace(tzinfo=timezone.utc)
+            previous = previous.replace(tzinfo=BEIJING_TIMEZONE)
         elapsed_hours = max((current - previous).total_seconds() / 3600.0, 0.0)
     except (TypeError, ValueError):
         return 1.0
@@ -190,7 +187,7 @@ class MidTermMemory:
         if not session:
             return None
         payload = dict(getattr(session, "payload", None) or {})
-        now = utc_now()
+        now = beijing_now_iso()
         payload["N_visit"] = int(payload.get("N_visit", 0) or 0) + 1
         payload["R_recency"] = compute_recency(payload.get("last_visit_time"), now)
         payload["last_visit_time"] = now
