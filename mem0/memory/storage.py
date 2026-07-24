@@ -3,6 +3,7 @@ import logging
 import sqlite3
 import threading
 import uuid
+from datetime import timedelta
 from typing import Any, Dict, List, Optional
 
 from mem0.configs.predefined_profile_attributes import PREDEFINED_PROFILE_ATTRIBUTES
@@ -14,7 +15,7 @@ from mem0.memory.profile_validator import (
     validate_attribute_definition,
     validate_operation,
 )
-from mem0.utils.timestamps import beijing_now_iso, normalize_iso_timestamp_to_beijing
+from mem0.utils.timestamps import beijing_now, beijing_now_iso, normalize_iso_timestamp_to_beijing
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,7 @@ class SQLiteManager:
         self._migrate_history_table()
         self._create_history_table()
         self._create_messages_table()
+        self._create_background_job_tables()
         self._create_profile_tables()
         self._sync_predefined_profile_attributes()
 
@@ -143,7 +145,7 @@ class SQLiteManager:
     def _create_messages_table(self) -> None:
         with self._lock:
             try:
-                self.connection.execute("BEGIN")
+                self.connection.execute("BEGIN IMMEDIATE")
                 self.connection.execute(
                     """
                     CREATE TABLE IF NOT EXISTS messages (
@@ -152,14 +154,95 @@ class SQLiteManager:
                         role TEXT,
                         content TEXT,
                         name TEXT,
-                        created_at DATETIME
+                        created_at DATETIME,
+                        status TEXT NOT NULL DEFAULT 'active',
+                        migration_job_id TEXT
                     )
                 """
+                )
+                columns = {row[1] for row in self.connection.execute("PRAGMA table_info(messages)").fetchall()}
+                if "status" not in columns:
+                    self.connection.execute("ALTER TABLE messages ADD COLUMN status TEXT NOT NULL DEFAULT 'active'")
+                if "migration_job_id" not in columns:
+                    self.connection.execute("ALTER TABLE messages ADD COLUMN migration_job_id TEXT")
+                self.connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_messages_scope_status
+                    ON messages(session_scope, status, created_at)
+                    """
+                )
+                self.connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_messages_migration_job
+                    ON messages(migration_job_id)
+                    """
                 )
                 self.connection.execute("COMMIT")
             except Exception as e:
                 self.connection.execute("ROLLBACK")
                 logger.error(f"Failed to create messages table: {e}")
+                raise
+
+    def _create_background_job_tables(self) -> None:
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN IMMEDIATE")
+                self.connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS memory_migration_jobs (
+                        job_id TEXT PRIMARY KEY,
+                        session_scope TEXT NOT NULL,
+                        status TEXT NOT NULL DEFAULT 'pending',
+                        midterm_done INTEGER NOT NULL DEFAULT 0,
+                        longterm_done INTEGER NOT NULL DEFAULT 0,
+                        attempts INTEGER NOT NULL DEFAULT 0,
+                        next_retry_at TEXT,
+                        last_error TEXT,
+                        filters_json TEXT NOT NULL,
+                        metadata_json TEXT NOT NULL,
+                        infer INTEGER NOT NULL DEFAULT 1,
+                        prompt TEXT,
+                        sequence_no INTEGER NOT NULL,
+                        degraded INTEGER NOT NULL DEFAULT 0,
+                        created_at TEXT NOT NULL,
+                        updated_at TEXT NOT NULL,
+                        UNIQUE(session_scope, sequence_no)
+                    )
+                    """
+                )
+                self.connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_migration_jobs_claim
+                    ON memory_migration_jobs(status, next_retry_at, created_at)
+                    """
+                )
+                self.connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS profile_update_jobs (
+                        job_id TEXT PRIMARY KEY,
+                        user_id TEXT NOT NULL,
+                        messages_json TEXT NOT NULL,
+                        status TEXT NOT NULL DEFAULT 'pending',
+                        attempts INTEGER NOT NULL DEFAULT 0,
+                        next_retry_at TEXT,
+                        last_error TEXT,
+                        sequence_no INTEGER NOT NULL,
+                        created_at TEXT NOT NULL,
+                        updated_at TEXT NOT NULL,
+                        UNIQUE(user_id, sequence_no)
+                    )
+                    """
+                )
+                self.connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_profile_jobs_claim
+                    ON profile_update_jobs(status, next_retry_at, created_at)
+                    """
+                )
+                self.connection.execute("COMMIT")
+            except Exception as e:
+                self.connection.execute("ROLLBACK")
+                logger.error("Failed to create background job tables: %s", e)
                 raise
 
     def _create_profile_tables(self) -> None:
@@ -390,8 +473,10 @@ class SQLiteManager:
                     now = normalize_iso_timestamp_to_beijing(message.get("created_at")) or beijing_now_iso()
                     self.connection.execute(
                         """
-                        INSERT INTO messages (id, session_scope, role, content, name, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?)
+                        INSERT INTO messages (
+                            id, session_scope, role, content, name, created_at, status, migration_job_id
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, 'active', NULL)
                     """,
                         (
                             str(uuid.uuid4()),
@@ -408,7 +493,7 @@ class SQLiteManager:
                     """
                     SELECT id, role, content, name, created_at
                     FROM messages
-                    WHERE session_scope = ?
+                    WHERE session_scope = ? AND status = 'active'
                     ORDER BY DATETIME(created_at) ASC, rowid ASC
                 """,
                     (session_scope,),
@@ -455,7 +540,7 @@ class SQLiteManager:
                 """
                 SELECT id, role, content, name, created_at
                 FROM messages
-                WHERE session_scope = ?
+                WHERE session_scope = ? AND status = 'active'
                 ORDER BY DATETIME(created_at) ASC, rowid ASC
                 LIMIT ?
             """,
@@ -505,7 +590,7 @@ class SQLiteManager:
                 SELECT role, content, name, created_at FROM (
                     SELECT rowid, role, content, name, created_at
                     FROM messages
-                    WHERE session_scope = ?
+                    WHERE session_scope = ? AND status = 'active'
                     ORDER BY DATETIME(created_at) DESC, rowid DESC
                     LIMIT ?
                 ) ORDER BY DATETIME(created_at) ASC, rowid ASC
@@ -523,6 +608,645 @@ class SQLiteManager:
             }
             for r in rows
         ]
+
+    @staticmethod
+    def _json_dumps(value: Any) -> str:
+        return json.dumps(value, ensure_ascii=False, default=str)
+
+    @staticmethod
+    def _row_as_dict(cursor: sqlite3.Cursor, row) -> Optional[Dict[str, Any]]:
+        if row is None:
+            return None
+        return {description[0]: value for description, value in zip(cursor.description, row)}
+
+    @staticmethod
+    def _decode_migration_job(job: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        if job is None:
+            return None
+        decoded = dict(job)
+        decoded["filters"] = json.loads(decoded.pop("filters_json"))
+        decoded["metadata"] = json.loads(decoded.pop("metadata_json"))
+        decoded["infer"] = bool(decoded["infer"])
+        decoded["midterm_done"] = bool(decoded["midterm_done"])
+        decoded["longterm_done"] = bool(decoded["longterm_done"])
+        decoded["degraded"] = bool(decoded["degraded"])
+        return decoded
+
+    @staticmethod
+    def _decode_profile_job(job: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        if job is None:
+            return None
+        decoded = dict(job)
+        decoded["messages"] = json.loads(decoded.pop("messages_json"))
+        return decoded
+
+    def save_messages_and_create_migration_job(
+        self,
+        messages: List[Dict[str, Any]],
+        session_scope: str,
+        *,
+        max_messages: int,
+        filters: Dict[str, Any],
+        metadata: Dict[str, Any],
+        infer: bool,
+        prompt: Optional[str],
+    ) -> Optional[str]:
+        """Synchronously save messages and atomically reserve active overflow for migration."""
+        if not messages:
+            return None
+
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN IMMEDIATE")
+                for message in messages:
+                    created_at = normalize_iso_timestamp_to_beijing(message.get("created_at")) or beijing_now_iso()
+                    self.connection.execute(
+                        """
+                        INSERT INTO messages (
+                            id, session_scope, role, content, name, created_at, status, migration_job_id
+                        ) VALUES (?, ?, ?, ?, ?, ?, 'active', NULL)
+                        """,
+                        (
+                            str(uuid.uuid4()),
+                            session_scope,
+                            message.get("role"),
+                            message.get("content"),
+                            message.get("name"),
+                            created_at,
+                        ),
+                    )
+
+                active_rows = self.connection.execute(
+                    """
+                    SELECT rowid, id, role
+                    FROM messages
+                    WHERE session_scope = ? AND status = 'active'
+                    ORDER BY DATETIME(created_at) ASC, rowid ASC
+                    """,
+                    (session_scope,),
+                ).fetchall()
+                overflow_count = max(len(active_rows) - max(int(max_messages), 0), 0)
+                reserved_rows = active_rows[:overflow_count]
+
+                # Do not split a user/assistant QA pair at the migration boundary.
+                if (
+                    reserved_rows
+                    and reserved_rows[-1][2] == "user"
+                    and len(active_rows) > len(reserved_rows)
+                    and active_rows[len(reserved_rows)][2] == "assistant"
+                ):
+                    reserved_rows = active_rows[: len(reserved_rows) + 1]
+
+                if not reserved_rows:
+                    self.connection.execute("COMMIT")
+                    return None
+
+                job_id = str(uuid.uuid4())
+                sequence_no = self.connection.execute(
+                    """
+                    SELECT COALESCE(MAX(sequence_no), 0) + 1
+                    FROM memory_migration_jobs
+                    WHERE session_scope = ?
+                    """,
+                    (session_scope,),
+                ).fetchone()[0]
+                now = beijing_now_iso()
+                self.connection.execute(
+                    """
+                    INSERT INTO memory_migration_jobs (
+                        job_id, session_scope, status, midterm_done, longterm_done,
+                        attempts, next_retry_at, last_error, filters_json,
+                        metadata_json, infer, prompt, sequence_no, degraded,
+                        created_at, updated_at
+                    ) VALUES (?, ?, 'pending', 0, 0, 0, NULL, NULL, ?, ?, ?, ?, ?, 0, ?, ?)
+                    """,
+                    (
+                        job_id,
+                        session_scope,
+                        self._json_dumps(filters),
+                        self._json_dumps(metadata),
+                        int(bool(infer)),
+                        prompt,
+                        sequence_no,
+                        now,
+                        now,
+                    ),
+                )
+                message_ids = [row[1] for row in reserved_rows]
+                placeholders = ",".join("?" for _ in message_ids)
+                self.connection.execute(
+                    f"""
+                    UPDATE messages
+                    SET status = 'pending', migration_job_id = ?
+                    WHERE id IN ({placeholders}) AND status = 'active'
+                    """,
+                    (job_id, *message_ids),
+                )
+                self.connection.execute("COMMIT")
+                return job_id
+            except Exception as e:
+                self.connection.execute("ROLLBACK")
+                logger.error("Failed to save messages and create migration job for %s: %s", session_scope, e)
+                raise
+
+    def create_profile_update_job(
+        self,
+        user_id: str,
+        messages: List[Dict[str, Any]],
+    ) -> str:
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN IMMEDIATE")
+                sequence_no = self.connection.execute(
+                    """
+                    SELECT COALESCE(MAX(sequence_no), 0) + 1
+                    FROM profile_update_jobs
+                    WHERE user_id = ?
+                    """,
+                    (user_id,),
+                ).fetchone()[0]
+                job_id = str(uuid.uuid4())
+                now = beijing_now_iso()
+                self.connection.execute(
+                    """
+                    INSERT INTO profile_update_jobs (
+                        job_id, user_id, messages_json, status, attempts,
+                        next_retry_at, last_error, sequence_no, created_at, updated_at
+                    ) VALUES (?, ?, ?, 'pending', 0, NULL, NULL, ?, ?, ?)
+                    """,
+                    (job_id, user_id, self._json_dumps(messages), sequence_no, now, now),
+                )
+                self.connection.execute("COMMIT")
+                return job_id
+            except Exception as e:
+                self.connection.execute("ROLLBACK")
+                logger.error("Failed to create profile update job for user %s: %s", user_id, e)
+                raise
+
+    def get_migration_job_messages(self, job_id: str) -> List[Dict[str, Any]]:
+        with self._lock:
+            rows = self.connection.execute(
+                """
+                SELECT id, session_scope, role, content, name, created_at, status
+                FROM messages
+                WHERE migration_job_id = ?
+                ORDER BY DATETIME(created_at) ASC, rowid ASC
+                """,
+                (job_id,),
+            ).fetchall()
+        return [
+            {
+                "id": row[0],
+                "session_scope": row[1],
+                "role": row[2],
+                "content": row[3],
+                "name": row[4],
+                "created_at": row[5],
+                "status": row[6],
+            }
+            for row in rows
+        ]
+
+    def get_context_messages(
+        self,
+        session_scope: str,
+        *,
+        active_limit: int,
+        include_pending: bool,
+        max_pending: int,
+        include_failed: bool = False,
+    ) -> List[Dict[str, Any]]:
+        """Return active-window messages plus a bounded migration-in-flight bridge."""
+        with self._lock:
+            active_rows = self.connection.execute(
+                """
+                SELECT rowid, role, content, name, created_at, status FROM (
+                    SELECT rowid, role, content, name, created_at, status
+                    FROM messages
+                    WHERE session_scope = ? AND status = 'active'
+                    ORDER BY DATETIME(created_at) DESC, rowid DESC
+                    LIMIT ?
+                ) ORDER BY DATETIME(created_at) ASC, rowid ASC
+                """,
+                (session_scope, max(int(active_limit), 0)),
+            ).fetchall()
+            migration_rows = []
+            if include_pending and max_pending > 0:
+                statuses = ["pending", "processing"]
+                if include_failed:
+                    statuses.append("failed")
+                placeholders = ",".join("?" for _ in statuses)
+                migration_rows = self.connection.execute(
+                    f"""
+                    SELECT rowid, role, content, name, created_at, status FROM (
+                        SELECT rowid, role, content, name, created_at, status
+                        FROM messages
+                        WHERE session_scope = ? AND status IN ({placeholders})
+                        ORDER BY DATETIME(created_at) DESC, rowid DESC
+                        LIMIT ?
+                    ) ORDER BY DATETIME(created_at) ASC, rowid ASC
+                    """,
+                    (session_scope, *statuses, int(max_pending)),
+                ).fetchall()
+
+        rows = sorted([*migration_rows, *active_rows], key=lambda row: (row[4] or "", row[0]))
+        return [
+            {
+                "role": row[1],
+                "content": row[2],
+                "name": row[3],
+                "created_at": row[4],
+                "status": row[5],
+            }
+            for row in rows
+        ]
+
+    def recover_stale_background_jobs(self, stale_timeout_seconds: int) -> Dict[str, int]:
+        cutoff = (beijing_now() - timedelta(seconds=max(int(stale_timeout_seconds), 1))).isoformat()
+        now = beijing_now_iso()
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN IMMEDIATE")
+                migration_ids = [
+                    row[0]
+                    for row in self.connection.execute(
+                        """
+                        SELECT job_id FROM memory_migration_jobs
+                        WHERE status = 'running' AND updated_at <= ?
+                        """,
+                        (cutoff,),
+                    ).fetchall()
+                ]
+                if migration_ids:
+                    placeholders = ",".join("?" for _ in migration_ids)
+                    self.connection.execute(
+                        f"""
+                        UPDATE memory_migration_jobs
+                        SET status = 'retry', next_retry_at = ?, updated_at = ?,
+                            last_error = COALESCE(last_error, 'recovered stale running job')
+                        WHERE job_id IN ({placeholders})
+                        """,
+                        (now, now, *migration_ids),
+                    )
+                    self.connection.execute(
+                        f"""
+                        UPDATE messages SET status = 'pending'
+                        WHERE migration_job_id IN ({placeholders}) AND status = 'processing'
+                        """,
+                        tuple(migration_ids),
+                    )
+
+                profile_cursor = self.connection.execute(
+                    """
+                    UPDATE profile_update_jobs
+                    SET status = 'retry', next_retry_at = ?, updated_at = ?,
+                        last_error = COALESCE(last_error, 'recovered stale running job')
+                    WHERE status = 'running' AND updated_at <= ?
+                    """,
+                    (now, now, cutoff),
+                )
+                self.connection.execute("COMMIT")
+                return {"migration": len(migration_ids), "profile": profile_cursor.rowcount}
+            except Exception:
+                self.connection.execute("ROLLBACK")
+                raise
+
+    def claim_next_migration_job(self) -> Optional[Dict[str, Any]]:
+        now = beijing_now_iso()
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN IMMEDIATE")
+                cursor = self.connection.execute(
+                    """
+                    SELECT candidate.*
+                    FROM memory_migration_jobs AS candidate
+                    WHERE candidate.status IN ('pending', 'retry')
+                      AND (candidate.next_retry_at IS NULL OR candidate.next_retry_at <= ?)
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM memory_migration_jobs AS earlier
+                          WHERE earlier.session_scope = candidate.session_scope
+                            AND earlier.sequence_no < candidate.sequence_no
+                            AND earlier.status NOT IN ('succeeded', 'succeeded_degraded', 'dead')
+                      )
+                    ORDER BY candidate.created_at ASC, candidate.rowid ASC
+                    LIMIT 1
+                    """,
+                    (now,),
+                )
+                row = cursor.fetchone()
+                job = self._row_as_dict(cursor, row)
+                if job is None:
+                    self.connection.execute("COMMIT")
+                    return None
+                updated = self.connection.execute(
+                    """
+                    UPDATE memory_migration_jobs
+                    SET status = 'running', updated_at = ?
+                    WHERE job_id = ? AND status IN ('pending', 'retry')
+                    """,
+                    (now, job["job_id"]),
+                )
+                if updated.rowcount != 1:
+                    self.connection.execute("ROLLBACK")
+                    return None
+                self.connection.execute(
+                    """
+                    UPDATE messages SET status = 'processing'
+                    WHERE migration_job_id = ? AND status IN ('pending', 'failed')
+                    """,
+                    (job["job_id"],),
+                )
+                self.connection.execute("COMMIT")
+                job["status"] = "running"
+                job["updated_at"] = now
+                return self._decode_migration_job(job)
+            except Exception:
+                self.connection.execute("ROLLBACK")
+                raise
+
+    def claim_next_profile_job(self) -> Optional[Dict[str, Any]]:
+        now = beijing_now_iso()
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN IMMEDIATE")
+                cursor = self.connection.execute(
+                    """
+                    SELECT candidate.*
+                    FROM profile_update_jobs AS candidate
+                    WHERE candidate.status IN ('pending', 'retry')
+                      AND (candidate.next_retry_at IS NULL OR candidate.next_retry_at <= ?)
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM profile_update_jobs AS earlier
+                          WHERE earlier.user_id = candidate.user_id
+                            AND earlier.sequence_no < candidate.sequence_no
+                            AND earlier.status NOT IN ('succeeded', 'dead')
+                      )
+                    ORDER BY candidate.created_at ASC, candidate.rowid ASC
+                    LIMIT 1
+                    """,
+                    (now,),
+                )
+                row = cursor.fetchone()
+                job = self._row_as_dict(cursor, row)
+                if job is None:
+                    self.connection.execute("COMMIT")
+                    return None
+                updated = self.connection.execute(
+                    """
+                    UPDATE profile_update_jobs
+                    SET status = 'running', updated_at = ?
+                    WHERE job_id = ? AND status IN ('pending', 'retry')
+                    """,
+                    (now, job["job_id"]),
+                )
+                if updated.rowcount != 1:
+                    self.connection.execute("ROLLBACK")
+                    return None
+                self.connection.execute("COMMIT")
+                job["status"] = "running"
+                job["updated_at"] = now
+                return self._decode_profile_job(job)
+            except Exception:
+                self.connection.execute("ROLLBACK")
+                raise
+
+    def mark_migration_stage_done(self, job_id: str, stage: str, *, degraded: bool = False) -> None:
+        if stage not in {"midterm", "longterm"}:
+            raise ValueError("stage must be 'midterm' or 'longterm'")
+        column = f"{stage}_done"
+        with self._lock:
+            self.connection.execute("BEGIN IMMEDIATE")
+            try:
+                self.connection.execute(
+                    f"""
+                    UPDATE memory_migration_jobs
+                    SET {column} = 1, attempts = 0, next_retry_at = NULL,
+                        last_error = NULL, degraded = MAX(degraded, ?), updated_at = ?
+                    WHERE job_id = ? AND status = 'running'
+                    """,
+                    (int(degraded), beijing_now_iso(), job_id),
+                )
+                self.connection.execute("COMMIT")
+            except Exception:
+                self.connection.execute("ROLLBACK")
+                raise
+
+    def record_migration_failure(
+        self,
+        job_id: str,
+        error: str,
+        *,
+        max_retries: int,
+        retry_delay_seconds: float,
+    ) -> str:
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN IMMEDIATE")
+                row = self.connection.execute(
+                    "SELECT attempts FROM memory_migration_jobs WHERE job_id = ? AND status = 'running'",
+                    (job_id,),
+                ).fetchone()
+                if row is None:
+                    self.connection.execute("COMMIT")
+                    return "missing"
+                attempts = int(row[0]) + 1
+                now = beijing_now()
+                if attempts <= max_retries:
+                    status = "retry"
+                    next_retry_at = (now + timedelta(seconds=max(float(retry_delay_seconds), 0))).isoformat()
+                    self.connection.execute(
+                        """
+                        UPDATE memory_migration_jobs
+                        SET status = 'retry', attempts = ?, next_retry_at = ?,
+                            last_error = ?, updated_at = ?
+                        WHERE job_id = ?
+                        """,
+                        (attempts, next_retry_at, error, now.isoformat(), job_id),
+                    )
+                    self.connection.execute(
+                        """
+                        UPDATE messages SET status = 'pending'
+                        WHERE migration_job_id = ? AND status = 'processing'
+                        """,
+                        (job_id,),
+                    )
+                else:
+                    status = "exhausted"
+                    self.connection.execute(
+                        """
+                        UPDATE memory_migration_jobs
+                        SET attempts = ?, last_error = ?, updated_at = ?
+                        WHERE job_id = ?
+                        """,
+                        (attempts, error, now.isoformat(), job_id),
+                    )
+                self.connection.execute("COMMIT")
+                return status
+            except Exception:
+                self.connection.execute("ROLLBACK")
+                raise
+
+    def finish_migration_job(self, job_id: str) -> None:
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN IMMEDIATE")
+                row = self.connection.execute(
+                    """
+                    SELECT midterm_done, longterm_done, degraded
+                    FROM memory_migration_jobs
+                    WHERE job_id = ? AND status = 'running'
+                    """,
+                    (job_id,),
+                ).fetchone()
+                if row is None or not bool(row[0]) or not bool(row[1]):
+                    raise RuntimeError(f"Migration job {job_id} is not ready to finish")
+                self.connection.execute("DELETE FROM messages WHERE migration_job_id = ?", (job_id,))
+                status = "succeeded_degraded" if bool(row[2]) else "succeeded"
+                self.connection.execute(
+                    """
+                    UPDATE memory_migration_jobs
+                    SET status = ?, next_retry_at = NULL, last_error = NULL, updated_at = ?
+                    WHERE job_id = ?
+                    """,
+                    (status, beijing_now_iso(), job_id),
+                )
+                self.connection.execute("COMMIT")
+            except Exception:
+                self.connection.execute("ROLLBACK")
+                raise
+
+    def mark_migration_dead(self, job_id: str, error: str) -> None:
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN IMMEDIATE")
+                now = beijing_now_iso()
+                self.connection.execute(
+                    """
+                    UPDATE memory_migration_jobs
+                    SET status = 'dead', next_retry_at = NULL, last_error = ?, updated_at = ?
+                    WHERE job_id = ?
+                    """,
+                    (error, now, job_id),
+                )
+                self.connection.execute(
+                    "UPDATE messages SET status = 'failed' WHERE migration_job_id = ?",
+                    (job_id,),
+                )
+                self.connection.execute("COMMIT")
+            except Exception:
+                self.connection.execute("ROLLBACK")
+                raise
+
+    def finish_profile_job(self, job_id: str) -> None:
+        with self._lock:
+            self.connection.execute(
+                """
+                UPDATE profile_update_jobs
+                SET status = 'succeeded', next_retry_at = NULL, last_error = NULL, updated_at = ?
+                WHERE job_id = ? AND status = 'running'
+                """,
+                (beijing_now_iso(), job_id),
+            )
+            self.connection.commit()
+
+    def record_profile_failure(
+        self,
+        job_id: str,
+        error: str,
+        *,
+        max_retries: int,
+        retry_delay_seconds: float,
+    ) -> str:
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN IMMEDIATE")
+                row = self.connection.execute(
+                    "SELECT attempts FROM profile_update_jobs WHERE job_id = ? AND status = 'running'",
+                    (job_id,),
+                ).fetchone()
+                if row is None:
+                    self.connection.execute("COMMIT")
+                    return "missing"
+                attempts = int(row[0]) + 1
+                now = beijing_now()
+                if attempts <= max_retries:
+                    status = "retry"
+                    next_retry_at = (now + timedelta(seconds=max(float(retry_delay_seconds), 0))).isoformat()
+                else:
+                    status = "dead"
+                    next_retry_at = None
+                self.connection.execute(
+                    """
+                    UPDATE profile_update_jobs
+                    SET status = ?, attempts = ?, next_retry_at = ?,
+                        last_error = ?, updated_at = ?
+                    WHERE job_id = ?
+                    """,
+                    (status, attempts, next_retry_at, error, now.isoformat(), job_id),
+                )
+                self.connection.execute("COMMIT")
+                return status
+            except Exception:
+                self.connection.execute("ROLLBACK")
+                raise
+
+    def background_jobs_pending(self) -> bool:
+        with self._lock:
+            migration = self.connection.execute(
+                """
+                SELECT 1 FROM memory_migration_jobs
+                WHERE status IN ('pending', 'running', 'retry')
+                LIMIT 1
+                """
+            ).fetchone()
+            profile = self.connection.execute(
+                """
+                SELECT 1 FROM profile_update_jobs
+                WHERE status IN ('pending', 'running', 'retry')
+                LIMIT 1
+                """
+            ).fetchone()
+            return migration is not None or profile is not None
+
+    def get_background_job(self, job_id: str, job_type: str = "migration") -> Optional[Dict[str, Any]]:
+        table = "memory_migration_jobs" if job_type == "migration" else "profile_update_jobs"
+        if job_type not in {"migration", "profile"}:
+            raise ValueError("job_type must be 'migration' or 'profile'")
+        with self._lock:
+            cursor = self.connection.execute(f"SELECT * FROM {table} WHERE job_id = ?", (job_id,))
+            job = self._row_as_dict(cursor, cursor.fetchone())
+        if job_type == "migration":
+            return self._decode_migration_job(job)
+        return self._decode_profile_job(job)
+
+    def retry_background_job(self, job_id: str, job_type: str = "migration") -> bool:
+        if job_type not in {"migration", "profile"}:
+            raise ValueError("job_type must be 'migration' or 'profile'")
+        table = "memory_migration_jobs" if job_type == "migration" else "profile_update_jobs"
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN IMMEDIATE")
+                cursor = self.connection.execute(
+                    f"""
+                    UPDATE {table}
+                    SET status = 'pending', attempts = 0, next_retry_at = NULL,
+                        last_error = NULL, updated_at = ?
+                    WHERE job_id = ? AND status = 'dead'
+                    """,
+                    (beijing_now_iso(), job_id),
+                )
+                if job_type == "migration" and cursor.rowcount:
+                    self.connection.execute(
+                        "UPDATE messages SET status = 'pending' WHERE migration_job_id = ?",
+                        (job_id,),
+                    )
+                self.connection.execute("COMMIT")
+                return cursor.rowcount == 1
+            except Exception:
+                self.connection.execute("ROLLBACK")
+                raise
 
     @staticmethod
     def _profile_attribute_from_row(row) -> Optional[Dict[str, Any]]:
@@ -856,6 +1580,8 @@ class SQLiteManager:
                 self.connection.execute("BEGIN")
                 self.connection.execute("DROP TABLE IF EXISTS user_profile_values")
                 self.connection.execute("DROP TABLE IF EXISTS profile_attributes")
+                self.connection.execute("DROP TABLE IF EXISTS profile_update_jobs")
+                self.connection.execute("DROP TABLE IF EXISTS memory_migration_jobs")
                 self.connection.execute("DROP TABLE IF EXISTS history")
                 self.connection.execute("DROP TABLE IF EXISTS messages")
                 self.connection.execute("COMMIT")
@@ -865,9 +1591,10 @@ class SQLiteManager:
                 raise
 
     def close(self) -> None:
-        if self.connection:
-            self.connection.close()
-            self.connection = None
+        with self._lock:
+            if self.connection:
+                self.connection.close()
+                self.connection = None
 
     def __del__(self):
         self.close()

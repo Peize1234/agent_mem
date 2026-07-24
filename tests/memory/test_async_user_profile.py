@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from mem0.configs.base import UserProfileConfig
+from mem0.configs.base import BackgroundTaskConfig, UserProfileConfig
 from mem0.configs.enums import MemoryType
 from mem0.memory.main import AsyncMemory
 from mem0.memory.profile_manager import ProfileManager
@@ -77,6 +77,7 @@ def _build_async_memory(db, *, config=None, llm=None):
         history_db_path=db.db_path,
         vector_store=SimpleNamespace(provider="mock", config=SimpleNamespace()),
         midterm=SimpleNamespace(enabled=False, short_term_capacity=2),
+        background=BackgroundTaskConfig(max_retries=0, poll_interval_seconds=0.01),
     )
     memory.db = db
     memory.llm = llm or _RecordingSyncLLM()
@@ -201,8 +202,11 @@ async def test_async_add_profile_failure_preserves_result(db, monkeypatch, caplo
 
     result = await memory.add("I prefer ETFs", user_id="user-1", run_id="run-1", infer=False)
 
-    assert result == {"results": [{"id": "memory-1", "event": "ADD"}]}
-    assert "Automatic profile update failed" in caplog.text
+    assert result["results"] == []
+    assert result["background"]["profile_job_id"]
+    assert await memory.flush_background_tasks(2)
+    assert db.get_background_job(result["background"]["profile_job_id"], "profile")["status"] == "dead"
+    memory.close()
 
 
 @pytest.mark.asyncio
@@ -220,8 +224,11 @@ async def test_async_procedural_add_updates_normalized_profile(db, monkeypatch):
         memory_type=MemoryType.PROCEDURAL.value,
     )
 
-    assert result == {"results": [{"id": "procedure-1"}]}
+    assert result["results"] == [{"id": "procedure-1"}]
+    assert result["background"]["profile_job_id"]
+    assert await memory.flush_background_tasks(2)
     assert (await memory.get_profile(" user-1 "))["profile"]["preferred_products"] == ["ETF"]
+    memory.close()
 
 
 @pytest.mark.asyncio
@@ -235,9 +242,12 @@ async def test_async_add_with_infer_false_still_updates_profile(db, monkeypatch)
 
     result = await memory.add("I prefer ETFs", user_id="user-1", run_id="run-1", infer=False)
 
-    assert result == {"results": []}
+    assert result["results"] == []
+    assert result["background"]["profile_job_id"]
     memory._process_evicted_long_term_memories.assert_not_awaited()
+    assert await memory.flush_background_tasks(2)
     assert (await memory.get_profile("user-1"))["profile"]["preferred_products"] == ["ETF"]
+    memory.close()
 
 
 @pytest.mark.asyncio

@@ -70,7 +70,13 @@ class MidTermUpdater:
                 break
         return keywords
 
-    def _summarize_page(self, user_input: str, assistant_response: str) -> tuple[str, List[str]]:
+    def _summarize_page(
+        self,
+        user_input: str,
+        assistant_response: str,
+        *,
+        allow_fallback: bool = True,
+    ) -> tuple[str, List[str]]:
         raw_dialogue = f"User: {user_input}\nAssistant: {assistant_response}".strip()
         try:
             response = self.llm.generate_response(
@@ -88,7 +94,11 @@ class MidTermUpdater:
             keywords = [str(item).strip() for item in keywords if str(item).strip()]
             if summary:
                 return summary, keywords[:8] or self._fallback_keywords(raw_dialogue)
+            if not allow_fallback:
+                raise ValueError("midterm page summary response did not contain a summary")
         except Exception as exc:
+            if not allow_fallback:
+                raise
             logger.debug("Midterm page summarization failed; using fallback: %s", exc)
 
         summary = user_input.strip() or raw_dialogue[:240]
@@ -156,6 +166,13 @@ class MidTermUpdater:
         rows.sort(key=created_at)
         return str(rows[-1].id)
 
+    def _session_id_for_page(self, page_id: str, filters: Dict[str, Any]) -> Optional[str]:
+        for session in self.midterm_memory.list_sessions(filters=filters, top_k=10000):
+            payload = getattr(session, "payload", None) or {}
+            if page_id in (payload.get("page_ids") or []):
+                return str(session.id)
+        return None
+
     def _link_previous_page(self, previous_page_id: Optional[str], page_id: str) -> None:
         if not previous_page_id:
             return
@@ -209,6 +226,8 @@ class MidTermUpdater:
         existing_keywords: List[str],
         page_summary: str,
         page_keywords: List[str],
+        *,
+        allow_fallback: bool = True,
     ) -> tuple[str, List[str]]:
         fallback = self._fallback_merge_session(
             existing_summary,
@@ -244,27 +263,48 @@ class MidTermUpdater:
             keywords = self._dedupe_keywords(keywords, existing_keywords, page_keywords)
             if summary:
                 return summary[:1000], keywords[:12] or fallback[1]
+            if not allow_fallback:
+                raise ValueError("midterm session merge response did not contain a summary")
         except Exception as exc:
+            if not allow_fallback:
+                raise
             logger.debug("Midterm session merge failed; using fallback: %s", exc)
 
         return fallback
 
-    def _append_page_to_session(self, session_id: str, page_payload: Dict[str, Any]) -> str:
+    def _append_page_to_session(
+        self,
+        session_id: str,
+        page_payload: Dict[str, Any],
+        *,
+        allow_fallback: bool = True,
+        use_llm: bool = True,
+    ) -> str:
         session = self.midterm_memory.get_session(session_id)
         if not session:
             return self._create_session(page_payload)
 
         payload = dict(getattr(session, "payload", None) or {})
         page_ids = list(payload.get("page_ids") or [])
-        if page_payload["id"] not in page_ids:
-            page_ids.append(page_payload["id"])
+        if page_payload["id"] in page_ids:
+            return session_id
+        page_ids.append(page_payload["id"])
 
-        summary, keywords = self._merge_session(
-            payload.get("summary", ""),
-            payload.get("summary_keywords") or [],
-            page_payload.get("summary", ""),
-            page_payload.get("keywords") or [],
-        )
+        if use_llm:
+            summary, keywords = self._merge_session(
+                payload.get("summary", ""),
+                payload.get("summary_keywords") or [],
+                page_payload.get("summary", ""),
+                page_payload.get("keywords") or [],
+                allow_fallback=allow_fallback,
+            )
+        else:
+            summary, keywords = self._fallback_merge_session(
+                payload.get("summary", ""),
+                payload.get("summary_keywords") or [],
+                page_payload.get("summary", ""),
+                page_payload.get("keywords") or [],
+            )
         payload.update(
             {
                 "summary": summary,
@@ -279,9 +319,9 @@ class MidTermUpdater:
         self.midterm_memory.update_session(session_id, payload, reembed=True)
         return session_id
 
-    def _create_session(self, page_payload: Dict[str, Any]) -> str:
+    def _create_session(self, page_payload: Dict[str, Any], session_id: Optional[str] = None) -> str:
         now = beijing_now_iso()
-        session_id = str(uuid.uuid4())
+        session_id = session_id or str(uuid.uuid4())
         payload = {
             "id": session_id,
             "summary": page_payload.get("summary", ""),
@@ -297,12 +337,21 @@ class MidTermUpdater:
             "user_id": page_payload.get("user_id"),
             "agent_id": page_payload.get("agent_id"),
             "run_id": page_payload.get("run_id"),
+            "source_job_id": page_payload.get("source_job_id"),
         }
         payload["H_segment"] = compute_session_heat(payload, self.config)
         self.midterm_memory.insert_session(session_id, payload)
         return session_id
 
-    def _assign_session(self, page_payload: Dict[str, Any], filters: Dict[str, Any]) -> str:
+    def _assign_session(
+        self,
+        page_payload: Dict[str, Any],
+        filters: Dict[str, Any],
+        *,
+        allow_fallback: bool = True,
+        use_llm: bool = True,
+        new_session_id: Optional[str] = None,
+    ) -> str:
         query = self.midterm_memory.page_embedding_text(page_payload)
         candidate_sessions = self.midterm_memory.search_sessions(
             query=query,
@@ -325,13 +374,21 @@ class MidTermUpdater:
                 best_session_id = str(session.id)
 
         if best_session_id and best_score >= self.config.session_similarity_threshold:
-            return self._append_page_to_session(best_session_id, page_payload)
-        return self._create_session(page_payload)
+            return self._append_page_to_session(
+                best_session_id,
+                page_payload,
+                allow_fallback=allow_fallback,
+                use_llm=use_llm,
+            )
+        return self._create_session(page_payload, session_id=new_session_id)
 
     def process_evicted_messages(
         self,
         evicted_messages: List[Dict[str, Any]],
         filters: Dict[str, Any],
+        *,
+        source_job_id: Optional[str] = None,
+        degraded: bool = False,
     ) -> List[Dict[str, Any]]:
         scope_filters = self._scope_filters(filters)
         if not evicted_messages or not scope_filters:
@@ -339,38 +396,77 @@ class MidTermUpdater:
 
         pages = []
         previous_page_id = self._latest_page_id(scope_filters)
-        for qa_pair in self._messages_to_qa_pairs(evicted_messages):
-            page_id = str(uuid.uuid4())
-            now = beijing_now_iso()
-            summary, keywords = self._summarize_page(
-                qa_pair.get("user_input", ""),
-                qa_pair.get("assistant_response", ""),
+        for index, qa_pair in enumerate(self._messages_to_qa_pairs(evicted_messages)):
+            page_id = (
+                str(uuid.uuid5(uuid.NAMESPACE_URL, f"mem0:midterm:{source_job_id}:{index}"))
+                if source_job_id
+                else str(uuid.uuid4())
             )
+            now = beijing_now_iso()
             raw_dialogue = (
                 f"User: {qa_pair.get('user_input', '')}\n"
                 f"Assistant: {qa_pair.get('assistant_response', '')}"
             ).strip()
-            created_at = normalize_iso_timestamp_to_beijing(qa_pair.get("created_at")) or now
-            page_payload = {
-                "id": page_id,
-                "session_id": None,
-                "raw_dialogue": raw_dialogue,
-                "user_input": qa_pair.get("user_input", ""),
-                "assistant_response": qa_pair.get("assistant_response", ""),
-                "summary": summary,
-                "keywords": keywords,
-                "pre_page": previous_page_id,
-                "next_page": None,
-                "created_at": created_at,
-                "updated_at": now,
-                "user_id": scope_filters.get("user_id"),
-                "agent_id": scope_filters.get("agent_id"),
-                "run_id": scope_filters.get("run_id"),
-            }
-            self.midterm_memory.insert_page(page_id, page_payload)
+            existing_page = self.midterm_memory.get_page(page_id) if source_job_id else None
+            if existing_page:
+                page_payload = dict(getattr(existing_page, "payload", None) or {})
+                page_payload.setdefault("id", page_id)
+                if page_payload.get("session_id"):
+                    pages.append(page_payload)
+                    previous_page_id = page_id
+                    continue
+                if degraded:
+                    page_payload["degraded"] = True
+                    page_payload["needs_reprocessing"] = True
+                    page_payload["updated_at"] = now
+                    self.midterm_memory.update_page(page_id, page_payload, reembed=False)
+            else:
+                if degraded:
+                    summary = qa_pair.get("user_input", "").strip() or raw_dialogue[:240]
+                    keywords = self._fallback_keywords(raw_dialogue)
+                else:
+                    summary, keywords = self._summarize_page(
+                        qa_pair.get("user_input", ""),
+                        qa_pair.get("assistant_response", ""),
+                        allow_fallback=source_job_id is None,
+                    )
+                created_at = normalize_iso_timestamp_to_beijing(qa_pair.get("created_at")) or now
+                page_payload = {
+                    "id": page_id,
+                    "session_id": None,
+                    "raw_dialogue": raw_dialogue,
+                    "user_input": qa_pair.get("user_input", ""),
+                    "assistant_response": qa_pair.get("assistant_response", ""),
+                    "summary": summary,
+                    "keywords": keywords,
+                    "pre_page": previous_page_id,
+                    "next_page": None,
+                    "created_at": created_at,
+                    "updated_at": now,
+                    "user_id": scope_filters.get("user_id"),
+                    "agent_id": scope_filters.get("agent_id"),
+                    "run_id": scope_filters.get("run_id"),
+                    "source_job_id": source_job_id,
+                    "degraded": degraded,
+                    "needs_reprocessing": degraded,
+                }
+                self.midterm_memory.insert_page(page_id, page_payload)
             self._link_previous_page(previous_page_id, page_id)
 
-            session_id = self._assign_session(page_payload, scope_filters)
+            new_session_id = (
+                str(uuid.uuid5(uuid.NAMESPACE_URL, f"mem0:midterm-session:{source_job_id}:{index}"))
+                if source_job_id
+                else None
+            )
+            session_id = self._session_id_for_page(page_id, scope_filters)
+            if session_id is None:
+                session_id = self._assign_session(
+                    page_payload,
+                    scope_filters,
+                    allow_fallback=source_job_id is None,
+                    use_llm=not degraded,
+                    new_session_id=new_session_id,
+                )
             page_payload["session_id"] = session_id
             page_payload["updated_at"] = beijing_now_iso()
             self.midterm_memory.update_page(page_id, page_payload, reembed=False)

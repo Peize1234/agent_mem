@@ -74,6 +74,44 @@ memory = AsyncMemory(config=custom_config)
 
 ### Manage lifecycle and concurrency
 
+When layered memory or automatic profiles are enabled, `await memory.add(...)` waits only for the
+short-term SQLite write and durable job creation. Mid-term extraction, long-term extraction, and
+profile updates run in two persistent background workers. The response includes the queued job IDs:
+
+```python
+result = await memory.add(messages, user_id="alice", run_id="session-1")
+print(result["background"]["migration_job_id"])
+print(result["background"]["profile_job_id"])
+
+# Useful in tests and evaluation scripts. Production request paths normally
+# should not wait for background extraction.
+completed = await memory.flush_background_tasks(timeout=30)
+```
+
+Configure retry, shutdown, and migration-in-flight context behavior through `MemoryConfig`:
+
+```python
+from mem0.configs.base import BackgroundTaskConfig, MemoryConfig
+
+config = MemoryConfig(
+    background=BackgroundTaskConfig(
+        enabled=True,
+        max_retries=3,
+        poll_interval_seconds=1.0,
+        stale_running_timeout_seconds=300,
+        shutdown_timeout_seconds=30.0,
+        include_pending_in_context=True,
+        max_pending_context_messages=20,
+        include_failed_in_context=False,
+    )
+)
+memory = AsyncMemory(config=config)
+```
+
+Set `background.enabled=False` to use the legacy synchronous path. In that mode `add()` writes
+short-term messages, processes any evicted mid-term and long-term memories, and updates the user
+profile before returning. It does not create persistent background jobs.
+
 ```python
 import asyncio
 from contextlib import asynccontextmanager
@@ -85,8 +123,7 @@ async def get_memory():
     try:
         yield memory
     finally:
-        # Clean up resources if needed
-        pass
+        memory.close()
 
 async def safe_memory_usage():
     async with get_memory() as memory:

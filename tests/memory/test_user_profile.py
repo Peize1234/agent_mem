@@ -1,12 +1,12 @@
 import json
 import threading
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from pydantic import ValidationError
 
-from mem0.configs.base import UserProfileConfig
+from mem0.configs.base import BackgroundTaskConfig, UserProfileConfig
 from mem0.configs.enums import MemoryType
 from mem0.memory.main import Memory
 from mem0.memory.profile_manager import ProfileManager
@@ -514,11 +514,12 @@ def _memory_with_profile_storage(db, config=None):
         profile=profile_config,
         llm=SimpleNamespace(config={}),
         midterm=SimpleNamespace(enabled=False, short_term_capacity=2),
+        background=BackgroundTaskConfig(max_retries=0, poll_interval_seconds=0.01),
     )
     memory.db = db
     memory._profile_manager = ProfileManager(db, profile_config)
     memory._profile_updater = MagicMock()
-    memory._profile_updater.generate_update_plan.return_value = ProfileUpdatePlan.model_validate(
+    plan = ProfileUpdatePlan.model_validate(
         {
             "operations": [
                 {
@@ -529,6 +530,8 @@ def _memory_with_profile_storage(db, config=None):
             ]
         }
     )
+    memory._profile_updater.generate_update_plan.return_value = plan
+    memory._profile_updater.generate_update_plan_async = AsyncMock(return_value=plan)
     return memory
 
 
@@ -547,22 +550,20 @@ def test_disabled_profile_does_not_call_llm():
 
 def test_memory_add_and_profile_apis_share_normalized_user_id(db, monkeypatch):
     memory = _memory_with_profile_storage(db)
-    evicted_messages = [{"role": "user", "content": "I prefer ETFs"}]
-    memory._save_short_term_messages = MagicMock(return_value=evicted_messages)
     memory._process_evicted_long_term_memories = MagicMock(return_value=[{"id": "memory-1", "event": "ADD"}])
     memory._process_midterm_evictions = MagicMock()
     _disable_sync_add_notices(monkeypatch)
 
     result = memory.add("I prefer ETFs", user_id=" user-1 ", run_id="run-1", infer=False)
 
-    assert result == {"results": [{"id": "memory-1", "event": "ADD"}]}
-    _, metadata, effective_filters = memory._process_evicted_long_term_memories.call_args.args
-    assert metadata["user_id"] == "user-1"
-    assert effective_filters["user_id"] == "user-1"
-    assert memory._process_evicted_long_term_memories.call_args.kwargs["infer"] is False
-    assert memory._process_midterm_evictions.call_args.args[1]["user_id"] == "user-1"
+    assert result["results"] == []
+    assert result["background"]["profile_job_id"]
+    assert memory.flush_background_tasks(2)
+    profile_job = db.get_background_job(result["background"]["profile_job_id"], "profile")
+    assert profile_job["user_id"] == "user-1"
     assert memory.get_profile(" user-1 ") == memory.get_profile("user-1")
     assert memory.get_profile("user-1")["profile"]["preferred_products"] == ["ETF"]
+    memory.close()
 
 
 def test_profile_and_memory_layers_use_the_same_normalized_user_id(db, monkeypatch):
@@ -582,7 +583,7 @@ def test_profile_and_memory_layers_use_the_same_normalized_user_id(db, monkeypat
         run_id="run-1",
         infer=False,
     )
-    memory.add(
+    second_result = memory.add(
         [
             {"role": "user", "content": "I prefer bonds"},
             {"role": "assistant", "content": "Noted again"},
@@ -592,14 +593,17 @@ def test_profile_and_memory_layers_use_the_same_normalized_user_id(db, monkeypat
         infer=False,
     )
 
+    assert memory.flush_background_tasks(2)
     long_term_metadata = memory._create_memory.call_args.args[2]
     assert long_term_metadata["user_id"] == "user-1"
     assert [message["content"] for message in db.get_messages("run_id=run-1&user_id=user-1")] == [
         "I prefer bonds",
         "Noted again",
     ]
-    assert memory._process_midterm_evictions.call_args.args[1]["user_id"] == "user-1"
+    migration_job = db.get_background_job(second_result["background"]["migration_job_id"])
+    assert migration_job["filters"]["user_id"] == "user-1"
     assert memory.get_profile("user-1")["profile"]["preferred_products"] == ["ETF"]
+    memory.close()
 
 
 def test_update_and_delete_profile_normalize_user_id(db):
@@ -645,9 +649,12 @@ def test_procedural_add_updates_normalized_profile_user(db, monkeypatch):
         memory_type=MemoryType.PROCEDURAL.value,
     )
 
-    assert result == {"results": [{"id": "procedure-1"}]}
+    assert result["results"] == [{"id": "procedure-1"}]
+    assert result["background"]["profile_job_id"]
+    assert memory.flush_background_tasks(2)
     assert memory._create_procedural_memory.call_args.kwargs["metadata"]["user_id"] == "user-1"
     assert memory.get_profile("user-1")["profile"]["preferred_products"] == ["ETF"]
+    memory.close()
 
 
 def test_explicit_update_is_rejected_without_initializing_updater_when_disabled():
@@ -695,19 +702,21 @@ def test_automatic_update_failure_does_not_escape_add_path(caplog):
     assert "Automatic profile update failed" in caplog.text
 
 
-def test_profile_failure_preserves_memory_add_result(monkeypatch):
-    memory = _memory_for_automatic_update(UserProfileConfig(enabled=True))
-    memory.config.llm = SimpleNamespace(config={})
-    memory._save_short_term_messages = MagicMock(return_value=[{"role": "user", "content": "I prefer ETFs"}])
-    memory._process_evicted_long_term_memories = MagicMock(return_value=[{"id": "memory-1", "event": "ADD"}])
+def test_profile_failure_preserves_memory_add_result(db, monkeypatch):
+    memory = _memory_with_profile_storage(db)
+    memory._process_evicted_long_term_memories = MagicMock(return_value=[])
     memory._process_midterm_evictions = MagicMock()
-    memory._profile_updater.generate_update_plan.side_effect = RuntimeError("LLM unavailable")
+    memory._profile_updater.generate_update_plan_async = AsyncMock(side_effect=RuntimeError("LLM unavailable"))
     monkeypatch.setattr("mem0.memory.main.detect_scale_threshold_from_add_result", lambda *args: None)
     monkeypatch.setattr("mem0.memory.main.display_first_run_notice", lambda *args: None)
 
     result = memory.add("I prefer ETFs", user_id="user-1", run_id="run-1", infer=False)
 
-    assert result == {"results": [{"id": "memory-1", "event": "ADD"}]}
+    assert result["results"] == []
+    assert result["background"]["profile_job_id"]
+    assert memory.flush_background_tasks(2)
+    assert db.get_background_job(result["background"]["profile_job_id"], "profile")["status"] == "dead"
+    memory.close()
 
 
 def test_concurrent_appends_do_not_lose_updates(profile_manager):

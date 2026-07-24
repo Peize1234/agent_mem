@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from mem0.configs.base import BackgroundTaskConfig
 from mem0.memory import main as memory_main
 from mem0.memory import notices
 from mem0.memory import telemetry as telemetry_module
@@ -267,14 +268,18 @@ def test_public_add_succeeds_when_first_run_flag_eval_fails(notice_harness):
     _, telemetry = notice_harness
     telemetry.posthog.evaluate_flags.side_effect = RuntimeError("network unavailable")
     memory = Memory.__new__(Memory)
-    memory.config = SimpleNamespace(llm=SimpleNamespace(config={}))
-    evicted_messages = [{"role": "user", "content": "The user likes tea."}]
-    memory._save_short_term_messages = MagicMock(return_value=evicted_messages)
-    memory._process_evicted_long_term_memories = MagicMock(return_value=[{"event": "ADD", "memory": "likes tea"}])
+    memory.config = SimpleNamespace(
+        llm=SimpleNamespace(config={}),
+        background=BackgroundTaskConfig(enabled=True),
+    )
+    memory._save_and_enqueue_background_jobs = MagicMock(return_value=("migration-job", None))
 
     result = Memory.add(memory, "The user likes tea.", user_id="u1", infer=False)
 
-    assert result == {"results": [{"event": "ADD", "memory": "likes tea"}]}
+    assert result == {
+        "results": [],
+        "background": {"migration_job_id": "migration-job", "profile_job_id": None},
+    }
 
 
 def test_public_search_succeeds_when_first_run_flag_eval_fails(notice_harness, monkeypatch):

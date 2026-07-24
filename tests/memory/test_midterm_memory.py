@@ -44,9 +44,7 @@ class FakeLLM:
             payload = json.loads(user_prompt)
             existing = payload.get("existing_session", {})
             new_page = payload.get("new_page", {})
-            summary = " ".join(
-                part for part in [existing.get("summary", ""), new_page.get("summary", "")] if part
-            )
+            summary = " ".join(part for part in [existing.get("summary", ""), new_page.get("summary", "")] if part)
             keywords = []
             for keyword in existing.get("keywords", []) + new_page.get("keywords", []):
                 if keyword not in keywords:
@@ -337,9 +335,7 @@ def test_midterm_retriever_returns_all_pages_when_candidates_below_limit():
 
 def test_midterm_retriever_max_total_pages_zero_returns_no_pages():
     sessions = [_midterm_row("s1", 0.9, summary="session 1", user_id="u1", run_id="r1")]
-    pages_by_session = {
-        "s1": [_midterm_row("p1", 0.7, session_id="s1", summary="page 1", user_id="u1", run_id="r1")]
-    }
+    pages_by_session = {"s1": [_midterm_row("p1", 0.7, session_id="s1", summary="page 1", user_id="u1", run_id="r1")]}
     store = FakeMidTermRetrievalStore(sessions, pages_by_session)
     retriever = MidTermRetriever(store, _retriever_config(max_total_pages=0))
 
@@ -415,7 +411,21 @@ def test_session_merge_uses_llm_and_bounds_keywords():
             return json.dumps(
                 {
                     "summary": "merged " * 300,
-                    "keywords": ["风险", "风险", "亏损", "10%", "中长期", "短线", "新能源", "基金", "债券", "配置", "行业", "产业链", "超额"],
+                    "keywords": [
+                        "风险",
+                        "风险",
+                        "亏损",
+                        "10%",
+                        "中长期",
+                        "短线",
+                        "新能源",
+                        "基金",
+                        "债券",
+                        "配置",
+                        "行业",
+                        "产业链",
+                        "超额",
+                    ],
                 },
                 ensure_ascii=False,
             )
@@ -424,7 +434,20 @@ def test_session_merge_uses_llm_and_bounds_keywords():
     summary, keywords = updater._merge_session("old", ["风险"], "new", ["亏损"])
     assert len(summary) <= 1000
     assert summary.startswith("merged")
-    assert keywords == ["风险", "亏损", "10%", "中长期", "短线", "新能源", "基金", "债券", "配置", "行业", "产业链", "超额"]
+    assert keywords == [
+        "风险",
+        "亏损",
+        "10%",
+        "中长期",
+        "短线",
+        "新能源",
+        "基金",
+        "债券",
+        "配置",
+        "行业",
+        "产业链",
+        "超额",
+    ]
 
 
 def test_memory_search_returns_long_and_midterm_sources(tmp_path, fake_memory_env):
@@ -444,10 +467,12 @@ def test_memory_search_returns_long_and_midterm_sources(tmp_path, fake_memory_en
             infer=False,
         )
 
+    assert memory.flush_background_tasks(5)
     assert memory.midterm_memory.list_pages(filters=filters, top_k=10)
     result = memory.search("我能接受多大亏损？", filters=filters, top_k=5)
     sources = {item.get("source") for item in result["results"]}
     assert {"long_term", "mid_term_session", "mid_term_page"}.issubset(sources)
+    memory.close()
 
 
 def test_memory_add_infer_true_updates_long_and_midterm(tmp_path, fake_memory_env):
@@ -464,7 +489,7 @@ def test_memory_add_infer_true_updates_long_and_midterm(tmp_path, fake_memory_en
         ),
     ]
 
-    add_results = []
+    migration_job_ids = []
     for user_message, assistant_message in turns:
         add_result = memory.add(
             [
@@ -473,13 +498,18 @@ def test_memory_add_infer_true_updates_long_and_midterm(tmp_path, fake_memory_en
             ],
             user_id="u1",
         )
-        add_results.extend(add_result["results"])
+        if add_result["background"]["migration_job_id"]:
+            migration_job_ids.append(add_result["background"]["migration_job_id"])
 
-    assert add_results
+    assert migration_job_ids
+    assert memory.flush_background_tasks(5)
     pages = memory.midterm_memory.list_pages(filters=filters, top_k=10)
     sessions = memory.midterm_memory.list_sessions(filters=filters, top_k=10)
     assert pages
     assert sessions
+    assert {row.payload["source_job_id"] for row in pages}.issubset(set(migration_job_ids))
+    longterm_rows = memory.vector_store.list(filters=filters, top_k=10)
+    assert {row.payload["source_job_id"] for row in longterm_rows}.issubset(set(migration_job_ids))
     for row in [*pages, *sessions]:
         assert row.payload["created_at"].endswith("+08:00")
         assert row.payload["updated_at"].endswith("+08:00")
@@ -487,6 +517,7 @@ def test_memory_add_infer_true_updates_long_and_midterm(tmp_path, fake_memory_en
     search_result = memory.search("我能接受多大亏损？", filters=filters, top_k=5)
     sources = {item.get("source") for item in search_result["results"]}
     assert {"long_term", "mid_term_session", "mid_term_page"}.issubset(sources)
+    memory.close()
 
 
 def test_memory_expands_split_eviction_to_complete_qa(tmp_path, fake_memory_env):
@@ -504,6 +535,7 @@ def test_memory_expands_split_eviction_to_complete_qa(tmp_path, fake_memory_env)
     for message in messages:
         memory.add([message], user_id="u1", infer=False)
 
+    assert memory.flush_background_tasks(5)
     pages = memory.midterm_memory.list_pages(filters={"user_id": "u1"}, top_k=10)
     assert len(pages) == 1
     page = pages[0].payload
@@ -515,6 +547,7 @@ def test_memory_expands_split_eviction_to_complete_qa(tmp_path, fake_memory_env)
         "后续建议会偏中长期。",
         "我最近关注新能源车产业链。",
     ]
+    memory.close()
 
 
 def test_memory_reset_clears_midterm_and_lazy_state(tmp_path, fake_memory_env):
@@ -536,6 +569,7 @@ def test_memory_reset_clears_midterm_and_lazy_state(tmp_path, fake_memory_env):
         infer=False,
     )
 
+    assert memory.flush_background_tasks(5)
     assert memory.midterm_memory.list_pages(filters={"user_id": "u1"}, top_k=10)
     memory.reset()
     assert memory._midterm_memory is None
@@ -545,6 +579,7 @@ def test_memory_reset_clears_midterm_and_lazy_state(tmp_path, fake_memory_env):
     assert not hasattr(memory, legacy_eviction_attribute)
     assert memory.midterm_memory.list_pages(filters={"user_id": "u1"}, top_k=10) == []
     assert memory.midterm_memory.list_sessions(filters={"user_id": "u1"}, top_k=10) == []
+    memory.close()
 
 
 def test_midterm_disabled_preserves_search_shape_and_lazy_state(tmp_path, fake_memory_env):
@@ -566,6 +601,7 @@ def test_midterm_disabled_preserves_search_shape_and_lazy_state(tmp_path, fake_m
         infer=False,
     )
 
+    assert memory.flush_background_tasks(5)
     result = memory.search("保守投资", filters={"user_id": "u1"}, top_k=3)
     assert result["results"]
     assert "source" not in result["results"][0]
@@ -573,3 +609,4 @@ def test_midterm_disabled_preserves_search_shape_and_lazy_state(tmp_path, fake_m
     assert memory._midterm_updater is None
     assert memory._midterm_retriever is None
     assert not any(name.endswith("_midterm_pages") or name.endswith("_midterm_sessions") for name in fake_memory_env)
+    memory.close()

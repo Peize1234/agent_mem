@@ -702,12 +702,16 @@ def test_add_infer_false_embeds_once(mock_sqlite, mock_llm_factory, mock_vector_
 
     from mem0.memory.main import Memory as MemoryClass
     memory = MemoryClass(MemoryConfig())
-    memory._save_short_term_messages = MagicMock(return_value=[{"role": "user", "content": "foo"}])
-
-    memory.add("foo", user_id="test_user", infer=False)
+    memory._process_evicted_long_term_memories(
+        [{"role": "user", "content": "foo"}],
+        {"user_id": "test_user"},
+        {"user_id": "test_user"},
+        infer=False,
+    )
 
     assert embedder.embed.call_count == 1
     mock_vector_store.insert.assert_called_once()
+    memory.close()
 
 
 @patch('mem0.utils.factory.EmbedderFactory.create')
@@ -745,12 +749,14 @@ def test_add_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm_fa
 
     from mem0.memory.main import Memory as MemoryClass
     memory = MemoryClass(MemoryConfig())
-    memory._save_short_term_messages = MagicMock(
-        return_value=[{"role": "user", "content": "I like Python"}]
-    )
 
     with patch("mem0.memory.main.extract_entities_batch", return_value=[[]]):
-        memory.add("I like Python", user_id="test_user", infer=True)
+        memory._process_evicted_long_term_memories(
+            [{"role": "user", "content": "I like Python"}],
+            {"user_id": "test_user"},
+            {"user_id": "test_user"},
+            infer=True,
+        )
 
     # V3 pipeline: embed called once for search query (Phase 1),
     # embed_batch called once for extracted memories (Phase 3)
@@ -760,6 +766,7 @@ def test_add_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm_fa
     payload = mock_vector_store.insert.call_args.kwargs["payloads"][0]
     assert payload["created_at"].endswith("+08:00")
     assert payload["updated_at"].endswith("+08:00")
+    memory.close()
 
 
 @patch('mem0.utils.factory.EmbedderFactory.create')
@@ -809,18 +816,21 @@ def test_update_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm
 
     from mem0.memory.main import Memory as MemoryClass
     memory = MemoryClass(MemoryConfig())
-    memory._save_short_term_messages = MagicMock(
-        return_value=[{"role": "user", "content": "I love Python now"}]
-    )
 
     with patch("mem0.memory.main.extract_entities_batch", return_value=[[]]):
-        memory.add("I love Python now", user_id="test_user", infer=True)
+        memory._process_evicted_long_term_memories(
+            [{"role": "user", "content": "I love Python now"}],
+            {"user_id": "test_user"},
+            {"user_id": "test_user"},
+            infer=True,
+        )
 
     # V3 pipeline: embed called once for search query (Phase 1),
     # embed_batch called once for extracted memories (Phase 3)
     assert embedder.embed.call_count == 1
     assert embedder.embed_batch.call_count == 1
     mock_vector_store.insert.assert_called_once()
+    memory.close()
 
 
 @patch('mem0.utils.factory.EmbedderFactory.create')

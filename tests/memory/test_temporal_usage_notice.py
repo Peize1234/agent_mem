@@ -3,16 +3,25 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from mem0.configs.base import BackgroundTaskConfig
 from mem0.memory import main as memory_main
 from mem0.memory.main import AsyncMemory, Memory
+from mem0.memory.storage import SQLiteManager
 
 
 def make_sync_memory():
     memory = Memory.__new__(Memory)
-    memory.config = SimpleNamespace(llm=SimpleNamespace(config={}))
+    memory.config = SimpleNamespace(
+        llm=SimpleNamespace(config={}),
+        midterm=SimpleNamespace(enabled=False, short_term_capacity=10),
+        profile=SimpleNamespace(enabled=False, update_on_add=False),
+        background=BackgroundTaskConfig(enabled=True),
+    )
+    memory.db = SQLiteManager(":memory:")
     memory.api_version = "v1.1"
     memory.reranker = None
     memory._save_short_term_messages = MagicMock(return_value=[])
+    memory._save_and_enqueue_background_jobs = MagicMock(return_value=(None, None))
     memory._process_evicted_long_term_memories = MagicMock(return_value=[])
     memory._search_vector_store = MagicMock(return_value=[])
     return memory
@@ -20,10 +29,17 @@ def make_sync_memory():
 
 def make_async_memory():
     memory = AsyncMemory.__new__(AsyncMemory)
-    memory.config = SimpleNamespace(llm=SimpleNamespace(config={}))
+    memory.config = SimpleNamespace(
+        llm=SimpleNamespace(config={}),
+        midterm=SimpleNamespace(enabled=False, short_term_capacity=10),
+        profile=SimpleNamespace(enabled=False, update_on_add=False),
+        background=BackgroundTaskConfig(enabled=True),
+    )
+    memory.db = SQLiteManager(":memory:")
     memory.api_version = "v1.1"
     memory.reranker = None
     memory._save_short_term_messages = AsyncMock(return_value=[])
+    memory._save_and_enqueue_background_jobs = MagicMock(return_value=(None, None))
     memory._process_evicted_long_term_memories = AsyncMock(return_value=[])
     memory._search_vector_store = AsyncMock(return_value=[])
     return memory
@@ -44,10 +60,14 @@ def test_sync_add_temporal_metadata_triggers_notice_after_success(monkeypatch):
         infer=False,
     )
 
-    assert result == {"results": []}
+    assert result == {
+        "results": [],
+        "background": {"migration_job_id": None, "profile_job_id": None},
+    }
     memory._process_evicted_long_term_memories.assert_not_called()
     temporal_notice.assert_called_once_with(memory, "sync", "add", "metadata", "date_like_metadata")
     first_run_notice.assert_not_called()
+    memory.db.close()
 
 
 def test_sync_add_non_temporal_metadata_uses_first_run_notice(monkeypatch):
@@ -61,9 +81,10 @@ def test_sync_add_non_temporal_metadata_uses_first_run_notice(monkeypatch):
 
     temporal_notice.assert_not_called()
     first_run_notice.assert_called_once_with(memory, "sync", "add")
+    memory.db.close()
 
 
-def test_sync_add_failure_does_not_trigger_temporal_usage_notice(monkeypatch):
+def test_sync_add_does_not_run_background_failure_before_return(monkeypatch):
     memory = make_sync_memory()
     memory._save_short_term_messages.return_value = [{"role": "user", "content": "The user visited Paris."}]
     memory._process_evicted_long_term_memories.side_effect = RuntimeError("vector failure")
@@ -72,17 +93,19 @@ def test_sync_add_failure_does_not_trigger_temporal_usage_notice(monkeypatch):
     monkeypatch.setattr(memory_main, "display_temporal_usage_notice", temporal_notice)
     monkeypatch.setattr(memory_main, "display_first_run_notice", first_run_notice)
 
-    with pytest.raises(RuntimeError, match="vector failure"):
-        Memory.add(
-            memory,
-            "The user visited Paris.",
-            user_id="u1",
-            metadata={"event_date": "2025-04-09"},
-            infer=False,
-        )
+    result = Memory.add(
+        memory,
+        "The user visited Paris.",
+        user_id="u1",
+        metadata={"event_date": "2025-04-09"},
+        infer=False,
+    )
 
-    temporal_notice.assert_not_called()
+    assert result["results"] == []
+    memory._process_evicted_long_term_memories.assert_not_called()
+    temporal_notice.assert_called_once()
     first_run_notice.assert_not_called()
+    memory.db.close()
 
 
 def test_sync_search_temporal_query_triggers_notice_after_success(monkeypatch):
@@ -147,10 +170,14 @@ async def test_async_add_temporal_metadata_triggers_notice_after_success(monkeyp
         infer=False,
     )
 
-    assert result == {"results": []}
+    assert result == {
+        "results": [],
+        "background": {"migration_job_id": None, "profile_job_id": None},
+    }
     memory._process_evicted_long_term_memories.assert_not_awaited()
     temporal_notice.assert_awaited_once_with(memory, "async", "add", "metadata", "date_like_metadata")
     first_run_notice.assert_not_awaited()
+    memory.db.close()
 
 
 @pytest.mark.asyncio
@@ -172,8 +199,11 @@ async def test_async_add_runs_scale_detection_in_thread(monkeypatch):
 
     result = await AsyncMemory.add(memory, "The user likes tea.", user_id="u1", infer=False)
 
-    assert result == {"results": []}
-    assert to_thread_calls == [(scale_detector, (memory, []), {})]
+    assert result == {
+        "results": [],
+        "background": {"migration_job_id": None, "profile_job_id": None},
+    }
+    assert to_thread_calls[-1] == (scale_detector, (memory, []), {})
     scale_detector.assert_called_once_with(memory, [])
     scale_notice.assert_awaited_once_with(
         memory,
@@ -186,6 +216,7 @@ async def test_async_add_runs_scale_detection_in_thread(monkeypatch):
         2000,
     )
     first_run_notice.assert_not_awaited()
+    memory.db.close()
 
 
 @pytest.mark.asyncio
