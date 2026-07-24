@@ -8,7 +8,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from finance_memory_single_session_package import run_retrieve_context_add_trace_test as trace_script
+from finance_memory_single_session_package import (
+    run_retrieve_context_add_trace_test as trace_script,
+)
+from mem0.memory.main import Memory
 from mem0.memory.storage import SQLiteManager
 
 
@@ -69,7 +72,7 @@ class FakeMemory:
         self.short_term = {"S002": [], "S004": []}
         self.shared_profile = {"risk_level": "balanced"}
 
-    def retrieve_context(self, query, **kwargs):
+    def _retrieve_context(self, query, **kwargs):
         session_id = kwargs["session_id"]
         self.events.append("retrieve")
         context = {
@@ -78,16 +81,29 @@ class FakeMemory:
             "query": query,
             "profile": self.shared_profile,
             "short_term_messages": list(self.short_term[session_id]),
-            "retrieved_memories": [{"memory": f"retrieved-for-{session_id}", "score": 0.9}],
+            "retrieved_memories": [
+                {
+                    "id": f"internal-{session_id}",
+                    "memory": f"retrieved-for-{session_id}",
+                    "score": 0.9,
+                    "source": "long_term",
+                    "created_at": "2026-01-01T00:00:00+08:00",
+                    "metadata": {"internal": "not-for-prompt"},
+                }
+            ],
         }
         self.retrieve_calls.append({"query": query, **kwargs, "context": context})
         return context
+
+    build_agent_answer_messages = Memory.build_agent_answer_messages
 
     def add(self, messages, **kwargs):
         self.events.append("add")
         self.add_calls.append({"messages": messages, **kwargs})
         self.llm.generate_response(messages=[{"role": "system", "content": "add-stage-prompt"}])
-        self.short_term[kwargs["run_id"]].extend(messages)
+        self.short_term[kwargs["run_id"]].extend(
+            {**message, "created_at": "2026-01-01T00:01:00+08:00"} for message in messages
+        )
         return {"results": [{"id": f"memory-{len(self.add_calls)}", "event": "ADD"}]}
 
 
@@ -264,6 +280,9 @@ def test_traced_run_preserves_order_writes_each_turn_and_records_context(tmp_pat
     assert "risk_level" in prompt_text
     assert "S002-question-1" in prompt_text
     assert "retrieved-for-S002" in prompt_text
+    assert "2026-01-01T00:00:00+08:00" in prompt_text
+    assert "internal-S002" not in prompt_text
+    assert "not-for-prompt" not in prompt_text
     assert "reference-answer" not in prompt_text
 
     first_file = turn_files[0].read_text(encoding="utf-8")

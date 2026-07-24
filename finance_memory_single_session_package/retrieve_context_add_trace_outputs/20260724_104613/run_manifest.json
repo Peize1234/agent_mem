@@ -1,0 +1,71 @@
+{
+  "started_at": "2026-07-24T10:46:13.519450+08:00",
+  "finished_at": "2026-07-24T10:50:38.093924+08:00",
+  "test_mode": true,
+  "dataset_path": "/home/peize/Code/htzq/mem0/finance_memory_single_session_package/finance_memory_single_session_timeline.json",
+  "selected_session_indexes": [
+    1,
+    3
+  ],
+  "selected_session_ids": [
+    "S002",
+    "S004"
+  ],
+  "user_id": "invest_user_001",
+  "expected_turn_count": 10,
+  "completed_turn_count": 10,
+  "failed_turns": [],
+  "output_files": [
+    "00_initial_database_snapshot.md",
+    "01_session2_turn1.md",
+    "02_session2_turn2.md",
+    "03_session2_turn3.md",
+    "04_session2_turn4.md",
+    "05_session2_turn5.md",
+    "06_session4_turn1.md",
+    "07_session4_turn2.md",
+    "08_session4_turn3.md",
+    "09_session4_turn4.md",
+    "10_session4_turn5.md",
+    "11_final_database_snapshot.md"
+  ],
+  "memory_config_summary": {
+    "llm": {
+      "provider": "deepseek",
+      "config": {
+        "model": "deepseek-v4-flash",
+        "api_key": "***REDACTED***",
+        "temperature": 0.2,
+        "max_tokens": 2400
+      }
+    },
+    "embedder": {
+      "provider": "huggingface",
+      "config": {
+        "model": "BAAI/bge-small-zh-v1.5"
+      }
+    },
+    "vector_store": {
+      "provider": "qdrant",
+      "config": {
+        "collection_name": "agent_mem_retrieve_context_add_trace_state",
+        "path": "/home/peize/Code/htzq/mem0/finance_memory_single_session_package/results/retrieve_context_add_trace_state/qdrant",
+        "embedding_model_dims": 512,
+        "bm25_language": "zh"
+      }
+    },
+    "history_db_path": "/home/peize/Code/htzq/mem0/finance_memory_single_session_package/results/retrieve_context_add_trace_state/history.db",
+    "midterm": {
+      "enabled": true,
+      "short_term_capacity": 4,
+      "session_similarity_threshold": 0.5,
+      "top_k_sessions": 5,
+      "top_k_pages": 5,
+      "max_total_pages": 5
+    },
+    "profile": {
+      "enabled": true,
+      "update_on_add": true
+    }
+  }
+}

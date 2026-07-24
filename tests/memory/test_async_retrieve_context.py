@@ -1,10 +1,12 @@
 import asyncio
+import json
 from copy import deepcopy
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, call
 
 import pytest
 
+from mem0.configs.prompts import AGENT_ANSWER_PROMPT
 from mem0.memory.main import AsyncMemory, Memory
 from mem0.memory.storage import SQLiteManager
 
@@ -68,7 +70,7 @@ async def test_async_retrieve_context_matches_sync_structure_and_uses_existing_a
     to_thread = AsyncMock(side_effect=run_in_thread)
     monkeypatch.setattr("mem0.memory.main.asyncio.to_thread", to_thread)
 
-    sync_result = sync_memory.retrieve_context(
+    sync_result = sync_memory._retrieve_context(
         " question ",
         user_id=" user-1 ",
         session_id=" session-1 ",
@@ -78,7 +80,7 @@ async def test_async_retrieve_context_matches_sync_structure_and_uses_existing_a
         explain=True,
         include_profile_metadata=True,
     )
-    async_result = await async_memory.retrieve_context(
+    async_result = await async_memory._retrieve_context(
         " question ",
         user_id=" user-1 ",
         session_id=" session-1 ",
@@ -111,10 +113,109 @@ async def test_async_retrieve_context_matches_sync_structure_and_uses_existing_a
 
 
 @pytest.mark.asyncio
+async def test_async_build_agent_answer_messages_matches_sync_prompt_flow(monkeypatch):
+    retrieved_context = {
+        "user_id": "user-1",
+        "session_id": "session-1",
+        "query": "how should I invest?",
+        "profile": {"risk_level": "balanced"},
+        "short_term_messages": [
+            {
+                "role": "user",
+                "content": "I need liquidity",
+                "created_at": "2026-07-24T11:55:00+08:00",
+            }
+        ],
+        "retrieved_memories": [
+            {
+                "id": "session-1",
+                "score": 0.95,
+                "source": "mid_term_session",
+                "summary": "session summary must not enter the prompt",
+                "created_at": "2026-07-20T09:00:00+08:00",
+            },
+            {
+                "id": "mid-1",
+                "score": 0.83,
+                "source": "mid_term_page",
+                "summary": "page summary must not enter the prompt",
+                "raw_dialogue": "User: historical question\nAssistant: historical answer",
+                "created_at": "2026-07-21T10:00:00+08:00",
+                "updated_at": "2026-07-22T10:00:00+08:00",
+            },
+            {
+                "id": "long-1",
+                "score": 0.72,
+                "source": "long_term",
+                "memory": "prefers ETFs",
+                "created_at": "2026-07-19T08:00:00+08:00",
+                "metadata": {"internal": "must not enter the prompt"},
+            },
+        ],
+    }
+    reference_information = {"as_of": "2026-07-24", "market": "reference data"}
+    memory = _build_async_memory()
+    memory._retrieve_context = AsyncMock(return_value=retrieved_context)
+    monkeypatch.setattr("mem0.memory.main.beijing_now_iso", lambda: "2026-07-24T12:00:00+08:00")
+
+    result = await memory.build_agent_answer_messages(
+        "  how should I invest?  ",
+        user_id=" user-1 ",
+        session_id=" session-1 ",
+        top_k=7,
+        threshold=0.35,
+        rerank=True,
+        explain=True,
+        include_profile_metadata=True,
+        reference_information=reference_information,
+    )
+
+    memory._retrieve_context.assert_awaited_once_with(
+        "  how should I invest?  ",
+        user_id=" user-1 ",
+        session_id=" session-1 ",
+        top_k=7,
+        threshold=0.35,
+        rerank=True,
+        explain=True,
+        include_profile_metadata=True,
+    )
+    expected_prompt = AGENT_ANSWER_PROMPT.format(
+        current_time="2026-07-24T12:00:00+08:00",
+        user_query="how should I invest?",
+        short_term_memory=json.dumps(retrieved_context["short_term_messages"], ensure_ascii=False),
+        mid_term_memory=json.dumps(
+            [
+                {
+                    "score": 0.83,
+                    "created_at": "2026-07-21T10:00:00+08:00",
+                    "content": "User: historical question\nAssistant: historical answer",
+                }
+            ],
+            ensure_ascii=False,
+        ),
+        long_term_memory=json.dumps(
+            [
+                {
+                    "score": 0.72,
+                    "created_at": "2026-07-19T08:00:00+08:00",
+                    "content": "prefers ETFs",
+                }
+            ],
+            ensure_ascii=False,
+        ),
+        user_profile=json.dumps(retrieved_context["profile"], ensure_ascii=False),
+        reference_information=json.dumps(reference_information, ensure_ascii=False),
+    )
+    assert result == [{"role": "system", "content": expected_prompt}]
+    memory.llm.generate_response.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_async_retrieve_context_normalizes_ids_and_rejects_internal_whitespace():
     memory = _build_async_memory()
 
-    result = await memory.retrieve_context(
+    result = await memory._retrieve_context(
         " question ",
         user_id=" user-1 ",
         session_id=" session-1 ",
@@ -127,9 +228,9 @@ async def test_async_retrieve_context_normalizes_ids_and_rejects_internal_whites
     )
 
     with pytest.raises(ValueError, match="Invalid user_id"):
-        await memory.retrieve_context("question", user_id="user one", session_id="session-1")
+        await memory._retrieve_context("question", user_id="user one", session_id="session-1")
     with pytest.raises(ValueError, match="Invalid session_id"):
-        await memory.retrieve_context("question", user_id="user-1", session_id="session one")
+        await memory._retrieve_context("question", user_id="user-1", session_id="session one")
 
 
 @pytest.mark.asyncio
@@ -138,7 +239,7 @@ async def test_async_retrieve_context_propagates_search_failure():
     memory.search = AsyncMock(side_effect=RuntimeError("search failed"))
 
     with pytest.raises(RuntimeError, match="search failed"):
-        await memory.retrieve_context("question", user_id="user-1", session_id="session-1")
+        await memory._retrieve_context("question", user_id="user-1", session_id="session-1")
 
 
 @pytest.mark.asyncio
@@ -160,8 +261,8 @@ async def test_async_retrieve_context_allows_different_users_to_run_concurrently
     memory.search = AsyncMock(side_effect=search)
 
     results = await asyncio.gather(
-        memory.retrieve_context("first", user_id="user-1", session_id="session-1"),
-        memory.retrieve_context("second", user_id="user-2", session_id="session-2"),
+        memory._retrieve_context("first", user_id="user-1", session_id="session-1"),
+        memory._retrieve_context("second", user_id="user-2", session_id="session-2"),
     )
 
     assert maximum_active_searches == 2
@@ -184,7 +285,7 @@ async def test_async_retrieve_context_does_not_mutate_search_result():
     original = deepcopy(search_result)
     memory = _build_async_memory(search_result=search_result)
 
-    result = await memory.retrieve_context("question", user_id="user-1", session_id="session-1")
+    result = await memory._retrieve_context("question", user_id="user-1", session_id="session-1")
 
     assert search_result == original
     assert result["retrieved_memories"] is search_result["results"]
@@ -208,7 +309,13 @@ async def test_async_retrieve_context_uses_latest_configured_session_window(monk
             max_messages=20,
         )
         db.save_messages(
-            [{"role": "user", "content": "other session"}],
+            [
+                {
+                    "role": "user",
+                    "content": "other session",
+                    "created_at": "2026-07-21T11:00:00+00:00",
+                }
+            ],
             "run_id=session-2&user_id=user-1",
         )
         db.get_messages = MagicMock(side_effect=AssertionError("retrieve_context must use get_last_messages"))
@@ -229,10 +336,10 @@ async def test_async_retrieve_context_uses_latest_configured_session_window(monk
         to_thread = AsyncMock(side_effect=run_in_thread)
         monkeypatch.setattr("mem0.memory.main.asyncio.to_thread", to_thread)
 
-        session_1 = await memory.retrieve_context("question", user_id="user-1", session_id="session-1")
-        session_2 = await memory.retrieve_context("question", user_id="user-1", session_id="session-2")
+        session_1 = await memory._retrieve_context("question", user_id="user-1", session_id="session-1")
+        session_2 = await memory._retrieve_context("question", user_id="user-1", session_id="session-2")
         memory.config.midterm.short_term_capacity = 6
-        expanded = await memory.retrieve_context("question", user_id="user-1", session_id="session-1")
+        expanded = await memory._retrieve_context("question", user_id="user-1", session_id="session-1")
 
         assert [message["content"] for message in session_1["short_term_messages"]] == [
             "message-9",
@@ -240,7 +347,13 @@ async def test_async_retrieve_context_uses_latest_configured_session_window(monk
             "message-11",
             "message-12",
         ]
-        assert session_2["short_term_messages"] == [{"role": "user", "content": "other session"}]
+        assert session_2["short_term_messages"] == [
+            {
+                "role": "user",
+                "content": "other session",
+                "created_at": "2026-07-21T19:00:00+08:00",
+            }
+        ]
         assert [message["content"] for message in expanded["short_term_messages"]] == [
             "message-7",
             "message-8",
