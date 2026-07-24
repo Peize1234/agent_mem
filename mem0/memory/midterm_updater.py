@@ -2,12 +2,17 @@ import json
 import logging
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT, MIDTERM_SESSION_MERGE_PROMPT
-from mem0.memory.midterm import compute_session_heat, keyword_overlap, utc_now
+from mem0.memory.midterm import compute_session_heat, keyword_overlap
 from mem0.memory.utils import extract_json, remove_code_blocks
+from mem0.utils.timestamps import (
+    BEIJING_TIMEZONE,
+    beijing_now_iso,
+    normalize_iso_timestamp_to_beijing,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -143,10 +148,10 @@ class MidTermUpdater:
             try:
                 parsed = datetime.fromisoformat(value)
                 if parsed.tzinfo is None:
-                    parsed = parsed.replace(tzinfo=timezone.utc)
+                    parsed = parsed.replace(tzinfo=BEIJING_TIMEZONE)
                 return parsed
             except (TypeError, ValueError):
-                return datetime.min.replace(tzinfo=timezone.utc)
+                return datetime.min.replace(tzinfo=BEIJING_TIMEZONE)
 
         rows.sort(key=created_at)
         return str(rows[-1].id)
@@ -159,7 +164,7 @@ class MidTermUpdater:
             return
         payload = dict(getattr(previous, "payload", None) or {})
         payload["next_page"] = page_id
-        payload["updated_at"] = utc_now()
+        payload["updated_at"] = beijing_now_iso()
         try:
             self.midterm_memory.update_page(previous_page_id, payload, reembed=False)
         except Exception as exc:
@@ -266,7 +271,7 @@ class MidTermUpdater:
                 "summary_keywords": keywords,
                 "page_ids": page_ids,
                 "L_interaction": len(page_ids),
-                "updated_at": utc_now(),
+                "updated_at": beijing_now_iso(),
             }
         )
         payload["R_recency"] = float(payload.get("R_recency", 1.0) or 1.0)
@@ -275,7 +280,7 @@ class MidTermUpdater:
         return session_id
 
     def _create_session(self, page_payload: Dict[str, Any]) -> str:
-        now = utc_now()
+        now = beijing_now_iso()
         session_id = str(uuid.uuid4())
         payload = {
             "id": session_id,
@@ -336,7 +341,7 @@ class MidTermUpdater:
         previous_page_id = self._latest_page_id(scope_filters)
         for qa_pair in self._messages_to_qa_pairs(evicted_messages):
             page_id = str(uuid.uuid4())
-            now = utc_now()
+            now = beijing_now_iso()
             summary, keywords = self._summarize_page(
                 qa_pair.get("user_input", ""),
                 qa_pair.get("assistant_response", ""),
@@ -345,7 +350,7 @@ class MidTermUpdater:
                 f"User: {qa_pair.get('user_input', '')}\n"
                 f"Assistant: {qa_pair.get('assistant_response', '')}"
             ).strip()
-            created_at = qa_pair.get("created_at") or now
+            created_at = normalize_iso_timestamp_to_beijing(qa_pair.get("created_at")) or now
             page_payload = {
                 "id": page_id,
                 "session_id": None,
@@ -367,7 +372,7 @@ class MidTermUpdater:
 
             session_id = self._assign_session(page_payload, scope_filters)
             page_payload["session_id"] = session_id
-            page_payload["updated_at"] = utc_now()
+            page_payload["updated_at"] = beijing_now_iso()
             self.midterm_memory.update_page(page_id, page_payload, reembed=False)
             pages.append(page_payload)
             previous_page_id = page_id

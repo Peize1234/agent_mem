@@ -3,7 +3,6 @@ import logging
 import sqlite3
 import threading
 import uuid
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from mem0.configs.predefined_profile_attributes import PREDEFINED_PROFILE_ATTRIBUTES
@@ -15,6 +14,7 @@ from mem0.memory.profile_validator import (
     validate_attribute_definition,
     validate_operation,
 )
+from mem0.utils.timestamps import beijing_now_iso, normalize_iso_timestamp_to_beijing
 
 logger = logging.getLogger(__name__)
 
@@ -226,7 +226,7 @@ class SQLiteManager:
         with self._lock:
             try:
                 self.connection.execute("BEGIN")
-                now = datetime.now(timezone.utc).isoformat()
+                now = beijing_now_iso()
                 for raw_definition in PREDEFINED_PROFILE_ATTRIBUTES:
                     definition = validate_attribute_definition(raw_definition)
                     self.connection.execute(
@@ -278,6 +278,8 @@ class SQLiteManager:
         actor_id: Optional[str] = None,
         role: Optional[str] = None,
     ) -> None:
+        created_at = normalize_iso_timestamp_to_beijing(created_at)
+        updated_at = normalize_iso_timestamp_to_beijing(updated_at)
         with self._lock:
             try:
                 self.connection.execute("BEGIN")
@@ -327,8 +329,8 @@ class SQLiteManager:
                             record.get("old_memory"),
                             record.get("new_memory"),
                             record.get("event"),
-                            record.get("created_at"),
-                            record.get("updated_at"),
+                            normalize_iso_timestamp_to_beijing(record.get("created_at")),
+                            normalize_iso_timestamp_to_beijing(record.get("updated_at")),
                             record.get("is_deleted", 0),
                             record.get("actor_id"),
                             record.get("role"),
@@ -385,7 +387,7 @@ class SQLiteManager:
             try:
                 self.connection.execute("BEGIN")
                 for message in messages:
-                    now = message.get("created_at") or datetime.now(timezone.utc).isoformat()
+                    now = normalize_iso_timestamp_to_beijing(message.get("created_at")) or beijing_now_iso()
                     self.connection.execute(
                         """
                         INSERT INTO messages (id, session_scope, role, content, name, created_at)
@@ -586,7 +588,7 @@ class SQLiteManager:
     def create_profile_attribute(self, definition: Any, is_predefined: bool = False) -> Dict[str, Any]:
         """Create a profile attribute definition."""
         model = validate_attribute_definition(definition)
-        now = datetime.now(timezone.utc).isoformat()
+        now = beijing_now_iso()
         with self._lock:
             try:
                 self.connection.execute("BEGIN")
@@ -630,7 +632,7 @@ class SQLiteManager:
                     SET is_active = 0, updated_at = ?
                     WHERE attribute_key = ? AND is_active = 1
                     """,
-                    (datetime.now(timezone.utc).isoformat(), attribute_key),
+                    (beijing_now_iso(), attribute_key),
                 )
                 self.connection.execute("COMMIT")
                 return cursor.rowcount > 0
@@ -709,7 +711,7 @@ class SQLiteManager:
         source_type: str,
         confidence: float,
     ) -> None:
-        now = datetime.now(timezone.utc).isoformat()
+        now = beijing_now_iso()
         self.connection.execute(
             """
             INSERT INTO user_profile_values (

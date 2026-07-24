@@ -7,6 +7,7 @@ from datetime import datetime
 import pytest
 
 from mem0.memory.storage import SQLiteManager
+from mem0.utils.timestamps import BEIJING_TIMEZONE
 
 
 class TestSQLiteManager:
@@ -40,7 +41,7 @@ class TestSQLiteManager:
     @pytest.fixture
     def sample_data(self):
         """Sample test data."""
-        now = datetime.now().isoformat()
+        now = datetime.now(BEIJING_TIMEZONE).isoformat()
         return {
             "memory_id": str(uuid.uuid4()),
             "old_memory": "Old memory content",
@@ -193,7 +194,7 @@ class TestSQLiteManager:
 
         timestamps = []
         for i in range(3):
-            ts = datetime.now().isoformat()
+            ts = datetime.now(BEIJING_TIMEZONE).isoformat()
             timestamps.append(ts)
             sqlite_manager.add_history(
                 memory_id=sample_data["memory_id"],
@@ -208,6 +209,32 @@ class TestSQLiteManager:
         result = sqlite_manager.get_history(sample_data["memory_id"])
         result_timestamps = [r["created_at"] for r in result]
         assert result_timestamps == sorted(timestamps)
+
+    def test_persisted_timestamps_are_normalized_to_beijing_time(self, sqlite_manager):
+        sqlite_manager.save_messages(
+            [{"role": "user", "content": "hello", "created_at": "2026-07-23T09:24:26+00:00"}],
+            "scope",
+        )
+        sqlite_manager.add_history(
+            memory_id="memory-id",
+            old_memory=None,
+            new_memory="hello",
+            event="ADD",
+            created_at="2026-07-23T09:24:26Z",
+        )
+
+        message = sqlite_manager.get_messages("scope")[0]
+        history = sqlite_manager.get_history("memory-id")[0]
+
+        assert message["created_at"] == "2026-07-23T17:24:26+08:00"
+        assert history["created_at"] == "2026-07-23T17:24:26+08:00"
+
+    def test_generated_message_timestamp_uses_beijing_time(self, sqlite_manager):
+        sqlite_manager.save_messages([{"role": "user", "content": "hello"}], "scope")
+
+        created_at = datetime.fromisoformat(sqlite_manager.get_messages("scope")[0]["created_at"])
+
+        assert created_at.utcoffset() == BEIJING_TIMEZONE.utcoffset(None)
 
     def test_migration_preserves_data(self, temp_db_path, sample_data):
         """Test that migration preserves existing data."""

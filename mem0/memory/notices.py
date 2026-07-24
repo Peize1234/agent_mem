@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from mem0.memory import telemetry as telemetry_module
 from mem0.memory.setup import _load_config, _write_config
+from mem0.utils.timestamps import beijing_now, beijing_now_iso
 
 
 FLAG_KEY = "mem0-oss-notices"
@@ -870,7 +871,7 @@ def _claim_first_run_notice(trigger_function: str) -> bool:
 
         state[STATE_KEY] = {
             "consumed": True,
-            "consumed_at": datetime.now(timezone.utc).isoformat(),
+            "consumed_at": beijing_now_iso(),
             "trigger_function": trigger_function,
             "variant": None,
         }
@@ -905,7 +906,7 @@ def _feature_error_at_capacity(notice_id: str) -> bool:
     try:
         with _state_lock:
             config = _load_config()
-            entries = _recent_feature_error_entries(config, notice_id, datetime.now(timezone.utc))
+            entries = _recent_feature_error_entries(config, notice_id, beijing_now())
             at_capacity = len(entries) >= FEATURE_ERROR_CAP
             if at_capacity:
                 _feature_error_capacity_reached_in_process.add(notice_id)
@@ -924,7 +925,7 @@ def _record_feature_error_opportunity(
 ) -> bool:
     try:
         with _state_lock:
-            now = datetime.now(timezone.utc)
+            now = beijing_now()
             config = _load_config()
             entries = _recent_feature_error_entries(config, notice_id, now)
             if len(entries) >= FEATURE_ERROR_CAP:
@@ -990,7 +991,7 @@ def _temporal_usage_at_capacity() -> bool:
     try:
         with _state_lock:
             config = _load_config()
-            entries = _recent_temporal_usage_entries(config, datetime.now(timezone.utc))
+            entries = _recent_temporal_usage_entries(config, beijing_now())
             at_capacity = len(entries) >= TEMPORAL_USAGE_CAP
             if at_capacity:
                 _temporal_usage_capacity_reached_in_process = True
@@ -1010,7 +1011,7 @@ def _record_temporal_usage_opportunity(
     global _temporal_usage_capacity_reached_in_process
     try:
         with _state_lock:
-            now = datetime.now(timezone.utc)
+            now = beijing_now()
             config = _load_config()
             entries = _recent_temporal_usage_entries(config, now)
             if len(entries) >= TEMPORAL_USAGE_CAP:
@@ -1077,7 +1078,7 @@ def _decay_usage_at_capacity() -> bool:
     try:
         with _state_lock:
             config = _load_config()
-            entries = _recent_decay_usage_entries(config, datetime.now(timezone.utc))
+            entries = _recent_decay_usage_entries(config, beijing_now())
             at_capacity = len(entries) >= DECAY_USAGE_CAP
             if at_capacity:
                 _decay_usage_capacity_reached_in_process = True
@@ -1099,7 +1100,7 @@ def _record_decay_usage_opportunity(
     global _decay_usage_capacity_reached_in_process
     try:
         with _state_lock:
-            now = datetime.now(timezone.utc)
+            now = beijing_now()
             config = _load_config()
             entries = _recent_decay_usage_entries(config, now)
             if len(entries) >= DECAY_USAGE_CAP:
@@ -1169,7 +1170,7 @@ def _scale_threshold_at_capacity() -> bool:
     try:
         with _state_lock:
             config = _load_config()
-            entries = _recent_scale_threshold_entries(config, datetime.now(timezone.utc))
+            entries = _recent_scale_threshold_entries(config, beijing_now())
             at_capacity = len(entries) >= SCALE_THRESHOLD_CAP
             if at_capacity:
                 _scale_threshold_capacity_reached_in_process = True
@@ -1192,7 +1193,7 @@ def _record_scale_threshold_opportunity(
     global _scale_threshold_capacity_reached_in_process
     try:
         with _state_lock:
-            now = datetime.now(timezone.utc)
+            now = beijing_now()
             config = _load_config()
             entries = _recent_scale_threshold_entries(config, now)
             if len(entries) >= SCALE_THRESHOLD_CAP:
@@ -1291,7 +1292,7 @@ def _performance_slow_query_at_capacity() -> bool:
     try:
         with _state_lock:
             config = _load_config()
-            entries = _recent_performance_slow_query_entries(config, datetime.now(timezone.utc))
+            entries = _recent_performance_slow_query_entries(config, beijing_now())
             at_capacity = len(entries) >= PERFORMANCE_SLOW_QUERY_CAP
             if at_capacity:
                 _performance_slow_query_capacity_reached_in_process = True
@@ -1310,7 +1311,7 @@ def _record_performance_slow_query_opportunity(
     global _performance_slow_query_capacity_reached_in_process
     try:
         with _state_lock:
-            now = datetime.now(timezone.utc)
+            now = beijing_now()
             config = _load_config()
             entries = _recent_performance_slow_query_entries(config, now)
             if len(entries) >= PERFORMANCE_SLOW_QUERY_CAP:

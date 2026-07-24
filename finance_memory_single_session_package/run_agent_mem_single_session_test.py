@@ -62,10 +62,11 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
-
 # 必须在导入 mem0 前关闭遥测
 os.environ.setdefault("MEM0_TELEMETRY", "false")
 os.environ.setdefault("POSTHOG_DISABLED", "true")
+
+from mem0.utils.timestamps import beijing_now, beijing_now_iso  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -96,7 +97,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--run-name",
-        default=datetime.now().strftime("agent_mem_%Y%m%d_%H%M%S"),
+        default=beijing_now().strftime("agent_mem_%Y%m%d_%H%M%S"),
     )
     parser.add_argument("--user-id", default="invest_user_001")
     parser.add_argument("--top-k-long", type=int, default=5)
@@ -1644,7 +1645,7 @@ def main() -> None:
                                 },
                             },
                         },
-                        "started_at": datetime.now().isoformat(),
+                        "started_at": beijing_now_iso(),
                     },
                 )
 

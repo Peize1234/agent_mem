@@ -16,7 +16,7 @@ import time
 import traceback
 from collections.abc import Mapping
 from dataclasses import asdict, is_dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence
@@ -28,6 +28,8 @@ PACKAGE_ROOT = Path(__file__).resolve().parent
 REPOSITORY_ROOT = PACKAGE_ROOT.parent
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
+
+from mem0.utils.timestamps import beijing_now, beijing_now_iso  # noqa: E402
 
 try:
     from .run_agent_mem_single_session_test import build_memory as build_base_memory
@@ -53,10 +55,6 @@ SENSITIVE_FIELD_NAMES = {
 }
 SENSITIVE_FIELD_SUFFIXES = ("_api_key", "_password", "_secret", "_token", "_credentials")
 VECTOR_FIELD_NAMES = {"embedding", "embeddings", "vector", "vectors"}
-
-
-def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 def _is_sensitive_field(name: Any) -> bool:
@@ -530,7 +528,7 @@ class TracedLLM:
             "call_index": len(self._recorder.calls) + 1,
             "phase": self._recorder.current_phase,
             **self._source_details(),
-            "timestamp": utc_now(),
+            "timestamp": beijing_now_iso(),
             "provider": self._provider,
             "model": self._model,
             "messages": make_json_serializable(messages),
@@ -683,7 +681,7 @@ def collect_full_database_snapshot(memory: Any, user_id: str = DEFAULT_USER_ID) 
     """Collect all available SQLite, vector, mid-term, entity, and profile state."""
     warnings: List[str] = []
     snapshot: Dict[str, Any] = {
-        "timestamp": utc_now(),
+        "timestamp": beijing_now_iso(),
         "sqlite": {"tables": _collect_sqlite_tables(memory)},
         "long_term_memory": [],
         "midterm_memory": {"sessions": [], "pages": []},
@@ -911,7 +909,16 @@ def _render_entity_snapshot(entity_snapshot: Any) -> str:
         return "\n\n".join(parts)
 
     records = _mapping_rows(entity.get("records", []))
-    columns = ["id", "data", "entity_type", "linked_memory_ids", "user_id", "run_id"]
+    columns = [
+        "id",
+        "data",
+        "entity_type",
+        "linked_memory_ids",
+        "user_id",
+        "run_id",
+        "created_at",
+        "updated_at",
+    ]
     rows = []
     for record in records:
         payload = _payload_from_record(record)
@@ -923,6 +930,8 @@ def _render_entity_snapshot(entity_snapshot: Any) -> str:
                 "linked_memory_ids": payload.get("linked_memory_ids"),
                 "user_id": payload.get("user_id"),
                 "run_id": payload.get("run_id"),
+                "created_at": payload.get("created_at"),
+                "updated_at": payload.get("updated_at"),
             }
         )
     parts.extend(
@@ -1135,12 +1144,12 @@ class RetrieveContextAddTraceRunner:
         self.rerank = rerank
         self.continue_on_error = continue_on_error
         self.snapshot_collector = snapshot_collector
-        self.run_timestamp = run_timestamp or datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.run_timestamp = run_timestamp or beijing_now().strftime("%Y%m%d_%H%M%S")
         self.output_dir = self.output_root / self.run_timestamp if test_mode else None
         self.output_files: List[str] = []
         self.failed_turns: List[Dict[str, Any]] = []
         self.completed_turn_count = 0
-        self.started_at = utc_now()
+        self.started_at = beijing_now_iso()
 
     def _snapshot(self) -> Dict[str, Any]:
         return self.snapshot_collector(self.memory, self.user_id)
@@ -1348,7 +1357,7 @@ class RetrieveContextAddTraceRunner:
                     pending_error = exc
                     break
         finally:
-            finished_at = utc_now()
+            finished_at = beijing_now_iso()
             if self.test_mode:
                 final_snapshot = self._snapshot()
                 self.recorder.emit_database_snapshot("[GLOBAL][DATABASE AFTER]", final_snapshot)
