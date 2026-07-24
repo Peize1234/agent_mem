@@ -5,6 +5,7 @@ import hashlib
 import json
 import logging
 import os
+import threading
 import time
 import uuid
 import warnings
@@ -14,7 +15,7 @@ from typing import Any, Dict, Optional
 
 from pydantic import ValidationError
 
-from mem0.configs.base import MemoryConfig, MemoryItem
+from mem0.configs.base import BackgroundTaskConfig, MemoryConfig, MemoryItem
 from mem0.configs.enums import MemoryType
 from mem0.configs.prompts import (
     ADDITIVE_EXTRACTION_PROMPT,
@@ -26,6 +27,7 @@ from mem0.configs.prompts import (
 from mem0.exceptions import LLMError
 from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.memory.base import MemoryBase
+from mem0.memory.background_worker import BackgroundWorkerManager
 from mem0.memory.midterm import MidTermMemory
 from mem0.memory.midterm_retriever import MidTermRetriever
 from mem0.memory.midterm_updater import MidTermUpdater
@@ -96,6 +98,123 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigva
 
 # Initialize logger early for util functions
 logger = logging.getLogger(__name__)
+
+
+def _parse_extracted_memories(response: Any, *, strict: bool) -> list[dict]:
+    """Parse and validate the long-term extraction response."""
+    try:
+        if isinstance(response, dict):
+            parsed = response
+        elif isinstance(response, str):
+            cleaned_response = remove_code_blocks(response)
+            if not cleaned_response.strip():
+                raise ValueError("response is empty")
+            try:
+                parsed = json.loads(cleaned_response, strict=False)
+            except json.JSONDecodeError:
+                parsed = json.loads(extract_json(cleaned_response), strict=False)
+        else:
+            raise TypeError(f"expected a JSON object response, got {type(response).__name__}")
+
+        if not isinstance(parsed, dict):
+            raise TypeError("JSON root must be an object")
+        if "memory" not in parsed:
+            raise ValueError("JSON object is missing the 'memory' field")
+
+        extracted_memories = parsed["memory"]
+        if not isinstance(extracted_memories, list):
+            raise TypeError("'memory' must be a list")
+
+        for index, memory in enumerate(extracted_memories):
+            if not isinstance(memory, dict):
+                raise TypeError(f"memory[{index}] must be an object")
+            text = memory.get("text")
+            if not isinstance(text, str) or not text.strip():
+                raise ValueError(f"memory[{index}].text must be a non-empty string")
+        return extracted_memories
+    except (json.JSONDecodeError, TypeError, ValueError) as exc:
+        message = f"Long-term memory response parsing failed: {exc}"
+        if strict:
+            raise LLMError(message) from exc
+        logger.error("Error parsing extraction response: %s", message)
+        return []
+
+
+def _normalize_memory_text(text: str) -> str:
+    """Normalize insignificant whitespace without changing stored memory text."""
+    return " ".join(text.strip().split())
+
+
+def _longterm_memory_hash(text: str) -> str:
+    normalized_text = _normalize_memory_text(text)
+    return hashlib.md5(normalized_text.encode("utf-8")).hexdigest()
+
+
+def _longterm_memory_id(source_job_id: str, text: str) -> str:
+    memory_hash = _longterm_memory_hash(text)
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, f"mem0:longterm:{source_job_id}:{memory_hash}"))
+
+
+def _longterm_payload_hash(payload: Dict[str, Any]) -> Optional[str]:
+    data = payload.get("data")
+    if isinstance(data, str) and _normalize_memory_text(data):
+        return _longterm_memory_hash(data)
+    stored_hash = payload.get("hash")
+    return stored_hash if isinstance(stored_hash, str) and stored_hash else None
+
+
+def _existing_longterm_hashes(
+    existing_results: Any,
+    source_job_id: Optional[str],
+) -> tuple[set[str], Dict[str, Any]]:
+    existing_hashes: set[str] = set()
+    existing_source_hashes: Dict[str, Any] = {}
+    for existing_memory in existing_results:
+        payload = getattr(existing_memory, "payload", None) or {}
+        memory_hash = _longterm_payload_hash(payload)
+        if not memory_hash:
+            continue
+        existing_hashes.add(memory_hash)
+        if source_job_id and payload.get("source_job_id") == source_job_id:
+            existing_source_hashes.setdefault(memory_hash, existing_memory)
+    return existing_hashes, existing_source_hashes
+
+
+def _validated_existing_longterm_payload(
+    existing_memory: Any,
+    *,
+    source_job_id: str,
+    memory_id: str,
+    expected_hash: str,
+) -> Dict[str, Any]:
+    payload = getattr(existing_memory, "payload", None) or {}
+    existing_hash = payload.get("hash")
+    if existing_hash != expected_hash:
+        logger.error(
+            "Long-term deterministic ID hash mismatch for source_job_id=%s memory_id=%s "
+            "expected_hash=%s existing_hash=%s",
+            source_job_id,
+            memory_id,
+            expected_hash,
+            existing_hash,
+        )
+        raise RuntimeError(
+            f"Long-term deterministic ID hash mismatch for source_job_id={source_job_id} memory_id={memory_id}"
+        )
+    return payload
+
+
+def _embedding_is_available(embedding: Any) -> bool:
+    if embedding is None:
+        return False
+    try:
+        return len(embedding) > 0
+    except TypeError:
+        return False
+
+
+def _missing_embeddings(memory_texts: list[str], embedding_map: Dict[str, Any]) -> list[str]:
+    return [text for text in memory_texts if not _embedding_is_available(embedding_map.get(text))]
 
 
 def _vector_store_list_rows(listed):
@@ -600,7 +719,257 @@ class _AsyncOSSProject:
         raise ValueError(_PROJECT_UPDATE_UNSUPPORTED_ERROR)
 
 
-class Memory(MemoryBase):
+class _BackgroundMemoryMixin:
+    def _background_config(self) -> BackgroundTaskConfig:
+        configured = getattr(getattr(self, "config", None), "background", None)
+        if configured is None:
+            # Lightweight test doubles and legacy hand-built config objects do not
+            # have enough lifecycle state to safely own worker threads.
+            return BackgroundTaskConfig(enabled=False)
+        return configured
+
+    def _initialize_background_workers(self) -> None:
+        if not hasattr(self, "_background_lifecycle_lock"):
+            self._background_lifecycle_lock = threading.RLock()
+        self._closed = False
+        self._background_worker = BackgroundWorkerManager(
+            self.db,
+            self._background_config(),
+            process_midterm=self._background_process_midterm,
+            process_longterm=self._background_process_longterm,
+            process_profile=self._background_process_profile,
+        )
+        self._background_worker.start()
+
+    def _ensure_background_workers(self) -> BackgroundWorkerManager:
+        worker = getattr(self, "_background_worker", None)
+        if worker is None:
+            self._initialize_background_workers()
+            worker = self._background_worker
+        return worker
+
+    def _background_process_midterm(self, job, messages, degraded: bool) -> None:
+        if not self._midterm_enabled():
+            return
+        result = self._process_midterm_evictions(
+            messages,
+            job["filters"],
+            source_job_id=job["job_id"],
+            degraded=degraded,
+            raise_on_error=True,
+        )
+        if asyncio.iscoroutine(result):
+            asyncio.run(result)
+
+    def _background_process_longterm(self, job, messages, degraded: bool) -> None:
+        if degraded:
+            self._store_longterm_fallback(job, messages)
+            return
+        result = self._process_evicted_long_term_memories(
+            messages,
+            job["metadata"],
+            job["filters"],
+            infer=job["infer"],
+            prompt=job.get("prompt"),
+            source_job_id=job["job_id"],
+        )
+        if asyncio.iscoroutine(result):
+            asyncio.run(result)
+
+    def _store_longterm_fallback(self, job, messages) -> None:
+        job_id = job["job_id"]
+        memory_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"mem0:longterm-fallback:{job_id}"))
+        try:
+            existing = self.vector_store.get(vector_id=memory_id)
+        except Exception:
+            existing = None
+        if existing is not None:
+            payload = getattr(existing, "payload", None) or {}
+            self._ensure_longterm_history(
+                memory_id,
+                payload.get("data") or parse_messages(messages),
+                payload.get("created_at"),
+            )
+            return
+
+        raw_dialogue = parse_messages(messages)
+        metadata = deepcopy(job["metadata"])
+        metadata.update(
+            {
+                "source_job_id": job_id,
+                "memory_type": "raw_fallback",
+                "needs_reprocessing": True,
+                "degraded": True,
+            }
+        )
+        embedding = self.embedding_model.embed(raw_dialogue, "add")
+        result = self._create_memory(
+            raw_dialogue,
+            {raw_dialogue: embedding},
+            metadata,
+            memory_id=memory_id,
+        )
+        if asyncio.iscoroutine(result):
+            asyncio.run(result)
+
+    def _ensure_longterm_history(
+        self,
+        memory_id: str,
+        memory_text: str,
+        created_at: Optional[str],
+    ) -> None:
+        if self.db.get_history(memory_id):
+            return
+        self.db.add_history(
+            memory_id,
+            None,
+            memory_text,
+            "ADD",
+            created_at=created_at,
+        )
+
+    def _background_process_profile(self, job) -> None:
+        user_messages = select_profile_user_messages(
+            job["messages"],
+            self.config.profile.max_input_user_messages,
+        )
+        if not user_messages:
+            return
+        current_profile = self.profile_manager.get_profile(job["user_id"])
+        attribute_catalog = self.profile_manager.list_attributes()
+        plan = self.profile_updater.generate_update_plan_async(
+            current_profile=current_profile,
+            attribute_catalog=attribute_catalog,
+            messages=user_messages,
+        )
+        if asyncio.iscoroutine(plan):
+            plan = asyncio.run(plan)
+        if plan is not None:
+            self.profile_manager.apply_update_plan(job["user_id"], plan)
+
+    def _create_profile_job_after_add(self, user_id, messages) -> Optional[str]:
+        profile_config = getattr(self.config, "profile", None)
+        if (
+            profile_config is None
+            or profile_config.enabled is not True
+            or profile_config.update_on_add is not True
+            or not user_id
+        ):
+            return None
+        normalized_user_id = normalize_profile_user_id(user_id)
+        return self.db.create_profile_update_job(normalized_user_id, messages)
+
+    def _enqueue_profile_job_after_add(self, user_id, messages) -> Optional[str]:
+        if not hasattr(self, "_background_lifecycle_lock"):
+            self._background_lifecycle_lock = threading.RLock()
+        with self._background_lifecycle_lock:
+            if getattr(self, "_closed", False):
+                raise RuntimeError("Cannot add memories after Memory.close()")
+            try:
+                profile_job_id = self._create_profile_job_after_add(user_id, messages)
+            except Exception:
+                logger.exception("Failed to enqueue profile update job for user_id=%s", user_id)
+                return None
+            if profile_job_id:
+                self._ensure_background_workers().wake_profile()
+            return profile_job_id
+
+    def _save_and_enqueue_background_jobs(
+        self,
+        messages,
+        session_scope,
+        processed_metadata,
+        effective_filters,
+        *,
+        normalized_user_id,
+        infer,
+        prompt,
+    ) -> tuple[Optional[str], Optional[str]]:
+        if not hasattr(self, "_background_lifecycle_lock"):
+            self._background_lifecycle_lock = threading.RLock()
+        with self._background_lifecycle_lock:
+            if getattr(self, "_closed", False):
+                raise RuntimeError("Cannot add memories after Memory.close()")
+            worker = self._ensure_background_workers()
+            migration_job_id = self.db.save_messages_and_create_migration_job(
+                messages,
+                session_scope,
+                max_messages=self._short_term_capacity(),
+                filters=effective_filters,
+                metadata=processed_metadata,
+                infer=infer,
+                prompt=prompt,
+            )
+            try:
+                profile_job_id = self._create_profile_job_after_add(normalized_user_id, messages)
+            except Exception:
+                logger.exception(
+                    "Failed to enqueue profile update job for user_id=%s",
+                    normalized_user_id,
+                )
+                profile_job_id = None
+            if migration_job_id:
+                worker.wake_migration()
+            if profile_job_id:
+                worker.wake_profile()
+            return migration_job_id, profile_job_id
+
+    def flush_background_tasks(self, timeout: Optional[float] = None) -> bool:
+        return self._ensure_background_workers().flush(timeout)
+
+    def get_background_job(self, job_id: str, job_type: str = "migration"):
+        return self.db.get_background_job(job_id, job_type)
+
+    def retry_background_job(self, job_id: str, job_type: str = "migration") -> bool:
+        retried = self.db.retry_background_job(job_id, job_type)
+        if retried:
+            self._ensure_background_workers().wake_all()
+        return retried
+
+    def _stop_background_workers(self, timeout: Optional[float]) -> bool:
+        worker = getattr(self, "_background_worker", None)
+        if worker is None:
+            return True
+        return worker.stop(wait=True, timeout=timeout)
+
+    def _pause_background_workers_for_reset(self) -> None:
+        if not hasattr(self, "_background_lifecycle_lock"):
+            self._background_lifecycle_lock = threading.RLock()
+        with self._background_lifecycle_lock:
+            self._closed = True
+            if not self._stop_background_workers(timeout=None):
+                raise RuntimeError("Cannot reset while background workers are still running")
+            self._background_worker = None
+
+    def _close_background_workers_and_db(self) -> bool:
+        if not hasattr(self, "_background_lifecycle_lock"):
+            self._background_lifecycle_lock = threading.RLock()
+        with self._background_lifecycle_lock:
+            self._closed = True
+            timeout = self._background_config().shutdown_timeout_seconds
+            if not self._stop_background_workers(timeout=timeout):
+                logger.warning("Background workers did not stop within %.1f seconds; SQLite remains open", timeout)
+                return False
+            if hasattr(self, "db") and self.db is not None:
+                self.db.close()
+                self.db = None
+            return True
+
+    def _get_context_messages(self, session_scope: str, active_limit: int):
+        reader = getattr(self.db, "get_context_messages", None)
+        if reader is None:
+            return self.db.get_last_messages(session_scope, limit=active_limit)
+        background_config = self._background_config()
+        return reader(
+            session_scope,
+            active_limit=active_limit,
+            include_pending=background_config.include_pending_in_context,
+            max_pending=background_config.max_pending_context_messages,
+            include_failed=background_config.include_failed_in_context,
+        )
+
+
+class Memory(_BackgroundMemoryMixin, MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
         self._bm25_language = _configured_bm25_language(config)
@@ -671,6 +1040,7 @@ class Memory(MemoryBase):
                 self.config.vector_store.provider,
             )
 
+        self._initialize_background_workers()
         capture_event("mem0.init", self, {"sync_type": "sync"})
 
     @property
@@ -784,10 +1154,11 @@ class Memory(MemoryBase):
             normalized_user_id,
             include_metadata=include_profile_metadata,
         )
-        short_term_messages = self.db.get_last_messages(
-            session_scope,
-            limit=self._short_term_capacity(),
-        )
+        short_term_limit = self._short_term_capacity()
+        if getattr(self.db, "get_context_messages", None) is None:
+            short_term_messages = self.db.get_last_messages(session_scope, limit=short_term_limit)
+        else:
+            short_term_messages = self._get_context_messages(session_scope, short_term_limit)
 
         return _assemble_retrieved_context(
             query=normalized_query,
@@ -919,13 +1290,29 @@ class Memory(MemoryBase):
         )
         return self._expand_evicted_messages_for_qa_pairs(evicted_messages, session_scope)
 
-    def _process_midterm_evictions(self, evicted_messages, filters):
+    def _process_midterm_evictions(
+        self,
+        evicted_messages,
+        filters,
+        *,
+        source_job_id=None,
+        degraded=False,
+        raise_on_error=False,
+    ):
         if not self._midterm_enabled() or not evicted_messages:
-            return
+            return []
         try:
-            self.midterm_updater.process_evicted_messages(evicted_messages, filters)
+            return self.midterm_updater.process_evicted_messages(
+                evicted_messages,
+                filters,
+                source_job_id=source_job_id,
+                degraded=degraded,
+            )
         except Exception as e:
+            if raise_on_error:
+                raise
             logger.warning(f"Mid-term memory update failed: {e}")
+            return []
 
     def _with_midterm_search_results(self, query, filters, long_term_memories):
         if not self._midterm_enabled():
@@ -1216,7 +1603,18 @@ class Memory(MemoryBase):
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
             results = self._create_procedural_memory(messages, metadata=processed_metadata, prompt=prompt)
-            self._update_profile_after_add(normalized_user_id, messages)
+            if self._background_config().enabled:
+                profile_job_id = self._enqueue_profile_job_after_add(normalized_user_id, messages)
+            else:
+                self._update_profile_after_add(normalized_user_id, messages)
+                profile_job_id = None
+            results = {
+                **results,
+                "background": {
+                    "migration_job_id": None,
+                    "profile_job_id": profile_job_id,
+                },
+            }
             scale_threshold_notice = detect_scale_threshold_from_add_result(self, results)
             if temporal_usage_notice:
                 display_temporal_usage_notice(self, "sync", "add", *temporal_usage_notice)
@@ -1231,23 +1629,47 @@ class Memory(MemoryBase):
         else:
             messages = parse_vision_messages(messages)
 
-        # Layered migration order: short-term first; evictions then flow to mid-term and long-term.
+        # Short-term persistence and migration reservation are synchronous; extraction is not.
         session_scope = _build_session_scope(effective_filters)
+        if not self._background_config().enabled:
+            evicted_messages = self._save_short_term_messages(messages, session_scope)
+            vector_store_result = []
+            if evicted_messages:
+                self._process_midterm_evictions(evicted_messages, effective_filters)
+                vector_store_result = self._process_evicted_long_term_memories(
+                    evicted_messages,
+                    processed_metadata,
+                    effective_filters,
+                    infer=infer,
+                    prompt=prompt,
+                )
+            self._update_profile_after_add(normalized_user_id, messages)
+            scale_threshold_notice = detect_scale_threshold_from_add_result(self, vector_store_result)
+            if temporal_usage_notice:
+                display_temporal_usage_notice(self, "sync", "add", *temporal_usage_notice)
+            elif scale_threshold_notice:
+                display_scale_threshold_notice(self, "sync", "add", *scale_threshold_notice)
+            else:
+                display_first_run_notice(self, "sync", "add")
+            return {
+                "results": vector_store_result,
+                "background": {
+                    "migration_job_id": None,
+                    "profile_job_id": None,
+                },
+            }
 
-        evicted_messages = self._save_short_term_messages(messages, session_scope)
-        self._update_profile_after_add(normalized_user_id, messages)
-
+        migration_job_id, profile_job_id = self._save_and_enqueue_background_jobs(
+            messages,
+            session_scope,
+            processed_metadata,
+            effective_filters,
+            normalized_user_id=normalized_user_id,
+            infer=infer,
+            prompt=prompt,
+        )
         vector_store_result = []
-        if evicted_messages:
-            self._process_midterm_evictions(evicted_messages, effective_filters)
-            vector_store_result = self._process_evicted_long_term_memories(
-                evicted_messages,
-                processed_metadata,
-                effective_filters,
-                infer=infer,
-                prompt=prompt,
-            )
-        
+
         scale_threshold_notice = detect_scale_threshold_from_add_result(self, vector_store_result)
         if temporal_usage_notice:
             display_temporal_usage_notice(self, "sync", "add", *temporal_usage_notice)
@@ -1255,7 +1677,13 @@ class Memory(MemoryBase):
             display_scale_threshold_notice(self, "sync", "add", *scale_threshold_notice)
         else:
             display_first_run_notice(self, "sync", "add")
-        return {"results": vector_store_result}
+        return {
+            "results": vector_store_result,
+            "background": {
+                "migration_job_id": migration_job_id,
+                "profile_job_id": profile_job_id,
+            },
+        }
 
     def _process_evicted_long_term_memories(
         self,
@@ -1265,10 +1693,11 @@ class Memory(MemoryBase):
         *,
         infer=True,
         prompt=None,
+        source_job_id=None,
     ):
         if not infer:
             returned_memories = []
-            for message_dict in evicted_messages:
+            for index, message_dict in enumerate(evicted_messages):
                 if (
                     not isinstance(message_dict, dict)
                     or message_dict.get("role") is None
@@ -1282,14 +1711,44 @@ class Memory(MemoryBase):
 
                 per_msg_meta = deepcopy(metadata)
                 per_msg_meta["role"] = message_dict["role"]
+                if source_job_id:
+                    per_msg_meta["source_job_id"] = source_job_id
 
                 actor_name = message_dict.get("name")
                 if actor_name:
                     per_msg_meta["actor_id"] = actor_name
 
                 msg_content = message_dict["content"]
+                memory_id = (
+                    str(uuid.uuid5(uuid.NAMESPACE_URL, f"mem0:longterm:{source_job_id}:{index}"))
+                    if source_job_id
+                    else None
+                )
+                existing_memory = self.vector_store.get(vector_id=memory_id) if memory_id else None
+                if existing_memory is not None:
+                    existing_payload = getattr(existing_memory, "payload", None) or {}
+                    self._ensure_longterm_history(
+                        memory_id,
+                        existing_payload.get("data") or msg_content,
+                        existing_payload.get("created_at"),
+                    )
+                    returned_memories.append(
+                        {
+                            "id": memory_id,
+                            "memory": msg_content,
+                            "event": "ADD",
+                            "actor_id": actor_name if actor_name else None,
+                            "role": message_dict["role"],
+                        }
+                    )
+                    continue
                 msg_embeddings = self.embedding_model.embed(msg_content, "add")
-                mem_id = self._create_memory(msg_content, {msg_content: msg_embeddings}, per_msg_meta)
+                mem_id = self._create_memory(
+                    msg_content,
+                    {msg_content: msg_embeddings},
+                    per_msg_meta,
+                    memory_id=memory_id,
+                )
 
                 returned_memories.append(
                     {
@@ -1361,62 +1820,84 @@ class Memory(MemoryBase):
             logger.error(f"LLM extraction failed: {e}")
             raise LLMError(f"LLM extraction failed: {e}") from e
 
-        # Parse response
-        try:
-            response = remove_code_blocks(response)
-            if not response or not response.strip():
-                extracted_memories = []
-            else:
-                try:
-                    extracted_memories = json.loads(response, strict=False).get("memory", [])
-                except json.JSONDecodeError:
-                    extracted_json = extract_json(response)
-                    extracted_memories = json.loads(extracted_json, strict=False).get("memory", [])
-        except Exception as e:
-            logger.error(f"Error parsing extraction response: {e}")
-            extracted_memories = []
+        extracted_memories = _parse_extracted_memories(response, strict=source_job_id is not None)
 
         if not extracted_memories:
             return []
 
-        # Phase 3: Batch embed all extracted memory texts
-        mem_texts = [m.get("text", "") for m in extracted_memories if m.get("text")]
-        try:
-            mem_embeddings_list = self.embedding_model.embed_batch(mem_texts, "add")
-            embed_map = dict(zip(mem_texts, mem_embeddings_list))
-        except Exception:
-            # Fallback: embed individually
-            embed_map = {}
-            for text in mem_texts:
-                try:
-                    embed_map[text] = self.embedding_model.embed(text, "add")
-                except Exception as e:
-                    logger.warning(f"Failed to embed memory text: {e}")
+        # Phase 3: Determine which validated facts actually require a new write.
+        existing_hashes, existing_source_hashes = _existing_longterm_hashes(existing_results, source_job_id)
 
-        # Phase 4: Per-memory CPU processing + Phase 5: Hash dedup
-        # Build set of existing hashes for dedup
-        existing_hashes = set()
-        for mem in existing_results:
-            h = mem.payload.get("hash") if hasattr(mem, "payload") and mem.payload else None
-            if h:
-                existing_hashes.add(h)
-
-        records = []  # (memory_id, text, embedding, payload)
-        seen_hashes = set()  # dedup within the current batch
+        pending_records = []  # (memory_id, text, memory_hash, extracted_memory)
+        seen_hashes = set()
         for mem in extracted_memories:
-            text = mem.get("text")
-            if not text or text not in embed_map:
+            text = mem["text"]
+            mem_hash = _longterm_memory_hash(text)
+            memory_id = _longterm_memory_id(source_job_id, text) if source_job_id else str(uuid.uuid4())
+            existing_memory = self.vector_store.get(vector_id=memory_id) if source_job_id else None
+            if existing_memory is not None:
+                existing_payload = _validated_existing_longterm_payload(
+                    existing_memory,
+                    source_job_id=source_job_id,
+                    memory_id=memory_id,
+                    expected_hash=mem_hash,
+                )
+                self._ensure_longterm_history(
+                    memory_id,
+                    existing_payload.get("data") or text,
+                    existing_payload.get("created_at"),
+                )
+                seen_hashes.add(mem_hash)
                 continue
-
-            mem_hash = hashlib.md5(text.encode()).hexdigest()
+            existing_job_memory = existing_source_hashes.get(mem_hash)
+            if existing_job_memory is not None:
+                existing_job_payload = getattr(existing_job_memory, "payload", None) or {}
+                existing_job_memory_id = str(existing_job_memory.id)
+                self._ensure_longterm_history(
+                    existing_job_memory_id,
+                    existing_job_payload.get("data") or text,
+                    existing_job_payload.get("created_at"),
+                )
+                seen_hashes.add(mem_hash)
+                continue
             if mem_hash in existing_hashes or mem_hash in seen_hashes:
                 logger.debug(f"Skipping duplicate memory (hash match): {text[:50]}")
                 continue
             seen_hashes.add(mem_hash)
+            pending_records.append((memory_id, text, mem_hash, mem))
 
+        if not pending_records:
+            return []
+
+        # Phase 4: Embed only facts that survived deterministic-ID and hash deduplication.
+        mem_texts = [record[1] for record in pending_records]
+        embed_map = {}
+        try:
+            mem_embeddings_list = self.embedding_model.embed_batch(mem_texts, "add")
+            for text, embedding in zip(mem_texts, mem_embeddings_list):
+                if _embedding_is_available(embedding):
+                    embed_map[text] = embedding
+        except Exception as exc:
+            logger.warning("Batch long-term memory embedding failed; retrying individually: %s", exc)
+
+        for text in _missing_embeddings(mem_texts, embed_map):
+            try:
+                embedding = self.embedding_model.embed(text, "add")
+                if _embedding_is_available(embedding):
+                    embed_map[text] = embedding
+            except Exception as exc:
+                logger.warning("Failed to embed long-term memory text: %s", exc)
+
+        missing_embeddings = _missing_embeddings(mem_texts, embed_map)
+        if source_job_id and missing_embeddings:
+            raise RuntimeError(f"Failed to embed {len(missing_embeddings)} extracted memories")
+
+        # Phase 5: Build complete records. Non-background callers retain skip-on-failure compatibility.
+        records = []
+        for memory_id, text, mem_hash, mem in pending_records:
+            if text not in embed_map:
+                continue
             text_lemmatized = lemmatize_for_bm25(text, language=getattr(self, "_bm25_language", None))
-
-            memory_id = str(uuid.uuid4())
             mem_metadata = deepcopy(metadata)
             mem_metadata["data"] = text
             mem_metadata["text_lemmatized"] = text_lemmatized
@@ -1425,6 +1906,8 @@ class Memory(MemoryBase):
                 normalize_iso_timestamp_to_beijing(mem_metadata.get("created_at")) or beijing_now_iso()
             )
             mem_metadata["updated_at"] = mem_metadata["created_at"]
+            if source_job_id:
+                mem_metadata["source_job_id"] = source_job_id
             if mem.get("attributed_to"):
                 mem_metadata["attributed_to"] = mem["attributed_to"]
 
@@ -1438,19 +1921,25 @@ class Memory(MemoryBase):
         all_ids = [r[0] for r in records]
         all_payloads = [r[3] for r in records]
 
+        insertion_errors = []
+        persisted_records = []
         try:
             self.vector_store.insert(
                 vectors=all_vectors,
                 ids=all_ids,
                 payloads=all_payloads,
             )
+            persisted_records = records
         except Exception:
             # Fallback: insert one by one
-            for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
+            for record in records:
+                mid, _, vec, pay = record
                 try:
                     self.vector_store.insert(vectors=[vec], ids=[mid], payloads=[pay])
+                    persisted_records.append(record)
                 except Exception as e:
                     logger.error(f"Failed to insert memory {mid}: {e}")
+                    insertion_errors.append(e)
 
         # Batch history
         history_records = [
@@ -1462,17 +1951,34 @@ class Memory(MemoryBase):
                 "created_at": r[3].get("created_at"),
                 "is_deleted": 0,
             }
-            for r in records
+            for r in persisted_records
         ]
-        try:
-            self.db.batch_add_history(history_records)
-        except Exception:
-            # Fallback: add one by one
-            for hr in history_records:
-                try:
-                    self.db.add_history(hr["memory_id"], None, hr["new_memory"], "ADD", created_at=hr.get("created_at"))
-                except Exception as e:
-                    logger.error(f"Failed to add history for {hr['memory_id']}: {e}")
+        if source_job_id:
+            for history_record in history_records:
+                self._ensure_longterm_history(
+                    history_record["memory_id"],
+                    history_record["new_memory"],
+                    history_record.get("created_at"),
+                )
+        else:
+            try:
+                self.db.batch_add_history(history_records)
+            except Exception:
+                # Fallback: add one by one
+                for hr in history_records:
+                    try:
+                        self.db.add_history(
+                            hr["memory_id"],
+                            None,
+                            hr["new_memory"],
+                            "ADD",
+                            created_at=hr.get("created_at"),
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to add history for {hr['memory_id']}: {e}")
+
+        if insertion_errors and source_job_id:
+            raise RuntimeError(f"Failed to insert {len(insertion_errors)} long-term memories") from insertion_errors[0]
 
         # Phase 7: Batch entity linking
         try:
@@ -2331,13 +2837,13 @@ class Memory(MemoryBase):
         display_first_run_notice(self, "sync", "history")
         return history
 
-    def _create_memory(self, data, existing_embeddings, metadata=None):
+    def _create_memory(self, data, existing_embeddings, metadata=None, memory_id=None):
         logger.debug(f"Creating memory with {data=}")
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
         else:
             embeddings = self.embedding_model.embed(data, memory_action="add")
-        memory_id = str(uuid.uuid4())
+        memory_id = memory_id or str(uuid.uuid4())
         new_metadata = deepcopy(metadata) if metadata is not None else {}
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
@@ -2512,6 +3018,7 @@ class Memory(MemoryBase):
         """
         logger.warning("Resetting all memories")
 
+        self._pause_background_workers_for_reset()
         self._reset_midterm_state()
         self.db.reset()
         self.db.close()
@@ -2535,20 +3042,19 @@ class Memory(MemoryBase):
                 logger.warning(f"Failed to reset entity store: {e}")
             self._entity_store = None
 
+        self._initialize_background_workers()
         capture_event("mem0.reset", self, {"sync_type": "sync"})
         display_first_run_notice(self, "sync", "reset")
 
     def close(self):
         """Release resources held by this Memory instance (SQLite connections, etc.)."""
-        if hasattr(self, "db") and self.db is not None:
-            self.db.close()
-            self.db = None
+        self._close_background_workers_and_db()
 
     def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")
 
 
-class AsyncMemory(MemoryBase):
+class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
     """Asynchronous memory API with cross-session user profile support."""
 
     def __init__(self, config: MemoryConfig = MemoryConfig()):
@@ -2603,6 +3109,7 @@ class AsyncMemory(MemoryBase):
                 self.config.vector_store.provider,
             )
 
+        self._initialize_background_workers()
         capture_event("mem0.init", self, {"sync_type": "async"})
 
     @property
@@ -2707,6 +3214,11 @@ class AsyncMemory(MemoryBase):
         }
         session_scope = _build_session_scope(filters)
         short_term_limit = self._short_term_capacity()
+        context_reader = (
+            self._get_context_messages
+            if getattr(self.db, "get_context_messages", None) is not None
+            else self.db.get_last_messages
+        )
 
         search_result, profile_result, short_term_messages = await asyncio.gather(
             self.search(
@@ -2722,7 +3234,7 @@ class AsyncMemory(MemoryBase):
                 include_metadata=include_profile_metadata,
             ),
             asyncio.to_thread(
-                self.db.get_last_messages,
+                context_reader,
                 session_scope,
                 short_term_limit,
             ),
@@ -2873,13 +3385,29 @@ class AsyncMemory(MemoryBase):
         )
         return await self._expand_evicted_messages_for_qa_pairs(evicted_messages, session_scope)
 
-    def _process_midterm_evictions(self, evicted_messages, filters):
+    def _process_midterm_evictions(
+        self,
+        evicted_messages,
+        filters,
+        *,
+        source_job_id=None,
+        degraded=False,
+        raise_on_error=False,
+    ):
         if not self._midterm_enabled() or not evicted_messages:
-            return
+            return []
         try:
-            self.midterm_updater.process_evicted_messages(evicted_messages, filters)
+            return self.midterm_updater.process_evicted_messages(
+                evicted_messages,
+                filters,
+                source_job_id=source_job_id,
+                degraded=degraded,
+            )
         except Exception as e:
+            if raise_on_error:
+                raise
             logger.warning(f"Mid-term memory update failed: {e}")
+            return []
 
     def _with_midterm_search_results(self, query, filters, long_term_memories):
         if not self._midterm_enabled():
@@ -3160,7 +3688,22 @@ class AsyncMemory(MemoryBase):
             results = await self._create_procedural_memory(
                 messages, metadata=processed_metadata, prompt=prompt, llm=llm
             )
-            await self._update_profile_after_add(normalized_user_id, messages)
+            if self._background_config().enabled:
+                profile_job_id = await asyncio.to_thread(
+                    self._enqueue_profile_job_after_add,
+                    normalized_user_id,
+                    messages,
+                )
+            else:
+                await self._update_profile_after_add(normalized_user_id, messages)
+                profile_job_id = None
+            results = {
+                **results,
+                "background": {
+                    "migration_job_id": None,
+                    "profile_job_id": profile_job_id,
+                },
+            }
             scale_threshold_notice = await asyncio.to_thread(detect_scale_threshold_from_add_result, self, results)
             if temporal_usage_notice:
                 await display_temporal_usage_notice_async(self, "async", "add", *temporal_usage_notice)
@@ -3175,31 +3718,66 @@ class AsyncMemory(MemoryBase):
         else:
             messages = parse_vision_messages(messages)
 
-        # Keep each add's evictions local so concurrent sessions cannot overwrite one another.
+        # Persist short-term state before returning; extraction remains in durable workers.
         session_scope = _build_session_scope(effective_filters)
-        
-        evicted_messages = await self._save_short_term_messages(messages, session_scope)
-        await self._update_profile_after_add(normalized_user_id, messages)
-
-        vector_store_result = []
-        if evicted_messages:
-            await asyncio.to_thread(self._process_midterm_evictions, evicted_messages, effective_filters)
-            vector_store_result = await self._process_evicted_long_term_memories(
-                evicted_messages,
-                processed_metadata,
-                effective_filters,
-                infer=infer,
-                prompt=prompt,
+        if not self._background_config().enabled:
+            evicted_messages = await self._save_short_term_messages(messages, session_scope)
+            vector_store_result = []
+            if evicted_messages:
+                await asyncio.to_thread(self._process_midterm_evictions, evicted_messages, effective_filters)
+                vector_store_result = await self._process_evicted_long_term_memories(
+                    evicted_messages,
+                    processed_metadata,
+                    effective_filters,
+                    infer=infer,
+                    prompt=prompt,
+                )
+            await self._update_profile_after_add(normalized_user_id, messages)
+            scale_threshold_notice = await asyncio.to_thread(
+                detect_scale_threshold_from_add_result, self, vector_store_result
             )
-        
-        scale_threshold_notice = await asyncio.to_thread(detect_scale_threshold_from_add_result, self, vector_store_result)
+            if temporal_usage_notice:
+                await display_temporal_usage_notice_async(self, "async", "add", *temporal_usage_notice)
+            elif scale_threshold_notice:
+                await display_scale_threshold_notice_async(self, "async", "add", *scale_threshold_notice)
+            else:
+                await display_first_run_notice_async(self, "async", "add")
+            return {
+                "results": vector_store_result,
+                "background": {
+                    "migration_job_id": None,
+                    "profile_job_id": None,
+                },
+            }
+
+        migration_job_id, profile_job_id = await asyncio.to_thread(
+            self._save_and_enqueue_background_jobs,
+            messages,
+            session_scope,
+            processed_metadata,
+            effective_filters,
+            normalized_user_id=normalized_user_id,
+            infer=infer,
+            prompt=prompt,
+        )
+        vector_store_result = []
+
+        scale_threshold_notice = await asyncio.to_thread(
+            detect_scale_threshold_from_add_result, self, vector_store_result
+        )
         if temporal_usage_notice:
             await display_temporal_usage_notice_async(self, "async", "add", *temporal_usage_notice)
         elif scale_threshold_notice:
             await display_scale_threshold_notice_async(self, "async", "add", *scale_threshold_notice)
         else:
             await display_first_run_notice_async(self, "async", "add")
-        return {"results": vector_store_result}
+        return {
+            "results": vector_store_result,
+            "background": {
+                "migration_job_id": migration_job_id,
+                "profile_job_id": profile_job_id,
+            },
+        }
 
     async def _process_evicted_long_term_memories(
         self,
@@ -3209,10 +3787,11 @@ class AsyncMemory(MemoryBase):
         *,
         infer: bool = True,
         prompt: Optional[str] = None,
+        source_job_id: Optional[str] = None,
     ):
         if not infer:
             returned_memories = []
-            for message_dict in evicted_messages:
+            for index, message_dict in enumerate(evicted_messages):
                 if (
                     not isinstance(message_dict, dict)
                     or message_dict.get("role") is None
@@ -3226,14 +3805,47 @@ class AsyncMemory(MemoryBase):
 
                 per_msg_meta = deepcopy(metadata)
                 per_msg_meta["role"] = message_dict["role"]
+                if source_job_id:
+                    per_msg_meta["source_job_id"] = source_job_id
 
                 actor_name = message_dict.get("name")
                 if actor_name:
                     per_msg_meta["actor_id"] = actor_name
 
                 msg_content = message_dict["content"]
+                memory_id = (
+                    str(uuid.uuid5(uuid.NAMESPACE_URL, f"mem0:longterm:{source_job_id}:{index}"))
+                    if source_job_id
+                    else None
+                )
+                existing_memory = (
+                    await asyncio.to_thread(self.vector_store.get, vector_id=memory_id) if memory_id else None
+                )
+                if existing_memory is not None:
+                    existing_payload = getattr(existing_memory, "payload", None) or {}
+                    await asyncio.to_thread(
+                        self._ensure_longterm_history,
+                        memory_id,
+                        existing_payload.get("data") or msg_content,
+                        existing_payload.get("created_at"),
+                    )
+                    returned_memories.append(
+                        {
+                            "id": memory_id,
+                            "memory": msg_content,
+                            "event": "ADD",
+                            "actor_id": actor_name if actor_name else None,
+                            "role": message_dict["role"],
+                        }
+                    )
+                    continue
                 msg_embeddings = await asyncio.to_thread(self.embedding_model.embed, msg_content, "add")
-                mem_id = await self._create_memory(msg_content, {msg_content: msg_embeddings}, per_msg_meta)
+                mem_id = await self._create_memory(
+                    msg_content,
+                    {msg_content: msg_embeddings},
+                    per_msg_meta,
+                    memory_id=memory_id,
+                )
 
                 returned_memories.append(
                     {
@@ -3310,60 +3922,88 @@ class AsyncMemory(MemoryBase):
             logger.error(f"LLM extraction failed (async): {e}")
             raise LLMError(f"LLM extraction failed: {e}") from e
 
-        # Parse response
-        try:
-            response = remove_code_blocks(response)
-            if not response or not response.strip():
-                extracted_memories = []
-            else:
-                try:
-                    extracted_memories = json.loads(response, strict=False).get("memory", [])
-                except json.JSONDecodeError:
-                    extracted_json = extract_json(response)
-                    extracted_memories = json.loads(extracted_json, strict=False).get("memory", [])
-        except Exception as e:
-            logger.error(f"Error parsing extraction response (async): {e}")
-            extracted_memories = []
+        extracted_memories = _parse_extracted_memories(response, strict=source_job_id is not None)
 
         if not extracted_memories:
             return []
 
-        # Phase 3: Batch embed all extracted memory texts
-        mem_texts = [m.get("text", "") for m in extracted_memories if m.get("text")]
-        try:
-            mem_embeddings_list = await asyncio.to_thread(self.embedding_model.embed_batch, mem_texts, "add")
-            embed_map = dict(zip(mem_texts, mem_embeddings_list))
-        except Exception:
-            embed_map = {}
-            for text in mem_texts:
-                try:
-                    embed_map[text] = await asyncio.to_thread(self.embedding_model.embed, text, "add")
-                except Exception as e:
-                    logger.warning(f"Failed to embed memory text (async): {e}")
+        # Phase 3: Determine which validated facts actually require a new write.
+        existing_hashes, existing_source_hashes = _existing_longterm_hashes(existing_results, source_job_id)
 
-        # Phase 4: Per-memory CPU processing + Phase 5: Hash dedup
-        existing_hashes = set()
-        for mem in existing_results:
-            h = mem.payload.get("hash") if hasattr(mem, "payload") and mem.payload else None
-            if h:
-                existing_hashes.add(h)
-
-        records = []
+        pending_records = []
         seen_hashes = set()
         for mem in extracted_memories:
-            text = mem.get("text")
-            if not text or text not in embed_map:
+            text = mem["text"]
+            mem_hash = _longterm_memory_hash(text)
+            memory_id = _longterm_memory_id(source_job_id, text) if source_job_id else str(uuid.uuid4())
+            existing_memory = (
+                await asyncio.to_thread(self.vector_store.get, vector_id=memory_id) if source_job_id else None
+            )
+            if existing_memory is not None:
+                existing_payload = _validated_existing_longterm_payload(
+                    existing_memory,
+                    source_job_id=source_job_id,
+                    memory_id=memory_id,
+                    expected_hash=mem_hash,
+                )
+                await asyncio.to_thread(
+                    self._ensure_longterm_history,
+                    memory_id,
+                    existing_payload.get("data") or text,
+                    existing_payload.get("created_at"),
+                )
+                seen_hashes.add(mem_hash)
                 continue
-
-            mem_hash = hashlib.md5(text.encode()).hexdigest()
+            existing_job_memory = existing_source_hashes.get(mem_hash)
+            if existing_job_memory is not None:
+                existing_job_payload = getattr(existing_job_memory, "payload", None) or {}
+                existing_job_memory_id = str(existing_job_memory.id)
+                await asyncio.to_thread(
+                    self._ensure_longterm_history,
+                    existing_job_memory_id,
+                    existing_job_payload.get("data") or text,
+                    existing_job_payload.get("created_at"),
+                )
+                seen_hashes.add(mem_hash)
+                continue
             if mem_hash in existing_hashes or mem_hash in seen_hashes:
                 logger.debug(f"Skipping duplicate memory (hash match, async): {text[:50]}")
                 continue
             seen_hashes.add(mem_hash)
+            pending_records.append((memory_id, text, mem_hash, mem))
 
+        if not pending_records:
+            return []
+
+        # Phase 4: Embed only facts that survived deterministic-ID and hash deduplication.
+        mem_texts = [record[1] for record in pending_records]
+        embed_map = {}
+        try:
+            mem_embeddings_list = await asyncio.to_thread(self.embedding_model.embed_batch, mem_texts, "add")
+            for text, embedding in zip(mem_texts, mem_embeddings_list):
+                if _embedding_is_available(embedding):
+                    embed_map[text] = embedding
+        except Exception as exc:
+            logger.warning("Batch long-term memory embedding failed (async); retrying individually: %s", exc)
+
+        for text in _missing_embeddings(mem_texts, embed_map):
+            try:
+                embedding = await asyncio.to_thread(self.embedding_model.embed, text, "add")
+                if _embedding_is_available(embedding):
+                    embed_map[text] = embedding
+            except Exception as exc:
+                logger.warning("Failed to embed long-term memory text (async): %s", exc)
+
+        missing_embeddings = _missing_embeddings(mem_texts, embed_map)
+        if source_job_id and missing_embeddings:
+            raise RuntimeError(f"Failed to embed {len(missing_embeddings)} extracted memories")
+
+        # Phase 5: Build complete records. Non-background callers retain skip-on-failure compatibility.
+        records = []
+        for memory_id, text, mem_hash, mem in pending_records:
+            if text not in embed_map:
+                continue
             text_lemmatized = lemmatize_for_bm25(text, language=getattr(self, "_bm25_language", None))
-
-            memory_id = str(uuid.uuid4())
             mem_metadata = deepcopy(metadata)
             mem_metadata["data"] = text
             mem_metadata["text_lemmatized"] = text_lemmatized
@@ -3372,6 +4012,8 @@ class AsyncMemory(MemoryBase):
                 normalize_iso_timestamp_to_beijing(mem_metadata.get("created_at")) or beijing_now_iso()
             )
             mem_metadata["updated_at"] = mem_metadata["created_at"]
+            if source_job_id:
+                mem_metadata["source_job_id"] = source_job_id
             if mem.get("attributed_to"):
                 mem_metadata["attributed_to"] = mem["attributed_to"]
 
@@ -3385,6 +4027,8 @@ class AsyncMemory(MemoryBase):
         all_ids = [r[0] for r in records]
         all_payloads = [r[3] for r in records]
 
+        insertion_errors = []
+        persisted_records = []
         try:
             await asyncio.to_thread(
                 self.vector_store.insert,
@@ -3392,12 +4036,16 @@ class AsyncMemory(MemoryBase):
                 ids=all_ids,
                 payloads=all_payloads,
             )
+            persisted_records = records
         except Exception:
-            for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
+            for record in records:
+                mid, _, vec, pay = record
                 try:
                     await asyncio.to_thread(self.vector_store.insert, vectors=[vec], ids=[mid], payloads=[pay])
+                    persisted_records.append(record)
                 except Exception as e:
                     logger.error(f"Failed to insert memory {mid} (async): {e}")
+                    insertion_errors.append(e)
 
         # Batch history
         history_records = [
@@ -3409,19 +4057,31 @@ class AsyncMemory(MemoryBase):
                 "created_at": r[3].get("created_at"),
                 "is_deleted": 0,
             }
-            for r in records
+            for r in persisted_records
         ]
-        try:
-            await asyncio.to_thread(self.db.batch_add_history, history_records)
-        except Exception:
-            for hr in history_records:
-                try:
-                    await asyncio.to_thread(
-                        self.db.add_history, hr["memory_id"], None, hr["new_memory"], "ADD",
-                        created_at=hr.get("created_at")
-                    )
-                except Exception as e:
-                    logger.error(f"Failed to add history for {hr['memory_id']} (async): {e}")
+        if source_job_id:
+            for history_record in history_records:
+                await asyncio.to_thread(
+                    self._ensure_longterm_history,
+                    history_record["memory_id"],
+                    history_record["new_memory"],
+                    history_record.get("created_at"),
+                )
+        else:
+            try:
+                await asyncio.to_thread(self.db.batch_add_history, history_records)
+            except Exception:
+                for hr in history_records:
+                    try:
+                        await asyncio.to_thread(
+                            self.db.add_history, hr["memory_id"], None, hr["new_memory"], "ADD",
+                            created_at=hr.get("created_at")
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to add history for {hr['memory_id']} (async): {e}")
+
+        if insertion_errors and source_job_id:
+            raise RuntimeError(f"Failed to insert {len(insertion_errors)} long-term memories") from insertion_errors[0]
 
         # Phase 7: Batch entity linking
         try:
@@ -4298,14 +4958,14 @@ class AsyncMemory(MemoryBase):
         await display_first_run_notice_async(self, "async", "history")
         return history
 
-    async def _create_memory(self, data, existing_embeddings, metadata=None):
+    async def _create_memory(self, data, existing_embeddings, metadata=None, memory_id=None):
         logger.debug(f"Creating memory with {data=}")
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
         else:
             embeddings = await asyncio.to_thread(self.embedding_model.embed, data, memory_action="add")
 
-        memory_id = str(uuid.uuid4())
+        memory_id = memory_id or str(uuid.uuid4())
         new_metadata = deepcopy(metadata) if metadata is not None else {}
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
@@ -4501,6 +5161,7 @@ class AsyncMemory(MemoryBase):
         """
         logger.warning("Resetting all memories")
 
+        await asyncio.to_thread(self._pause_background_workers_for_reset)
         await asyncio.to_thread(self._reset_midterm_state)
         self._profile_manager = None
         self._profile_updater = None
@@ -4528,17 +5189,20 @@ class AsyncMemory(MemoryBase):
                 logger.warning(f"Failed to reset entity store: {e}")
             self._entity_store = None
 
+        self._initialize_background_workers()
         capture_event("mem0.reset", self, {"sync_type": "async"})
         await display_first_run_notice_async(self, "async", "reset")
 
+    async def flush_background_tasks(self, timeout: Optional[float] = None) -> bool:
+        return await asyncio.to_thread(self._ensure_background_workers().flush, timeout)
+
     def close(self):
         """Release resources held by this AsyncMemory instance."""
-        self._profile_manager = None
-        self._profile_updater = None
-        self._profile_user_locks.clear()
-        if hasattr(self, "db") and self.db is not None:
-            self.db.close()
-            self.db = None
+        closed = self._close_background_workers_and_db()
+        if closed:
+            self._profile_manager = None
+            self._profile_updater = None
+            self._profile_user_locks.clear()
 
     async def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")

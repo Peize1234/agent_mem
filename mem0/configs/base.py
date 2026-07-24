@@ -53,6 +53,17 @@ class UserProfileConfig(BaseModel):
     include_metadata_by_default: bool = False
 
 
+class BackgroundTaskConfig(BaseModel):
+    enabled: bool = True
+    max_retries: int = Field(3, ge=0)
+    poll_interval_seconds: float = Field(1.0, gt=0)
+    stale_running_timeout_seconds: int = Field(300, ge=1)
+    shutdown_timeout_seconds: float = Field(30.0, ge=0)
+    include_pending_in_context: bool = True
+    max_pending_context_messages: int = Field(20, ge=0)
+    include_failed_in_context: bool = False
+
+
 class MemoryConfig(BaseModel):
     vector_store: VectorStoreConfig = Field(
         description="Configuration for the vector store",
@@ -89,6 +100,10 @@ class MemoryConfig(BaseModel):
     profile: UserProfileConfig = Field(
         description="Configuration for the cross-session user profile layer",
         default_factory=UserProfileConfig,
+    )
+    background: BackgroundTaskConfig = Field(
+        description="Configuration for persistent background memory and profile jobs",
+        default_factory=BackgroundTaskConfig,
     )
 
 

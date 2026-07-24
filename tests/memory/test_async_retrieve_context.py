@@ -363,9 +363,9 @@ async def test_async_retrieve_context_uses_latest_configured_session_window(monk
             "message-12",
         ]
         assert to_thread.await_args_list == [
-            call(db.get_last_messages, "run_id=session-1&user_id=user-1", 4),
-            call(db.get_last_messages, "run_id=session-2&user_id=user-1", 4),
-            call(db.get_last_messages, "run_id=session-1&user_id=user-1", 6),
+            call(memory._get_context_messages, "run_id=session-1&user_id=user-1", 4),
+            call(memory._get_context_messages, "run_id=session-2&user_id=user-1", 4),
+            call(memory._get_context_messages, "run_id=session-1&user_id=user-1", 6),
         ]
         db.get_messages.assert_not_called()
         assert memory._profile_updater is None
