@@ -18,6 +18,7 @@ from mem0.configs.base import MemoryConfig, MemoryItem
 from mem0.configs.enums import MemoryType
 from mem0.configs.prompts import (
     ADDITIVE_EXTRACTION_PROMPT,
+    AGENT_ANSWER_PROMPT,
     AGENT_CONTEXT_SUFFIX,
     PROCEDURAL_MEMORY_SYSTEM_PROMPT,
     generate_additive_extraction_prompt,
@@ -30,10 +31,10 @@ from mem0.memory.midterm_retriever import MidTermRetriever
 from mem0.memory.midterm_updater import MidTermUpdater
 from mem0.memory.notices import (
     PERFORMANCE_SLOW_QUERY_THRESHOLD_SECONDS,
-    detect_scale_threshold_from_add_result,
-    detect_scale_threshold_from_top_k,
     detect_decay_usage_from_delete,
     detect_decay_usage_from_delete_all,
+    detect_scale_threshold_from_add_result,
+    detect_scale_threshold_from_top_k,
     detect_temporal_usage_from_metadata,
     detect_temporal_usage_from_search,
     display_decay_usage_notice,
@@ -82,7 +83,11 @@ from mem0.utils.scoring import (
     normalize_bm25,
     score_and_rank,
 )
-from mem0.utils.timestamps import beijing_now, beijing_now_iso, normalize_iso_timestamp_to_beijing
+from mem0.utils.timestamps import (
+    beijing_now,
+    beijing_now_iso,
+    normalize_iso_timestamp_to_beijing,
+)
 from mem0.vector_stores.base import VectorStoreBase
 
 # Suppress SWIG deprecation warnings globally
@@ -454,6 +459,7 @@ def _assemble_retrieved_context(
         context_message = {
             "role": message.get("role"),
             "content": message.get("content"),
+            "created_at": message.get("created_at"),
         }
         name = message.get("name")
         if isinstance(name, str) and name.strip():
@@ -468,6 +474,63 @@ def _assemble_retrieved_context(
         "short_term_messages": messages,
         "retrieved_memories": retrieved_memories,
     }
+
+
+def _serialize_prompt_value(value: Any, empty_value: Any) -> str:
+    return json.dumps(value if value is not None else empty_value, ensure_ascii=False, default=str)
+
+
+def _memory_created_at_sort_key(memory: Dict[str, Any]) -> tuple[bool, str]:
+    created_at = normalize_iso_timestamp_to_beijing(memory.get("created_at"))
+    return not bool(created_at), str(created_at or "")
+
+
+def _build_answer_prompt_messages(
+    retrieved_context: Dict[str, Any],
+    reference_information: Any = None,
+) -> list[Dict[str, str]]:
+    """Project retrieved context to the minimal fields needed by the answer model."""
+    mid_term_memories = []
+    long_term_memories = []
+    for memory in retrieved_context.get("retrieved_memories") or []:
+        if not isinstance(memory, dict):
+            continue
+
+        source = str(memory.get("source") or "")
+        if source in {"mid_term_page", "midterm"}:
+            content = memory.get("raw_dialogue")
+            if content:
+                mid_term_memories.append(
+                    {
+                        "score": memory.get("score"),
+                        "created_at": memory.get("created_at"),
+                        "content": content,
+                    }
+                )
+        elif not source.startswith("mid_term"):
+            content = memory.get("memory")
+            if content:
+                long_term_memories.append(
+                    {
+                        "score": memory.get("score"),
+                        "created_at": memory.get("created_at"),
+                        "content": content,
+                    }
+                )
+
+    mid_term_memories.sort(key=_memory_created_at_sort_key)
+    long_term_memories.sort(key=_memory_created_at_sort_key)
+
+    prompt = AGENT_ANSWER_PROMPT.format(
+        current_time=beijing_now_iso(),
+        user_query=retrieved_context["query"],
+        short_term_memory=_serialize_prompt_value(retrieved_context.get("short_term_messages"), []),
+        mid_term_memory=_serialize_prompt_value(mid_term_memories, []),
+        long_term_memory=_serialize_prompt_value(long_term_memories, []),
+        user_profile=_serialize_prompt_value(retrieved_context.get("profile"), {}),
+        reference_information=_serialize_prompt_value(reference_information, []),
+    )
+    return [{"role": "system", "content": prompt}]
 
 
 def _entity_collection_name(provider: str, collection_name: str) -> str:
@@ -685,7 +748,7 @@ class Memory(MemoryBase):
         normalized_user_id = normalize_profile_user_id(user_id)
         return self.profile_manager.get_profile(normalized_user_id, include_metadata=include_metadata)
 
-    def retrieve_context(
+    def _retrieve_context(
         self,
         query: str,
         *,
@@ -734,6 +797,33 @@ class Memory(MemoryBase):
             profile_result=profile_result,
             short_term_messages=short_term_messages,
         )
+
+    def build_agent_answer_messages(
+        self,
+        query: str,
+        *,
+        user_id: str,
+        session_id: str,
+        top_k: int = 20,
+        threshold: float = 0.1,
+        rerank: bool = False,
+        explain: bool = False,
+        include_profile_metadata: bool = False,
+        reference_information: Any = None,
+    ) -> list[Dict[str, str]]:
+        """Build messages for an external LLM from the query and layered memory context."""
+        retrieved_context = self._retrieve_context(
+            query,
+            user_id=user_id,
+            session_id=session_id,
+            top_k=top_k,
+            threshold=threshold,
+            rerank=rerank,
+            explain=explain,
+            include_profile_metadata=include_profile_metadata,
+        )
+
+        return _build_answer_prompt_messages(retrieved_context, reference_information)
 
     def update_profile(self, user_id: str, messages):
         """Explicitly extract and apply profile updates from user messages."""
@@ -2593,7 +2683,7 @@ class AsyncMemory(MemoryBase):
             include_metadata,
         )
 
-    async def retrieve_context(
+    async def _retrieve_context(
         self,
         query: str,
         *,
@@ -2646,6 +2736,33 @@ class AsyncMemory(MemoryBase):
             profile_result=profile_result,
             short_term_messages=short_term_messages,
         )
+
+    async def build_agent_answer_messages(
+        self,
+        query: str,
+        *,
+        user_id: str,
+        session_id: str,
+        top_k: int = 20,
+        threshold: float = 0.1,
+        rerank: bool = False,
+        explain: bool = False,
+        include_profile_metadata: bool = False,
+        reference_information: Any = None,
+    ) -> list[Dict[str, str]]:
+        """Asynchronously build messages for an external LLM from layered memory context."""
+        retrieved_context = await self._retrieve_context(
+            query,
+            user_id=user_id,
+            session_id=session_id,
+            top_k=top_k,
+            threshold=threshold,
+            rerank=rerank,
+            explain=explain,
+            include_profile_metadata=include_profile_metadata,
+        )
+
+        return _build_answer_prompt_messages(retrieved_context, reference_information)
 
     async def update_profile(self, user_id: str, messages):
         """Explicitly extract and apply profile updates for a user."""

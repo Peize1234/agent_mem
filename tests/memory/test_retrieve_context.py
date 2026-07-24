@@ -1,12 +1,13 @@
+import json
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 
 from mem0.configs.base import UserProfileConfig
+from mem0.configs.prompts import AGENT_ANSWER_PROMPT
 from mem0.memory.main import Memory
 from mem0.memory.storage import SQLiteManager
-
 
 TOP_LEVEL_FIELDS = {
     "user_id",
@@ -57,7 +58,7 @@ def test_retrieve_context_normalizes_scope_and_forwards_search_options():
     ]
     memory = _build_memory(search_result={"results": memories}, messages=messages)
 
-    result = memory.retrieve_context(
+    result = memory._retrieve_context(
         "  how should I invest?  ",
         user_id=" user-1 ",
         session_id=" session-1 ",
@@ -75,8 +76,17 @@ def test_retrieve_context_normalizes_scope_and_forwards_search_options():
     assert result["profile"] == {"risk_level": "balanced"}
     assert result["retrieved_memories"] is memories
     assert result["short_term_messages"] == [
-        {"role": "user", "content": "first question", "name": "Alice"},
-        {"role": "assistant", "content": "first answer"},
+        {
+            "role": "user",
+            "content": "first question",
+            "created_at": "2026-07-21T10:00:00+00:00",
+            "name": "Alice",
+        },
+        {
+            "role": "assistant",
+            "content": "first answer",
+            "created_at": "2026-07-21T10:01:00+00:00",
+        },
     ]
     memory.search.assert_called_once_with(
         "how should I invest?",
@@ -97,6 +107,128 @@ def test_retrieve_context_normalizes_scope_and_forwards_search_options():
     assert memory.llm.mock_calls == []
 
 
+def test_build_agent_answer_messages_uses_agent_prompt_and_layered_context(monkeypatch):
+    retrieved_context = {
+        "user_id": "user-1",
+        "session_id": "session-1",
+        "query": "how should I invest?",
+        "profile": {"risk_level": "balanced"},
+        "short_term_messages": [
+            {
+                "role": "user",
+                "content": "I need liquidity",
+                "created_at": "2026-07-24T11:55:00+08:00",
+            }
+        ],
+        "retrieved_memories": [
+            {
+                "id": "session-1",
+                "score": 0.95,
+                "source": "mid_term_session",
+                "summary": "session summary must not enter the prompt",
+                "created_at": "2026-07-20T09:00:00+08:00",
+            },
+            {
+                "id": "mid-2",
+                "score": 0.79,
+                "source": "mid_term_page",
+                "raw_dialogue": "User: later historical question\nAssistant: later historical answer",
+                "created_at": "2026-07-23T10:00:00+08:00",
+            },
+            {
+                "id": "mid-1",
+                "score": 0.83,
+                "source": "mid_term_page",
+                "summary": "page summary must not enter the prompt",
+                "raw_dialogue": "User: historical question\nAssistant: historical answer",
+                "created_at": "2026-07-21T10:00:00+08:00",
+                "updated_at": "2026-07-22T10:00:00+08:00",
+            },
+            {
+                "id": "long-2",
+                "score": 0.68,
+                "source": "long_term",
+                "memory": "later preference",
+                "created_at": "2026-07-22T08:00:00+08:00",
+            },
+            {
+                "id": "long-1",
+                "score": 0.72,
+                "source": "long_term",
+                "memory": "prefers ETFs",
+                "created_at": "2026-07-19T08:00:00+08:00",
+                "metadata": {"internal": "must not enter the prompt"},
+            },
+        ],
+    }
+    reference_information = {"as_of": "2026-07-24", "market": "reference data"}
+    memory = _build_memory()
+    memory._retrieve_context = MagicMock(return_value=retrieved_context)
+    monkeypatch.setattr("mem0.memory.main.beijing_now_iso", lambda: "2026-07-24T12:00:00+08:00")
+
+    result = memory.build_agent_answer_messages(
+        "  how should I invest?  ",
+        user_id=" user-1 ",
+        session_id=" session-1 ",
+        top_k=7,
+        threshold=0.35,
+        rerank=True,
+        explain=True,
+        include_profile_metadata=True,
+        reference_information=reference_information,
+    )
+
+    memory._retrieve_context.assert_called_once_with(
+        "  how should I invest?  ",
+        user_id=" user-1 ",
+        session_id=" session-1 ",
+        top_k=7,
+        threshold=0.35,
+        rerank=True,
+        explain=True,
+        include_profile_metadata=True,
+    )
+    expected_prompt = AGENT_ANSWER_PROMPT.format(
+        current_time="2026-07-24T12:00:00+08:00",
+        user_query="how should I invest?",
+        short_term_memory=json.dumps(retrieved_context["short_term_messages"], ensure_ascii=False),
+        mid_term_memory=json.dumps(
+            [
+                {
+                    "score": 0.83,
+                    "created_at": "2026-07-21T10:00:00+08:00",
+                    "content": "User: historical question\nAssistant: historical answer",
+                },
+                {
+                    "score": 0.79,
+                    "created_at": "2026-07-23T10:00:00+08:00",
+                    "content": "User: later historical question\nAssistant: later historical answer",
+                },
+            ],
+            ensure_ascii=False,
+        ),
+        long_term_memory=json.dumps(
+            [
+                {
+                    "score": 0.72,
+                    "created_at": "2026-07-19T08:00:00+08:00",
+                    "content": "prefers ETFs",
+                },
+                {
+                    "score": 0.68,
+                    "created_at": "2026-07-22T08:00:00+08:00",
+                    "content": "later preference",
+                },
+            ],
+            ensure_ascii=False,
+        ),
+        user_profile=json.dumps(retrieved_context["profile"], ensure_ascii=False),
+        reference_information=json.dumps(reference_information, ensure_ascii=False),
+    )
+    assert result == [{"role": "system", "content": expected_prompt}]
+    memory.llm.generate_response.assert_not_called()
+
+
 @pytest.mark.parametrize(
     ("user_id", "session_id", "error"),
     [
@@ -110,7 +242,7 @@ def test_retrieve_context_rejects_invalid_identifiers(user_id, session_id, error
     memory = _build_memory()
 
     with pytest.raises(ValueError, match=error):
-        memory.retrieve_context("question", user_id=user_id, session_id=session_id)
+        memory._retrieve_context("question", user_id=user_id, session_id=session_id)
 
     memory.search.assert_not_called()
 
@@ -120,7 +252,7 @@ def test_retrieve_context_rejects_invalid_query(query):
     memory = _build_memory()
 
     with pytest.raises(ValueError, match="Invalid query"):
-        memory.retrieve_context(query, user_id="user-1", session_id="session-1")
+        memory._retrieve_context(query, user_id="user-1", session_id="session-1")
 
     memory.search.assert_not_called()
 
@@ -135,7 +267,7 @@ def test_retrieve_context_rejects_invalid_query(query):
 def test_retrieve_context_accepts_list_and_results_dict_without_reordering(search_result):
     memory = _build_memory(search_result=search_result)
 
-    result = memory.retrieve_context("question", user_id="user-1", session_id="session-1")
+    result = memory._retrieve_context("question", user_id="user-1", session_id="session-1")
 
     expected = search_result["results"] if isinstance(search_result, dict) else search_result
     assert result["retrieved_memories"] is expected
@@ -159,7 +291,13 @@ def test_retrieve_context_returns_latest_window_in_order_and_isolates_session():
             max_messages=20,
         )
         db.save_messages(
-            [{"role": "user", "content": "other session"}],
+            [
+                {
+                    "role": "user",
+                    "content": "other session",
+                    "created_at": "2026-07-21T11:00:00+00:00",
+                }
+            ],
             "run_id=session-2&user_id=user-1",
         )
 
@@ -173,8 +311,8 @@ def test_retrieve_context_returns_latest_window_in_order_and_isolates_session():
         memory._profile_manager = None
         memory._profile_updater = None
 
-        session_1 = memory.retrieve_context("question", user_id="user-1", session_id="session-1")
-        session_2 = memory.retrieve_context("question", user_id="user-1", session_id="session-2")
+        session_1 = memory._retrieve_context("question", user_id="user-1", session_id="session-1")
+        session_2 = memory._retrieve_context("question", user_id="user-1", session_id="session-2")
 
         assert session_1["profile"] == session_2["profile"] == {"risk_level": "balanced"}
         assert [message["content"] for message in session_1["short_term_messages"]] == [
@@ -183,7 +321,13 @@ def test_retrieve_context_returns_latest_window_in_order_and_isolates_session():
             "message-11",
             "message-12",
         ]
-        assert session_2["short_term_messages"] == [{"role": "user", "content": "other session"}]
+        assert session_2["short_term_messages"] == [
+            {
+                "role": "user",
+                "content": "other session",
+                "created_at": "2026-07-21T19:00:00+08:00",
+            }
+        ]
         assert memory._profile_updater is None
     finally:
         db.close()
@@ -210,7 +354,7 @@ def test_retrieve_context_uses_configured_short_term_capacity():
         memory.search = MagicMock(return_value={"results": []})
         memory.get_profile = MagicMock(return_value={"user_id": "user-1", "profile": {}})
 
-        result = memory.retrieve_context("question", user_id="user-1", session_id="session-1")
+        result = memory._retrieve_context("question", user_id="user-1", session_id="session-1")
 
         assert [message["content"] for message in result["short_term_messages"]] == [
             "message-7",

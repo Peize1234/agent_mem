@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Trace the end-to-end retrieve_context -> answer -> add workflow for Sessions 2 and 4."""
+"""Trace the end-to-end answer-prompt -> external answer -> add workflow for Sessions 2 and 4."""
 
 from __future__ import annotations
 
@@ -1008,23 +1008,27 @@ def render_database_snapshot(snapshot: Dict[str, Any]) -> str:
     )
 
 
-def build_answer_prompt(query: str, retrieved_context: Dict[str, Any]) -> List[Dict[str, str]]:
-    """Build the final answer prompt exclusively from retrieved context and the current question."""
-    system_prompt = (
-        "你是一个严谨的中文金融问答助手。先直接回答结论，再解释依据；"
-        "只使用给定上下文中的用户信息，不得猜测，不承诺投资收益。"
-    )
-    user_prompt = (
-        f"===== 跨 Session 用户画像 =====\n{json_text(retrieved_context.get('profile', {}))}\n\n"
-        f"===== 当前 Session 短期消息 =====\n{json_text(retrieved_context.get('short_term_messages', []))}\n\n"
-        f"===== 中期和长期检索结果 =====\n{json_text(retrieved_context.get('retrieved_memories', []))}\n\n"
-        f"===== 当前用户问题 =====\n{query}\n\n"
-        "请基于以上上下文回答当前问题。"
-    )
-    return [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt},
-    ]
+@contextlib.contextmanager
+def capture_retrieved_context(memory: Any, sink) -> Iterable[None]:
+    """Capture the protected retrieval result while building answer messages end to end."""
+    original_retrieve = memory._retrieve_context
+    instance_attributes = getattr(memory, "__dict__", {})
+    had_instance_override = "_retrieve_context" in instance_attributes
+    previous_override = instance_attributes.get("_retrieve_context")
+
+    def retrieve_and_capture(*args, **kwargs):
+        context = original_retrieve(*args, **kwargs)
+        sink(context)
+        return context
+
+    memory._retrieve_context = retrieve_and_capture
+    try:
+        yield
+    finally:
+        if had_instance_override:
+            memory._retrieve_context = previous_override
+        else:
+            del memory._retrieve_context
 
 
 def _calls_for_phase(calls: Iterable[Dict[str, Any]], phase: str) -> List[Dict[str, Any]]:
@@ -1228,29 +1232,27 @@ class RetrieveContextAddTraceRunner:
                 }
                 record["retrieve_input"] = retrieve_input
                 phase_call_start = len(self.recorder.calls)
-                with self.recorder.phase("retrieve_context"):
-                    record["context"] = self.memory.retrieve_context(**retrieve_input)
+                context_capture = (
+                    capture_retrieved_context(
+                        self.memory,
+                        lambda context: record.__setitem__("context", context),
+                    )
+                    if self.test_mode
+                    else contextlib.nullcontext()
+                )
+                with self.recorder.phase("retrieve_context"), context_capture:
+                    record["answer_prompt"] = self.memory.build_agent_answer_messages(**retrieve_input)
                 self.recorder.emit_no_llm_calls("retrieve_context", phase_call_start)
-                self.recorder.emit(f"[TURN {index:02d}][RETRIEVE CONTEXT]", record["context"])
+                if record["context"] is not None:
+                    self.recorder.emit(f"[TURN {index:02d}][RETRIEVED CONTEXT]", record["context"])
+                self.recorder.emit_llm_messages(
+                    f"[TURN {index:02d}][ANSWER PROMPT]",
+                    record["answer_prompt"],
+                )
 
-                record["answer_prompt"] = build_answer_prompt(turn["query"], record["context"])
-                self.recorder.emit_llm_messages(f"[TURN {index:02d}][ANSWER PROMPT]", record["answer_prompt"])
                 phase_call_start = len(self.recorder.calls)
                 with self.recorder.phase("answer_generation"):
-                    source_context = (
-                        self.recorder.llm_source(
-                            source_type="answer_generation",
-                            caller_module=__name__,
-                            caller_class=None,
-                            caller_method="generate_final_answer",
-                            caller_file=str(Path(__file__).resolve()),
-                            caller_line=inspect.currentframe().f_lineno,
-                        )
-                        if self.test_mode
-                        else contextlib.nullcontext()
-                    )
-                    with source_context:
-                        raw_answer = self.memory.llm.generate_response(messages=record["answer_prompt"])
+                    raw_answer = self.memory.llm.generate_response(messages=record["answer_prompt"])
                 self.recorder.emit_no_llm_calls("answer_generation", phase_call_start)
                 record["answer_raw_response"] = raw_answer
                 record["generated_answer"] = normalize_llm_response(raw_answer)
