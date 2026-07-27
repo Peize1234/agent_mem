@@ -125,6 +125,7 @@ celerybeat.pid
 
 # Environments
 .env
+.memory_monitor_runs/
 .venv
 env/
 venv/

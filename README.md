@@ -266,6 +266,28 @@ For detailed integration steps, see the [Quickstart](https://docs.mem0.ai/quicks
 - **Langgraph Support**: Build a customer bot with Langgraph + Mem0 ([Guide](https://docs.mem0.ai/integrations/langgraph))
 - **CrewAI Integration**: Tailor CrewAI outputs with Mem0 ([Example](https://docs.mem0.ai/integrations/crewai))
 
+### Agent Memory Demo Lab
+
+Production code continues to instantiate the standard runtime:
+
+```python
+from mem0 import Memory
+
+memory = Memory(config)
+```
+
+The optional Streamlit lab creates an isolated `DemoMemory` runtime for each
+sandbox and persists its full chat transcript and pipeline progress outside
+the core memory database:
+
+```bash
+export MEMORY_MONITOR_MEMORY_CONFIG=/path/to/mem0-config.json
+hatch run monitor:start
+```
+
+See [memory_monitor/README.md](memory_monitor/README.md) for the sandbox
+layout, step controls, and test commands.
+
 ## 📚 Documentation & Support
 
 - Full docs: https://docs.mem0.ai
