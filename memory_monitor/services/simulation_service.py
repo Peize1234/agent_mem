@@ -127,6 +127,11 @@ class SimulationService:
                     "embedding_model_dims",
                     1536,
                 ),
+                "bm25_language": getattr(
+                    self.base_config.vector_store.config,
+                    "bm25_language",
+                    "en",
+                ),
             },
         )
         config.background.enabled = True

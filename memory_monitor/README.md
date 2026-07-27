@@ -30,20 +30,37 @@ the production worker's complete migration/profile job paths.
 
 ## Start the lab
 
-Provide a normal Mem0 JSON configuration containing the LLM and embedder
-settings used by the sandbox:
+The launcher uses the included DeepSeek + local HuggingFace configuration from
+`demo_config.json` and prompts for `DEEPSEEK_API_KEY` when it is not already in
+the environment. It matches the financial trace test defaults:
+`deepseek-v4-flash` and `BAAI/bge-small-zh-v1.5` (512 dimensions).
+It runs in the `MemoryOS` Conda environment, activating it through `conda run`
+when necessary.
+
+```bash
+conda activate MemoryOS
+./memory_monitor/start_demo_lab.sh
+```
+
+The API key is exported only to the launcher process and is not written to the
+configuration file. To use another Mem0 configuration or change the runtime
+location and listening port:
 
 ```bash
 export MEMORY_MONITOR_MEMORY_CONFIG=/path/to/mem0-config.json
-export MEMORY_MONITOR_SIMULATION_ROOT=.memory_monitor_runs
-hatch run monitor:start
+export MEMORY_MONITOR_SIMULATION_ROOT=/path/to/demo-runs
+export MEMORY_MONITOR_ADDRESS=127.0.0.1
+export MEMORY_MONITOR_PORT=8502
+./memory_monitor/start_demo_lab.sh
 ```
 
-Alternatively:
+If `MEMORY_MONITOR_MEMORY_CONFIG` points to a missing file, the launcher warns
+and falls back to the included configuration.
+
+The Conda environment name can be overridden when needed:
 
 ```bash
-pip install -e ".[monitor]"
-streamlit run memory_monitor/app.py
+MEMORY_MONITOR_CONDA_ENV=another-env ./memory_monitor/start_demo_lab.sh
 ```
 
 The page supports:

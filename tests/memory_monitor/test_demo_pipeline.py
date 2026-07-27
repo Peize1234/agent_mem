@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from mem0.configs.base import MemoryConfig
 from memory_monitor.models import PIPELINE_STEPS, PipelineStep, StepStatus
 from memory_monitor.components import pipeline_panel
 from memory_monitor.services.demo_pipeline_service import DemoPipelineService, PipelineStepError
@@ -550,6 +551,30 @@ def test_simulation_service_reopens_existing_sandbox_without_monkey_patch(tmp_pa
     assert marker.read_text(encoding="utf-8") == "keep"
     assert not hasattr(reopened, "midterm_handler")
     assert not hasattr(reopened, "longterm_handler")
+
+
+def test_simulation_service_preserves_qdrant_bm25_language(tmp_path):
+    base_config = MemoryConfig.model_validate(
+        {
+            "vector_store": {
+                "provider": "qdrant",
+                "config": {
+                    "embedding_model_dims": 512,
+                    "bm25_language": "zh",
+                },
+            }
+        }
+    )
+    service = SimulationService(
+        tmp_path / "runs",
+        base_config=base_config,
+        memory_factory=_SimulationMemory,
+    )
+
+    environment = service.create_environment("sandbox-zh")
+
+    assert environment.memory.config.vector_store.config.embedding_model_dims == 512
+    assert environment.memory.config.vector_store.config.bm25_language == "zh"
 
 
 def test_memory_state_diff_reports_added_updated_and_deleted_records():
