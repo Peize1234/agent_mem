@@ -24,6 +24,10 @@ class StepAlreadyRunningError(RuntimeError):
     """Raised when another page or process owns the same step lease."""
 
 
+class TurnSessionMismatchError(ValueError):
+    """Raised when a turn is accessed through a different demo session."""
+
+
 class DemoRepository:
     """SQLite persistence for original chat history and resumable demo steps."""
 
@@ -196,6 +200,17 @@ class DemoRepository:
 
     def get_turn(self, turn_id: str) -> Optional[Dict[str, Any]]:
         return self._one("SELECT * FROM demo_turns WHERE turn_id = ?", (turn_id,))
+
+    def assert_turn_belongs_to_session(self, turn_id: str, session_id: str) -> Dict[str, Any]:
+        turn = self.get_turn(turn_id)
+        if turn is None:
+            raise KeyError(f"Unknown demo turn: {turn_id}")
+        if turn["session_id"] != session_id:
+            raise TurnSessionMismatchError(
+                "Demo turn does not belong to the requested session: "
+                f"turn_id={turn_id} expected_session_id={session_id} actual_session_id={turn['session_id']}"
+            )
+        return turn
 
     def list_turns(self, session_id: str) -> list[Dict[str, Any]]:
         return self._all(

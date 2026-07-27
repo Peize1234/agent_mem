@@ -20,6 +20,10 @@ from mem0.utils.timestamps import beijing_now, beijing_now_iso, normalize_iso_ti
 logger = logging.getLogger(__name__)
 
 
+class IdempotencyConflictError(ValueError):
+    """Raised when one idempotency key is reused for a different request."""
+
+
 class SQLiteManager:
     def __init__(self, db_path: str = ":memory:"):
         self.db_path = db_path
@@ -31,6 +35,7 @@ class SQLiteManager:
         self._create_history_table()
         self._create_messages_table()
         self._create_background_job_tables()
+        self._create_idempotency_table()
         self._create_profile_tables()
         self._sync_predefined_profile_attributes()
 
@@ -156,7 +161,9 @@ class SQLiteManager:
                         name TEXT,
                         created_at DATETIME,
                         status TEXT NOT NULL DEFAULT 'active',
-                        migration_job_id TEXT
+                        migration_job_id TEXT,
+                        source_operation_key TEXT,
+                        source_message_index INTEGER
                     )
                 """
                 )
@@ -165,6 +172,10 @@ class SQLiteManager:
                     self.connection.execute("ALTER TABLE messages ADD COLUMN status TEXT NOT NULL DEFAULT 'active'")
                 if "migration_job_id" not in columns:
                     self.connection.execute("ALTER TABLE messages ADD COLUMN migration_job_id TEXT")
+                if "source_operation_key" not in columns:
+                    self.connection.execute("ALTER TABLE messages ADD COLUMN source_operation_key TEXT")
+                if "source_message_index" not in columns:
+                    self.connection.execute("ALTER TABLE messages ADD COLUMN source_message_index INTEGER")
                 self.connection.execute(
                     """
                     CREATE INDEX IF NOT EXISTS idx_messages_scope_status
@@ -175,6 +186,13 @@ class SQLiteManager:
                     """
                     CREATE INDEX IF NOT EXISTS idx_messages_migration_job
                     ON messages(migration_job_id)
+                    """
+                )
+                self.connection.execute(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_source_operation
+                    ON messages(source_operation_key, source_message_index)
+                    WHERE source_operation_key IS NOT NULL
                     """
                 )
                 self.connection.execute("COMMIT")
@@ -206,14 +224,27 @@ class SQLiteManager:
                         degraded INTEGER NOT NULL DEFAULT 0,
                         created_at TEXT NOT NULL,
                         updated_at TEXT NOT NULL,
+                        source_operation_key TEXT,
                         UNIQUE(session_scope, sequence_no)
                     )
                     """
                 )
+                migration_columns = {
+                    row[1] for row in self.connection.execute("PRAGMA table_info(memory_migration_jobs)").fetchall()
+                }
+                if "source_operation_key" not in migration_columns:
+                    self.connection.execute("ALTER TABLE memory_migration_jobs ADD COLUMN source_operation_key TEXT")
                 self.connection.execute(
                     """
                     CREATE INDEX IF NOT EXISTS idx_migration_jobs_claim
                     ON memory_migration_jobs(status, next_retry_at, created_at)
+                    """
+                )
+                self.connection.execute(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_migration_jobs_source_operation
+                    ON memory_migration_jobs(source_operation_key)
+                    WHERE source_operation_key IS NOT NULL
                     """
                 )
                 self.connection.execute(
@@ -229,20 +260,58 @@ class SQLiteManager:
                         sequence_no INTEGER NOT NULL,
                         created_at TEXT NOT NULL,
                         updated_at TEXT NOT NULL,
+                        source_operation_key TEXT,
                         UNIQUE(user_id, sequence_no)
                     )
                     """
                 )
+                profile_columns = {
+                    row[1] for row in self.connection.execute("PRAGMA table_info(profile_update_jobs)").fetchall()
+                }
+                if "source_operation_key" not in profile_columns:
+                    self.connection.execute("ALTER TABLE profile_update_jobs ADD COLUMN source_operation_key TEXT")
                 self.connection.execute(
                     """
                     CREATE INDEX IF NOT EXISTS idx_profile_jobs_claim
                     ON profile_update_jobs(status, next_retry_at, created_at)
                     """
                 )
+                self.connection.execute(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_profile_jobs_source_operation
+                    ON profile_update_jobs(source_operation_key)
+                    WHERE source_operation_key IS NOT NULL
+                    """
+                )
                 self.connection.execute("COMMIT")
             except Exception as e:
                 self.connection.execute("ROLLBACK")
                 logger.error("Failed to create background job tables: %s", e)
+                raise
+
+    def _create_idempotency_table(self) -> None:
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN IMMEDIATE")
+                self.connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS memory_idempotency_operations (
+                        idempotency_key TEXT PRIMARY KEY,
+                        operation_type TEXT NOT NULL,
+                        status TEXT NOT NULL,
+                        request_hash TEXT NOT NULL,
+                        result_json TEXT,
+                        error_message TEXT,
+                        created_at TEXT NOT NULL,
+                        updated_at TEXT NOT NULL,
+                        CHECK (status IN ('processing', 'succeeded', 'failed'))
+                    )
+                    """
+                )
+                self.connection.execute("COMMIT")
+            except Exception as e:
+                self.connection.execute("ROLLBACK")
+                logger.error("Failed to create idempotency table: %s", e)
                 raise
 
     def _create_profile_tables(self) -> None:
@@ -640,6 +709,378 @@ class SQLiteManager:
         decoded["messages"] = json.loads(decoded.pop("messages_json"))
         return decoded
 
+    def get_idempotency_operation(self, idempotency_key: str) -> Optional[Dict[str, Any]]:
+        """Return one persisted operation without changing its state."""
+        with self._lock:
+            cursor = self.connection.execute(
+                """
+                SELECT idempotency_key, operation_type, status, request_hash,
+                       result_json, error_message, created_at, updated_at
+                FROM memory_idempotency_operations
+                WHERE idempotency_key = ?
+                """,
+                (idempotency_key,),
+            )
+            row = self._row_as_dict(cursor, cursor.fetchone())
+        if row is not None and row.get("result_json") is not None:
+            row["result"] = json.loads(row["result_json"])
+        return row
+
+    def save_background_add_idempotently(
+        self,
+        messages: List[Dict[str, Any]],
+        session_scope: str,
+        *,
+        idempotency_key: str,
+        request_hash: str,
+        max_messages: int,
+        filters: Dict[str, Any],
+        metadata: Dict[str, Any],
+        infer: bool,
+        prompt: Optional[str],
+        profile_user_id: Optional[str],
+    ) -> Dict[str, Any]:
+        """Atomically persist one background add and its reusable result."""
+        if not messages:
+            raise ValueError("messages are required for an idempotent background add")
+        if not idempotency_key:
+            raise ValueError("idempotency_key is required")
+        operation_type = "memory.add"
+        owns_operation = False
+
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN IMMEDIATE")
+                cursor = self.connection.execute(
+                    """
+                    SELECT operation_type, status, request_hash, result_json
+                    FROM memory_idempotency_operations
+                    WHERE idempotency_key = ?
+                    """,
+                    (idempotency_key,),
+                )
+                operation = self._row_as_dict(cursor, cursor.fetchone())
+                if operation is not None:
+                    if operation["operation_type"] != operation_type or operation["request_hash"] != request_hash:
+                        raise IdempotencyConflictError(
+                            f"Idempotency key conflicts with a different request: idempotency_key={idempotency_key}"
+                        )
+                    if operation["status"] == "succeeded":
+                        result = json.loads(operation["result_json"])
+                        self.connection.execute("COMMIT")
+                        return result
+
+                    recovered = self._recover_idempotent_background_add(idempotency_key, len(messages))
+                    if recovered is not None:
+                        result_json = self._json_dumps(recovered)
+                        now = beijing_now_iso()
+                        self.connection.execute(
+                            """
+                            UPDATE memory_idempotency_operations
+                            SET status = 'succeeded', result_json = ?, error_message = NULL, updated_at = ?
+                            WHERE idempotency_key = ?
+                            """,
+                            (result_json, now, idempotency_key),
+                        )
+                        self.connection.execute("COMMIT")
+                        return json.loads(result_json)
+
+                    self.connection.execute(
+                        """
+                        UPDATE memory_idempotency_operations
+                        SET status = 'processing', result_json = NULL,
+                            error_message = NULL, updated_at = ?
+                        WHERE idempotency_key = ?
+                        """,
+                        (beijing_now_iso(), idempotency_key),
+                    )
+                else:
+                    now = beijing_now_iso()
+                    self.connection.execute(
+                        """
+                        INSERT INTO memory_idempotency_operations (
+                            idempotency_key, operation_type, status, request_hash,
+                            result_json, error_message, created_at, updated_at
+                        ) VALUES (?, ?, 'processing', ?, NULL, NULL, ?, ?)
+                        """,
+                        (idempotency_key, operation_type, request_hash, now, now),
+                    )
+                owns_operation = True
+
+                self._insert_messages_in_transaction(
+                    messages,
+                    session_scope,
+                    source_operation_key=idempotency_key,
+                )
+
+                migration_job_id = self._reserve_migration_job_in_transaction(
+                    session_scope,
+                    max_messages=max_messages,
+                    filters=filters,
+                    metadata=metadata,
+                    infer=infer,
+                    prompt=prompt,
+                    source_operation_key=idempotency_key,
+                )
+                profile_job_id = None
+                if profile_user_id:
+                    profile_job_id = self._create_profile_job_in_transaction(
+                        profile_user_id,
+                        messages,
+                        source_operation_key=idempotency_key,
+                    )
+
+                result = {
+                    "results": [],
+                    "background": {
+                        "migration_job_id": migration_job_id,
+                        "profile_job_id": profile_job_id,
+                    },
+                }
+                result_json = self._json_dumps(result)
+                self.connection.execute(
+                    """
+                    UPDATE memory_idempotency_operations
+                    SET status = 'succeeded', result_json = ?, error_message = NULL, updated_at = ?
+                    WHERE idempotency_key = ?
+                    """,
+                    (result_json, beijing_now_iso(), idempotency_key),
+                )
+                self.connection.execute("COMMIT")
+                return json.loads(result_json)
+            except Exception as exc:
+                if self.connection.in_transaction:
+                    self.connection.execute("ROLLBACK")
+                if owns_operation:
+                    self._record_failed_idempotency_operation(
+                        idempotency_key,
+                        operation_type,
+                        request_hash,
+                        exc,
+                    )
+                raise
+
+    def _recover_idempotent_background_add(
+        self,
+        idempotency_key: str,
+        expected_message_count: int,
+    ) -> Optional[Dict[str, Any]]:
+        """Recover an operation whose side effects are already durably present."""
+        message_count = self.connection.execute(
+            "SELECT COUNT(*) FROM messages WHERE source_operation_key = ?",
+            (idempotency_key,),
+        ).fetchone()[0]
+        migration_row = self.connection.execute(
+            "SELECT job_id FROM memory_migration_jobs WHERE source_operation_key = ?",
+            (idempotency_key,),
+        ).fetchone()
+        profile_row = self.connection.execute(
+            "SELECT job_id FROM profile_update_jobs WHERE source_operation_key = ?",
+            (idempotency_key,),
+        ).fetchone()
+        if message_count == 0 and migration_row is None and profile_row is None:
+            return None
+        if message_count not in {0, expected_message_count}:
+            raise RuntimeError(
+                "Cannot safely recover a partially persisted idempotent add: "
+                f"idempotency_key={idempotency_key} messages={message_count}/{expected_message_count}"
+            )
+        return {
+            "results": [],
+            "background": {
+                "migration_job_id": migration_row[0] if migration_row else None,
+                "profile_job_id": profile_row[0] if profile_row else None,
+            },
+        }
+
+    def _record_failed_idempotency_operation(
+        self,
+        idempotency_key: str,
+        operation_type: str,
+        request_hash: str,
+        error: BaseException,
+    ) -> None:
+        now = beijing_now_iso()
+        try:
+            self.connection.execute("BEGIN IMMEDIATE")
+            self.connection.execute(
+                """
+                INSERT INTO memory_idempotency_operations (
+                    idempotency_key, operation_type, status, request_hash,
+                    result_json, error_message, created_at, updated_at
+                ) VALUES (?, ?, 'failed', ?, NULL, ?, ?, ?)
+                ON CONFLICT(idempotency_key) DO UPDATE SET
+                    status = CASE
+                        WHEN memory_idempotency_operations.status = 'succeeded'
+                        THEN memory_idempotency_operations.status
+                        ELSE 'failed'
+                    END,
+                    error_message = CASE
+                        WHEN memory_idempotency_operations.status = 'succeeded'
+                        THEN memory_idempotency_operations.error_message
+                        ELSE excluded.error_message
+                    END,
+                    updated_at = excluded.updated_at
+                WHERE memory_idempotency_operations.operation_type = excluded.operation_type
+                  AND memory_idempotency_operations.request_hash = excluded.request_hash
+                """,
+                (
+                    idempotency_key,
+                    operation_type,
+                    request_hash,
+                    f"{type(error).__name__}: {error}",
+                    now,
+                    now,
+                ),
+            )
+            self.connection.execute("COMMIT")
+        except Exception:
+            if self.connection.in_transaction:
+                self.connection.execute("ROLLBACK")
+            logger.exception("Failed to persist idempotency failure for key=%s", idempotency_key)
+
+    def _insert_messages_in_transaction(
+        self,
+        messages: List[Dict[str, Any]],
+        session_scope: str,
+        *,
+        source_operation_key: Optional[str],
+    ) -> None:
+        for index, message in enumerate(messages):
+            created_at = normalize_iso_timestamp_to_beijing(message.get("created_at")) or beijing_now_iso()
+            self.connection.execute(
+                """
+                INSERT INTO messages (
+                    id, session_scope, role, content, name, created_at, status,
+                    migration_job_id, source_operation_key, source_message_index
+                ) VALUES (?, ?, ?, ?, ?, ?, 'active', NULL, ?, ?)
+                """,
+                (
+                    str(uuid.uuid4()),
+                    session_scope,
+                    message.get("role"),
+                    message.get("content"),
+                    message.get("name"),
+                    created_at,
+                    source_operation_key,
+                    index if source_operation_key is not None else None,
+                ),
+            )
+
+    def _reserve_migration_job_in_transaction(
+        self,
+        session_scope: str,
+        *,
+        max_messages: int,
+        filters: Dict[str, Any],
+        metadata: Dict[str, Any],
+        infer: bool,
+        prompt: Optional[str],
+        source_operation_key: Optional[str],
+    ) -> Optional[str]:
+        active_rows = self.connection.execute(
+            """
+            SELECT rowid, id, role
+            FROM messages
+            WHERE session_scope = ? AND status = 'active'
+            ORDER BY DATETIME(created_at) ASC, rowid ASC
+            """,
+            (session_scope,),
+        ).fetchall()
+        overflow_count = max(len(active_rows) - max(int(max_messages), 0), 0)
+        reserved_rows = active_rows[:overflow_count]
+
+        if (
+            reserved_rows
+            and reserved_rows[-1][2] == "user"
+            and len(active_rows) > len(reserved_rows)
+            and active_rows[len(reserved_rows)][2] == "assistant"
+        ):
+            reserved_rows = active_rows[: len(reserved_rows) + 1]
+        if not reserved_rows:
+            return None
+
+        job_id = str(uuid.uuid4())
+        sequence_no = self.connection.execute(
+            """
+            SELECT COALESCE(MAX(sequence_no), 0) + 1
+            FROM memory_migration_jobs
+            WHERE session_scope = ?
+            """,
+            (session_scope,),
+        ).fetchone()[0]
+        now = beijing_now_iso()
+        self.connection.execute(
+            """
+            INSERT INTO memory_migration_jobs (
+                job_id, session_scope, status, midterm_done, longterm_done,
+                attempts, next_retry_at, last_error, filters_json,
+                metadata_json, infer, prompt, sequence_no, degraded,
+                created_at, updated_at, source_operation_key
+            ) VALUES (?, ?, 'pending', 0, 0, 0, NULL, NULL, ?, ?, ?, ?, ?, 0, ?, ?, ?)
+            """,
+            (
+                job_id,
+                session_scope,
+                self._json_dumps(filters),
+                self._json_dumps(metadata),
+                int(bool(infer)),
+                prompt,
+                sequence_no,
+                now,
+                now,
+                source_operation_key,
+            ),
+        )
+        message_ids = [row[1] for row in reserved_rows]
+        placeholders = ",".join("?" for _ in message_ids)
+        self.connection.execute(
+            f"""
+            UPDATE messages
+            SET status = 'pending', migration_job_id = ?
+            WHERE id IN ({placeholders}) AND status = 'active'
+            """,
+            (job_id, *message_ids),
+        )
+        return job_id
+
+    def _create_profile_job_in_transaction(
+        self,
+        user_id: str,
+        messages: List[Dict[str, Any]],
+        *,
+        source_operation_key: Optional[str],
+    ) -> str:
+        sequence_no = self.connection.execute(
+            """
+            SELECT COALESCE(MAX(sequence_no), 0) + 1
+            FROM profile_update_jobs
+            WHERE user_id = ?
+            """,
+            (user_id,),
+        ).fetchone()[0]
+        job_id = str(uuid.uuid4())
+        now = beijing_now_iso()
+        self.connection.execute(
+            """
+            INSERT INTO profile_update_jobs (
+                job_id, user_id, messages_json, status, attempts,
+                next_retry_at, last_error, sequence_no, created_at, updated_at,
+                source_operation_key
+            ) VALUES (?, ?, ?, 'pending', 0, NULL, NULL, ?, ?, ?, ?)
+            """,
+            (
+                job_id,
+                user_id,
+                self._json_dumps(messages),
+                sequence_no,
+                now,
+                now,
+                source_operation_key,
+            ),
+        )
+        return job_id
+
     def save_messages_and_create_migration_job(
         self,
         messages: List[Dict[str, Any]],
@@ -658,89 +1099,19 @@ class SQLiteManager:
         with self._lock:
             try:
                 self.connection.execute("BEGIN IMMEDIATE")
-                for message in messages:
-                    created_at = normalize_iso_timestamp_to_beijing(message.get("created_at")) or beijing_now_iso()
-                    self.connection.execute(
-                        """
-                        INSERT INTO messages (
-                            id, session_scope, role, content, name, created_at, status, migration_job_id
-                        ) VALUES (?, ?, ?, ?, ?, ?, 'active', NULL)
-                        """,
-                        (
-                            str(uuid.uuid4()),
-                            session_scope,
-                            message.get("role"),
-                            message.get("content"),
-                            message.get("name"),
-                            created_at,
-                        ),
-                    )
-
-                active_rows = self.connection.execute(
-                    """
-                    SELECT rowid, id, role
-                    FROM messages
-                    WHERE session_scope = ? AND status = 'active'
-                    ORDER BY DATETIME(created_at) ASC, rowid ASC
-                    """,
-                    (session_scope,),
-                ).fetchall()
-                overflow_count = max(len(active_rows) - max(int(max_messages), 0), 0)
-                reserved_rows = active_rows[:overflow_count]
-
-                # Do not split a user/assistant QA pair at the migration boundary.
-                if (
-                    reserved_rows
-                    and reserved_rows[-1][2] == "user"
-                    and len(active_rows) > len(reserved_rows)
-                    and active_rows[len(reserved_rows)][2] == "assistant"
-                ):
-                    reserved_rows = active_rows[: len(reserved_rows) + 1]
-
-                if not reserved_rows:
-                    self.connection.execute("COMMIT")
-                    return None
-
-                job_id = str(uuid.uuid4())
-                sequence_no = self.connection.execute(
-                    """
-                    SELECT COALESCE(MAX(sequence_no), 0) + 1
-                    FROM memory_migration_jobs
-                    WHERE session_scope = ?
-                    """,
-                    (session_scope,),
-                ).fetchone()[0]
-                now = beijing_now_iso()
-                self.connection.execute(
-                    """
-                    INSERT INTO memory_migration_jobs (
-                        job_id, session_scope, status, midterm_done, longterm_done,
-                        attempts, next_retry_at, last_error, filters_json,
-                        metadata_json, infer, prompt, sequence_no, degraded,
-                        created_at, updated_at
-                    ) VALUES (?, ?, 'pending', 0, 0, 0, NULL, NULL, ?, ?, ?, ?, ?, 0, ?, ?)
-                    """,
-                    (
-                        job_id,
-                        session_scope,
-                        self._json_dumps(filters),
-                        self._json_dumps(metadata),
-                        int(bool(infer)),
-                        prompt,
-                        sequence_no,
-                        now,
-                        now,
-                    ),
+                self._insert_messages_in_transaction(
+                    messages,
+                    session_scope,
+                    source_operation_key=None,
                 )
-                message_ids = [row[1] for row in reserved_rows]
-                placeholders = ",".join("?" for _ in message_ids)
-                self.connection.execute(
-                    f"""
-                    UPDATE messages
-                    SET status = 'pending', migration_job_id = ?
-                    WHERE id IN ({placeholders}) AND status = 'active'
-                    """,
-                    (job_id, *message_ids),
+                job_id = self._reserve_migration_job_in_transaction(
+                    session_scope,
+                    max_messages=max_messages,
+                    filters=filters,
+                    metadata=metadata,
+                    infer=infer,
+                    prompt=prompt,
+                    source_operation_key=None,
                 )
                 self.connection.execute("COMMIT")
                 return job_id
@@ -757,24 +1128,10 @@ class SQLiteManager:
         with self._lock:
             try:
                 self.connection.execute("BEGIN IMMEDIATE")
-                sequence_no = self.connection.execute(
-                    """
-                    SELECT COALESCE(MAX(sequence_no), 0) + 1
-                    FROM profile_update_jobs
-                    WHERE user_id = ?
-                    """,
-                    (user_id,),
-                ).fetchone()[0]
-                job_id = str(uuid.uuid4())
-                now = beijing_now_iso()
-                self.connection.execute(
-                    """
-                    INSERT INTO profile_update_jobs (
-                        job_id, user_id, messages_json, status, attempts,
-                        next_retry_at, last_error, sequence_no, created_at, updated_at
-                    ) VALUES (?, ?, ?, 'pending', 0, NULL, NULL, ?, ?, ?)
-                    """,
-                    (job_id, user_id, self._json_dumps(messages), sequence_no, now, now),
+                job_id = self._create_profile_job_in_transaction(
+                    user_id,
+                    messages,
+                    source_operation_key=None,
                 )
                 self.connection.execute("COMMIT")
                 return job_id
@@ -1606,6 +1963,7 @@ class SQLiteManager:
                 self.connection.execute("DROP TABLE IF EXISTS profile_attributes")
                 self.connection.execute("DROP TABLE IF EXISTS profile_update_jobs")
                 self.connection.execute("DROP TABLE IF EXISTS memory_migration_jobs")
+                self.connection.execute("DROP TABLE IF EXISTS memory_idempotency_operations")
                 self.connection.execute("DROP TABLE IF EXISTS history")
                 self.connection.execute("DROP TABLE IF EXISTS messages")
                 self.connection.execute("COMMIT")

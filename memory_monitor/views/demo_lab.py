@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, MutableMapping, Sequence
+from typing import Any
+
 from memory_monitor.components import (
     chat_panel,
     context_panel,
@@ -48,13 +51,11 @@ def render(st, simulation_service) -> None:
     repository = environment.repository
     pipeline = environment.pipeline
     turns = repository.list_turns(session["session_id"])
-    if turns and st.session_state.get("demo_turn_id") not in {turn["turn_id"] for turn in turns}:
-        st.session_state["demo_turn_id"] = turns[-1]["turn_id"]
-    turn_id = st.session_state.get("demo_turn_id")
+    turn_id = synchronize_selected_turn_id(st.session_state, turns)
 
     action = pipeline_panel.render_controls(st, disabled=not bool(turn_id))
     if action and turn_id:
-        pipeline_panel.apply_action(st, pipeline, repository, turn_id, action)
+        pipeline_panel.apply_action(st, pipeline, repository, turn_id, session["session_id"], action)
 
     left, right = st.columns([0.9, 1.6], gap="large")
     with left:
@@ -70,10 +71,11 @@ def render(st, simulation_service) -> None:
             st.session_state["demo_turn_id"] = turn["turn_id"]
             st.rerun()
         if turns:
+            turn_options = [turn["turn_id"] for turn in reversed(turns)]
             selected_turn = st.selectbox(
                 "当前轮次",
-                [turn["turn_id"] for turn in reversed(turns)],
-                index=0,
+                turn_options,
+                index=turn_options.index(turn_id),
                 format_func=lambda value: _turn_label(turns, value),
             )
             if selected_turn != turn_id:
@@ -86,9 +88,13 @@ def render(st, simulation_service) -> None:
         return
 
     steps = repository.list_steps(turn_id)
+    selected_turn = repository.assert_turn_belongs_to_session(turn_id, session["session_id"])
     current = pipeline_panel.current_step(steps)
     display_step = _display_step(steps, current)
-    snapshot = environment.state_service.snapshot(user_id=user, run_id=run)
+    snapshot = environment.state_service.snapshot(
+        user_id=selected_turn["user_id"],
+        run_id=selected_turn["run_id"],
+    )
     retrieve = repository.get_step(turn_id, PipelineStep.RETRIEVE_CONTEXT)
     prompt = repository.get_step(turn_id, PipelineStep.BUILD_PROMPT)
     generation = repository.get_step(turn_id, PipelineStep.GENERATE_RESPONSE)
@@ -121,6 +127,30 @@ def render(st, simulation_service) -> None:
             for key in ("demo_simulation_id", "demo_session_id", "demo_turn_id"):
                 st.session_state.pop(key, None)
             st.rerun()
+
+
+def resolve_selected_turn_id(
+    turns: Sequence[Mapping[str, Any]],
+    current_turn_id: str | None,
+) -> str | None:
+    """Resolve a selection strictly within the currently displayed demo session."""
+    turn_ids = [str(turn["turn_id"]) for turn in turns]
+    if current_turn_id in turn_ids:
+        return current_turn_id
+    return turn_ids[-1] if turn_ids else None
+
+
+def synchronize_selected_turn_id(
+    session_state: MutableMapping[str, Any],
+    turns: Sequence[Mapping[str, Any]],
+) -> str | None:
+    """Synchronize only the turn selection without clearing unrelated page state."""
+    resolved = resolve_selected_turn_id(turns, session_state.get("demo_turn_id"))
+    if resolved is None:
+        session_state.pop("demo_turn_id", None)
+    else:
+        session_state["demo_turn_id"] = resolved
+    return resolved
 
 
 def _turn_label(turns: list[dict], turn_id: str) -> str:

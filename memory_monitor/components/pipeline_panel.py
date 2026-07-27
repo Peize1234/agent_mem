@@ -23,29 +23,29 @@ def render_controls(st, *, disabled: bool) -> str | None:
     return selected
 
 
-def apply_action(st, pipeline, repository, turn_id: str, action: str) -> None:
+def apply_action(st, pipeline, repository, turn_id: str, session_id: str, action: str) -> None:
     current = current_step(repository.list_steps(turn_id))
     try:
         if action == "next":
-            pipeline.run_next_step(turn_id)
+            pipeline.run_next_step(turn_id, session_id=session_id)
         elif action == "answer":
-            pipeline.run_until(turn_id, PipelineStep.GENERATE_RESPONSE)
+            pipeline.run_until(turn_id, PipelineStep.GENERATE_RESPONSE, session_id=session_id)
         elif action == "commit":
-            pipeline.run_until(turn_id, PipelineStep.COMMIT_TURN)
+            pipeline.run_until(turn_id, PipelineStep.COMMIT_TURN, session_id=session_id)
         elif action == "all":
-            pipeline.run_until(turn_id, PipelineStep.REFRESH_STATE)
+            pipeline.run_until(turn_id, PipelineStep.REFRESH_STATE, session_id=session_id)
         elif action == "retry":
             if current is None or current["status"] != "failed":
                 st.info("当前没有失败步骤可重试。")
                 return
-            pipeline.retry_step(turn_id, current["step"])
+            pipeline.retry_step(turn_id, current["step"], session_id=session_id)
         elif action == "skip":
             if current is None or PipelineStep(current["step"]) not in OPTIONAL_PIPELINE_STEPS:
                 st.info("当前步骤不可跳过。")
                 return
-            pipeline.skip_step(turn_id, current["step"])
+            pipeline.skip_step(turn_id, current["step"], session_id=session_id)
         elif action == "reset":
-            pipeline.reset_turn(turn_id)
+            pipeline.reset_turn(turn_id, session_id=session_id)
         st.rerun()
     except StepAlreadyRunningError as exc:
         st.warning(str(exc))

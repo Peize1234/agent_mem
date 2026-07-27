@@ -6,10 +6,16 @@ from types import SimpleNamespace
 import pytest
 
 from memory_monitor.models import PIPELINE_STEPS, PipelineStep, StepStatus
+from memory_monitor.components import pipeline_panel
 from memory_monitor.services.demo_pipeline_service import DemoPipelineService, PipelineStepError
-from memory_monitor.services.demo_repository import DemoRepository, StepAlreadyRunningError
+from memory_monitor.services.demo_repository import (
+    DemoRepository,
+    StepAlreadyRunningError,
+    TurnSessionMismatchError,
+)
 from memory_monitor.services.memory_state_service import MemoryStateService
 from memory_monitor.services.simulation_service import SimulationService
+from memory_monitor.views.demo_lab import resolve_selected_turn_id, synchronize_selected_turn_id
 
 
 class _FakeStateService:
@@ -62,6 +68,7 @@ class _FakeDemoMemory:
         self.build_calls = 0
         self.generation_calls = 0
         self.commit_calls = 0
+        self.commit_kwargs = []
         self.commit_failures = commit_failures
         self.generated_messages = None
         self._events = []
@@ -99,6 +106,7 @@ class _FakeDemoMemory:
 
     def commit_demo_turn(self, **kwargs):
         self.commit_calls += 1
+        self.commit_kwargs.append(deepcopy(kwargs))
         if self.commit_failures:
             self.commit_failures -= 1
             raise RuntimeError("temporary commit failure")
@@ -129,6 +137,44 @@ class _FakeDemoMemory:
         return deepcopy(self._events)
 
 
+class _PersistentlyIdempotentFakeMemory(_FakeDemoMemory):
+    def __init__(self, persisted_commits, shared_state=None):
+        super().__init__()
+        self.persisted_commits = persisted_commits
+        if shared_state is not None:
+            self.state = shared_state
+            self.demo_background_worker = _FakeWorker(self)
+
+    def commit_demo_turn(self, **kwargs):
+        self.commit_calls += 1
+        self.commit_kwargs.append(deepcopy(kwargs))
+        key = (kwargs["simulation_id"], kwargs["turn_id"])
+        request = {field: kwargs[field] for field in ("user_id", "run_id", "user_message", "assistant_message")}
+        existing = self.persisted_commits.get(key)
+        if existing is not None:
+            if existing["request"] != request:
+                raise ValueError("idempotency conflict")
+            return deepcopy(existing["result"])
+
+        self.state["short_term"].extend(
+            [
+                {"id": "message-user", "role": "user", "content": kwargs["user_message"]},
+                {"id": "message-assistant", "role": "assistant", "content": kwargs["assistant_message"]},
+            ]
+        )
+        self.state["jobs"]["migration"] = [{"job_id": "migration-1", "status": "pending"}]
+        self.state["jobs"]["profile"] = [{"job_id": "profile-1", "status": "pending"}]
+        result = {
+            "results": [],
+            "background": {
+                "migration_job_id": "migration-1",
+                "profile_job_id": "profile-1",
+            },
+        }
+        self.persisted_commits[key] = {"request": request, "result": deepcopy(result)}
+        return result
+
+
 def _pipeline(tmp_path, *, memory=None):
     repository = DemoRepository(tmp_path / "demo.db")
     session = repository.create_session("simulation-1", "user-1", "run-1")
@@ -141,6 +187,78 @@ def _pipeline(tmp_path, *, memory=None):
         user_message="What changed?",
     )
     return pipeline, repository, memory, session, turn
+
+
+def test_turn_selection_clears_stale_id_for_empty_session_and_uses_latest_for_existing_session():
+    turns_a = [{"turn_id": "turn-a"}]
+    turns_b = [{"turn_id": "turn-b-1"}, {"turn_id": "turn-b-2"}]
+
+    assert resolve_selected_turn_id(turns_a, "turn-a") == "turn-a"
+    assert resolve_selected_turn_id([], "turn-a") is None
+    assert resolve_selected_turn_id(turns_b, "turn-a") == "turn-b-2"
+
+    state = {"demo_turn_id": "turn-a", "unrelated": "preserved"}
+    assert synchronize_selected_turn_id(state, []) is None
+    assert state == {"unrelated": "preserved"}
+    assert synchronize_selected_turn_id(state, turns_b) == "turn-b-2"
+    assert state["demo_turn_id"] == "turn-b-2"
+
+
+def test_pipeline_controls_are_disabled_without_a_selected_turn():
+    calls = []
+
+    class _Column:
+        def button(self, label, *, disabled, use_container_width):
+            calls.append((label, disabled, use_container_width))
+            return False
+
+    class _Streamlit:
+        @staticmethod
+        def columns(count):
+            return [_Column() for _ in range(count)]
+
+    assert pipeline_panel.render_controls(_Streamlit(), disabled=True) is None
+    assert calls
+    assert all(disabled for _, disabled, _ in calls)
+
+
+def test_all_pipeline_operations_reject_a_turn_from_another_session(tmp_path):
+    pipeline, repository, memory, session_a, turn = _pipeline(tmp_path)
+    session_b = repository.create_session("simulation-1", "user-2", "run-2")
+    before_steps = repository.list_steps(turn["turn_id"])
+    before_state = deepcopy(memory.state)
+    operations = [
+        lambda: pipeline.run_next_step(turn["turn_id"], session_id=session_b["session_id"]),
+        lambda: pipeline.run_step(
+            turn["turn_id"],
+            PipelineStep.CAPTURE_INPUT,
+            session_id=session_b["session_id"],
+        ),
+        lambda: pipeline.retry_step(
+            turn["turn_id"],
+            PipelineStep.CAPTURE_INPUT,
+            session_id=session_b["session_id"],
+        ),
+        lambda: pipeline.skip_step(
+            turn["turn_id"],
+            PipelineStep.RUN_MIGRATION,
+            session_id=session_b["session_id"],
+        ),
+        lambda: pipeline.run_until(
+            turn["turn_id"],
+            PipelineStep.COMMIT_TURN,
+            session_id=session_b["session_id"],
+        ),
+        lambda: pipeline.reset_turn(turn["turn_id"], session_id=session_b["session_id"]),
+    ]
+
+    for operation in operations:
+        with pytest.raises(TurnSessionMismatchError, match="does not belong"):
+            operation()
+
+    assert repository.assert_turn_belongs_to_session(turn["turn_id"], session_a["session_id"]) == turn
+    assert repository.list_steps(turn["turn_id"]) == before_steps
+    assert memory.state == before_state
 
 
 def test_demo_database_has_separate_tables_and_preserves_raw_messages(tmp_path):
@@ -159,7 +277,11 @@ def test_demo_database_has_separate_tables_and_preserves_raw_messages(tmp_path):
         }
     ]
 
-    pipeline.run_until(turn["turn_id"], PipelineStep.GENERATE_RESPONSE)
+    pipeline.run_until(
+        turn["turn_id"],
+        PipelineStep.GENERATE_RESPONSE,
+        session_id=session["session_id"],
+    )
 
     messages = repository.raw_messages(session["session_id"])
     assert [message["role"] for message in messages] == ["user", "assistant"]
@@ -167,9 +289,13 @@ def test_demo_database_has_separate_tables_and_preserves_raw_messages(tmp_path):
 
 
 def test_steps_run_in_order_and_prompt_sent_matches_persisted_prompt(tmp_path):
-    pipeline, repository, memory, _, turn = _pipeline(tmp_path)
+    pipeline, repository, memory, session, turn = _pipeline(tmp_path)
 
-    pipeline.run_until(turn["turn_id"], PipelineStep.GENERATE_RESPONSE)
+    pipeline.run_until(
+        turn["turn_id"],
+        PipelineStep.GENERATE_RESPONSE,
+        session_id=session["session_id"],
+    )
 
     steps = repository.list_steps(turn["turn_id"])
     assert [step["status"] for step in steps[:4]] == [StepStatus.SUCCEEDED.value] * 4
@@ -183,11 +309,15 @@ def test_steps_run_in_order_and_prompt_sent_matches_persisted_prompt(tmp_path):
 
 
 def test_duplicate_execution_returns_persisted_result_without_side_effect(tmp_path):
-    pipeline, repository, memory, _, turn = _pipeline(tmp_path)
-    pipeline.run_until(turn["turn_id"], PipelineStep.COMMIT_TURN)
+    pipeline, repository, memory, session, turn = _pipeline(tmp_path)
+    pipeline.run_until(turn["turn_id"], PipelineStep.COMMIT_TURN, session_id=session["session_id"])
 
     first = repository.get_step(turn["turn_id"], PipelineStep.COMMIT_TURN)
-    second = pipeline.run_step(turn["turn_id"], PipelineStep.COMMIT_TURN)
+    second = pipeline.run_step(
+        turn["turn_id"],
+        PipelineStep.COMMIT_TURN,
+        session_id=session["session_id"],
+    )
 
     assert second == first
     assert memory.commit_calls == 1
@@ -196,18 +326,30 @@ def test_duplicate_execution_returns_persisted_result_without_side_effect(tmp_pa
 
 def test_model_answer_survives_commit_failure_and_commit_can_retry(tmp_path):
     memory = _FakeDemoMemory(commit_failures=1)
-    pipeline, repository, _, _, turn = _pipeline(tmp_path, memory=memory)
-    pipeline.run_until(turn["turn_id"], PipelineStep.GENERATE_RESPONSE)
+    pipeline, repository, _, session, turn = _pipeline(tmp_path, memory=memory)
+    pipeline.run_until(
+        turn["turn_id"],
+        PipelineStep.GENERATE_RESPONSE,
+        session_id=session["session_id"],
+    )
 
     with pytest.raises(PipelineStepError, match="commit_turn"):
-        pipeline.run_step(turn["turn_id"], PipelineStep.COMMIT_TURN)
+        pipeline.run_step(
+            turn["turn_id"],
+            PipelineStep.COMMIT_TURN,
+            session_id=session["session_id"],
+        )
 
     stored_turn = repository.get_turn(turn["turn_id"])
     assert stored_turn["assistant_message"] == "model answer"
     assert repository.get_step(turn["turn_id"], PipelineStep.GENERATE_RESPONSE)["status"] == "succeeded"
     assert repository.get_step(turn["turn_id"], PipelineStep.COMMIT_TURN)["status"] == "failed"
 
-    pipeline.retry_step(turn["turn_id"], PipelineStep.COMMIT_TURN)
+    pipeline.retry_step(
+        turn["turn_id"],
+        PipelineStep.COMMIT_TURN,
+        session_id=session["session_id"],
+    )
 
     assert memory.generation_calls == 1
     assert memory.commit_calls == 2
@@ -235,16 +377,21 @@ def test_repository_step_lease_blocks_a_second_page(tmp_path):
 
 
 def test_optional_steps_skip_and_full_pipeline_snapshot_diff(tmp_path):
-    pipeline, repository, memory, _, turn = _pipeline(tmp_path)
-    pipeline.run_until(turn["turn_id"], PipelineStep.COMMIT_TURN)
+    pipeline, repository, memory, session, turn = _pipeline(tmp_path)
+    pipeline.run_until(turn["turn_id"], PipelineStep.COMMIT_TURN, session_id=session["session_id"])
 
     commit_step = repository.get_step(turn["turn_id"], PipelineStep.COMMIT_TURN)
     assert len(commit_step["diff"]["short_term"]["added"]) == 2
     assert commit_step["diff"]["migration_jobs"]["added"][0]["job_id"] == "migration-1"
 
-    skipped = pipeline.skip_step(turn["turn_id"], PipelineStep.RUN_MIGRATION, reason="inspect profile only")
+    skipped = pipeline.skip_step(
+        turn["turn_id"],
+        PipelineStep.RUN_MIGRATION,
+        session_id=session["session_id"],
+        reason="inspect profile only",
+    )
     assert skipped["status"] == StepStatus.SKIPPED.value
-    pipeline.run_until(turn["turn_id"], PipelineStep.REFRESH_STATE)
+    pipeline.run_until(turn["turn_id"], PipelineStep.REFRESH_STATE, session_id=session["session_id"])
 
     assert memory.demo_background_worker.jobs["migration-1"]["status"] == "pending"
     assert memory.demo_background_worker.jobs["profile-1"]["status"] == "succeeded"
@@ -252,8 +399,8 @@ def test_optional_steps_skip_and_full_pipeline_snapshot_diff(tmp_path):
 
 
 def test_background_step_fails_until_complete_job_reaches_success(tmp_path):
-    pipeline, repository, memory, _, turn = _pipeline(tmp_path)
-    pipeline.run_until(turn["turn_id"], PipelineStep.COMMIT_TURN)
+    pipeline, repository, memory, session, turn = _pipeline(tmp_path)
+    pipeline.run_until(turn["turn_id"], PipelineStep.COMMIT_TURN, session_id=session["session_id"])
 
     def leave_in_retry(job_id):
         memory.demo_background_worker.jobs[job_id]["status"] = "retry"
@@ -262,18 +409,22 @@ def test_background_step_fails_until_complete_job_reaches_success(tmp_path):
     memory.demo_background_worker.process_migration_job = leave_in_retry
 
     with pytest.raises(PipelineStepError, match="status=retry"):
-        pipeline.run_step(turn["turn_id"], PipelineStep.RUN_MIGRATION)
+        pipeline.run_step(
+            turn["turn_id"],
+            PipelineStep.RUN_MIGRATION,
+            session_id=session["session_id"],
+        )
 
     assert repository.get_step(turn["turn_id"], PipelineStep.RUN_MIGRATION)["status"] == "failed"
 
 
 def test_pipeline_progress_recovers_from_a_new_repository_instance(tmp_path):
     pipeline, repository, memory, session, turn = _pipeline(tmp_path)
-    pipeline.run_until(turn["turn_id"], PipelineStep.BUILD_PROMPT)
+    pipeline.run_until(turn["turn_id"], PipelineStep.BUILD_PROMPT, session_id=session["session_id"])
 
     reopened = DemoRepository(repository.db_path)
     resumed = DemoPipelineService(memory, reopened, _FakeStateService(memory))
-    resumed.run_until(turn["turn_id"], PipelineStep.COMMIT_TURN)
+    resumed.run_until(turn["turn_id"], PipelineStep.COMMIT_TURN, session_id=session["session_id"])
 
     assert reopened.get_turn(turn["turn_id"])["session_id"] == session["session_id"]
     assert reopened.get_step(turn["turn_id"], PipelineStep.COMMIT_TURN)["status"] == "succeeded"
@@ -281,18 +432,66 @@ def test_pipeline_progress_recovers_from_a_new_repository_instance(tmp_path):
     assert memory.build_calls == 1
 
 
-def test_reset_turn_before_commit_clears_progress_but_committed_turn_is_protected(tmp_path):
-    pipeline, repository, _, _, turn = _pipeline(tmp_path)
-    pipeline.run_until(turn["turn_id"], PipelineStep.BUILD_PROMPT)
+def test_commit_step_recovers_after_core_success_but_demo_status_write_fails(tmp_path, monkeypatch):
+    persisted_commits = {}
+    memory = _PersistentlyIdempotentFakeMemory(persisted_commits)
+    pipeline, repository, _, session, turn = _pipeline(tmp_path, memory=memory)
+    pipeline.run_until(
+        turn["turn_id"],
+        PipelineStep.GENERATE_RESPONSE,
+        session_id=session["session_id"],
+    )
+    original_complete_step = repository.complete_step
+    crashed = False
 
-    pipeline.reset_turn(turn["turn_id"])
+    def fail_after_core_commit(turn_id, step, token, **kwargs):
+        nonlocal crashed
+        if PipelineStep(step) is PipelineStep.COMMIT_TURN and not crashed:
+            crashed = True
+            raise RuntimeError("demo status write crashed")
+        return original_complete_step(turn_id, step, token, **kwargs)
+
+    monkeypatch.setattr(repository, "complete_step", fail_after_core_commit)
+    with pytest.raises(PipelineStepError, match="demo status write crashed"):
+        pipeline.run_step(
+            turn["turn_id"],
+            PipelineStep.COMMIT_TURN,
+            session_id=session["session_id"],
+        )
+
+    assert repository.get_step(turn["turn_id"], PipelineStep.COMMIT_TURN)["status"] == "failed"
+    assert len(memory.state["short_term"]) == 2
+
+    monkeypatch.setattr(repository, "complete_step", original_complete_step)
+    reopened = DemoRepository(repository.db_path)
+    resumed_memory = _PersistentlyIdempotentFakeMemory(persisted_commits, shared_state=memory.state)
+    resumed = DemoPipelineService(resumed_memory, reopened, _FakeStateService(resumed_memory))
+    recovered = resumed.retry_step(
+        turn["turn_id"],
+        PipelineStep.COMMIT_TURN,
+        session_id=session["session_id"],
+    )
+
+    assert recovered["status"] == "succeeded"
+    assert len(resumed_memory.state["short_term"]) == 2
+    assert len(resumed_memory.state["jobs"]["migration"]) == 1
+    assert len(resumed_memory.state["jobs"]["profile"]) == 1
+    assert resumed_memory.commit_kwargs[0]["simulation_id"] == "simulation-1"
+    assert resumed_memory.commit_kwargs[0]["turn_id"] == turn["turn_id"]
+
+
+def test_reset_turn_before_commit_clears_progress_but_committed_turn_is_protected(tmp_path):
+    pipeline, repository, _, session, turn = _pipeline(tmp_path)
+    pipeline.run_until(turn["turn_id"], PipelineStep.BUILD_PROMPT, session_id=session["session_id"])
+
+    pipeline.reset_turn(turn["turn_id"], session_id=session["session_id"])
 
     assert {step["status"] for step in repository.list_steps(turn["turn_id"])} == {"pending"}
     assert repository.get_turn(turn["turn_id"])["assistant_message"] is None
 
-    pipeline.run_until(turn["turn_id"], PipelineStep.COMMIT_TURN)
+    pipeline.run_until(turn["turn_id"], PipelineStep.COMMIT_TURN, session_id=session["session_id"])
     with pytest.raises(RuntimeError, match="cannot be reset"):
-        pipeline.reset_turn(turn["turn_id"])
+        pipeline.reset_turn(turn["turn_id"], session_id=session["session_id"])
 
 
 def test_demo_databases_isolate_simulation_user_and_run(tmp_path):

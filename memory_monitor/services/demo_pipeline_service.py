@@ -54,15 +54,16 @@ class DemoPipelineService:
             turn_id=turn_id,
         )
 
-    def run_next_step(self, turn_id: str) -> Dict[str, Any]:
+    def run_next_step(self, turn_id: str, *, session_id: str) -> Dict[str, Any]:
+        self._require_turn(turn_id, session_id)
         for step_run in self.repository.list_steps(turn_id):
             if step_run["status"] not in {StepStatus.SUCCEEDED.value, StepStatus.SKIPPED.value}:
-                return self.run_step(turn_id, PipelineStep(step_run["step"]))
+                return self.run_step(turn_id, PipelineStep(step_run["step"]), session_id=session_id)
         return {"turn_id": turn_id, "complete": True, "steps": self.repository.list_steps(turn_id)}
 
-    def run_step(self, turn_id: str, step: PipelineStep | str) -> Dict[str, Any]:
+    def run_step(self, turn_id: str, step: PipelineStep | str, *, session_id: str) -> Dict[str, Any]:
         step = PipelineStep(step)
-        turn = self._require_turn(turn_id)
+        turn = self._require_turn(turn_id, session_id)
         existing = self._require_step(turn_id, step)
         if existing["status"] in {StepStatus.SUCCEEDED.value, StepStatus.SKIPPED.value}:
             return existing
@@ -123,24 +124,26 @@ class DemoPipelineService:
                 f"run_id={turn['run_id']} turn_id={turn_id}: {exc}"
             ) from exc
 
-    def retry_step(self, turn_id: str, step: PipelineStep | str) -> Dict[str, Any]:
+    def retry_step(self, turn_id: str, step: PipelineStep | str, *, session_id: str) -> Dict[str, Any]:
+        self._require_turn(turn_id, session_id)
         step = PipelineStep(step)
         current = self._require_step(turn_id, step)
         if current["status"] != StepStatus.FAILED.value:
             raise ValueError(f"Only failed steps can be retried: turn={turn_id} step={step.value}")
-        return self.run_step(turn_id, step)
+        return self.run_step(turn_id, step, session_id=session_id)
 
     def skip_step(
         self,
         turn_id: str,
         step: PipelineStep | str,
         *,
+        session_id: str,
         reason: str = "Skipped by demo operator",
     ) -> Dict[str, Any]:
         step = PipelineStep(step)
         if step not in OPTIONAL_PIPELINE_STEPS:
             raise ValueError(f"Pipeline step is not optional: {step.value}")
-        turn = self._require_turn(turn_id)
+        turn = self._require_turn(turn_id, session_id)
         current = self._require_step(turn_id, step)
         if current["status"] in {StepStatus.SUCCEEDED.value, StepStatus.SKIPPED.value}:
             return current
@@ -165,20 +168,27 @@ class DemoPipelineService:
             skip_reason=reason,
         )
 
-    def run_until(self, turn_id: str, target_step: PipelineStep | str) -> Dict[str, Any]:
+    def run_until(
+        self,
+        turn_id: str,
+        target_step: PipelineStep | str,
+        *,
+        session_id: str,
+    ) -> Dict[str, Any]:
+        self._require_turn(turn_id, session_id)
         target_step = PipelineStep(target_step)
         target_index = PIPELINE_STEPS.index(target_step)
         for step in PIPELINE_STEPS[: target_index + 1]:
             current = self._require_step(turn_id, step)
             if current["status"] in {StepStatus.SUCCEEDED.value, StepStatus.SKIPPED.value}:
                 continue
-            self.run_step(turn_id, step)
+            self.run_step(turn_id, step, session_id=session_id)
         return self._require_step(turn_id, target_step)
 
-    def reset_turn(self, turn_id: str) -> Dict[str, Any]:
-        self._require_turn(turn_id)
+    def reset_turn(self, turn_id: str, *, session_id: str) -> Dict[str, Any]:
+        self._require_turn(turn_id, session_id)
         self.repository.reset_turn(turn_id)
-        return self._require_turn(turn_id)
+        return self._require_turn(turn_id, session_id)
 
     def _execute(
         self,
@@ -218,12 +228,16 @@ class DemoPipelineService:
 
         if step is PipelineStep.COMMIT_TURN:
             generation = self._step_output(turn_id, PipelineStep.GENERATE_RESPONSE)
+            session = self.repository.get_session(turn["session_id"])
+            if session is None:
+                raise KeyError(f"Unknown demo session: {turn['session_id']}")
             result = self.memory.commit_demo_turn(
+                simulation_id=session["simulation_id"],
+                turn_id=turn_id,
                 user_id=turn["user_id"],
                 run_id=turn["run_id"],
                 user_message=turn["user_message"],
                 assistant_message=generation["assistant_message"],
-                metadata={"_demo_turn_id": turn_id},
             )
             return result, {"commit": result}
 
@@ -284,6 +298,8 @@ class DemoPipelineService:
         if step is PipelineStep.COMMIT_TURN:
             generation = self._step_output(turn_id, PipelineStep.GENERATE_RESPONSE)
             return {
+                "turn_id": turn_id,
+                "session_id": turn["session_id"],
                 "user_message": turn["user_message"],
                 "assistant_message": generation["assistant_message"],
             }
@@ -315,11 +331,8 @@ class DemoPipelineService:
             raise RuntimeError(f"Required step has not succeeded: turn={turn_id} step={step.value}")
         return deepcopy(step_run.get("output"))
 
-    def _require_turn(self, turn_id: str) -> Dict[str, Any]:
-        turn = self.repository.get_turn(turn_id)
-        if turn is None:
-            raise KeyError(f"Unknown demo turn: {turn_id}")
-        return turn
+    def _require_turn(self, turn_id: str, session_id: str) -> Dict[str, Any]:
+        return self.repository.assert_turn_belongs_to_session(turn_id, session_id)
 
     def _require_step(self, turn_id: str, step: PipelineStep) -> Dict[str, Any]:
         step_run = self.repository.get_step(turn_id, step)

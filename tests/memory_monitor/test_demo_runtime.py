@@ -1,4 +1,3 @@
-import threading
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -183,7 +182,7 @@ def test_prompt_build_uses_frozen_context_and_generation_sends_same_messages():
     memory.llm.generate_response.assert_called_once_with(messages=prompt)
 
 
-def test_commit_demo_turn_calls_parent_add_once(monkeypatch):
+def test_commit_demo_turn_forwards_stable_persisted_idempotency_key(monkeypatch):
     calls = []
 
     def fake_add(self, messages, **kwargs):
@@ -192,27 +191,21 @@ def test_commit_demo_turn_calls_parent_add_once(monkeypatch):
 
     monkeypatch.setattr(Memory, "add", fake_add)
     memory = DemoMemory.__new__(DemoMemory)
-    memory._demo_commit_lock = threading.RLock()
-    memory._demo_commit_results = {}
 
-    first = memory.commit_demo_turn(
+    result = memory.commit_demo_turn(
+        simulation_id="simulation-1",
+        turn_id="turn-1",
         user_id="user-1",
         run_id="run-1",
         user_message="question",
         assistant_message="answer",
-        metadata={"_demo_turn_id": "turn-1", "source": "lab"},
-    )
-    second = memory.commit_demo_turn(
-        user_id="user-1",
-        run_id="run-1",
-        user_message="question",
-        assistant_message="answer",
-        metadata={"_demo_turn_id": "turn-1", "source": "lab"},
+        metadata={"source": "lab"},
     )
 
-    assert first == second
+    assert result["background"]["migration_job_id"] == "migration-1"
     assert len(calls) == 1
     assert calls[0][1]["metadata"] == {"source": "lab"}
+    assert calls[0][1]["idempotency_key"] == "demo-turn:simulation-1:turn-1"
 
 
 def test_demo_worker_runs_complete_migration_and_preserves_queue_order():

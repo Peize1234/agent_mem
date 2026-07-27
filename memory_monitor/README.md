@@ -76,6 +76,12 @@ The page talks to `DemoPipelineService`, `DemoRepository`, and
 `MemoryStateService`. It does not modify task rows with SQL, call core private
 methods, or monkey patch the worker.
 
+Each committed turn uses `demo-turn:<simulation_id>:<turn_id>` as a persisted
+`Memory.add()` idempotency key. The core SQLite transaction stores that
+operation together with its short-term messages and migration/profile jobs, so
+reopening the sandbox or retrying a failed Demo step reuses the original
+result.
+
 ## Tests
 
 ```bash
@@ -84,6 +90,7 @@ pytest -p pytest_asyncio.plugin -q tests/memory_monitor
 
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
 pytest -p pytest_asyncio.plugin -q \
+  tests/memory/test_idempotency.py \
   tests/memory/test_background_worker.py \
   tests/memory/test_retrieve_context.py \
   tests/memory/test_layered_add_flow.py \

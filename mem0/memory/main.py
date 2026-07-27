@@ -550,6 +550,35 @@ def _build_session_scope(filters):
     return "&".join(parts)
 
 
+def _memory_add_request_hash(
+    *,
+    messages: Any,
+    filters: Dict[str, Any],
+    metadata: Dict[str, Any],
+    infer: bool,
+    memory_type: Optional[str],
+    prompt: Optional[str],
+) -> str:
+    """Hash the business inputs guarded by a ``Memory.add`` idempotency key."""
+    payload = {
+        "operation_type": "memory.add",
+        "messages": messages,
+        "filters": filters,
+        "metadata": metadata,
+        "infer": bool(infer),
+        "memory_type": memory_type,
+        "prompt": prompt,
+    }
+    encoded = json.dumps(
+        payload,
+        sort_keys=True,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        default=str,
+    )
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
 def _normalize_context_request(query: str, user_id: str, session_id: str) -> tuple[str, str, str]:
     """Normalize identifiers and query used by unified context retrieval."""
     normalized_user_id = normalize_profile_user_id(user_id)
@@ -855,7 +884,7 @@ class _BackgroundMemoryMixin:
         if plan is not None:
             self.profile_manager.apply_update_plan(job["user_id"], plan)
 
-    def _create_profile_job_after_add(self, user_id, messages) -> Optional[str]:
+    def _profile_job_user_id_after_add(self, user_id) -> Optional[str]:
         profile_config = getattr(self.config, "profile", None)
         if (
             profile_config is None
@@ -864,7 +893,12 @@ class _BackgroundMemoryMixin:
             or not user_id
         ):
             return None
-        normalized_user_id = normalize_profile_user_id(user_id)
+        return normalize_profile_user_id(user_id)
+
+    def _create_profile_job_after_add(self, user_id, messages) -> Optional[str]:
+        normalized_user_id = self._profile_job_user_id_after_add(user_id)
+        if normalized_user_id is None:
+            return None
         return self.db.create_profile_update_job(normalized_user_id, messages)
 
     def _enqueue_profile_job_after_add(self, user_id, messages) -> Optional[str]:
@@ -892,6 +926,8 @@ class _BackgroundMemoryMixin:
         normalized_user_id,
         infer,
         prompt,
+        idempotency_key=None,
+        request_hash=None,
     ) -> tuple[Optional[str], Optional[str]]:
         if not hasattr(self, "_background_lifecycle_lock"):
             self._background_lifecycle_lock = threading.RLock()
@@ -899,23 +935,40 @@ class _BackgroundMemoryMixin:
             if getattr(self, "_closed", False):
                 raise RuntimeError("Cannot add memories after Memory.close()")
             worker = self._ensure_background_workers()
-            migration_job_id = self.db.save_messages_and_create_migration_job(
-                messages,
-                session_scope,
-                max_messages=self._short_term_capacity(),
-                filters=effective_filters,
-                metadata=processed_metadata,
-                infer=infer,
-                prompt=prompt,
-            )
-            try:
-                profile_job_id = self._create_profile_job_after_add(normalized_user_id, messages)
-            except Exception:
-                logger.exception(
-                    "Failed to enqueue profile update job for user_id=%s",
-                    normalized_user_id,
+            if idempotency_key is not None:
+                result = self.db.save_background_add_idempotently(
+                    messages,
+                    session_scope,
+                    idempotency_key=idempotency_key,
+                    request_hash=request_hash,
+                    max_messages=self._short_term_capacity(),
+                    filters=effective_filters,
+                    metadata=processed_metadata,
+                    infer=infer,
+                    prompt=prompt,
+                    profile_user_id=self._profile_job_user_id_after_add(normalized_user_id),
                 )
-                profile_job_id = None
+                background = result["background"]
+                migration_job_id = background["migration_job_id"]
+                profile_job_id = background["profile_job_id"]
+            else:
+                migration_job_id = self.db.save_messages_and_create_migration_job(
+                    messages,
+                    session_scope,
+                    max_messages=self._short_term_capacity(),
+                    filters=effective_filters,
+                    metadata=processed_metadata,
+                    infer=infer,
+                    prompt=prompt,
+                )
+                try:
+                    profile_job_id = self._create_profile_job_after_add(normalized_user_id, messages)
+                except Exception:
+                    logger.exception(
+                        "Failed to enqueue profile update job for user_id=%s",
+                        normalized_user_id,
+                    )
+                    profile_job_id = None
             if migration_job_id:
                 worker.wake_migration()
             if profile_job_id:
@@ -1533,6 +1586,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         infer: bool = True,
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
+        idempotency_key: Optional[str] = None,
     ):
         """
         Create a new memory.
@@ -1558,6 +1612,8 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                 creating procedural memories (typically requires 'agent_id'). Otherwise, memories
                 are treated as general conversational/factual memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
+            idempotency_key (str, optional): Persisted key that makes a background add
+                safe to retry with the same business inputs. Defaults to None.
 
 
         Returns:
@@ -1574,6 +1630,10 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         """
         if timestamp is not None:
             raise ValueError(get_temporal_feature_error_message("sync", "add", "timestamp"))
+        if idempotency_key is not None and (not isinstance(idempotency_key, str) or not idempotency_key.strip()):
+            raise ValueError("idempotency_key must be a non-empty string")
+        if idempotency_key is not None:
+            idempotency_key = idempotency_key.strip()
 
         normalized_expiration_date = _normalize_expiration_date(expiration_date)
         temporal_usage_notice = detect_temporal_usage_from_metadata(metadata)
@@ -1610,6 +1670,8 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             )
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
+            if idempotency_key is not None:
+                raise ValueError("idempotency_key is not supported for procedural memory adds")
             results = self._create_procedural_memory(messages, metadata=processed_metadata, prompt=prompt)
             if self._background_config().enabled:
                 profile_job_id = self._enqueue_profile_job_after_add(normalized_user_id, messages)
@@ -1640,6 +1702,8 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         # Short-term persistence and migration reservation are synchronous; extraction is not.
         session_scope = _build_session_scope(effective_filters)
         if not self._background_config().enabled:
+            if idempotency_key is not None:
+                raise ValueError("idempotency_key requires background task persistence")
             evicted_messages = self._save_short_term_messages(messages, session_scope)
             vector_store_result = []
             if evicted_messages:
@@ -1667,6 +1731,18 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                 },
             }
 
+        request_hash = (
+            _memory_add_request_hash(
+                messages=messages,
+                filters=effective_filters,
+                metadata=processed_metadata,
+                infer=infer,
+                memory_type=memory_type,
+                prompt=prompt,
+            )
+            if idempotency_key is not None
+            else None
+        )
         migration_job_id, profile_job_id = self._save_and_enqueue_background_jobs(
             messages,
             session_scope,
@@ -1675,6 +1751,8 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             normalized_user_id=normalized_user_id,
             infer=infer,
             prompt=prompt,
+            idempotency_key=idempotency_key,
+            request_hash=request_hash,
         )
         vector_store_result = []
 

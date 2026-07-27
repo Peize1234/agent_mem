@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import threading
 from copy import deepcopy
 from typing import Any, Dict, Optional
 
@@ -14,8 +13,6 @@ class DemoMemory(Memory):
     """Memory runtime with explicit, isolated controls for the demo lab."""
 
     def __init__(self, config):
-        self._demo_commit_lock = threading.RLock()
-        self._demo_commit_results: Dict[str, Dict[str, Any]] = {}
         self._demo_events: list[Dict[str, Any]] = []
         super().__init__(config)
 
@@ -96,45 +93,33 @@ class DemoMemory(Memory):
     def commit_demo_turn(
         self,
         *,
+        simulation_id: str,
+        turn_id: str,
         user_id: str,
         run_id: str,
         user_message: str,
         assistant_message: str,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Commit one turn through ``Memory.add`` and deduplicate repeated calls."""
+        """Commit one turn through the parent's persisted idempotency boundary."""
         commit_metadata = deepcopy(metadata) if metadata else {}
-        explicit_key = commit_metadata.pop("_demo_turn_id", None)
-        commit_key = str(explicit_key or self._turn_hash(user_id, run_id, user_message, assistant_message))
-        with self._demo_commit_lock:
-            if commit_key in self._demo_commit_results:
-                return deepcopy(self._demo_commit_results[commit_key])
-            result = super().add(
-                [
-                    {"role": "user", "content": user_message},
-                    {"role": "assistant", "content": assistant_message},
-                ],
-                user_id=user_id,
-                run_id=run_id,
-                metadata=commit_metadata or None,
-            )
-            self._demo_commit_results[commit_key] = deepcopy(result)
-            return result
+        idempotency_key = f"demo-turn:{simulation_id}:{turn_id}"
+        return super().add(
+            [
+                {"role": "user", "content": user_message},
+                {"role": "assistant", "content": assistant_message},
+            ],
+            user_id=user_id,
+            run_id=run_id,
+            metadata=commit_metadata or None,
+            idempotency_key=idempotency_key,
+        )
 
     @staticmethod
     def context_hash(context: Dict[str, Any]) -> str:
         payload = deepcopy(context)
         payload.pop("context_hash", None)
         encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
-        return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
-
-    @staticmethod
-    def _turn_hash(user_id: str, run_id: str, user_message: str, assistant_message: str) -> str:
-        encoded = json.dumps(
-            [user_id, run_id, user_message, assistant_message],
-            ensure_ascii=False,
-            separators=(",", ":"),
-        )
         return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
     def _record_demo_event(self, event_type: str, payload: Dict[str, Any]) -> None:
