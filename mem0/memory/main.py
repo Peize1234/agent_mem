@@ -728,17 +728,25 @@ class _BackgroundMemoryMixin:
             return BackgroundTaskConfig(enabled=False)
         return configured
 
-    def _initialize_background_workers(self) -> None:
-        if not hasattr(self, "_background_lifecycle_lock"):
-            self._background_lifecycle_lock = threading.RLock()
-        self._closed = False
-        self._background_worker = BackgroundWorkerManager(
+    def _create_background_worker_manager(self) -> BackgroundWorkerManager:
+        """Create the worker manager used by this memory runtime.
+
+        Subclasses may override this factory to provide a compatible worker
+        lifecycle without changing the default production behavior.
+        """
+        return BackgroundWorkerManager(
             self.db,
             self._background_config(),
             process_midterm=self._background_process_midterm,
             process_longterm=self._background_process_longterm,
             process_profile=self._background_process_profile,
         )
+
+    def _initialize_background_workers(self) -> None:
+        if not hasattr(self, "_background_lifecycle_lock"):
+            self._background_lifecycle_lock = threading.RLock()
+        self._closed = False
+        self._background_worker = self._create_background_worker_manager()
         self._background_worker.start()
 
     def _ensure_background_workers(self) -> BackgroundWorkerManager:

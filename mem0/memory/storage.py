@@ -912,16 +912,28 @@ class SQLiteManager:
                 raise
 
     def claim_next_migration_job(self) -> Optional[Dict[str, Any]]:
+        return self._claim_migration_job()
+
+    def claim_migration_job(self, job_id: str) -> Optional[Dict[str, Any]]:
+        """Atomically claim one runnable migration job without bypassing queue order."""
+        if not job_id:
+            raise ValueError("job_id is required")
+        return self._claim_migration_job(job_id)
+
+    def _claim_migration_job(self, job_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         now = beijing_now_iso()
+        job_filter = "AND candidate.job_id = ?" if job_id is not None else ""
+        parameters = (now, job_id) if job_id is not None else (now,)
         with self._lock:
             try:
                 self.connection.execute("BEGIN IMMEDIATE")
                 cursor = self.connection.execute(
-                    """
+                    f"""
                     SELECT candidate.*
                     FROM memory_migration_jobs AS candidate
                     WHERE candidate.status IN ('pending', 'retry')
                       AND (candidate.next_retry_at IS NULL OR candidate.next_retry_at <= ?)
+                      {job_filter}
                       AND NOT EXISTS (
                           SELECT 1
                           FROM memory_migration_jobs AS earlier
@@ -932,7 +944,7 @@ class SQLiteManager:
                     ORDER BY candidate.created_at ASC, candidate.rowid ASC
                     LIMIT 1
                     """,
-                    (now,),
+                    parameters,
                 )
                 row = cursor.fetchone()
                 job = self._row_as_dict(cursor, row)
@@ -966,16 +978,28 @@ class SQLiteManager:
                 raise
 
     def claim_next_profile_job(self) -> Optional[Dict[str, Any]]:
+        return self._claim_profile_job()
+
+    def claim_profile_job(self, job_id: str) -> Optional[Dict[str, Any]]:
+        """Atomically claim one runnable profile job without bypassing queue order."""
+        if not job_id:
+            raise ValueError("job_id is required")
+        return self._claim_profile_job(job_id)
+
+    def _claim_profile_job(self, job_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         now = beijing_now_iso()
+        job_filter = "AND candidate.job_id = ?" if job_id is not None else ""
+        parameters = (now, job_id) if job_id is not None else (now,)
         with self._lock:
             try:
                 self.connection.execute("BEGIN IMMEDIATE")
                 cursor = self.connection.execute(
-                    """
+                    f"""
                     SELECT candidate.*
                     FROM profile_update_jobs AS candidate
                     WHERE candidate.status IN ('pending', 'retry')
                       AND (candidate.next_retry_at IS NULL OR candidate.next_retry_at <= ?)
+                      {job_filter}
                       AND NOT EXISTS (
                           SELECT 1
                           FROM profile_update_jobs AS earlier
@@ -986,7 +1010,7 @@ class SQLiteManager:
                     ORDER BY candidate.created_at ASC, candidate.rowid ASC
                     LIMIT 1
                     """,
-                    (now,),
+                    parameters,
                 )
                 row = cursor.fetchone()
                 job = self._row_as_dict(cursor, row)

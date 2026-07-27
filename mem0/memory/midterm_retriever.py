@@ -78,7 +78,13 @@ class MidTermRetriever:
         sorted_pages = sorted(best_by_id.values(), key=lambda item: float(item.get("score") or 0.0), reverse=True)
         return sorted_pages[:max_total_pages], len(sorted_pages)
 
-    def search(self, query: str, filters: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def search(
+        self,
+        query: str,
+        filters: Dict[str, Any],
+        *,
+        record_visits: bool = True,
+    ) -> List[Dict[str, Any]]:
         scope_filters = self._scope_filters(filters)
         self.last_search_stats = {
             "retrieved_sessions": 0,
@@ -108,7 +114,8 @@ class MidTermRetriever:
             session_score = float(getattr(session, "score", 0.0) or 0.0)
             session_payload = getattr(session, "payload", None) or {}
             session_id = str(session.id)
-            self.midterm_memory.record_session_visit(session_id)
+            if record_visits:
+                self.midterm_memory.record_session_visit(session_id)
             results.append(self._format_session(session, session_score))
 
             page_filters = {**scope_filters, "session_id": session_id}
