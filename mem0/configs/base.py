@@ -55,6 +55,7 @@ class UserProfileConfig(BaseModel):
 
 class BackgroundTaskConfig(BaseModel):
     enabled: bool = True
+    execution_mode: Literal["auto", "manual"] = "auto"
     max_retries: int = Field(3, ge=0)
     poll_interval_seconds: float = Field(1.0, gt=0)
     stale_running_timeout_seconds: int = Field(300, ge=1)
@@ -62,6 +63,14 @@ class BackgroundTaskConfig(BaseModel):
     include_pending_in_context: bool = True
     max_pending_context_messages: int = Field(20, ge=0)
     include_failed_in_context: bool = False
+
+
+class ObservabilityConfig(BaseModel):
+    """Controls the optional SQLite-backed memory processing trace."""
+
+    enabled: bool = False
+    capture_payloads: bool = True
+    max_payload_length: int = Field(20000, ge=0)
 
 
 class MemoryConfig(BaseModel):
@@ -104,6 +113,10 @@ class MemoryConfig(BaseModel):
     background: BackgroundTaskConfig = Field(
         description="Configuration for persistent background memory and profile jobs",
         default_factory=BackgroundTaskConfig,
+    )
+    observability: ObservabilityConfig = Field(
+        description="Configuration for optional memory processing observations",
+        default_factory=ObservabilityConfig,
     )
 
 

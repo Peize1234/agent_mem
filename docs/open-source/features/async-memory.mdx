@@ -112,6 +112,33 @@ Set `background.enabled=False` to use the legacy synchronous path. In that mode 
 short-term messages, processes any evicted mid-term and long-term memories, and updates the user
 profile before returning. It does not create persistent background jobs.
 
+Set `background.execution_mode="manual"` while keeping `background.enabled=True` to persist jobs
+without starting worker threads. This is useful for deterministic tests and the optional Streamlit
+monitor:
+
+```python
+config.background.execution_mode = "manual"
+
+await memory.process_next_migration_job()
+await memory.process_next_profile_job()
+await memory.process_migration_job(migration_job_id)
+await memory.process_profile_job(profile_job_id)
+```
+
+SQLite-backed trace events are opt-in and do not affect memory processing if an event write fails:
+
+```python
+config.observability.enabled = True
+config.observability.capture_payloads = True
+config.observability.max_payload_length = 20_000
+
+result = await memory.add(messages, user_id="alice")
+print(result["observability"]["trace_id"])
+```
+
+From a repository checkout, install the `monitor` optional dependency and launch the read-only GUI
+with `hatch run monitor:start`. See `memory_monitor/README.md` for sandbox and write-mode settings.
+
 ```python
 import asyncio
 from contextlib import asynccontextmanager

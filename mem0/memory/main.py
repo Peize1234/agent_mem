@@ -10,12 +10,14 @@ import time
 import uuid
 import warnings
 from copy import deepcopy
+from contextlib import nullcontext
 from datetime import date, datetime
-from typing import Any, Dict, Optional
+from functools import wraps
+from typing import Any, Callable, Dict, Optional
 
 from pydantic import ValidationError
 
-from mem0.configs.base import BackgroundTaskConfig, MemoryConfig, MemoryItem
+from mem0.configs.base import BackgroundTaskConfig, MemoryConfig, MemoryItem, ObservabilityConfig
 from mem0.configs.enums import MemoryType
 from mem0.configs.prompts import (
     ADDITIVE_EXTRACTION_PROMPT,
@@ -53,6 +55,13 @@ from mem0.memory.notices import (
     get_decay_feature_error_message_async,
     get_temporal_feature_error_message,
     get_temporal_feature_error_message_async,
+)
+from mem0.memory.observability import (
+    NoOpObservationSink,
+    ObservationContext,
+    SQLiteObservationSink,
+    emit_safely,
+    observation_stage,
 )
 from mem0.memory.profile_manager import ProfileManager
 from mem0.memory.profile_updater import ProfileUpdater
@@ -293,34 +302,38 @@ def _additive_midterm_context(memory, query, filters):
 # Fields that hold runtime auth/connection objects and must be preserved.
 # These are non-serializable objects (e.g. AWSV4SignerAuth, RequestsHttpConnection)
 # needed by clients like OpenSearch — not sensitive strings to redact.
-_RUNTIME_FIELDS = frozenset({
-    "http_auth",
-    "auth",
-    "connection_class",
-    "ssl_context",
-})
+_RUNTIME_FIELDS = frozenset(
+    {
+        "http_auth",
+        "auth",
+        "connection_class",
+        "ssl_context",
+    }
+)
 
 # Fields that are known to contain sensitive secrets and must be redacted.
-_SENSITIVE_FIELDS_EXACT = frozenset({
-    "api_key",
-    "secret_key",
-    "private_key",
-    "access_key",
-    "password",
-    "credentials",
-    "credential",
-    "secret",
-    "token",
-    "access_token",
-    "refresh_token",
-    "auth_token",
-    "session_token",
-    "client_secret",
-    "auth_client_secret",
-    "azure_client_secret",
-    "service_account_json",
-    "aws_session_token",
-})
+_SENSITIVE_FIELDS_EXACT = frozenset(
+    {
+        "api_key",
+        "secret_key",
+        "private_key",
+        "access_key",
+        "password",
+        "credentials",
+        "credential",
+        "secret",
+        "token",
+        "access_token",
+        "refresh_token",
+        "auth_token",
+        "session_token",
+        "client_secret",
+        "auth_client_secret",
+        "azure_client_secret",
+        "service_account_json",
+        "aws_session_token",
+    }
+)
 
 # Suffixes that indicate a field likely holds a secret value.
 _SENSITIVE_SUFFIXES = (
@@ -380,16 +393,12 @@ def _validate_search_params(threshold: Optional[float] = None, top_k: Optional[i
         if not isinstance(threshold, (int, float)):
             raise ValueError("threshold must be a valid number")
         if threshold < 0 or threshold > 1:
-            raise ValueError(
-                f"Invalid threshold: {threshold}. Must be between 0 and 1 (inclusive)."
-            )
+            raise ValueError(f"Invalid threshold: {threshold}. Must be between 0 and 1 (inclusive).")
     if top_k is not None:
         if not isinstance(top_k, int) or isinstance(top_k, bool):
             raise ValueError("top_k must be a valid integer")
         if top_k < 0:
-            raise ValueError(
-                f"Invalid top_k: {top_k}. Must be a non-negative integer."
-            )
+            raise ValueError(f"Invalid top_k: {top_k}. Must be a non-negative integer.")
 
 
 def _validate_and_trim_search_query(query: str) -> str:
@@ -529,7 +538,7 @@ def _build_filters_and_metadata(
             message="At least one of 'user_id', 'agent_id', or 'run_id' must be provided.",
             error_code="VALIDATION_001",
             details={"provided_ids": {"user_id": user_id, "agent_id": agent_id, "run_id": run_id}},
-            suggestion="Please provide at least one identifier to scope the memory operation."
+            suggestion="Please provide at least one identifier to scope the memory operation.",
         )
 
     # ---------- optional actor filter ----------
@@ -548,6 +557,91 @@ def _build_session_scope(filters):
         if val:
             parts.append(f"{key}={val}")
     return "&".join(parts)
+
+
+def _build_add_result(
+    result: Dict[str, Any],
+    *,
+    migration_job_id: Optional[str] = None,
+    profile_job_id: Optional[str] = None,
+    trace_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Build the compatible add response with optional observability details."""
+
+    add_result = {
+        **result,
+        "background": {
+            "migration_job_id": migration_job_id,
+            "profile_job_id": profile_job_id,
+        },
+    }
+    if trace_id is not None:
+        add_result["observability"] = {"trace_id": trace_id}
+    return add_result
+
+
+def _observed_longterm_sync(function):
+    @wraps(function)
+    def wrapped(self, evicted_messages, metadata, filters, *args, **kwargs):
+        trace_id = kwargs.get("trace_id")
+        if not trace_id:
+            return function(self, evicted_messages, metadata, filters, *args, **kwargs)
+        source_job_id = kwargs.get("source_job_id")
+        context = self._observation_context(
+            trace_id,
+            job_id=source_job_id,
+            job_type="migration" if source_job_id else None,
+            user_id=(filters or {}).get("user_id"),
+            run_id=(filters or {}).get("run_id"),
+            session_scope=_build_session_scope(filters or {}),
+        )
+        sink = getattr(self, "_observation_sink", NoOpObservationSink())
+        with observation_stage(
+            sink,
+            context,
+            "longterm",
+            started_event="longterm.started",
+            succeeded_event="longterm.succeeded",
+            failed_event="longterm.failed",
+            input_data={"message_count": len(evicted_messages or [])},
+        ) as state:
+            result = function(self, evicted_messages, metadata, filters, *args, **kwargs)
+            state["output"] = {"memory_count": len(result or [])}
+            return result
+
+    return wrapped
+
+
+def _observed_longterm_async(function):
+    @wraps(function)
+    async def wrapped(self, evicted_messages, metadata, filters, *args, **kwargs):
+        trace_id = kwargs.get("trace_id")
+        if not trace_id:
+            return await function(self, evicted_messages, metadata, filters, *args, **kwargs)
+        source_job_id = kwargs.get("source_job_id")
+        context = self._observation_context(
+            trace_id,
+            job_id=source_job_id,
+            job_type="migration" if source_job_id else None,
+            user_id=(filters or {}).get("user_id"),
+            run_id=(filters or {}).get("run_id"),
+            session_scope=_build_session_scope(filters or {}),
+        )
+        sink = getattr(self, "_observation_sink", NoOpObservationSink())
+        with observation_stage(
+            sink,
+            context,
+            "longterm",
+            started_event="longterm.started",
+            succeeded_event="longterm.succeeded",
+            failed_event="longterm.failed",
+            input_data={"message_count": len(evicted_messages or [])},
+        ) as state:
+            result = await function(self, evicted_messages, metadata, filters, *args, **kwargs)
+            state["output"] = {"memory_count": len(result or [])}
+            return result
+
+    return wrapped
 
 
 def _normalize_context_request(query: str, user_id: str, session_id: str) -> tuple[str, str, str]:
@@ -569,9 +663,7 @@ def _assemble_retrieved_context(
 ) -> Dict[str, Any]:
     """Build the stable context payload shared by sync and async APIs."""
     retrieved_memories = (
-        search_result["results"]
-        if isinstance(search_result, dict) and "results" in search_result
-        else search_result
+        search_result["results"] if isinstance(search_result, dict) and "results" in search_result else search_result
     )
     messages = []
     for message in short_term_messages:
@@ -728,16 +820,106 @@ class _BackgroundMemoryMixin:
             return BackgroundTaskConfig(enabled=False)
         return configured
 
+    def _observability_config(self) -> ObservabilityConfig:
+        configured = getattr(getattr(self, "config", None), "observability", None)
+        return configured or ObservabilityConfig()
+
+    def _create_trace_id(self) -> Optional[str]:
+        if not getattr(self._observability_config(), "enabled", False):
+            return None
+        return str(uuid.uuid4())
+
+    def _initialize_observation_sink(self) -> None:
+        config = self._observability_config()
+        self._observation_sink = (
+            SQLiteObservationSink(self.db) if getattr(config, "enabled", False) else NoOpObservationSink()
+        )
+
+    def _observation_context(
+        self,
+        trace_id: Optional[str],
+        *,
+        job_id: Optional[str] = None,
+        job_type: Optional[str] = None,
+        user_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        session_scope: Optional[str] = None,
+    ) -> Optional[ObservationContext]:
+        config = self._observability_config()
+        if not getattr(config, "enabled", False) or not trace_id:
+            return None
+        return ObservationContext(
+            trace_id=trace_id,
+            capture_payloads=getattr(config, "capture_payloads", True),
+            max_payload_length=getattr(config, "max_payload_length", 20000),
+            job_id=job_id,
+            job_type=job_type,
+            user_id=user_id,
+            run_id=run_id,
+            session_scope=session_scope,
+        )
+
+    def _emit_observation(
+        self,
+        context: Optional[ObservationContext],
+        event_type: str,
+        status: str,
+        *,
+        stage: Optional[str] = None,
+        error: Optional[BaseException] = None,
+        input_data: Any = None,
+        output_data: Any = None,
+        before_data: Any = None,
+        after_data: Any = None,
+        entity_type: Optional[str] = None,
+        entity_id: Optional[str] = None,
+    ) -> None:
+        sink = getattr(self, "_observation_sink", NoOpObservationSink())
+        if context is None:
+            return
+
+        def build_event():
+            event = context.event(
+                stage=stage or event_type.rsplit(".", 1)[0],
+                event_type=event_type,
+                status=status,
+                error=error,
+                input_data=input_data,
+                output_data=output_data,
+                before_data=before_data,
+                after_data=after_data,
+            )
+            event.entity_type = entity_type
+            event.entity_id = entity_id
+            return event
+
+        emit_safely(sink, build_event)
+
+    def _profile_plan_validated_callback(
+        self,
+        context: Optional[ObservationContext],
+    ) -> Optional[Callable[[], None]]:
+        if context is None:
+            return None
+
+        def emit_plan_validated() -> None:
+            self._emit_observation(context, "profile.plan_validated", "succeeded")
+
+        return emit_plan_validated
+
     def _initialize_background_workers(self) -> None:
         if not hasattr(self, "_background_lifecycle_lock"):
             self._background_lifecycle_lock = threading.RLock()
         self._closed = False
+        self._initialize_observation_sink()
         self._background_worker = BackgroundWorkerManager(
             self.db,
             self._background_config(),
             process_midterm=self._background_process_midterm,
             process_longterm=self._background_process_longterm,
             process_profile=self._background_process_profile,
+            observation_sink=self._observation_sink,
+            observability_config=self._observability_config(),
         )
         self._background_worker.start()
 
@@ -755,6 +937,7 @@ class _BackgroundMemoryMixin:
             messages,
             job["filters"],
             source_job_id=job["job_id"],
+            trace_id=job.get("trace_id"),
             degraded=degraded,
             raise_on_error=True,
         )
@@ -772,12 +955,21 @@ class _BackgroundMemoryMixin:
             infer=job["infer"],
             prompt=job.get("prompt"),
             source_job_id=job["job_id"],
+            trace_id=job.get("trace_id"),
         )
         if asyncio.iscoroutine(result):
             asyncio.run(result)
 
     def _store_longterm_fallback(self, job, messages) -> None:
         job_id = job["job_id"]
+        context = self._observation_context(
+            job.get("trace_id"),
+            job_id=job_id,
+            job_type="migration",
+            user_id=(job.get("filters") or {}).get("user_id"),
+            run_id=(job.get("filters") or {}).get("run_id"),
+            session_scope=job.get("session_scope"),
+        )
         memory_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"mem0:longterm-fallback:{job_id}"))
         try:
             existing = self.vector_store.get(vector_id=memory_id)
@@ -789,6 +981,14 @@ class _BackgroundMemoryMixin:
                 memory_id,
                 payload.get("data") or parse_messages(messages),
                 payload.get("created_at"),
+            )
+            self._emit_observation(
+                context,
+                "longterm.degraded",
+                "succeeded_degraded",
+                output_data={"memory_count": 1, "reused": True},
+                entity_type="longterm_memory",
+                entity_id=memory_id,
             )
             return
 
@@ -802,6 +1002,8 @@ class _BackgroundMemoryMixin:
                 "degraded": True,
             }
         )
+        if job.get("trace_id"):
+            metadata["_mem0_trace_id"] = job["trace_id"]
         embedding = self.embedding_model.embed(raw_dialogue, "add")
         result = self._create_memory(
             raw_dialogue,
@@ -811,6 +1013,14 @@ class _BackgroundMemoryMixin:
         )
         if asyncio.iscoroutine(result):
             asyncio.run(result)
+        self._emit_observation(
+            context,
+            "longterm.degraded",
+            "succeeded_degraded",
+            output_data={"memory_count": 1, "reused": False},
+            entity_type="longterm_memory",
+            entity_id=memory_id,
+        )
 
     def _ensure_longterm_history(
         self,
@@ -829,25 +1039,103 @@ class _BackgroundMemoryMixin:
         )
 
     def _background_process_profile(self, job) -> None:
-        user_messages = select_profile_user_messages(
-            job["messages"],
-            self.config.profile.max_input_user_messages,
+        context = self._observation_context(
+            job.get("trace_id"),
+            job_id=job["job_id"],
+            job_type="profile",
+            user_id=job["user_id"],
+            run_id=job.get("run_id"),
+            session_scope=job.get("session_scope"),
         )
-        if not user_messages:
-            return
-        current_profile = self.profile_manager.get_profile(job["user_id"])
-        attribute_catalog = self.profile_manager.list_attributes()
-        plan = self.profile_updater.generate_update_plan_async(
-            current_profile=current_profile,
-            attribute_catalog=attribute_catalog,
-            messages=user_messages,
-        )
-        if asyncio.iscoroutine(plan):
-            plan = asyncio.run(plan)
-        if plan is not None:
-            self.profile_manager.apply_update_plan(job["user_id"], plan)
+        with observation_stage(
+            self._observation_sink,
+            context,
+            "profile",
+            started_event="profile.started",
+            succeeded_event="profile.succeeded",
+            failed_event="profile.failed",
+            input_data={"message_count": len(job.get("messages") or [])},
+        ) as state:
+            user_messages = select_profile_user_messages(
+                job["messages"],
+                self.config.profile.max_input_user_messages,
+            )
+            if not user_messages:
+                state["output"] = {"operation_count": 0}
+                return
+            current_profile = self.profile_manager.get_profile(job["user_id"])
+            state["before"] = current_profile
+            self._emit_observation(
+                context,
+                "profile.current_loaded",
+                "succeeded",
+                output_data={"attribute_count": len(current_profile.get("profile") or {})},
+            )
+            attribute_catalog = self.profile_manager.list_attributes()
+            self._emit_observation(
+                context,
+                "profile.attribute_catalog_loaded",
+                "succeeded",
+                output_data={"attribute_count": len(attribute_catalog)},
+            )
+            with observation_stage(
+                self._observation_sink,
+                context,
+                "profile.llm",
+                started_event="profile.llm_started",
+                succeeded_event="profile.llm_finished",
+                failed_event="profile.failed",
+                input_data={"message_count": len(user_messages), "attribute_count": len(attribute_catalog)},
+            ):
+                plan = self.profile_updater.generate_update_plan_async(
+                    current_profile=current_profile,
+                    attribute_catalog=attribute_catalog,
+                    messages=user_messages,
+                )
+                if asyncio.iscoroutine(plan):
+                    plan = asyncio.run(plan)
+            if plan is None:
+                state["after"] = current_profile
+                state["output"] = {"operation_count": 0}
+                return
+            plan_data = None
+            if context:
+                plan_data = plan.model_dump() if hasattr(plan, "model_dump") else plan
+                self._emit_observation(
+                    context,
+                    "profile.plan_generated",
+                    "succeeded",
+                    output_data=plan_data,
+                )
+            after_profile = self.profile_manager.apply_update_plan(
+                job["user_id"],
+                plan,
+                trace_id=job.get("trace_id"),
+                on_validated=self._profile_plan_validated_callback(context),
+            )
+            if context:
+                for operation in plan.operations:
+                    self._emit_observation(
+                        context,
+                        "profile.value_deleted" if operation.operation == "delete" else "profile.value_set",
+                        "succeeded",
+                        output_data={"attribute_key": operation.attribute_key},
+                        entity_type="profile_value",
+                        entity_id=operation.attribute_key,
+                    )
+            state["after"] = after_profile
+            if context:
+                state["output"] = {"operation_count": len(plan.operations), "plan": plan_data}
 
-    def _create_profile_job_after_add(self, user_id, messages) -> Optional[str]:
+    def _create_profile_job_after_add(
+        self,
+        user_id,
+        messages,
+        *,
+        trace_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        session_scope: Optional[str] = None,
+    ) -> Optional[str]:
         profile_config = getattr(self.config, "profile", None)
         if (
             profile_config is None
@@ -857,16 +1145,36 @@ class _BackgroundMemoryMixin:
         ):
             return None
         normalized_user_id = normalize_profile_user_id(user_id)
-        return self.db.create_profile_update_job(normalized_user_id, messages)
+        return self.db.create_profile_update_job(
+            normalized_user_id,
+            messages,
+            trace_id=trace_id,
+            run_id=run_id,
+            session_scope=session_scope,
+        )
 
-    def _enqueue_profile_job_after_add(self, user_id, messages) -> Optional[str]:
+    def _enqueue_profile_job_after_add(
+        self,
+        user_id,
+        messages,
+        *,
+        trace_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        session_scope: Optional[str] = None,
+    ) -> Optional[str]:
         if not hasattr(self, "_background_lifecycle_lock"):
             self._background_lifecycle_lock = threading.RLock()
         with self._background_lifecycle_lock:
             if getattr(self, "_closed", False):
                 raise RuntimeError("Cannot add memories after Memory.close()")
             try:
-                profile_job_id = self._create_profile_job_after_add(user_id, messages)
+                profile_job_id = self._create_profile_job_after_add(
+                    user_id,
+                    messages,
+                    trace_id=trace_id,
+                    run_id=run_id,
+                    session_scope=session_scope,
+                )
             except Exception:
                 logger.exception("Failed to enqueue profile update job for user_id=%s", user_id)
                 return None
@@ -884,6 +1192,7 @@ class _BackgroundMemoryMixin:
         normalized_user_id,
         infer,
         prompt,
+        trace_id,
     ) -> tuple[Optional[str], Optional[str]]:
         if not hasattr(self, "_background_lifecycle_lock"):
             self._background_lifecycle_lock = threading.RLock()
@@ -899,9 +1208,16 @@ class _BackgroundMemoryMixin:
                 metadata=processed_metadata,
                 infer=infer,
                 prompt=prompt,
+                trace_id=trace_id,
             )
             try:
-                profile_job_id = self._create_profile_job_after_add(normalized_user_id, messages)
+                profile_job_id = self._create_profile_job_after_add(
+                    normalized_user_id,
+                    messages,
+                    trace_id=trace_id,
+                    run_id=effective_filters.get("run_id"),
+                    session_scope=session_scope,
+                )
             except Exception:
                 logger.exception(
                     "Failed to enqueue profile update job for user_id=%s",
@@ -921,10 +1237,56 @@ class _BackgroundMemoryMixin:
         return self.db.get_background_job(job_id, job_type)
 
     def retry_background_job(self, job_id: str, job_type: str = "migration") -> bool:
+        job = (
+            self.db.get_background_job(job_id, job_type)
+            if getattr(self._observability_config(), "enabled", False)
+            else None
+        )
         retried = self.db.retry_background_job(job_id, job_type)
         if retried:
+            if job:
+                context = self._observation_context(
+                    job.get("trace_id"),
+                    job_id=job_id,
+                    job_type=job_type,
+                    user_id=job.get("user_id") or (job.get("filters") or {}).get("user_id"),
+                    run_id=job.get("run_id") or (job.get("filters") or {}).get("run_id"),
+                    session_scope=job.get("session_scope"),
+                )
+                self._emit_observation(context, "job.manually_retried", "pending", stage="job")
             self._ensure_background_workers().wake_all()
         return retried
+
+    def _require_manual_background_mode(self) -> None:
+        background = self._background_config()
+        if not getattr(background, "enabled", False) or getattr(background, "execution_mode", "auto") != "manual":
+            raise RuntimeError(
+                "Manual job processing requires background.enabled=True and background.execution_mode='manual'"
+            )
+
+    def process_next_migration_job(self) -> bool:
+        """Process the next runnable migration job in the calling thread."""
+
+        self._require_manual_background_mode()
+        return self._ensure_background_workers().process_next_migration_job()
+
+    def process_next_profile_job(self) -> bool:
+        """Process the next runnable profile update job in the calling thread."""
+
+        self._require_manual_background_mode()
+        return self._ensure_background_workers().process_next_profile_job()
+
+    def process_migration_job(self, job_id: str) -> bool:
+        """Process a specific runnable migration job without bypassing ordering."""
+
+        self._require_manual_background_mode()
+        return self._ensure_background_workers().process_migration_job(job_id)
+
+    def process_profile_job(self, job_id: str) -> bool:
+        """Process a specific runnable profile job without bypassing ordering."""
+
+        self._require_manual_background_mode()
+        return self._ensure_background_workers().process_profile_job(job_id)
 
     def _stop_background_workers(self, timeout: Optional[float]) -> bool:
         worker = getattr(self, "_background_worker", None)
@@ -991,10 +1353,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         # Initialize reranker if configured
         self.reranker = None
         if config.reranker:
-            self.reranker = RerankerFactory.create(
-                config.reranker.provider,
-                config.reranker.config
-            )
+            self.reranker = RerankerFactory.create(config.reranker.provider, config.reranker.config)
 
         # Entity store is initialized lazily on first use
         self._entity_store = None
@@ -1007,24 +1366,24 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         if MEM0_TELEMETRY:
             # Create telemetry config manually to avoid deepcopy issues with thread locks
             telemetry_config_dict = {}
-            if hasattr(self.config.vector_store.config, 'model_dump'):
+            if hasattr(self.config.vector_store.config, "model_dump"):
                 # For pydantic models
                 telemetry_config_dict = self.config.vector_store.config.model_dump()
             else:
                 # For other objects, manually copy common attributes
-                for attr in ['host', 'port', 'path', 'api_key', 'index_name', 'dimension', 'metric']:
+                for attr in ["host", "port", "path", "api_key", "index_name", "dimension", "metric"]:
                     if hasattr(self.config.vector_store.config, attr):
                         telemetry_config_dict[attr] = getattr(self.config.vector_store.config, attr)
 
             # Override collection name for telemetry
-            telemetry_config_dict['collection_name'] = "mem0migrations"
+            telemetry_config_dict["collection_name"] = "mem0migrations"
 
             # Set path for file-based vector stores
             telemetry_config = _safe_deepcopy_config(self.config.vector_store.config)
             if self.config.vector_store.provider in ["faiss", "qdrant"]:
                 provider_path = f"migrations_{self.config.vector_store.provider}"
-                telemetry_config_dict['path'] = os.path.join(mem0_dir, provider_path)
-                os.makedirs(telemetry_config_dict['path'], exist_ok=True)
+                telemetry_config_dict["path"] = os.path.join(mem0_dir, provider_path)
+                os.makedirs(telemetry_config_dict["path"], exist_ok=True)
 
             # Create the config object using the same class as the original
             telemetry_config = self.config.vector_store.config.__class__(**telemetry_config_dict)
@@ -1054,10 +1413,10 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             entity_config = _safe_deepcopy_config(self.config.vector_store.config)
             entity_collection = _entity_collection_name(self.config.vector_store.provider, self.collection_name)
             # Set collection name on the cloned config
-            if hasattr(entity_config, 'collection_name'):
+            if hasattr(entity_config, "collection_name"):
                 entity_config.collection_name = entity_collection
             elif isinstance(entity_config, dict):
-                entity_config['collection_name'] = entity_collection
+                entity_config["collection_name"] = entity_collection
             # For Qdrant, share the existing client to avoid RocksDB lock contention
             # when using embedded mode (path=...). QdrantConfig.client takes precedence
             # over host/port/path.
@@ -1066,9 +1425,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                     entity_config.client = self.vector_store.client
                 elif isinstance(entity_config, dict):
                     entity_config["client"] = self.vector_store.client
-            self._entity_store = VectorStoreFactory.create(
-                self.config.vector_store.provider, entity_config
-            )
+            self._entity_store = VectorStoreFactory.create(self.config.vector_store.provider, entity_config)
         return self._entity_store
 
     def _midterm_enabled(self):
@@ -1090,7 +1447,13 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
     @property
     def midterm_updater(self):
         if self._midterm_updater is None:
-            self._midterm_updater = MidTermUpdater(self.midterm_memory, self.llm, self.config.midterm)
+            self._midterm_updater = MidTermUpdater(
+                self.midterm_memory,
+                self.llm,
+                self.config.midterm,
+                getattr(self, "_observation_sink", None),
+                self._observability_config(),
+            )
         return self._midterm_updater
 
     @property
@@ -1236,7 +1599,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             messages=user_messages,
         )
 
-    def _update_profile_after_add(self, user_id, messages):
+    def _update_profile_after_add(self, user_id, messages, *, trace_id=None):
         profile_config = getattr(self.config, "profile", None)
         if (
             profile_config is None
@@ -1246,12 +1609,60 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         ):
             return
 
+        context = self._observation_context(trace_id, user_id=user_id)
+        sink = getattr(self, "_observation_sink", NoOpObservationSink())
         try:
-            normalized_user_id = normalize_profile_user_id(user_id)
-            plan = self._generate_profile_update_plan(normalized_user_id, messages)
-            if plan is None:
-                return
-            self.profile_manager.apply_update_plan(normalized_user_id, plan)
+            with observation_stage(
+                sink,
+                context,
+                "profile",
+                started_event="profile.started",
+                succeeded_event="profile.succeeded",
+                failed_event="profile.failed",
+                input_data={"message_count": len(messages or [])},
+            ) as state:
+                normalized_user_id = normalize_profile_user_id(user_id)
+                before = None
+                if context:
+                    before = self.profile_manager.get_profile(normalized_user_id)
+                    state["before"] = before
+                    self._emit_observation(context, "profile.current_loaded", "succeeded")
+                    self._emit_observation(context, "profile.attribute_catalog_loaded", "succeeded")
+                with observation_stage(
+                    sink,
+                    context,
+                    "profile.llm",
+                    started_event="profile.llm_started",
+                    succeeded_event="profile.llm_finished",
+                    failed_event="profile.failed",
+                ):
+                    plan = self._generate_profile_update_plan(normalized_user_id, messages)
+                if plan is None:
+                    if context:
+                        state["after"] = before
+                    return
+                plan_data = None
+                if context:
+                    plan_data = plan.model_dump() if hasattr(plan, "model_dump") else plan
+                    self._emit_observation(context, "profile.plan_generated", "succeeded", output_data=plan_data)
+                after = self.profile_manager.apply_update_plan(
+                    normalized_user_id,
+                    plan,
+                    trace_id=trace_id,
+                    on_validated=self._profile_plan_validated_callback(context),
+                )
+                if context:
+                    for operation in plan.operations:
+                        self._emit_observation(
+                            context,
+                            "profile.value_deleted" if operation.operation == "delete" else "profile.value_set",
+                            "succeeded",
+                            output_data={"attribute_key": operation.attribute_key},
+                        )
+                if context:
+                    state["after"] = after
+                if context:
+                    state["output"] = {"plan": plan_data, "operation_count": len(plan.operations)}
         except Exception as exc:
             logger.warning("Automatic profile update failed for user %s: %s", user_id, exc)
 
@@ -1278,13 +1689,14 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         self.db.delete_messages([assistant_message["id"]])
         return [*evicted_messages, assistant_message]
 
-    def _save_short_term_messages(self, messages, session_scope):
+    def _save_short_term_messages(self, messages, session_scope, trace_id=None):
         evicted_messages = (
             self.db.save_messages(
                 messages,
                 session_scope,
                 max_messages=self._short_term_capacity(),
                 return_evicted=True,
+                trace_id=trace_id,
             )
             or []
         )
@@ -1296,6 +1708,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         filters,
         *,
         source_job_id=None,
+        trace_id=None,
         degraded=False,
         raise_on_error=False,
     ):
@@ -1306,6 +1719,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                 evicted_messages,
                 filters,
                 source_job_id=source_job_id,
+                trace_id=trace_id,
                 degraded=degraded,
             )
         except Exception as e:
@@ -1525,7 +1939,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         infer: bool = True,
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
-    ):
+    ) -> Dict[str, Any]:
         """
         Create a new memory.
 
@@ -1553,9 +1967,9 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
 
 
         Returns:
-            dict: A dictionary containing the result of the memory addition operation, typically
-                  including a list of memory items affected (added, updated) under a "results" key.
-                  Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "event": "ADD"}]}`
+            dict: A dictionary with memory items under ``results`` and queued job IDs under
+                  ``background``. When observability is enabled, ``observability.trace_id`` is
+                  included as a separate optional field.
 
         Raises:
             Mem0ValidationError: If input validation fails (invalid memory_type, messages format, etc.).
@@ -1567,6 +1981,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         if timestamp is not None:
             raise ValueError(get_temporal_feature_error_message("sync", "add", "timestamp"))
 
+        trace_id = self._create_trace_id()
         normalized_expiration_date = _normalize_expiration_date(expiration_date)
         temporal_usage_notice = detect_temporal_usage_from_metadata(metadata)
         processed_metadata, effective_filters = _build_filters_and_metadata(
@@ -1576,6 +1991,13 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             input_metadata=metadata,
         )
         normalized_user_id = effective_filters.get("user_id")
+        session_scope = _build_session_scope(effective_filters)
+        observation_context = self._observation_context(
+            trace_id,
+            user_id=normalized_user_id,
+            run_id=effective_filters.get("run_id"),
+            session_scope=session_scope,
+        )
         if normalized_expiration_date is not None:
             processed_metadata["expiration_date"] = normalized_expiration_date
 
@@ -1584,7 +2006,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                 message=f"Invalid 'memory_type'. Please pass {MemoryType.PROCEDURAL.value} to create procedural memories.",
                 error_code="VALIDATION_002",
                 details={"provided_type": memory_type, "valid_type": MemoryType.PROCEDURAL.value},
-                suggestion=f"Use '{MemoryType.PROCEDURAL.value}' to create procedural memories."
+                suggestion=f"Use '{MemoryType.PROCEDURAL.value}' to create procedural memories.",
             )
 
         if isinstance(messages, str):
@@ -1598,23 +2020,42 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                 message="messages must be str, dict, or list[dict]",
                 error_code="VALIDATION_003",
                 details={"provided_type": type(messages).__name__, "valid_types": ["str", "dict", "list[dict]"]},
-                suggestion="Convert your input to a string, dictionary, or list of dictionaries."
+                suggestion="Convert your input to a string, dictionary, or list of dictionaries.",
             )
+
+        self._emit_observation(
+            observation_context,
+            "add.received",
+            "received",
+            input_data={"message_count": len(messages), "infer": infer, "memory_type": memory_type},
+        )
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
             results = self._create_procedural_memory(messages, metadata=processed_metadata, prompt=prompt)
             if self._background_config().enabled:
-                profile_job_id = self._enqueue_profile_job_after_add(normalized_user_id, messages)
+                profile_job_id = self._enqueue_profile_job_after_add(
+                    normalized_user_id,
+                    messages,
+                    trace_id=trace_id,
+                    run_id=effective_filters.get("run_id"),
+                    session_scope=session_scope,
+                )
             else:
-                self._update_profile_after_add(normalized_user_id, messages)
+                self._update_profile_after_add(normalized_user_id, messages, trace_id=trace_id)
                 profile_job_id = None
-            results = {
-                **results,
-                "background": {
-                    "migration_job_id": None,
-                    "profile_job_id": profile_job_id,
-                },
-            }
+            results = _build_add_result(
+                results,
+                trace_id=trace_id,
+                migration_job_id=None,
+                profile_job_id=profile_job_id,
+            )
+            if profile_job_id:
+                self._emit_observation(
+                    observation_context,
+                    "profile.job_created",
+                    "pending",
+                    output_data={"job_id": profile_job_id},
+                )
             scale_threshold_notice = detect_scale_threshold_from_add_result(self, results)
             if temporal_usage_notice:
                 display_temporal_usage_notice(self, "sync", "add", *temporal_usage_notice)
@@ -1622,6 +2063,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                 display_scale_threshold_notice(self, "sync", "add", *scale_threshold_notice)
             else:
                 display_first_run_notice(self, "sync", "add")
+            self._emit_observation(observation_context, "add.returned", "succeeded", output_data=results["background"])
             return results
 
         if self.config.llm.config.get("enable_vision"):
@@ -1630,20 +2072,32 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             messages = parse_vision_messages(messages)
 
         # Short-term persistence and migration reservation are synchronous; extraction is not.
-        session_scope = _build_session_scope(effective_filters)
         if not self._background_config().enabled:
-            evicted_messages = self._save_short_term_messages(messages, session_scope)
+            evicted_messages = self._save_short_term_messages(messages, session_scope, trace_id)
+            self._emit_observation(
+                observation_context,
+                "messages.saved",
+                "succeeded",
+                output_data={"message_count": len(messages)},
+            )
             vector_store_result = []
             if evicted_messages:
-                self._process_midterm_evictions(evicted_messages, effective_filters)
+                self._emit_observation(
+                    observation_context,
+                    "shortterm.overflow_detected",
+                    "succeeded",
+                    output_data={"evicted_message_count": len(evicted_messages)},
+                )
+                self._process_midterm_evictions(evicted_messages, effective_filters, trace_id=trace_id)
                 vector_store_result = self._process_evicted_long_term_memories(
                     evicted_messages,
                     processed_metadata,
                     effective_filters,
                     infer=infer,
                     prompt=prompt,
+                    trace_id=trace_id,
                 )
-            self._update_profile_after_add(normalized_user_id, messages)
+            self._update_profile_after_add(normalized_user_id, messages, trace_id=trace_id)
             scale_threshold_notice = detect_scale_threshold_from_add_result(self, vector_store_result)
             if temporal_usage_notice:
                 display_temporal_usage_notice(self, "sync", "add", *temporal_usage_notice)
@@ -1651,13 +2105,14 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                 display_scale_threshold_notice(self, "sync", "add", *scale_threshold_notice)
             else:
                 display_first_run_notice(self, "sync", "add")
-            return {
-                "results": vector_store_result,
-                "background": {
-                    "migration_job_id": None,
-                    "profile_job_id": None,
-                },
-            }
+            results = _build_add_result(
+                {"results": vector_store_result},
+                trace_id=trace_id,
+                migration_job_id=None,
+                profile_job_id=None,
+            )
+            self._emit_observation(observation_context, "add.returned", "succeeded", output_data=results["background"])
+            return results
 
         migration_job_id, profile_job_id = self._save_and_enqueue_background_jobs(
             messages,
@@ -1667,7 +2122,34 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             normalized_user_id=normalized_user_id,
             infer=infer,
             prompt=prompt,
+            trace_id=trace_id,
         )
+        self._emit_observation(
+            observation_context,
+            "messages.saved",
+            "succeeded",
+            output_data={"message_count": len(messages)},
+        )
+        if migration_job_id:
+            self._emit_observation(
+                observation_context,
+                "shortterm.overflow_detected",
+                "succeeded",
+                output_data={"migration_job_id": migration_job_id},
+            )
+            self._emit_observation(
+                observation_context,
+                "migration.job_created",
+                "pending",
+                output_data={"job_id": migration_job_id},
+            )
+        if profile_job_id:
+            self._emit_observation(
+                observation_context,
+                "profile.job_created",
+                "pending",
+                output_data={"job_id": profile_job_id},
+            )
         vector_store_result = []
 
         scale_threshold_notice = detect_scale_threshold_from_add_result(self, vector_store_result)
@@ -1677,14 +2159,16 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             display_scale_threshold_notice(self, "sync", "add", *scale_threshold_notice)
         else:
             display_first_run_notice(self, "sync", "add")
-        return {
-            "results": vector_store_result,
-            "background": {
-                "migration_job_id": migration_job_id,
-                "profile_job_id": profile_job_id,
-            },
-        }
+        results = _build_add_result(
+            {"results": vector_store_result},
+            trace_id=trace_id,
+            migration_job_id=migration_job_id,
+            profile_job_id=profile_job_id,
+        )
+        self._emit_observation(observation_context, "add.returned", "succeeded", output_data=results["background"])
+        return results
 
+    @_observed_longterm_sync
     def _process_evicted_long_term_memories(
         self,
         evicted_messages,
@@ -1694,9 +2178,33 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         infer=True,
         prompt=None,
         source_job_id=None,
+        trace_id=None,
     ):
+        metadata = deepcopy(metadata)
+        if trace_id:
+            metadata["_mem0_trace_id"] = trace_id
+        effective_trace_id = trace_id
+        observation_context = (
+            self._observation_context(
+                effective_trace_id,
+                job_id=source_job_id,
+                job_type="migration" if source_job_id else None,
+                user_id=filters.get("user_id"),
+                run_id=filters.get("run_id"),
+                session_scope=_build_session_scope(filters),
+            )
+            if effective_trace_id
+            else None
+        )
         if not infer:
             returned_memories = []
+            if observation_context:
+                self._emit_observation(
+                    observation_context,
+                    "longterm.embedding_started",
+                    "started",
+                    output_data={"input_count": len(evicted_messages or [])},
+                )
             for index, message_dict in enumerate(evicted_messages):
                 if (
                     not isinstance(message_dict, dict)
@@ -1759,6 +2267,19 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                         "role": message_dict["role"],
                     }
                 )
+            if observation_context:
+                self._emit_observation(
+                    observation_context,
+                    "longterm.embedding_finished",
+                    "succeeded",
+                    output_data={"output_count": len(returned_memories)},
+                )
+                self._emit_observation(
+                    observation_context,
+                    "longterm.memory_written",
+                    "succeeded",
+                    output_data={"memory_count": len(returned_memories)},
+                )
             return returned_memories
 
         # === V3 PHASED BATCH PIPELINE ===
@@ -1786,6 +2307,17 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         existing_long_term_memories = [
             {"id": str(mem.id), "text": mem.payload.get("data", "")} for mem in existing_results
         ]
+        if observation_context:
+            self._emit_observation(
+                observation_context,
+                "longterm.context_retrieved",
+                "succeeded",
+                output_data={
+                    "shortterm_message_count": len(short_term_context),
+                    "related_midterm_count": len(existing_related_memories),
+                    "existing_longterm_count": len(existing_long_term_memories),
+                },
+            )
 
         # Phase 2: LLM extraction (single call)
         is_agent_scoped = bool(filters.get("agent_id")) and not filters.get("user_id")
@@ -1805,13 +2337,29 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         )
 
         try:
-            response = self.llm.generate_response(
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                response_format={"type": "json_object"},
+            stage = (
+                observation_stage(
+                    getattr(self, "_observation_sink", NoOpObservationSink()),
+                    observation_context,
+                    "longterm.llm",
+                    started_event="longterm.llm_started",
+                    succeeded_event="longterm.llm_finished",
+                    failed_event="longterm.failed",
+                    input_data={"prompt_characters": len(user_prompt)},
+                )
+                if observation_context
+                else nullcontext({})
             )
+            with stage as state:
+                response = self.llm.generate_response(
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    response_format={"type": "json_object"},
+                )
+                if observation_context:
+                    state["output"] = {"response_characters": len(str(response))}
         except Exception as e:
             # Re-raise so callers can implement provider fallback / retry.
             # The original silent ``return []`` made upstream callers unable to
@@ -1821,6 +2369,20 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             raise LLMError(f"LLM extraction failed: {e}") from e
 
         extracted_memories = _parse_extracted_memories(response, strict=source_job_id is not None)
+        if observation_context:
+            parsed_counts = {"fact_count": len(extracted_memories)}
+            self._emit_observation(
+                observation_context,
+                "longterm.response_parsed",
+                "succeeded",
+                output_data=parsed_counts,
+            )
+            self._emit_observation(
+                observation_context,
+                "longterm.fact_extracted",
+                "succeeded",
+                output_data=parsed_counts,
+            )
 
         if not extracted_memories:
             return []
@@ -1867,9 +2429,29 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             pending_records.append((memory_id, text, mem_hash, mem))
 
         if not pending_records:
+            if observation_context:
+                self._emit_observation(
+                    observation_context,
+                    "longterm.fact_deduplicated",
+                    "succeeded",
+                    output_data={"input_count": len(extracted_memories), "output_count": 0},
+                )
             return []
 
         # Phase 4: Embed only facts that survived deterministic-ID and hash deduplication.
+        if observation_context:
+            self._emit_observation(
+                observation_context,
+                "longterm.fact_deduplicated",
+                "succeeded",
+                output_data={"input_count": len(extracted_memories), "output_count": len(pending_records)},
+            )
+            self._emit_observation(
+                observation_context,
+                "longterm.embedding_started",
+                "started",
+                output_data={"input_count": len(pending_records)},
+            )
         mem_texts = [record[1] for record in pending_records]
         embed_map = {}
         try:
@@ -1889,6 +2471,13 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                 logger.warning("Failed to embed long-term memory text: %s", exc)
 
         missing_embeddings = _missing_embeddings(mem_texts, embed_map)
+        if observation_context:
+            self._emit_observation(
+                observation_context,
+                "longterm.embedding_finished",
+                "succeeded" if not missing_embeddings else "degraded",
+                output_data={"output_count": len(embed_map), "missing_count": len(missing_embeddings)},
+            )
         if source_job_id and missing_embeddings:
             raise RuntimeError(f"Failed to embed {len(missing_embeddings)} extracted memories")
 
@@ -1979,6 +2568,16 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
 
         if insertion_errors and source_job_id:
             raise RuntimeError(f"Failed to insert {len(insertion_errors)} long-term memories") from insertion_errors[0]
+        if observation_context:
+            self._emit_observation(
+                observation_context,
+                "longterm.memory_written",
+                "succeeded" if not insertion_errors else "degraded",
+                output_data={
+                    "memory_count": len(persisted_records),
+                    "memory_ids": [record[0] for record in persisted_records],
+                },
+            )
 
         # Phase 7: Batch entity linking
         try:
@@ -2011,7 +2610,6 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                             entity_embeddings.append(self.embedding_model.embed(t, "add"))
                         except Exception:
                             entity_embeddings.append(None)
-
 
                 if len(entity_embeddings) != len(ordered_keys):
                     logger.warning(
@@ -2082,11 +2680,15 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                             logger.warning(f"Batch entity insert failed: {e}")
         except Exception as e:
             logger.warning(f"Batch entity linking failed: {e}")
+        if observation_context:
+            self._emit_observation(
+                observation_context,
+                "longterm.entity_linked",
+                "succeeded",
+                output_data={"memory_count": len(records)},
+            )
 
-        returned_memories = [
-            {"id": r[0], "memory": r[1], "event": "ADD"}
-            for r in records
-        ]
+        returned_memories = [{"id": r[0], "memory": r[1], "event": "ADD"} for r in records]
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event(
@@ -2132,7 +2734,16 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             "expiration_date",
         ]
 
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
+        core_and_promoted_keys = {
+            "data",
+            "hash",
+            "created_at",
+            "updated_at",
+            "id",
+            "text_lemmatized",
+            "attributed_to",
+            *promoted_payload_keys,
+        }
 
         result_item = MemoryItem(
             id=memory.id,
@@ -2188,23 +2799,16 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         # Validate and trim entity IDs in filters
         effective_filters = dict(filters) if filters else {}
         if "user_id" in effective_filters:
-            effective_filters["user_id"] = _validate_and_trim_entity_id(
-                effective_filters["user_id"], "user_id"
-            )
+            effective_filters["user_id"] = _validate_and_trim_entity_id(effective_filters["user_id"], "user_id")
         if "agent_id" in effective_filters:
-            effective_filters["agent_id"] = _validate_and_trim_entity_id(
-                effective_filters["agent_id"], "agent_id"
-            )
+            effective_filters["agent_id"] = _validate_and_trim_entity_id(effective_filters["agent_id"], "agent_id")
         if "run_id" in effective_filters:
-            effective_filters["run_id"] = _validate_and_trim_entity_id(
-                effective_filters["run_id"], "run_id"
-            )
+            effective_filters["run_id"] = _validate_and_trim_entity_id(effective_filters["run_id"], "run_id")
 
         # Validate filters contains at least one entity ID
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError(
-                "filters must contain at least one of: user_id, agent_id, run_id. "
-                "Example: filters={'user_id': 'u1'}"
+                "filters must contain at least one of: user_id, agent_id, run_id. Example: filters={'user_id': 'u1'}"
             )
 
         limit = top_k
@@ -2249,7 +2853,16 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             "attributed_to",
             "expiration_date",
         ]
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
+        core_and_promoted_keys = {
+            "data",
+            "hash",
+            "created_at",
+            "updated_at",
+            "id",
+            "text_lemmatized",
+            "attributed_to",
+            *promoted_payload_keys,
+        }
 
         formatted_memories = []
         for mem in actual_memories:
@@ -2344,21 +2957,14 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         # Validate and trim entity IDs in filters
         effective_filters = filters.copy() if filters else {}
         if "user_id" in effective_filters:
-            effective_filters["user_id"] = _validate_and_trim_entity_id(
-                effective_filters["user_id"], "user_id"
-            )
+            effective_filters["user_id"] = _validate_and_trim_entity_id(effective_filters["user_id"], "user_id")
         if "agent_id" in effective_filters:
-            effective_filters["agent_id"] = _validate_and_trim_entity_id(
-                effective_filters["agent_id"], "agent_id"
-            )
+            effective_filters["agent_id"] = _validate_and_trim_entity_id(effective_filters["agent_id"], "agent_id")
         if "run_id" in effective_filters:
-            effective_filters["run_id"] = _validate_and_trim_entity_id(
-                effective_filters["run_id"], "run_id"
-            )
+            effective_filters["run_id"] = _validate_and_trim_entity_id(effective_filters["run_id"], "run_id")
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError(
-                "filters must contain at least one of: user_id, agent_id, run_id. "
-                "Example: filters={'user_id': 'u1'}"
+                "filters must contain at least one of: user_id, agent_id, run_id. Example: filters={'user_id': 'u1'}"
             )
 
         limit = top_k
@@ -2371,7 +2977,9 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             for logical_key in ("AND", "OR", "NOT"):
                 effective_filters.pop(logical_key, None)
             for fk in list(effective_filters.keys()):
-                if fk not in ("AND", "OR", "NOT", "user_id", "agent_id", "run_id") and isinstance(effective_filters.get(fk), dict):
+                if fk not in ("AND", "OR", "NOT", "user_id", "agent_id", "run_id") and isinstance(
+                    effective_filters.get(fk), dict
+                ):
                     effective_filters.pop(fk, None)
             effective_filters.update(processed_filters)
 
@@ -2451,9 +3059,16 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             for operator, value in condition.items():
                 # Map platform operators to universal format that can be translated by each vector store
                 operator_map = {
-                    "eq": "eq", "ne": "ne", "gt": "gt", "gte": "gte",
-                    "lt": "lt", "lte": "lte", "in": "in", "nin": "nin",
-                    "contains": "contains", "icontains": "icontains"
+                    "eq": "eq",
+                    "ne": "ne",
+                    "gt": "gt",
+                    "gte": "gte",
+                    "lt": "lt",
+                    "lte": "lte",
+                    "in": "in",
+                    "nin": "nin",
+                    "contains": "contains",
+                    "icontains": "icontains",
                 }
 
                 if operator in operator_map:
@@ -2507,16 +3122,16 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
     def _has_advanced_operators(self, filters: Dict[str, Any]) -> bool:
         """
         Check if filters contain advanced operators that need special processing.
-        
+
         Args:
             filters: Dictionary of filters to check
-            
+
         Returns:
             bool: True if advanced operators are detected
         """
         if not isinstance(filters, dict):
             return False
-            
+
         for key, value in filters.items():
             # Check for platform-style logical operators
             if key in ["AND", "OR", "NOT"]:
@@ -2559,8 +3174,8 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         if keyword_results is not None:
             midpoint, steepness = get_bm25_params(query, lemmatized=query_lemmatized)
             for mem in keyword_results:
-                mem_id = str(mem.id) if hasattr(mem, 'id') else str(mem.get('id', ''))
-                raw_score = mem.score if hasattr(mem, 'score') else mem.get('score', 0)
+                mem_id = str(mem.id) if hasattr(mem, "id") else str(mem.get("id", ""))
+                raw_score = mem.score if hasattr(mem, "score") else mem.get("score", 0)
                 if raw_score and raw_score > 0:
                     bm25_scores[mem_id] = normalize_bm25(raw_score, midpoint, steepness)
 
@@ -2572,15 +3187,17 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         # Step 7: Build candidate set from semantic results
         candidates = []
         for mem in semantic_results:
-            payload = mem.payload if hasattr(mem, 'payload') else {}
+            payload = mem.payload if hasattr(mem, "payload") else {}
             if not show_expired and _payload_is_expired(payload):
                 continue
             mem_id = str(mem.id)
-            candidates.append({
-                "id": mem_id,
-                "score": mem.score,
-                "payload": payload,
-            })
+            candidates.append(
+                {
+                    "id": mem_id,
+                    "score": mem.score,
+                    "payload": payload,
+                }
+            )
 
         # Step 8: Score and rank
         scored_results = score_and_rank(
@@ -2602,7 +3219,16 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             "attributed_to",
             "expiration_date",
         ]
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
+        core_and_promoted_keys = {
+            "data",
+            "hash",
+            "created_at",
+            "updated_at",
+            "id",
+            "text_lemmatized",
+            "attributed_to",
+            *promoted_payload_keys,
+        }
 
         original_memories = []
         for scored in scored_results:
@@ -2677,15 +3303,10 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             entity_store = self.entity_store
 
             def _search_entity(entity_text, embedding):
-                return entity_store.search(
-                    query=entity_text, vectors=embedding, top_k=500, filters=search_filters
-                )
+                return entity_store.search(query=entity_text, vectors=embedding, top_k=500, filters=search_filters)
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-                futures = {
-                    pool.submit(_search_entity, text, emb): text
-                    for text, emb in zip(entity_texts, embeddings)
-                }
+                futures = {pool.submit(_search_entity, text, emb): text for text, emb in zip(entity_texts, embeddings)}
 
                 for future in concurrent.futures.as_completed(futures):
                     try:
@@ -2695,11 +3316,11 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                         continue
 
                     for match in matches:
-                        similarity = match.score if hasattr(match, 'score') else 0.0
+                        similarity = match.score if hasattr(match, "score") else 0.0
                         if similarity < 0.5:
                             continue
 
-                        payload = match.payload if hasattr(match, 'payload') else {}
+                        payload = match.payload if hasattr(match, "payload") else {}
                         linked_memory_ids = payload.get("linked_memory_ids", [])
                         if not isinstance(linked_memory_ids, list):
                             continue
@@ -2851,9 +3472,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             normalize_iso_timestamp_to_beijing(new_metadata.get("created_at")) or beijing_now_iso()
         )
         new_metadata["updated_at"] = new_metadata["created_at"]
-        new_metadata["text_lemmatized"] = lemmatize_for_bm25(
-            data, language=getattr(self, "_bm25_language", None)
-        )
+        new_metadata["text_lemmatized"] = lemmatize_for_bm25(data, language=getattr(self, "_bm25_language", None))
 
         self.vector_store.insert(
             vectors=[embeddings],
@@ -2937,9 +3556,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        new_metadata["text_lemmatized"] = lemmatize_for_bm25(
-            data, language=getattr(self, "_bm25_language", None)
-        )
+        new_metadata["text_lemmatized"] = lemmatize_for_bm25(data, language=getattr(self, "_bm25_language", None))
         new_metadata["created_at"] = normalize_iso_timestamp_to_beijing(existing_memory.payload.get("created_at"))
         new_metadata["updated_at"] = beijing_now_iso()
 
@@ -3086,10 +3703,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         # Initialize reranker if configured
         self.reranker = None
         if config.reranker:
-            self.reranker = RerankerFactory.create(
-                config.reranker.provider,
-                config.reranker.config
-            )
+            self.reranker = RerankerFactory.create(config.reranker.provider, config.reranker.config)
 
         if MEM0_TELEMETRY:
             telemetry_config = _safe_deepcopy_config(self.config.vector_store.config)
@@ -3098,7 +3712,9 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                 provider_path = f"migrations_{self.config.vector_store.provider}"
                 telemetry_config.path = os.path.join(mem0_dir, provider_path)
                 os.makedirs(telemetry_config.path, exist_ok=True)
-            self._telemetry_vector_store = VectorStoreFactory.create(self.config.vector_store.provider, telemetry_config)
+            self._telemetry_vector_store = VectorStoreFactory.create(
+                self.config.vector_store.provider, telemetry_config
+            )
 
         if getattr(type(self.vector_store), "keyword_search", None) is VectorStoreBase.keyword_search:
             logger.warning(
@@ -3122,10 +3738,10 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         if self._entity_store is None:
             entity_config = _safe_deepcopy_config(self.config.vector_store.config)
             entity_collection = _entity_collection_name(self.config.vector_store.provider, self.collection_name)
-            if hasattr(entity_config, 'collection_name'):
+            if hasattr(entity_config, "collection_name"):
                 entity_config.collection_name = entity_collection
             elif isinstance(entity_config, dict):
-                entity_config['collection_name'] = entity_collection
+                entity_config["collection_name"] = entity_collection
             # For Qdrant, share the existing client to avoid RocksDB lock contention
             # when using embedded mode (path=...). QdrantConfig.client takes precedence
             # over host/port/path.
@@ -3134,9 +3750,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                     entity_config.client = self.vector_store.client
                 elif isinstance(entity_config, dict):
                     entity_config["client"] = self.vector_store.client
-            self._entity_store = VectorStoreFactory.create(
-                self.config.vector_store.provider, entity_config
-            )
+            self._entity_store = VectorStoreFactory.create(self.config.vector_store.provider, entity_config)
         return self._entity_store
 
     def _midterm_enabled(self):
@@ -3158,7 +3772,13 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
     @property
     def midterm_updater(self):
         if self._midterm_updater is None:
-            self._midterm_updater = MidTermUpdater(self.midterm_memory, self.llm, self.config.midterm)
+            self._midterm_updater = MidTermUpdater(
+                self.midterm_memory,
+                self.llm,
+                self.config.midterm,
+                getattr(self, "_observation_sink", None),
+                self._observability_config(),
+            )
         return self._midterm_updater
 
     @property
@@ -3328,7 +3948,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             messages=user_messages,
         )
 
-    async def _update_profile_after_add(self, user_id, messages):
+    async def _update_profile_after_add(self, user_id, messages, *, trace_id=None):
         profile_config = getattr(self.config, "profile", None)
         if (
             profile_config is None
@@ -3338,14 +3958,63 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         ):
             return
 
+        context = self._observation_context(trace_id, user_id=user_id)
+        sink = getattr(self, "_observation_sink", NoOpObservationSink())
         try:
-            normalized_user_id = normalize_profile_user_id(user_id)
-            user_lock = await self._get_profile_user_lock(normalized_user_id)
-            async with user_lock:
-                plan = await self._generate_profile_update_plan(normalized_user_id, messages)
+            with observation_stage(
+                sink,
+                context,
+                "profile",
+                started_event="profile.started",
+                succeeded_event="profile.succeeded",
+                failed_event="profile.failed",
+                input_data={"message_count": len(messages or [])},
+            ) as state:
+                normalized_user_id = normalize_profile_user_id(user_id)
+                before = None
+                if context:
+                    before = await asyncio.to_thread(self.profile_manager.get_profile, normalized_user_id)
+                    state["before"] = before
+                    self._emit_observation(context, "profile.current_loaded", "succeeded")
+                    self._emit_observation(context, "profile.attribute_catalog_loaded", "succeeded")
+                with observation_stage(
+                    sink,
+                    context,
+                    "profile.llm",
+                    started_event="profile.llm_started",
+                    succeeded_event="profile.llm_finished",
+                    failed_event="profile.failed",
+                ):
+                    plan = await self._generate_profile_update_plan(normalized_user_id, messages)
                 if plan is None:
+                    if context:
+                        state["after"] = before
                     return
-                await asyncio.to_thread(self.profile_manager.apply_update_plan, normalized_user_id, plan)
+                plan_data = None
+                if context:
+                    plan_data = plan.model_dump() if hasattr(plan, "model_dump") else plan
+                    self._emit_observation(context, "profile.plan_generated", "succeeded", output_data=plan_data)
+                user_lock = await self._get_profile_user_lock(normalized_user_id)
+                async with user_lock:
+                    after = await asyncio.to_thread(
+                        self.profile_manager.apply_update_plan,
+                        normalized_user_id,
+                        plan,
+                        trace_id=trace_id,
+                        on_validated=self._profile_plan_validated_callback(context),
+                    )
+                if context:
+                    for operation in plan.operations:
+                        self._emit_observation(
+                            context,
+                            "profile.value_deleted" if operation.operation == "delete" else "profile.value_set",
+                            "succeeded",
+                            output_data={"attribute_key": operation.attribute_key},
+                        )
+                if context:
+                    state["after"] = after
+                if context:
+                    state["output"] = {"plan": plan_data, "operation_count": len(plan.operations)}
         except Exception as exc:
             logger.warning("Automatic profile update failed for user %s: %s", user_id, exc)
 
@@ -3372,7 +4041,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         await asyncio.to_thread(self.db.delete_messages, [assistant_message["id"]])
         return [*evicted_messages, assistant_message]
 
-    async def _save_short_term_messages(self, messages, session_scope):
+    async def _save_short_term_messages(self, messages, session_scope, trace_id=None):
         evicted_messages = (
             await asyncio.to_thread(
                 self.db.save_messages,
@@ -3380,6 +4049,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                 session_scope,
                 self._short_term_capacity(),
                 True,
+                trace_id,
             )
             or []
         )
@@ -3391,6 +4061,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         filters,
         *,
         source_job_id=None,
+        trace_id=None,
         degraded=False,
         raise_on_error=False,
     ):
@@ -3401,6 +4072,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                 evicted_messages,
                 filters,
                 source_job_id=source_job_id,
+                trace_id=trace_id,
                 degraded=degraded,
             )
         except Exception as e:
@@ -3458,9 +4130,9 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         try:
             entity_embedding = await asyncio.to_thread(self.embedding_model.embed, entity_text, "add")
             search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-            exact_match = (
-                await asyncio.to_thread(self._existing_entities_by_text, search_filters)
-            ).get(self._normalize_entity_text(entity_text))
+            exact_match = (await asyncio.to_thread(self._existing_entities_by_text, search_filters)).get(
+                self._normalize_entity_text(entity_text)
+            )
 
             existing = []
             if exact_match is None:
@@ -3631,7 +4303,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
         llm=None,
-    ):
+    ) -> Dict[str, Any]:
         """
         Create a new memory asynchronously.
 
@@ -3651,17 +4323,27 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
             llm (BaseChatModel, optional): LLM class to use for generating procedural memories. Defaults to None. Useful when user is using LangChain ChatModel.
         Returns:
-            dict: A dictionary containing the result of the memory addition operation.
+            dict: A dictionary with memory items under ``results`` and queued job IDs under
+                  ``background``. When observability is enabled, ``observability.trace_id`` is
+                  included as a separate optional field.
         """
         if timestamp is not None:
             raise ValueError(await get_temporal_feature_error_message_async("async", "add", "timestamp"))
 
+        trace_id = self._create_trace_id()
         normalized_expiration_date = _normalize_expiration_date(expiration_date)
         temporal_usage_notice = detect_temporal_usage_from_metadata(metadata)
         processed_metadata, effective_filters = _build_filters_and_metadata(
             user_id=user_id, agent_id=agent_id, run_id=run_id, input_metadata=metadata
         )
         normalized_user_id = effective_filters.get("user_id")
+        session_scope = _build_session_scope(effective_filters)
+        observation_context = self._observation_context(
+            trace_id,
+            user_id=normalized_user_id,
+            run_id=effective_filters.get("run_id"),
+            session_scope=session_scope,
+        )
         if normalized_expiration_date is not None:
             processed_metadata["expiration_date"] = normalized_expiration_date
 
@@ -3681,8 +4363,15 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                 message="messages must be str, dict, or list[dict]",
                 error_code="VALIDATION_003",
                 details={"provided_type": type(messages).__name__, "valid_types": ["str", "dict", "list[dict]"]},
-                suggestion="Convert your input to a string, dictionary, or list of dictionaries."
+                suggestion="Convert your input to a string, dictionary, or list of dictionaries.",
             )
+
+        self._emit_observation(
+            observation_context,
+            "add.received",
+            "received",
+            input_data={"message_count": len(messages), "infer": infer, "memory_type": memory_type},
+        )
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
             results = await self._create_procedural_memory(
@@ -3693,17 +4382,26 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                     self._enqueue_profile_job_after_add,
                     normalized_user_id,
                     messages,
+                    trace_id=trace_id,
+                    run_id=effective_filters.get("run_id"),
+                    session_scope=session_scope,
                 )
             else:
-                await self._update_profile_after_add(normalized_user_id, messages)
+                await self._update_profile_after_add(normalized_user_id, messages, trace_id=trace_id)
                 profile_job_id = None
-            results = {
-                **results,
-                "background": {
-                    "migration_job_id": None,
-                    "profile_job_id": profile_job_id,
-                },
-            }
+            results = _build_add_result(
+                results,
+                trace_id=trace_id,
+                migration_job_id=None,
+                profile_job_id=profile_job_id,
+            )
+            if profile_job_id:
+                self._emit_observation(
+                    observation_context,
+                    "profile.job_created",
+                    "pending",
+                    output_data={"job_id": profile_job_id},
+                )
             scale_threshold_notice = await asyncio.to_thread(detect_scale_threshold_from_add_result, self, results)
             if temporal_usage_notice:
                 await display_temporal_usage_notice_async(self, "async", "add", *temporal_usage_notice)
@@ -3711,6 +4409,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                 await display_scale_threshold_notice_async(self, "async", "add", *scale_threshold_notice)
             else:
                 await display_first_run_notice_async(self, "async", "add")
+            self._emit_observation(observation_context, "add.returned", "succeeded", output_data=results["background"])
             return results
 
         if self.config.llm.config.get("enable_vision"):
@@ -3719,20 +4418,37 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             messages = parse_vision_messages(messages)
 
         # Persist short-term state before returning; extraction remains in durable workers.
-        session_scope = _build_session_scope(effective_filters)
         if not self._background_config().enabled:
-            evicted_messages = await self._save_short_term_messages(messages, session_scope)
+            evicted_messages = await self._save_short_term_messages(messages, session_scope, trace_id)
+            self._emit_observation(
+                observation_context,
+                "messages.saved",
+                "succeeded",
+                output_data={"message_count": len(messages)},
+            )
             vector_store_result = []
             if evicted_messages:
-                await asyncio.to_thread(self._process_midterm_evictions, evicted_messages, effective_filters)
+                self._emit_observation(
+                    observation_context,
+                    "shortterm.overflow_detected",
+                    "succeeded",
+                    output_data={"evicted_message_count": len(evicted_messages)},
+                )
+                await asyncio.to_thread(
+                    self._process_midterm_evictions,
+                    evicted_messages,
+                    effective_filters,
+                    trace_id=trace_id,
+                )
                 vector_store_result = await self._process_evicted_long_term_memories(
                     evicted_messages,
                     processed_metadata,
                     effective_filters,
                     infer=infer,
                     prompt=prompt,
+                    trace_id=trace_id,
                 )
-            await self._update_profile_after_add(normalized_user_id, messages)
+            await self._update_profile_after_add(normalized_user_id, messages, trace_id=trace_id)
             scale_threshold_notice = await asyncio.to_thread(
                 detect_scale_threshold_from_add_result, self, vector_store_result
             )
@@ -3742,13 +4458,14 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                 await display_scale_threshold_notice_async(self, "async", "add", *scale_threshold_notice)
             else:
                 await display_first_run_notice_async(self, "async", "add")
-            return {
-                "results": vector_store_result,
-                "background": {
-                    "migration_job_id": None,
-                    "profile_job_id": None,
-                },
-            }
+            results = _build_add_result(
+                {"results": vector_store_result},
+                trace_id=trace_id,
+                migration_job_id=None,
+                profile_job_id=None,
+            )
+            self._emit_observation(observation_context, "add.returned", "succeeded", output_data=results["background"])
+            return results
 
         migration_job_id, profile_job_id = await asyncio.to_thread(
             self._save_and_enqueue_background_jobs,
@@ -3759,7 +4476,34 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             normalized_user_id=normalized_user_id,
             infer=infer,
             prompt=prompt,
+            trace_id=trace_id,
         )
+        self._emit_observation(
+            observation_context,
+            "messages.saved",
+            "succeeded",
+            output_data={"message_count": len(messages)},
+        )
+        if migration_job_id:
+            self._emit_observation(
+                observation_context,
+                "shortterm.overflow_detected",
+                "succeeded",
+                output_data={"migration_job_id": migration_job_id},
+            )
+            self._emit_observation(
+                observation_context,
+                "migration.job_created",
+                "pending",
+                output_data={"job_id": migration_job_id},
+            )
+        if profile_job_id:
+            self._emit_observation(
+                observation_context,
+                "profile.job_created",
+                "pending",
+                output_data={"job_id": profile_job_id},
+            )
         vector_store_result = []
 
         scale_threshold_notice = await asyncio.to_thread(
@@ -3771,14 +4515,16 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             await display_scale_threshold_notice_async(self, "async", "add", *scale_threshold_notice)
         else:
             await display_first_run_notice_async(self, "async", "add")
-        return {
-            "results": vector_store_result,
-            "background": {
-                "migration_job_id": migration_job_id,
-                "profile_job_id": profile_job_id,
-            },
-        }
+        results = _build_add_result(
+            {"results": vector_store_result},
+            trace_id=trace_id,
+            migration_job_id=migration_job_id,
+            profile_job_id=profile_job_id,
+        )
+        self._emit_observation(observation_context, "add.returned", "succeeded", output_data=results["background"])
+        return results
 
+    @_observed_longterm_async
     async def _process_evicted_long_term_memories(
         self,
         evicted_messages: list,
@@ -3788,9 +4534,33 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         infer: bool = True,
         prompt: Optional[str] = None,
         source_job_id: Optional[str] = None,
+        trace_id: Optional[str] = None,
     ):
+        metadata = deepcopy(metadata)
+        if trace_id:
+            metadata["_mem0_trace_id"] = trace_id
+        effective_trace_id = trace_id
+        observation_context = (
+            self._observation_context(
+                effective_trace_id,
+                job_id=source_job_id,
+                job_type="migration" if source_job_id else None,
+                user_id=effective_filters.get("user_id"),
+                run_id=effective_filters.get("run_id"),
+                session_scope=_build_session_scope(effective_filters),
+            )
+            if effective_trace_id
+            else None
+        )
         if not infer:
             returned_memories = []
+            if observation_context:
+                self._emit_observation(
+                    observation_context,
+                    "longterm.embedding_started",
+                    "started",
+                    output_data={"input_count": len(evicted_messages or [])},
+                )
             for index, message_dict in enumerate(evicted_messages):
                 if (
                     not isinstance(message_dict, dict)
@@ -3856,6 +4626,19 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                         "role": message_dict["role"],
                     }
                 )
+            if observation_context:
+                self._emit_observation(
+                    observation_context,
+                    "longterm.embedding_finished",
+                    "succeeded",
+                    output_data={"output_count": len(returned_memories)},
+                )
+                self._emit_observation(
+                    observation_context,
+                    "longterm.memory_written",
+                    "succeeded",
+                    output_data={"memory_count": len(returned_memories)},
+                )
             return returned_memories
 
         # === V3 PHASED BATCH PIPELINE (async) ===
@@ -3889,6 +4672,17 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         existing_long_term_memories = [
             {"id": str(mem.id), "text": mem.payload.get("data", "")} for mem in existing_results
         ]
+        if observation_context:
+            self._emit_observation(
+                observation_context,
+                "longterm.context_retrieved",
+                "succeeded",
+                output_data={
+                    "shortterm_message_count": len(short_term_context),
+                    "related_midterm_count": len(existing_related_memories),
+                    "existing_longterm_count": len(existing_long_term_memories),
+                },
+            )
 
         # Phase 2: LLM extraction (single call)
         is_agent_scoped = bool(effective_filters.get("agent_id")) and not effective_filters.get("user_id")
@@ -3908,14 +4702,30 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         )
 
         try:
-            response = await asyncio.to_thread(
-                self.llm.generate_response,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                response_format={"type": "json_object"},
+            stage = (
+                observation_stage(
+                    getattr(self, "_observation_sink", NoOpObservationSink()),
+                    observation_context,
+                    "longterm.llm",
+                    started_event="longterm.llm_started",
+                    succeeded_event="longterm.llm_finished",
+                    failed_event="longterm.failed",
+                    input_data={"prompt_characters": len(user_prompt)},
+                )
+                if observation_context
+                else nullcontext({})
             )
+            with stage as state:
+                response = await asyncio.to_thread(
+                    self.llm.generate_response,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    response_format={"type": "json_object"},
+                )
+                if observation_context:
+                    state["output"] = {"response_characters": len(str(response))}
         except Exception as e:
             # Re-raise so callers can implement provider fallback / retry
             # (see sync counterpart for rationale).
@@ -3923,6 +4733,20 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             raise LLMError(f"LLM extraction failed: {e}") from e
 
         extracted_memories = _parse_extracted_memories(response, strict=source_job_id is not None)
+        if observation_context:
+            parsed_counts = {"fact_count": len(extracted_memories)}
+            self._emit_observation(
+                observation_context,
+                "longterm.response_parsed",
+                "succeeded",
+                output_data=parsed_counts,
+            )
+            self._emit_observation(
+                observation_context,
+                "longterm.fact_extracted",
+                "succeeded",
+                output_data=parsed_counts,
+            )
 
         if not extracted_memories:
             return []
@@ -3973,9 +4797,29 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             pending_records.append((memory_id, text, mem_hash, mem))
 
         if not pending_records:
+            if observation_context:
+                self._emit_observation(
+                    observation_context,
+                    "longterm.fact_deduplicated",
+                    "succeeded",
+                    output_data={"input_count": len(extracted_memories), "output_count": 0},
+                )
             return []
 
         # Phase 4: Embed only facts that survived deterministic-ID and hash deduplication.
+        if observation_context:
+            self._emit_observation(
+                observation_context,
+                "longterm.fact_deduplicated",
+                "succeeded",
+                output_data={"input_count": len(extracted_memories), "output_count": len(pending_records)},
+            )
+            self._emit_observation(
+                observation_context,
+                "longterm.embedding_started",
+                "started",
+                output_data={"input_count": len(pending_records)},
+            )
         mem_texts = [record[1] for record in pending_records]
         embed_map = {}
         try:
@@ -3995,6 +4839,13 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                 logger.warning("Failed to embed long-term memory text (async): %s", exc)
 
         missing_embeddings = _missing_embeddings(mem_texts, embed_map)
+        if observation_context:
+            self._emit_observation(
+                observation_context,
+                "longterm.embedding_finished",
+                "succeeded" if not missing_embeddings else "degraded",
+                output_data={"output_count": len(embed_map), "missing_count": len(missing_embeddings)},
+            )
         if source_job_id and missing_embeddings:
             raise RuntimeError(f"Failed to embed {len(missing_embeddings)} extracted memories")
 
@@ -4074,14 +4925,28 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                 for hr in history_records:
                     try:
                         await asyncio.to_thread(
-                            self.db.add_history, hr["memory_id"], None, hr["new_memory"], "ADD",
-                            created_at=hr.get("created_at")
+                            self.db.add_history,
+                            hr["memory_id"],
+                            None,
+                            hr["new_memory"],
+                            "ADD",
+                            created_at=hr.get("created_at"),
                         )
                     except Exception as e:
                         logger.error(f"Failed to add history for {hr['memory_id']} (async): {e}")
 
         if insertion_errors and source_job_id:
             raise RuntimeError(f"Failed to insert {len(insertion_errors)} long-term memories") from insertion_errors[0]
+        if observation_context:
+            self._emit_observation(
+                observation_context,
+                "longterm.memory_written",
+                "succeeded" if not insertion_errors else "degraded",
+                output_data={
+                    "memory_count": len(persisted_records),
+                    "memory_ids": [record[0] for record in persisted_records],
+                },
+            )
 
         # Phase 7: Batch entity linking
         try:
@@ -4183,11 +5048,15 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                             logger.warning(f"Batch entity insert failed (async): {e}")
         except Exception as e:
             logger.warning(f"Batch entity linking failed (async): {e}")
+        if observation_context:
+            self._emit_observation(
+                observation_context,
+                "longterm.entity_linked",
+                "succeeded",
+                output_data={"memory_count": len(records)},
+            )
 
-        returned_memories = [
-            {"id": r[0], "memory": r[1], "event": "ADD"}
-            for r in records
-        ]
+        returned_memories = [{"id": r[0], "memory": r[1], "event": "ADD"} for r in records]
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
@@ -4240,7 +5109,16 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             "expiration_date",
         ]
 
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
+        core_and_promoted_keys = {
+            "data",
+            "hash",
+            "created_at",
+            "updated_at",
+            "id",
+            "text_lemmatized",
+            "attributed_to",
+            *promoted_payload_keys,
+        }
 
         result_item = MemoryItem(
             id=memory.id,
@@ -4296,23 +5174,16 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         # Validate and trim entity IDs in filters
         effective_filters = dict(filters) if filters else {}
         if "user_id" in effective_filters:
-            effective_filters["user_id"] = _validate_and_trim_entity_id(
-                effective_filters["user_id"], "user_id"
-            )
+            effective_filters["user_id"] = _validate_and_trim_entity_id(effective_filters["user_id"], "user_id")
         if "agent_id" in effective_filters:
-            effective_filters["agent_id"] = _validate_and_trim_entity_id(
-                effective_filters["agent_id"], "agent_id"
-            )
+            effective_filters["agent_id"] = _validate_and_trim_entity_id(effective_filters["agent_id"], "agent_id")
         if "run_id" in effective_filters:
-            effective_filters["run_id"] = _validate_and_trim_entity_id(
-                effective_filters["run_id"], "run_id"
-            )
+            effective_filters["run_id"] = _validate_and_trim_entity_id(effective_filters["run_id"], "run_id")
 
         # Validate filters contains at least one entity ID
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError(
-                "filters must contain at least one of: user_id, agent_id, run_id. "
-                "Example: filters={'user_id': 'u1'}"
+                "filters must contain at least one of: user_id, agent_id, run_id. Example: filters={'user_id': 'u1'}"
             )
 
         limit = top_k
@@ -4357,7 +5228,16 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             "attributed_to",
             "expiration_date",
         ]
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
+        core_and_promoted_keys = {
+            "data",
+            "hash",
+            "created_at",
+            "updated_at",
+            "id",
+            "text_lemmatized",
+            "attributed_to",
+            *promoted_payload_keys,
+        }
 
         formatted_memories = []
         for mem in actual_memories:
@@ -4439,9 +5319,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                 or if threshold/top_k values are invalid.
         """
         if reference_date is not None:
-            raise ValueError(
-                await get_temporal_feature_error_message_async("async", "search", "reference_date")
-            )
+            raise ValueError(await get_temporal_feature_error_message_async("async", "search", "reference_date"))
 
         # Reject top-level entity params - must use filters instead
         _reject_top_level_entity_params(kwargs, "search")
@@ -4454,23 +5332,16 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         # Validate and trim entity IDs in filters
         effective_filters = filters.copy() if filters else {}
         if "user_id" in effective_filters:
-            effective_filters["user_id"] = _validate_and_trim_entity_id(
-                effective_filters["user_id"], "user_id"
-            )
+            effective_filters["user_id"] = _validate_and_trim_entity_id(effective_filters["user_id"], "user_id")
         if "agent_id" in effective_filters:
-            effective_filters["agent_id"] = _validate_and_trim_entity_id(
-                effective_filters["agent_id"], "agent_id"
-            )
+            effective_filters["agent_id"] = _validate_and_trim_entity_id(effective_filters["agent_id"], "agent_id")
         if "run_id" in effective_filters:
-            effective_filters["run_id"] = _validate_and_trim_entity_id(
-                effective_filters["run_id"], "run_id"
-            )
+            effective_filters["run_id"] = _validate_and_trim_entity_id(effective_filters["run_id"], "run_id")
 
         # Validate filters contains at least one entity ID
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError(
-                "filters must contain at least one of: user_id, agent_id, run_id. "
-                "Example: filters={'user_id': 'u1'}"
+                "filters must contain at least one of: user_id, agent_id, run_id. Example: filters={'user_id': 'u1'}"
             )
 
         limit = top_k
@@ -4483,7 +5354,9 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             for logical_key in ("AND", "OR", "NOT"):
                 effective_filters.pop(logical_key, None)
             for fk in list(effective_filters.keys()):
-                if fk not in ("AND", "OR", "NOT", "user_id", "agent_id", "run_id") and isinstance(effective_filters.get(fk), dict):
+                if fk not in ("AND", "OR", "NOT", "user_id", "agent_id", "run_id") and isinstance(
+                    effective_filters.get(fk), dict
+                ):
                     effective_filters.pop(fk, None)
             effective_filters.update(processed_filters)
 
@@ -4513,9 +5386,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         if rerank and self.reranker and original_memories:
             try:
                 # Run reranking in thread pool to avoid blocking async loop
-                reranked_memories = await asyncio.to_thread(
-                    self.reranker.rerank, query, original_memories, limit
-                )
+                reranked_memories = await asyncio.to_thread(self.reranker.rerank, query, original_memories, limit)
                 original_memories = reranked_memories
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
@@ -4565,9 +5436,16 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             for operator, value in condition.items():
                 # Map platform operators to universal format that can be translated by each vector store
                 operator_map = {
-                    "eq": "eq", "ne": "ne", "gt": "gt", "gte": "gte",
-                    "lt": "lt", "lte": "lte", "in": "in", "nin": "nin",
-                    "contains": "contains", "icontains": "icontains"
+                    "eq": "eq",
+                    "ne": "ne",
+                    "gt": "gt",
+                    "gte": "gte",
+                    "lt": "lt",
+                    "lte": "lte",
+                    "in": "in",
+                    "nin": "nin",
+                    "contains": "contains",
+                    "icontains": "icontains",
                 }
 
                 if operator in operator_map:
@@ -4676,8 +5554,8 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         if keyword_results is not None:
             midpoint, steepness = get_bm25_params(query, lemmatized=query_lemmatized)
             for mem in keyword_results:
-                mem_id = str(mem.id) if hasattr(mem, 'id') else str(mem.get('id', ''))
-                raw_score = mem.score if hasattr(mem, 'score') else mem.get('score', 0)
+                mem_id = str(mem.id) if hasattr(mem, "id") else str(mem.get("id", ""))
+                raw_score = mem.score if hasattr(mem, "score") else mem.get("score", 0)
                 if raw_score and raw_score > 0:
                     bm25_scores[mem_id] = normalize_bm25(raw_score, midpoint, steepness)
 
@@ -4689,15 +5567,17 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         # Step 7: Build candidate set from semantic results
         candidates = []
         for mem in semantic_results:
-            payload = mem.payload if hasattr(mem, 'payload') else {}
+            payload = mem.payload if hasattr(mem, "payload") else {}
             if not show_expired and _payload_is_expired(payload):
                 continue
             mem_id = str(mem.id)
-            candidates.append({
-                "id": mem_id,
-                "score": mem.score,
-                "payload": payload,
-            })
+            candidates.append(
+                {
+                    "id": mem_id,
+                    "score": mem.score,
+                    "payload": payload,
+                }
+            )
 
         # Step 8: Score and rank
         scored_results = score_and_rank(
@@ -4719,7 +5599,16 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             "attributed_to",
             "expiration_date",
         ]
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
+        core_and_promoted_keys = {
+            "data",
+            "hash",
+            "created_at",
+            "updated_at",
+            "id",
+            "text_lemmatized",
+            "attributed_to",
+            *promoted_payload_keys,
+        }
 
         original_memories = []
         for scored in scored_results:
@@ -4803,11 +5692,11 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                     continue
 
                 for match in matches:
-                    similarity = match.score if hasattr(match, 'score') else 0.0
+                    similarity = match.score if hasattr(match, "score") else 0.0
                     if similarity < 0.5:
                         continue
 
-                    payload = match.payload if hasattr(match, 'payload') else {}
+                    payload = match.payload if hasattr(match, "payload") else {}
                     linked_memory_ids = payload.get("linked_memory_ids", [])
                     if not isinstance(linked_memory_ids, list):
                         continue
@@ -4973,9 +5862,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             normalize_iso_timestamp_to_beijing(new_metadata.get("created_at")) or beijing_now_iso()
         )
         new_metadata["updated_at"] = new_metadata["created_at"]
-        new_metadata["text_lemmatized"] = lemmatize_for_bm25(
-            data, language=getattr(self, "_bm25_language", None)
-        )
+        new_metadata["text_lemmatized"] = lemmatize_for_bm25(data, language=getattr(self, "_bm25_language", None))
 
         await asyncio.to_thread(
             self.vector_store.insert,
@@ -5034,7 +5921,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             else:
                 procedural_memory = await asyncio.to_thread(self.llm.generate_response, messages=parsed_messages)
                 procedural_memory = remove_code_blocks(procedural_memory)
-        
+
         except Exception as e:
             logger.error(f"Error generating procedural memory summary: {e}")
             raise
@@ -5077,9 +5964,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        new_metadata["text_lemmatized"] = lemmatize_for_bm25(
-            data, language=getattr(self, "_bm25_language", None)
-        )
+        new_metadata["text_lemmatized"] = lemmatize_for_bm25(data, language=getattr(self, "_bm25_language", None))
         new_metadata["created_at"] = normalize_iso_timestamp_to_beijing(existing_memory.payload.get("created_at"))
         new_metadata["updated_at"] = beijing_now_iso()
 
@@ -5195,6 +6080,30 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
 
     async def flush_background_tasks(self, timeout: Optional[float] = None) -> bool:
         return await asyncio.to_thread(self._ensure_background_workers().flush, timeout)
+
+    async def process_next_migration_job(self) -> bool:
+        """Process the next runnable migration job without blocking the event loop."""
+
+        self._require_manual_background_mode()
+        return await asyncio.to_thread(self._ensure_background_workers().process_next_migration_job)
+
+    async def process_next_profile_job(self) -> bool:
+        """Process the next runnable profile job without blocking the event loop."""
+
+        self._require_manual_background_mode()
+        return await asyncio.to_thread(self._ensure_background_workers().process_next_profile_job)
+
+    async def process_migration_job(self, job_id: str) -> bool:
+        """Process a specific runnable migration job without blocking the event loop."""
+
+        self._require_manual_background_mode()
+        return await asyncio.to_thread(self._ensure_background_workers().process_migration_job, job_id)
+
+    async def process_profile_job(self, job_id: str) -> bool:
+        """Process a specific runnable profile job without blocking the event loop."""
+
+        self._require_manual_background_mode()
+        return await asyncio.to_thread(self._ensure_background_workers().process_profile_job, job_id)
 
     def close(self):
         """Release resources held by this AsyncMemory instance."""

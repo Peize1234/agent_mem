@@ -11,12 +11,24 @@ from mem0.memory.main import AsyncMemory, Memory
 from mem0.memory.storage import SQLiteManager
 
 
-def _layered_config(*, capacity=4, midterm_enabled=True, background_enabled=True, profile_enabled=False):
+def _layered_config(
+    *,
+    capacity=4,
+    midterm_enabled=True,
+    background_enabled=True,
+    profile_enabled=False,
+    observability_enabled=False,
+):
     return SimpleNamespace(
         llm=SimpleNamespace(config={}),
         midterm=SimpleNamespace(enabled=midterm_enabled, short_term_capacity=capacity),
         profile=SimpleNamespace(enabled=profile_enabled, update_on_add=profile_enabled),
         background=BackgroundTaskConfig(enabled=background_enabled),
+        observability=SimpleNamespace(
+            enabled=observability_enabled,
+            capture_payloads=True,
+            max_payload_length=20000,
+        ),
     )
 
 
@@ -27,6 +39,7 @@ def _sync_memory(
     midterm_enabled=True,
     background_enabled=True,
     profile_enabled=False,
+    observability_enabled=False,
 ):
     memory = Memory.__new__(Memory)
     memory.config = _layered_config(
@@ -34,6 +47,7 @@ def _sync_memory(
         midterm_enabled=midterm_enabled,
         background_enabled=background_enabled,
         profile_enabled=profile_enabled,
+        observability_enabled=observability_enabled,
     )
     memory.db = db
     memory.api_version = "v1.1"
@@ -55,6 +69,7 @@ def _async_memory(
     midterm_enabled=True,
     background_enabled=True,
     profile_enabled=False,
+    observability_enabled=False,
 ):
     memory = AsyncMemory.__new__(AsyncMemory)
     memory.config = _layered_config(
@@ -62,6 +77,7 @@ def _async_memory(
         midterm_enabled=midterm_enabled,
         background_enabled=background_enabled,
         profile_enabled=profile_enabled,
+        observability_enabled=observability_enabled,
     )
     memory.db = db
     memory.api_version = "v1.1"
@@ -87,6 +103,28 @@ def _contents(messages):
     return [message["content"] for message in messages]
 
 
+def _assert_add_result(result, expected_results, migration_job_id=None, profile_job_id=None):
+    assert result == {
+        "results": expected_results,
+        "background": {
+            "migration_job_id": migration_job_id,
+            "profile_job_id": profile_job_id,
+        },
+    }
+
+
+def _assert_observed_add_result(result, expected_results, migration_job_id=None, profile_job_id=None):
+    assert result["results"] == expected_results
+    assert result["background"] == {
+        "migration_job_id": migration_job_id,
+        "profile_job_id": profile_job_id,
+    }
+    assert result["observability"]["trace_id"]
+    assert "trace_id" not in result
+    assert "migration_job_id" not in result
+    assert "profile_job_id" not in result
+
+
 @pytest.fixture(autouse=True)
 def disable_add_notices(monkeypatch):
     monkeypatch.setattr(memory_main, "detect_scale_threshold_from_add_result", lambda *args: None)
@@ -101,10 +139,7 @@ def test_sync_add_saves_short_term_synchronously_without_running_extractors():
 
         result = memory.add(_qa(1), user_id="u1", run_id="r1")
 
-        assert result == {
-            "results": [],
-            "background": {"migration_job_id": None, "profile_job_id": None},
-        }
+        _assert_add_result(result, [])
         assert _contents(db.get_messages("run_id=r1&user_id=u1")) == ["u1", "a1"]
         memory._process_midterm_evictions.assert_not_called()
         memory._process_evicted_long_term_memories.assert_not_called()
@@ -232,6 +267,33 @@ def test_infer_true_passes_declared_additive_prompt_inputs(monkeypatch):
         db.close()
 
 
+def test_longterm_payload_separates_user_trace_metadata_from_internal_trace():
+    db = SQLiteManager(":memory:")
+    try:
+        memory = _sync_memory(db, observability_enabled=True)
+        memory.embedding_model = MagicMock()
+        memory.embedding_model.embed.return_value = [0.1, 0.2]
+        memory.vector_store = MagicMock()
+        memory.vector_store.get.return_value = None
+        memory._create_memory = MagicMock(return_value="memory-1")
+
+        result = Memory._process_evicted_long_term_memories(
+            memory,
+            [{"role": "user", "content": "likes tea"}],
+            {"user_id": "u1", "trace_id": "user-owned-trace"},
+            {"user_id": "u1"},
+            infer=False,
+            trace_id="internal-trace",
+        )
+
+        assert result[0]["id"] == "memory-1"
+        stored_metadata = memory._create_memory.call_args.args[2]
+        assert stored_metadata["trace_id"] == "user-owned-trace"
+        assert stored_metadata["_mem0_trace_id"] == "internal-trace"
+    finally:
+        db.close()
+
+
 def test_procedural_add_keeps_existing_path_and_reports_no_migration_job():
     db = SQLiteManager(":memory:")
     try:
@@ -245,10 +307,7 @@ def test_procedural_add_keeps_existing_path_and_reports_no_migration_job():
             memory_type=MemoryType.PROCEDURAL.value,
         )
 
-        assert result == {
-            "results": [{"id": "procedure-1"}],
-            "background": {"migration_job_id": None, "profile_job_id": None},
-        }
+        _assert_add_result(result, [{"id": "procedure-1"}])
     finally:
         db.close()
 
@@ -304,15 +363,59 @@ def test_background_disabled_uses_sync_layered_and_profile_path():
 
         result = memory.add(_qa(2), user_id="u1", run_id="r1", infer=False)
 
-        assert result == {
-            "results": [{"id": "longterm-1", "event": "ADD"}],
-            "background": {"migration_job_id": None, "profile_job_id": None},
-        }
+        _assert_add_result(result, [{"id": "longterm-1", "event": "ADD"}])
         assert _contents(db.get_messages("run_id=r1&user_id=u1")) == ["u2", "a2"]
         assert memory._process_midterm_evictions.call_args.args[0][0]["content"] == "u1"
         memory._process_evicted_long_term_memories.assert_called_once()
         memory._update_profile_after_add.assert_called_once()
         assert db.background_jobs_pending() is False
+    finally:
+        db.close()
+
+
+def test_disabled_observability_preserves_metadata_and_does_not_propagate_trace():
+    db = SQLiteManager(":memory:")
+    try:
+        memory = _sync_memory(db, capacity=0, background_enabled=False, profile_enabled=True)
+        metadata = {"trace_id": "user-owned-trace", "topic": "tea"}
+
+        result = memory.add(_qa(1), user_id="u1", metadata=metadata, infer=False)
+
+        _assert_add_result(result, [])
+        assert metadata == {"trace_id": "user-owned-trace", "topic": "tea"}
+        longterm_call = memory._process_evicted_long_term_memories.call_args
+        assert longterm_call.args[1]["trace_id"] == "user-owned-trace"
+        assert "_mem0_trace_id" not in longterm_call.args[1]
+        assert longterm_call.kwargs["trace_id"] is None
+        assert "trace_id" not in memory._process_midterm_evictions.call_args.args[0][0]
+        assert memory._update_profile_after_add.call_args.kwargs["trace_id"] is None
+    finally:
+        db.close()
+
+
+def test_enabled_observability_keeps_user_metadata_separate_from_internal_trace():
+    db = SQLiteManager(":memory:")
+    try:
+        memory = _sync_memory(
+            db,
+            capacity=0,
+            background_enabled=False,
+            profile_enabled=True,
+            observability_enabled=True,
+        )
+        metadata = {"trace_id": "user-owned-trace", "topic": "tea"}
+
+        result = memory.add(_qa(1), user_id="u1", metadata=metadata, infer=False)
+
+        trace_id = result["observability"]["trace_id"]
+        _assert_observed_add_result(result, [])
+        assert metadata == {"trace_id": "user-owned-trace", "topic": "tea"}
+        longterm_call = memory._process_evicted_long_term_memories.call_args
+        assert longterm_call.args[1]["trace_id"] == "user-owned-trace"
+        assert "_mem0_trace_id" not in longterm_call.args[1]
+        assert longterm_call.kwargs["trace_id"] == trace_id
+        assert memory._process_midterm_evictions.call_args.args[0][0]["trace_id"] == trace_id
+        assert memory._update_profile_after_add.call_args.kwargs["trace_id"] == trace_id
     finally:
         db.close()
 
@@ -330,15 +433,41 @@ async def test_async_background_disabled_matches_sync_fallback():
 
         result = await memory.add(_qa(2), user_id="u1", run_id="r1", infer=False)
 
-        assert result == {
-            "results": [{"id": "longterm-1", "event": "ADD"}],
-            "background": {"migration_job_id": None, "profile_job_id": None},
-        }
+        _assert_add_result(result, [{"id": "longterm-1", "event": "ADD"}])
         assert _contents(db.get_messages("run_id=r1&user_id=u1")) == ["u2", "a2"]
         assert memory._process_midterm_evictions.call_args.args[0][0]["content"] == "u1"
         memory._process_evicted_long_term_memories.assert_awaited_once()
         memory._update_profile_after_add.assert_awaited_once()
         assert db.background_jobs_pending() is False
+    finally:
+        db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_enabled_observability_matches_sync_trace_and_response_shape(monkeypatch):
+    db = SQLiteManager(":memory:")
+    try:
+        async def run_inline(function, *args, **kwargs):
+            return function(*args, **kwargs)
+
+        monkeypatch.setattr(memory_main.asyncio, "to_thread", run_inline)
+        memory = _async_memory(
+            db,
+            capacity=0,
+            background_enabled=False,
+            observability_enabled=True,
+        )
+        metadata = {"trace_id": "user-owned-trace"}
+
+        result = await memory.add(_qa(1), user_id="u1", metadata=metadata, infer=False)
+
+        trace_id = result["observability"]["trace_id"]
+        _assert_observed_add_result(result, [])
+        assert metadata == {"trace_id": "user-owned-trace"}
+        longterm_call = memory._process_evicted_long_term_memories.call_args
+        assert longterm_call.args[1]["trace_id"] == "user-owned-trace"
+        assert longterm_call.kwargs["trace_id"] == trace_id
+        assert memory._process_midterm_evictions.call_args.args[0][0]["trace_id"] == trace_id
     finally:
         db.close()
 

@@ -45,6 +45,13 @@ def make_async_memory():
     return memory
 
 
+def assert_compatible_add_result(result):
+    assert result == {
+        "results": [],
+        "background": {"migration_job_id": None, "profile_job_id": None},
+    }
+
+
 def test_sync_add_temporal_metadata_triggers_notice_after_success(monkeypatch):
     memory = make_sync_memory()
     temporal_notice = MagicMock()
@@ -60,10 +67,7 @@ def test_sync_add_temporal_metadata_triggers_notice_after_success(monkeypatch):
         infer=False,
     )
 
-    assert result == {
-        "results": [],
-        "background": {"migration_job_id": None, "profile_job_id": None},
-    }
+    assert_compatible_add_result(result)
     memory._process_evicted_long_term_memories.assert_not_called()
     temporal_notice.assert_called_once_with(memory, "sync", "add", "metadata", "date_like_metadata")
     first_run_notice.assert_not_called()
@@ -170,10 +174,7 @@ async def test_async_add_temporal_metadata_triggers_notice_after_success(monkeyp
         infer=False,
     )
 
-    assert result == {
-        "results": [],
-        "background": {"migration_job_id": None, "profile_job_id": None},
-    }
+    assert_compatible_add_result(result)
     memory._process_evicted_long_term_memories.assert_not_awaited()
     temporal_notice.assert_awaited_once_with(memory, "async", "add", "metadata", "date_like_metadata")
     first_run_notice.assert_not_awaited()
@@ -199,10 +200,7 @@ async def test_async_add_runs_scale_detection_in_thread(monkeypatch):
 
     result = await AsyncMemory.add(memory, "The user likes tea.", user_id="u1", infer=False)
 
-    assert result == {
-        "results": [],
-        "background": {"migration_job_id": None, "profile_job_id": None},
-    }
+    assert_compatible_add_result(result)
     assert to_thread_calls[-1] == (scale_detector, (memory, []), {})
     scale_detector.assert_called_once_with(memory, [])
     scale_notice.assert_awaited_once_with(

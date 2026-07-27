@@ -32,6 +32,7 @@ class SQLiteManager:
         self._create_messages_table()
         self._create_background_job_tables()
         self._create_profile_tables()
+        self._create_observation_events_table()
         self._sync_predefined_profile_attributes()
 
     def _migrate_history_table(self) -> None:
@@ -151,6 +152,9 @@ class SQLiteManager:
                     CREATE TABLE IF NOT EXISTS messages (
                         id TEXT PRIMARY KEY,
                         session_scope TEXT,
+                        trace_id TEXT,
+                        user_id TEXT,
+                        run_id TEXT,
                         role TEXT,
                         content TEXT,
                         name TEXT,
@@ -165,6 +169,56 @@ class SQLiteManager:
                     self.connection.execute("ALTER TABLE messages ADD COLUMN status TEXT NOT NULL DEFAULT 'active'")
                 if "migration_job_id" not in columns:
                     self.connection.execute("ALTER TABLE messages ADD COLUMN migration_job_id TEXT")
+                if "trace_id" not in columns:
+                    self.connection.execute("ALTER TABLE messages ADD COLUMN trace_id TEXT")
+                added_scope_columns = False
+                if "user_id" not in columns:
+                    self.connection.execute("ALTER TABLE messages ADD COLUMN user_id TEXT")
+                    added_scope_columns = True
+                if "run_id" not in columns:
+                    self.connection.execute("ALTER TABLE messages ADD COLUMN run_id TEXT")
+                    added_scope_columns = True
+                if added_scope_columns:
+                    self.connection.execute(
+                        """
+                        UPDATE messages
+                        SET user_id = COALESCE(
+                                user_id,
+                                CASE
+                                    WHEN INSTR(session_scope, 'user_id=') > 0
+                                    THEN SUBSTR(
+                                        session_scope || '&',
+                                        INSTR(session_scope, 'user_id=') + LENGTH('user_id='),
+                                        INSTR(
+                                            SUBSTR(
+                                                session_scope || '&',
+                                                INSTR(session_scope, 'user_id=') + LENGTH('user_id=')
+                                            ),
+                                            '&'
+                                        ) - 1
+                                    )
+                                END
+                            ),
+                            run_id = COALESCE(
+                                run_id,
+                                CASE
+                                    WHEN INSTR(session_scope, 'run_id=') > 0
+                                    THEN SUBSTR(
+                                        session_scope || '&',
+                                        INSTR(session_scope, 'run_id=') + LENGTH('run_id='),
+                                        INSTR(
+                                            SUBSTR(
+                                                session_scope || '&',
+                                                INSTR(session_scope, 'run_id=') + LENGTH('run_id=')
+                                            ),
+                                            '&'
+                                        ) - 1
+                                    )
+                                END
+                            )
+                        WHERE user_id IS NULL OR run_id IS NULL
+                        """
+                    )
                 self.connection.execute(
                     """
                     CREATE INDEX IF NOT EXISTS idx_messages_scope_status
@@ -175,6 +229,24 @@ class SQLiteManager:
                     """
                     CREATE INDEX IF NOT EXISTS idx_messages_migration_job
                     ON messages(migration_job_id)
+                    """
+                )
+                self.connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_messages_trace
+                    ON messages(trace_id, created_at)
+                    """
+                )
+                self.connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_messages_user_created
+                    ON messages(user_id, created_at)
+                    """
+                )
+                self.connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_messages_run_created
+                    ON messages(run_id, created_at)
                     """
                 )
                 self.connection.execute("COMMIT")
@@ -191,7 +263,10 @@ class SQLiteManager:
                     """
                     CREATE TABLE IF NOT EXISTS memory_migration_jobs (
                         job_id TEXT PRIMARY KEY,
+                        trace_id TEXT,
                         session_scope TEXT NOT NULL,
+                        user_id TEXT,
+                        run_id TEXT,
                         status TEXT NOT NULL DEFAULT 'pending',
                         midterm_done INTEGER NOT NULL DEFAULT 0,
                         longterm_done INTEGER NOT NULL DEFAULT 0,
@@ -220,7 +295,10 @@ class SQLiteManager:
                     """
                     CREATE TABLE IF NOT EXISTS profile_update_jobs (
                         job_id TEXT PRIMARY KEY,
+                        trace_id TEXT,
                         user_id TEXT NOT NULL,
+                        run_id TEXT,
+                        session_scope TEXT,
                         messages_json TEXT NOT NULL,
                         status TEXT NOT NULL DEFAULT 'pending',
                         attempts INTEGER NOT NULL DEFAULT 0,
@@ -237,6 +315,60 @@ class SQLiteManager:
                     """
                     CREATE INDEX IF NOT EXISTS idx_profile_jobs_claim
                     ON profile_update_jobs(status, next_retry_at, created_at)
+                    """
+                )
+                migration_columns = {
+                    row[1] for row in self.connection.execute("PRAGMA table_info(memory_migration_jobs)").fetchall()
+                }
+                if "trace_id" not in migration_columns:
+                    self.connection.execute("ALTER TABLE memory_migration_jobs ADD COLUMN trace_id TEXT")
+                added_migration_scope_columns = False
+                if "user_id" not in migration_columns:
+                    self.connection.execute("ALTER TABLE memory_migration_jobs ADD COLUMN user_id TEXT")
+                    added_migration_scope_columns = True
+                if "run_id" not in migration_columns:
+                    self.connection.execute("ALTER TABLE memory_migration_jobs ADD COLUMN run_id TEXT")
+                    added_migration_scope_columns = True
+                if added_migration_scope_columns:
+                    self.connection.execute(
+                        """
+                        UPDATE memory_migration_jobs
+                        SET user_id = COALESCE(user_id, json_extract(filters_json, '$.user_id')),
+                            run_id = COALESCE(run_id, json_extract(filters_json, '$.run_id'))
+                        WHERE user_id IS NULL OR run_id IS NULL
+                        """
+                    )
+                profile_columns = {
+                    row[1] for row in self.connection.execute("PRAGMA table_info(profile_update_jobs)").fetchall()
+                }
+                if "trace_id" not in profile_columns:
+                    self.connection.execute("ALTER TABLE profile_update_jobs ADD COLUMN trace_id TEXT")
+                if "run_id" not in profile_columns:
+                    self.connection.execute("ALTER TABLE profile_update_jobs ADD COLUMN run_id TEXT")
+                if "session_scope" not in profile_columns:
+                    self.connection.execute("ALTER TABLE profile_update_jobs ADD COLUMN session_scope TEXT")
+                self.connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_migration_jobs_trace
+                    ON memory_migration_jobs(trace_id, created_at)
+                    """
+                )
+                self.connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_migration_jobs_user_created
+                    ON memory_migration_jobs(user_id, created_at)
+                    """
+                )
+                self.connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_migration_jobs_run_created
+                    ON memory_migration_jobs(run_id, created_at)
+                    """
+                )
+                self.connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_profile_jobs_trace
+                    ON profile_update_jobs(trace_id, created_at)
                     """
                 )
                 self.connection.execute("COMMIT")
@@ -282,6 +414,7 @@ class SQLiteManager:
                     CREATE TABLE IF NOT EXISTS user_profile_values (
                         user_id TEXT NOT NULL,
                         attribute_id INTEGER NOT NULL,
+                        trace_id TEXT,
                         value_json TEXT NOT NULL,
                         source_type TEXT NOT NULL DEFAULT 'explicit',
                         confidence REAL NOT NULL DEFAULT 1.0,
@@ -299,10 +432,81 @@ class SQLiteManager:
                     )
                     """
                 )
+                columns = {
+                    row[1] for row in self.connection.execute("PRAGMA table_info(user_profile_values)").fetchall()
+                }
+                if "trace_id" not in columns:
+                    self.connection.execute("ALTER TABLE user_profile_values ADD COLUMN trace_id TEXT")
+                self.connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_profile_values_trace
+                    ON user_profile_values(trace_id, updated_at)
+                    """
+                )
                 self.connection.execute("COMMIT")
             except Exception as e:
                 self.connection.execute("ROLLBACK")
                 logger.error("Failed to create profile tables: %s", e)
+                raise
+
+    def _create_observation_events_table(self) -> None:
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN IMMEDIATE")
+                self.connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS memory_observation_events (
+                        event_id TEXT PRIMARY KEY,
+                        trace_id TEXT NOT NULL,
+                        job_id TEXT,
+                        job_type TEXT,
+                        stage TEXT NOT NULL,
+                        event_type TEXT NOT NULL,
+                        status TEXT NOT NULL,
+                        user_id TEXT,
+                        run_id TEXT,
+                        session_scope TEXT,
+                        entity_type TEXT,
+                        entity_id TEXT,
+                        duration_ms REAL,
+                        input_json TEXT,
+                        output_json TEXT,
+                        before_json TEXT,
+                        after_json TEXT,
+                        error_type TEXT,
+                        error_message TEXT,
+                        created_at TEXT NOT NULL
+                    )
+                    """
+                )
+                self.connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_observation_trace_created
+                    ON memory_observation_events(trace_id, created_at)
+                    """
+                )
+                self.connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_observation_job_created
+                    ON memory_observation_events(job_id, created_at)
+                    """
+                )
+                self.connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_observation_status_created
+                    ON memory_observation_events(status, created_at)
+                    """
+                )
+                self.connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_observation_user_created
+                    ON memory_observation_events(user_id, created_at)
+                    """
+                )
+                self.connection.execute("COMMIT")
+            except Exception:
+                self.connection.execute("ROLLBACK")
+                logger.exception("Failed to create memory observation event table")
                 raise
 
     def _sync_predefined_profile_attributes(self) -> None:
@@ -463,6 +667,7 @@ class SQLiteManager:
         session_scope: str,
         max_messages: int = 10,
         return_evicted: bool = False,
+        trace_id: Optional[str] = None,
     ) -> Optional[List[Dict[str, Any]]]:
         if not messages:
             return [] if return_evicted else None
@@ -474,24 +679,28 @@ class SQLiteManager:
                     self.connection.execute(
                         """
                         INSERT INTO messages (
-                            id, session_scope, role, content, name, created_at, status, migration_job_id
+                            id, session_scope, trace_id, user_id, run_id,
+                            role, content, name, created_at, status, migration_job_id
                         )
-                        VALUES (?, ?, ?, ?, ?, ?, 'active', NULL)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NULL)
                     """,
                         (
                             str(uuid.uuid4()),
                             session_scope,
+                            trace_id,
+                            self._session_scope_value(session_scope, "user_id"),
+                            self._session_scope_value(session_scope, "run_id"),
                             message.get("role"),
                             message.get("content"),
                             message.get("name"),
                             now,
                         ),
-                )
+                    )
                 max_messages = max(int(max_messages), 0)
 
                 rows = self.connection.execute(
                     """
-                    SELECT id, role, content, name, created_at
+                    SELECT id, role, content, name, created_at, trace_id
                     FROM messages
                     WHERE session_scope = ? AND status = 'active'
                     ORDER BY DATETIME(created_at) ASC, rowid ASC
@@ -512,17 +721,19 @@ class SQLiteManager:
                         (session_scope, *evicted_ids),
                     )
 
-                evicted_messages = [
-                    {
-                        "id": r[0],
-                        "role": r[1],
-                        "content": r[2],
-                        "name": r[3],
-                        "created_at": r[4],
+                evicted_messages = []
+                for row in evicted_rows:
+                    message = {
+                        "id": row[0],
+                        "role": row[1],
+                        "content": row[2],
+                        "name": row[3],
+                        "created_at": row[4],
                         "session_scope": session_scope,
                     }
-                    for r in evicted_rows
-                ]
+                    if row[5] is not None:
+                        message["trace_id"] = row[5]
+                    evicted_messages.append(message)
 
                 if not return_evicted:
                     evicted_messages = None
@@ -538,7 +749,7 @@ class SQLiteManager:
         with self._lock:
             cur = self.connection.execute(
                 """
-                SELECT id, role, content, name, created_at
+                SELECT id, role, content, name, created_at, trace_id
                 FROM messages
                 WHERE session_scope = ? AND status = 'active'
                 ORDER BY DATETIME(created_at) ASC, rowid ASC
@@ -548,17 +759,20 @@ class SQLiteManager:
             )
             rows = cur.fetchall()
 
-        return [
-            {
-                "id": r[0],
-                "role": r[1],
-                "content": r[2],
-                "name": r[3],
-                "created_at": r[4],
+        messages = []
+        for row in rows:
+            message = {
+                "id": row[0],
+                "role": row[1],
+                "content": row[2],
+                "name": row[3],
+                "created_at": row[4],
                 "session_scope": session_scope,
             }
-            for r in rows
-        ]
+            if row[5] is not None:
+                message["trace_id"] = row[5]
+            messages.append(message)
+        return messages
 
     def delete_messages(self, message_ids: List[str]) -> int:
         if not message_ids:
@@ -619,6 +833,41 @@ class SQLiteManager:
             return None
         return {description[0]: value for description, value in zip(cursor.description, row)}
 
+    def insert_observation_event(self, event: Dict[str, Any]) -> None:
+        """Insert a normalized monitoring event using the manager's write lock."""
+
+        columns = (
+            "event_id",
+            "trace_id",
+            "job_id",
+            "job_type",
+            "stage",
+            "event_type",
+            "status",
+            "user_id",
+            "run_id",
+            "session_scope",
+            "entity_type",
+            "entity_id",
+            "duration_ms",
+            "input_json",
+            "output_json",
+            "before_json",
+            "after_json",
+            "error_type",
+            "error_message",
+            "created_at",
+        )
+        with self._lock:
+            self.connection.execute(
+                f"""
+                INSERT INTO memory_observation_events ({", ".join(columns)})
+                VALUES ({", ".join("?" for _ in columns)})
+                """,
+                tuple(event.get(column) for column in columns),
+            )
+            self.connection.commit()
+
     @staticmethod
     def _decode_migration_job(job: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         if job is None:
@@ -630,6 +879,8 @@ class SQLiteManager:
         decoded["midterm_done"] = bool(decoded["midterm_done"])
         decoded["longterm_done"] = bool(decoded["longterm_done"])
         decoded["degraded"] = bool(decoded["degraded"])
+        if decoded.get("trace_id") is None:
+            decoded.pop("trace_id", None)
         return decoded
 
     @staticmethod
@@ -638,7 +889,17 @@ class SQLiteManager:
             return None
         decoded = dict(job)
         decoded["messages"] = json.loads(decoded.pop("messages_json"))
+        if decoded.get("trace_id") is None:
+            decoded.pop("trace_id", None)
         return decoded
+
+    @staticmethod
+    def _session_scope_value(session_scope: str, key: str) -> Optional[str]:
+        prefix = f"{key}="
+        for item in (session_scope or "").split("&"):
+            if item.startswith(prefix):
+                return item.split("=", 1)[1]
+        return None
 
     def save_messages_and_create_migration_job(
         self,
@@ -650,6 +911,7 @@ class SQLiteManager:
         metadata: Dict[str, Any],
         infer: bool,
         prompt: Optional[str],
+        trace_id: Optional[str] = None,
     ) -> Optional[str]:
         """Synchronously save messages and atomically reserve active overflow for migration."""
         if not messages:
@@ -663,12 +925,16 @@ class SQLiteManager:
                     self.connection.execute(
                         """
                         INSERT INTO messages (
-                            id, session_scope, role, content, name, created_at, status, migration_job_id
-                        ) VALUES (?, ?, ?, ?, ?, ?, 'active', NULL)
+                            id, session_scope, trace_id, user_id, run_id,
+                            role, content, name, created_at, status, migration_job_id
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NULL)
                         """,
                         (
                             str(uuid.uuid4()),
                             session_scope,
+                            trace_id,
+                            filters.get("user_id"),
+                            filters.get("run_id"),
                             message.get("role"),
                             message.get("content"),
                             message.get("name"),
@@ -714,15 +980,19 @@ class SQLiteManager:
                 self.connection.execute(
                     """
                     INSERT INTO memory_migration_jobs (
-                        job_id, session_scope, status, midterm_done, longterm_done,
+                        job_id, trace_id, session_scope, user_id, run_id,
+                        status, midterm_done, longterm_done,
                         attempts, next_retry_at, last_error, filters_json,
                         metadata_json, infer, prompt, sequence_no, degraded,
                         created_at, updated_at
-                    ) VALUES (?, ?, 'pending', 0, 0, 0, NULL, NULL, ?, ?, ?, ?, ?, 0, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, 'pending', 0, 0, 0, NULL, NULL, ?, ?, ?, ?, ?, 0, ?, ?)
                     """,
                     (
                         job_id,
+                        trace_id,
                         session_scope,
+                        filters.get("user_id"),
+                        filters.get("run_id"),
                         self._json_dumps(filters),
                         self._json_dumps(metadata),
                         int(bool(infer)),
@@ -753,6 +1023,10 @@ class SQLiteManager:
         self,
         user_id: str,
         messages: List[Dict[str, Any]],
+        *,
+        trace_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        session_scope: Optional[str] = None,
     ) -> str:
         with self._lock:
             try:
@@ -770,11 +1044,21 @@ class SQLiteManager:
                 self.connection.execute(
                     """
                     INSERT INTO profile_update_jobs (
-                        job_id, user_id, messages_json, status, attempts,
+                        job_id, trace_id, user_id, run_id, session_scope, messages_json, status, attempts,
                         next_retry_at, last_error, sequence_no, created_at, updated_at
-                    ) VALUES (?, ?, ?, 'pending', 0, NULL, NULL, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, NULL, NULL, ?, ?, ?)
                     """,
-                    (job_id, user_id, self._json_dumps(messages), sequence_no, now, now),
+                    (
+                        job_id,
+                        trace_id,
+                        user_id,
+                        run_id,
+                        session_scope,
+                        self._json_dumps(messages),
+                        sequence_no,
+                        now,
+                        now,
+                    ),
                 )
                 self.connection.execute("COMMIT")
                 return job_id
@@ -787,25 +1071,28 @@ class SQLiteManager:
         with self._lock:
             rows = self.connection.execute(
                 """
-                SELECT id, session_scope, role, content, name, created_at, status
+                SELECT id, session_scope, trace_id, role, content, name, created_at, status
                 FROM messages
                 WHERE migration_job_id = ?
                 ORDER BY DATETIME(created_at) ASC, rowid ASC
                 """,
                 (job_id,),
             ).fetchall()
-        return [
-            {
+        messages = []
+        for row in rows:
+            message = {
                 "id": row[0],
                 "session_scope": row[1],
-                "role": row[2],
-                "content": row[3],
-                "name": row[4],
-                "created_at": row[5],
-                "status": row[6],
+                "role": row[3],
+                "content": row[4],
+                "name": row[5],
+                "created_at": row[6],
+                "status": row[7],
             }
-            for row in rows
-        ]
+            if row[2] is not None:
+                message["trace_id"] = row[2]
+            messages.append(message)
+        return messages
 
     def get_context_messages(
         self,
@@ -912,16 +1199,27 @@ class SQLiteManager:
                 raise
 
     def claim_next_migration_job(self) -> Optional[Dict[str, Any]]:
+        return self._claim_migration_job()
+
+    def claim_migration_job(self, job_id: str) -> Optional[Dict[str, Any]]:
+        """Claim one runnable migration job without bypassing per-session ordering."""
+
+        return self._claim_migration_job(job_id)
+
+    def _claim_migration_job(self, job_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         now = beijing_now_iso()
+        target_clause = "AND candidate.job_id = ?" if job_id else ""
+        parameters = (now, job_id) if job_id else (now,)
         with self._lock:
             try:
                 self.connection.execute("BEGIN IMMEDIATE")
                 cursor = self.connection.execute(
-                    """
+                    f"""
                     SELECT candidate.*
                     FROM memory_migration_jobs AS candidate
                     WHERE candidate.status IN ('pending', 'retry')
                       AND (candidate.next_retry_at IS NULL OR candidate.next_retry_at <= ?)
+                      {target_clause}
                       AND NOT EXISTS (
                           SELECT 1
                           FROM memory_migration_jobs AS earlier
@@ -932,13 +1230,14 @@ class SQLiteManager:
                     ORDER BY candidate.created_at ASC, candidate.rowid ASC
                     LIMIT 1
                     """,
-                    (now,),
+                    parameters,
                 )
                 row = cursor.fetchone()
                 job = self._row_as_dict(cursor, row)
                 if job is None:
                     self.connection.execute("COMMIT")
                     return None
+                claimed_from_status = job["status"]
                 updated = self.connection.execute(
                     """
                     UPDATE memory_migration_jobs
@@ -960,22 +1259,34 @@ class SQLiteManager:
                 self.connection.execute("COMMIT")
                 job["status"] = "running"
                 job["updated_at"] = now
+                job["claimed_from_status"] = claimed_from_status
                 return self._decode_migration_job(job)
             except Exception:
                 self.connection.execute("ROLLBACK")
                 raise
 
     def claim_next_profile_job(self) -> Optional[Dict[str, Any]]:
+        return self._claim_profile_job()
+
+    def claim_profile_job(self, job_id: str) -> Optional[Dict[str, Any]]:
+        """Claim one runnable profile job without bypassing per-user ordering."""
+
+        return self._claim_profile_job(job_id)
+
+    def _claim_profile_job(self, job_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         now = beijing_now_iso()
+        target_clause = "AND candidate.job_id = ?" if job_id else ""
+        parameters = (now, job_id) if job_id else (now,)
         with self._lock:
             try:
                 self.connection.execute("BEGIN IMMEDIATE")
                 cursor = self.connection.execute(
-                    """
+                    f"""
                     SELECT candidate.*
                     FROM profile_update_jobs AS candidate
                     WHERE candidate.status IN ('pending', 'retry')
                       AND (candidate.next_retry_at IS NULL OR candidate.next_retry_at <= ?)
+                      {target_clause}
                       AND NOT EXISTS (
                           SELECT 1
                           FROM profile_update_jobs AS earlier
@@ -986,13 +1297,14 @@ class SQLiteManager:
                     ORDER BY candidate.created_at ASC, candidate.rowid ASC
                     LIMIT 1
                     """,
-                    (now,),
+                    parameters,
                 )
                 row = cursor.fetchone()
                 job = self._row_as_dict(cursor, row)
                 if job is None:
                     self.connection.execute("COMMIT")
                     return None
+                claimed_from_status = job["status"]
                 updated = self.connection.execute(
                     """
                     UPDATE profile_update_jobs
@@ -1007,6 +1319,7 @@ class SQLiteManager:
                 self.connection.execute("COMMIT")
                 job["status"] = "running"
                 job["updated_at"] = now
+                job["claimed_from_status"] = claimed_from_status
                 return self._decode_profile_job(job)
             except Exception:
                 self.connection.execute("ROLLBACK")
@@ -1367,7 +1680,7 @@ class SQLiteManager:
 
     @staticmethod
     def _user_profile_value_from_row(row) -> Dict[str, Any]:
-        return {
+        value = {
             "user_id": row[0],
             "attribute_id": row[1],
             "attribute_key": row[2],
@@ -1384,6 +1697,9 @@ class SQLiteManager:
             "created_at": row[13],
             "updated_at": row[14],
         }
+        if row[15] is not None:
+            value["trace_id"] = row[15]
+        return value
 
     def _get_user_profile_values_locked(self, user_id: str) -> List[Dict[str, Any]]:
         rows = self.connection.execute(
@@ -1392,7 +1708,7 @@ class SQLiteManager:
                    a.attribute_category, a.description, a.value_type,
                    a.value_schema_json, a.merge_policy, v.value_json,
                    v.source_type, v.confidence, v.value_version,
-                   v.created_at, v.updated_at
+                   v.created_at, v.updated_at, v.trace_id
             FROM user_profile_values AS v
             JOIN profile_attributes AS a ON a.attribute_id = v.attribute_id
             WHERE v.user_id = ? AND a.is_active = 1
@@ -1410,7 +1726,7 @@ class SQLiteManager:
     def _get_user_profile_value_locked(self, user_id: str, attribute_id: int) -> Optional[Dict[str, Any]]:
         row = self.connection.execute(
             """
-            SELECT value_json, source_type, confidence, value_version, created_at, updated_at
+            SELECT value_json, source_type, confidence, value_version, created_at, updated_at, trace_id
             FROM user_profile_values
             WHERE user_id = ? AND attribute_id = ?
             """,
@@ -1418,7 +1734,7 @@ class SQLiteManager:
         ).fetchone()
         if row is None:
             return None
-        return {
+        value = {
             "value": json.loads(row[0]),
             "source_type": row[1],
             "confidence": row[2],
@@ -1426,6 +1742,9 @@ class SQLiteManager:
             "created_at": row[4],
             "updated_at": row[5],
         }
+        if row[6] is not None:
+            value["trace_id"] = row[6]
+        return value
 
     def _upsert_user_profile_value_locked(
         self,
@@ -1434,22 +1753,24 @@ class SQLiteManager:
         value_json: str,
         source_type: str,
         confidence: float,
+        trace_id: Optional[str] = None,
     ) -> None:
         now = beijing_now_iso()
         self.connection.execute(
             """
             INSERT INTO user_profile_values (
-                user_id, attribute_id, value_json, source_type, confidence,
+                user_id, attribute_id, trace_id, value_json, source_type, confidence,
                 value_version, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, 1, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
             ON CONFLICT(user_id, attribute_id) DO UPDATE SET
+                trace_id = excluded.trace_id,
                 value_json = excluded.value_json,
                 source_type = excluded.source_type,
                 confidence = excluded.confidence,
                 value_version = user_profile_values.value_version + 1,
                 updated_at = excluded.updated_at
             """,
-            (user_id, attribute_id, value_json, source_type, confidence, now, now),
+            (user_id, attribute_id, trace_id, value_json, source_type, confidence, now, now),
         )
 
     @staticmethod
@@ -1467,6 +1788,7 @@ class SQLiteManager:
         source_type: str = "explicit",
         confidence: float = 1.0,
         max_value_json_bytes: int = 16384,
+        trace_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Validate and replace one current profile value."""
         self._validate_value_metadata(source_type, confidence)
@@ -1486,6 +1808,7 @@ class SQLiteManager:
                     value_json,
                     source_type,
                     confidence,
+                    trace_id,
                 )
                 current = self._get_user_profile_value_locked(user_id, definition["attribute_id"])
                 self.connection.execute("COMMIT")
@@ -1530,6 +1853,7 @@ class SQLiteManager:
         user_id: str,
         plan: Any,
         max_value_json_bytes: int = 16384,
+        trace_id: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """Atomically apply a validated profile plan against the latest stored values."""
         update_plan = plan if isinstance(plan, ProfileUpdatePlan) else ProfileUpdatePlan.model_validate(plan)
@@ -1563,6 +1887,7 @@ class SQLiteManager:
                         value_json,
                         "explicit",
                         1.0,
+                        trace_id,
                     )
                 values = self._get_user_profile_values_locked(user_id)
                 self.connection.execute("COMMIT")
@@ -1582,6 +1907,7 @@ class SQLiteManager:
                 self.connection.execute("DROP TABLE IF EXISTS profile_attributes")
                 self.connection.execute("DROP TABLE IF EXISTS profile_update_jobs")
                 self.connection.execute("DROP TABLE IF EXISTS memory_migration_jobs")
+                self.connection.execute("DROP TABLE IF EXISTS memory_observation_events")
                 self.connection.execute("DROP TABLE IF EXISTS history")
                 self.connection.execute("DROP TABLE IF EXISTS messages")
                 self.connection.execute("COMMIT")

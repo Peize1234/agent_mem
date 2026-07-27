@@ -5,10 +5,11 @@ from types import SimpleNamespace
 import pytest
 
 from mem0 import Memory
-from mem0.configs.base import MemoryConfig, MidTermMemoryConfig
+from mem0.configs.base import MemoryConfig, MidTermMemoryConfig, ObservabilityConfig
 from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT, MIDTERM_SESSION_MERGE_PROMPT
 from mem0.memory.midterm_retriever import MidTermRetriever
 from mem0.memory.midterm_updater import MidTermUpdater
+from mem0.memory.observability import ObservationContext
 from mem0.memory.storage import SQLiteManager
 
 
@@ -75,6 +76,14 @@ class FakeLLM:
         if "债券基金" in text or "基金配置" in text:
             return "用户偏好较高比例配置债券基金。"
         return None
+
+
+class EventCollector:
+    def __init__(self):
+        self.events = []
+
+    def emit(self, event):
+        self.events.append(event)
 
 
 def test_midterm_prompts_are_chinese_and_preserve_json_contract():
@@ -450,6 +459,112 @@ def test_session_merge_uses_llm_and_bounds_keywords():
     ]
 
 
+def test_page_summary_fallback_uses_stage_events_without_marking_midterm_failed():
+    class FailingLLM:
+        def generate_response(self, *args, **kwargs):
+            raise RuntimeError("summary unavailable")
+
+    sink = EventCollector()
+    updater = MidTermUpdater(
+        midterm_memory=None,
+        llm=FailingLLM(),
+        config=MidTermMemoryConfig(),
+        observation_sink=sink,
+        observability_config=ObservabilityConfig(enabled=True),
+    )
+    context = ObservationContext(trace_id="trace-1")
+
+    summary, keywords = updater._summarize_page(
+        "用户偏好低风险",
+        "已记录",
+        observation_context=context,
+    )
+
+    assert summary == "用户偏好低风险"
+    assert keywords
+    event_types = [event.event_type for event in sink.events]
+    assert event_types == [
+        "midterm.page_summary_started",
+        "midterm.page_summary_failed",
+        "midterm.page_summary_fallback",
+    ]
+    assert "midterm.failed" not in event_types
+
+
+def test_session_merge_fallback_has_specific_events():
+    class FailingLLM:
+        def generate_response(self, *args, **kwargs):
+            raise RuntimeError("merge unavailable")
+
+    sink = EventCollector()
+    updater = MidTermUpdater(
+        midterm_memory=None,
+        llm=FailingLLM(),
+        config=MidTermMemoryConfig(),
+        observation_sink=sink,
+        observability_config=ObservabilityConfig(enabled=True),
+    )
+
+    summary, keywords = updater._merge_session(
+        "existing",
+        ["old"],
+        "new",
+        ["new"],
+        observation_context=ObservationContext(trace_id="trace-1"),
+    )
+
+    assert summary == "existing new"
+    assert keywords == ["old", "new"]
+    assert [event.event_type for event in sink.events] == [
+        "midterm.session_merge_failed",
+        "midterm.session_merge_fallback",
+    ]
+
+
+def test_session_created_trace_is_preserved_when_later_page_is_appended():
+    class SessionStore:
+        def __init__(self):
+            self.session = SimpleNamespace(
+                payload={
+                    "summary": "first",
+                    "summary_keywords": ["first"],
+                    "page_ids": ["page-1"],
+                    "R_recency": 1.0,
+                    "created_trace_id": "trace-1",
+                    "created_source_job_id": "job-1",
+                    "last_updated_trace_id": "trace-1",
+                    "last_updated_source_job_id": "job-1",
+                }
+            )
+
+        def get_session(self, session_id):
+            return self.session
+
+        def update_session(self, session_id, payload, reembed):
+            self.session.payload = payload
+
+    store = SessionStore()
+    updater = MidTermUpdater(store, FakeLLM(), MidTermMemoryConfig())
+    updater._append_page_to_session(
+        "session-1",
+        {
+            "id": "page-2",
+            "summary": "second",
+            "keywords": ["second"],
+            "trace_id": "trace-2",
+            "source_job_id": "job-2",
+        },
+        use_llm=False,
+    )
+
+    payload = store.session.payload
+    assert payload["created_trace_id"] == "trace-1"
+    assert payload["created_source_job_id"] == "job-1"
+    assert payload["last_updated_trace_id"] == "trace-2"
+    assert payload["last_updated_source_job_id"] == "job-2"
+    assert "trace_id" not in payload
+
+
 def test_memory_search_returns_long_and_midterm_sources(tmp_path, fake_memory_env):
     memory = Memory(_memory_config(tmp_path, collection_name="midterm_sources"))
     filters = {"user_id": "u1"}
@@ -468,7 +583,13 @@ def test_memory_search_returns_long_and_midterm_sources(tmp_path, fake_memory_en
         )
 
     assert memory.flush_background_tasks(5)
-    assert memory.midterm_memory.list_pages(filters=filters, top_k=10)
+    pages = memory.midterm_memory.list_pages(filters=filters, top_k=10)
+    sessions = memory.midterm_memory.list_sessions(filters=filters, top_k=10)
+    longterm_rows = memory.vector_store.list(filters=filters, top_k=10)
+    assert pages
+    assert all("trace_id" not in row.payload for row in pages)
+    assert all("created_trace_id" not in row.payload for row in sessions)
+    assert all("_mem0_trace_id" not in row.payload for row in longterm_rows)
     result = memory.search("我能接受多大亏损？", filters=filters, top_k=5)
     sources = {item.get("source") for item in result["results"]}
     assert {"long_term", "mid_term_session", "mid_term_page"}.issubset(sources)
@@ -476,7 +597,9 @@ def test_memory_search_returns_long_and_midterm_sources(tmp_path, fake_memory_en
 
 
 def test_memory_add_infer_true_updates_long_and_midterm(tmp_path, fake_memory_env):
-    memory = Memory(_memory_config(tmp_path, collection_name="midterm_infer_true"))
+    config = _memory_config(tmp_path, collection_name="midterm_infer_true")
+    config.observability.enabled = True
+    memory = Memory(config)
     filters = {"user_id": "u1"}
     turns = [
         (
@@ -508,8 +631,17 @@ def test_memory_add_infer_true_updates_long_and_midterm(tmp_path, fake_memory_en
     assert pages
     assert sessions
     assert {row.payload["source_job_id"] for row in pages}.issubset(set(migration_job_ids))
+    trace_by_job = {job_id: memory.get_background_job(job_id)["trace_id"] for job_id in migration_job_ids}
+    for row in pages:
+        assert row.payload["trace_id"] == trace_by_job[row.payload["source_job_id"]]
+    for row in sessions:
+        assert row.payload["created_trace_id"] == trace_by_job[row.payload["created_source_job_id"]]
+        assert row.payload["last_updated_trace_id"] == trace_by_job[row.payload["last_updated_source_job_id"]]
+        assert "trace_id" not in row.payload
     longterm_rows = memory.vector_store.list(filters=filters, top_k=10)
     assert {row.payload["source_job_id"] for row in longterm_rows}.issubset(set(migration_job_ids))
+    for row in longterm_rows:
+        assert row.payload["_mem0_trace_id"] == trace_by_job[row.payload["source_job_id"]]
     for row in [*pages, *sessions]:
         assert row.payload["created_at"].endswith("+08:00")
         assert row.payload["updated_at"].endswith("+08:00")

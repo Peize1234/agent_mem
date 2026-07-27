@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 
 from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT, MIDTERM_SESSION_MERGE_PROMPT
 from mem0.memory.midterm import compute_session_heat, keyword_overlap
+from mem0.memory.observability import NoOpObservationSink, ObservationContext, emit_safely, observation_stage
 from mem0.memory.utils import extract_json, remove_code_blocks
 from mem0.utils.timestamps import (
     BEIJING_TIMEZONE,
@@ -18,17 +19,63 @@ logger = logging.getLogger(__name__)
 
 
 class MidTermUpdater:
-    def __init__(self, midterm_memory, llm, config):
+    def __init__(self, midterm_memory, llm, config, observation_sink=None, observability_config=None):
         self.midterm_memory = midterm_memory
         self.llm = llm
         self.config = config
+        self.observation_sink = observation_sink or NoOpObservationSink()
+        self.observability_config = observability_config
+
+    def _context(
+        self,
+        trace_id: str,
+        filters: Dict[str, Any],
+        source_job_id: Optional[str],
+    ) -> ObservationContext:
+        config = self.observability_config
+        return ObservationContext(
+            trace_id=trace_id,
+            capture_payloads=getattr(config, "capture_payloads", True),
+            max_payload_length=getattr(config, "max_payload_length", 20000),
+            job_id=source_job_id,
+            job_type="migration" if source_job_id else None,
+            user_id=filters.get("user_id"),
+            run_id=filters.get("run_id"),
+        )
+
+    def _observability_enabled(self) -> bool:
+        return bool(getattr(self.observability_config, "enabled", False))
+
+    def _emit(
+        self,
+        context: Optional[ObservationContext],
+        event_type: str,
+        status: str,
+        *,
+        output_data: Any = None,
+        entity_type: Optional[str] = None,
+        entity_id: Optional[str] = None,
+    ) -> None:
+        if context is None:
+            return
+
+        def build_event():
+            event = context.event(
+                stage="midterm",
+                event_type=event_type,
+                status=status,
+                output_data=output_data,
+            )
+            event.entity_type = entity_type
+            event.entity_id = entity_id
+            return event
+
+        emit_safely(self.observation_sink, build_event)
 
     @staticmethod
     def _scope_filters(filters: Dict[str, Any]) -> Dict[str, Any]:
         return {
-            key: value
-            for key, value in (filters or {}).items()
-            if key in ("user_id", "agent_id", "run_id") and value
+            key: value for key, value in (filters or {}).items() if key in ("user_id", "agent_id", "run_id") and value
         }
 
     @staticmethod
@@ -76,30 +123,47 @@ class MidTermUpdater:
         assistant_response: str,
         *,
         allow_fallback: bool = True,
+        observation_context: Optional[ObservationContext] = None,
     ) -> tuple[str, List[str]]:
         raw_dialogue = f"User: {user_input}\nAssistant: {assistant_response}".strip()
         try:
-            response = self.llm.generate_response(
-                messages=[
-                    {"role": "system", "content": MIDTERM_PAGE_SUMMARY_PROMPT},
-                    {"role": "user", "content": raw_dialogue},
-                ],
-                response_format={"type": "json_object"},
-            )
-            parsed = self._parse_json_response(response)
-            summary = str(parsed.get("summary") or "").strip()
-            keywords = parsed.get("keywords") or []
-            if isinstance(keywords, str):
-                keywords = [item.strip() for item in keywords.split(",") if item.strip()]
-            keywords = [str(item).strip() for item in keywords if str(item).strip()]
-            if summary:
+            with observation_stage(
+                self.observation_sink,
+                observation_context,
+                "midterm.page_summary",
+                started_event="midterm.page_summary_started",
+                succeeded_event="midterm.page_summary_finished",
+                failed_event="midterm.page_summary_failed",
+                input_data={"input_characters": len(raw_dialogue)},
+            ) as state:
+                response = self.llm.generate_response(
+                    messages=[
+                        {"role": "system", "content": MIDTERM_PAGE_SUMMARY_PROMPT},
+                        {"role": "user", "content": raw_dialogue},
+                    ],
+                    response_format={"type": "json_object"},
+                )
+                if observation_context:
+                    state["output"] = {"response_characters": len(str(response))}
+                parsed = self._parse_json_response(response)
+                summary = str(parsed.get("summary") or "").strip()
+                keywords = parsed.get("keywords") or []
+                if isinstance(keywords, str):
+                    keywords = [item.strip() for item in keywords.split(",") if item.strip()]
+                keywords = [str(item).strip() for item in keywords if str(item).strip()]
+                if not summary:
+                    raise ValueError("midterm page summary response did not contain a summary")
                 return summary, keywords[:8] or self._fallback_keywords(raw_dialogue)
-            if not allow_fallback:
-                raise ValueError("midterm page summary response did not contain a summary")
         except Exception as exc:
             if not allow_fallback:
                 raise
             logger.debug("Midterm page summarization failed; using fallback: %s", exc)
+            self._emit(
+                observation_context,
+                "midterm.page_summary_fallback",
+                "succeeded_degraded",
+                output_data={"reason": type(exc).__name__},
+            )
 
         summary = user_input.strip() or raw_dialogue[:240]
         if len(summary) > 240:
@@ -228,6 +292,7 @@ class MidTermUpdater:
         page_keywords: List[str],
         *,
         allow_fallback: bool = True,
+        observation_context: Optional[ObservationContext] = None,
     ) -> tuple[str, List[str]]:
         fallback = self._fallback_merge_session(
             existing_summary,
@@ -263,12 +328,23 @@ class MidTermUpdater:
             keywords = self._dedupe_keywords(keywords, existing_keywords, page_keywords)
             if summary:
                 return summary[:1000], keywords[:12] or fallback[1]
-            if not allow_fallback:
-                raise ValueError("midterm session merge response did not contain a summary")
+            raise ValueError("midterm session merge response did not contain a summary")
         except Exception as exc:
+            self._emit(
+                observation_context,
+                "midterm.session_merge_failed",
+                "failed",
+                output_data={"reason": type(exc).__name__},
+            )
             if not allow_fallback:
                 raise
             logger.debug("Midterm session merge failed; using fallback: %s", exc)
+            self._emit(
+                observation_context,
+                "midterm.session_merge_fallback",
+                "succeeded_degraded",
+                output_data={"reason": type(exc).__name__},
+            )
 
         return fallback
 
@@ -289,6 +365,7 @@ class MidTermUpdater:
         if page_payload["id"] in page_ids:
             return session_id
         page_ids.append(page_payload["id"])
+        observation_context = page_payload.get("_observation_context")
 
         if use_llm:
             summary, keywords = self._merge_session(
@@ -297,6 +374,7 @@ class MidTermUpdater:
                 page_payload.get("summary", ""),
                 page_payload.get("keywords") or [],
                 allow_fallback=allow_fallback,
+                observation_context=observation_context,
             )
         else:
             summary, keywords = self._fallback_merge_session(
@@ -314,9 +392,26 @@ class MidTermUpdater:
                 "updated_at": beijing_now_iso(),
             }
         )
+        if page_payload.get("trace_id"):
+            payload.setdefault("created_trace_id", payload.get("trace_id") or page_payload["trace_id"])
+            payload.setdefault(
+                "created_source_job_id",
+                payload.get("source_job_id") or page_payload.get("source_job_id"),
+            )
+            payload["last_updated_trace_id"] = page_payload["trace_id"]
+            payload["last_updated_source_job_id"] = page_payload.get("source_job_id")
         payload["R_recency"] = float(payload.get("R_recency", 1.0) or 1.0)
         payload["H_segment"] = compute_session_heat(payload, self.config)
         self.midterm_memory.update_session(session_id, payload, reembed=True)
+        if observation_context:
+            self._emit(
+                observation_context,
+                "midterm.session_merged",
+                "succeeded",
+                output_data={"page_count": len(page_ids)},
+                entity_type="midterm_session",
+                entity_id=session_id,
+            )
         return session_id
 
     def _create_session(self, page_payload: Dict[str, Any], session_id: Optional[str] = None) -> str:
@@ -339,8 +434,26 @@ class MidTermUpdater:
             "run_id": page_payload.get("run_id"),
             "source_job_id": page_payload.get("source_job_id"),
         }
+        if page_payload.get("trace_id"):
+            payload.update(
+                {
+                    "created_trace_id": page_payload["trace_id"],
+                    "created_source_job_id": page_payload.get("source_job_id"),
+                    "last_updated_trace_id": page_payload["trace_id"],
+                    "last_updated_source_job_id": page_payload.get("source_job_id"),
+                }
+            )
         payload["H_segment"] = compute_session_heat(payload, self.config)
         self.midterm_memory.insert_session(session_id, payload)
+        observation_context = page_payload.get("_observation_context")
+        if observation_context:
+            self._emit(
+                observation_context,
+                "midterm.session_created",
+                "succeeded",
+                entity_type="midterm_session",
+                entity_id=session_id,
+            )
         return session_id
 
     def _assign_session(
@@ -358,9 +471,18 @@ class MidTermUpdater:
             filters=filters,
             top_k=self.config.top_k_sessions,
         )
+        observation_context = page_payload.get("_observation_context")
+        if observation_context:
+            self._emit(
+                observation_context,
+                "midterm.session_candidates_found",
+                "succeeded",
+                output_data={"candidate_count": len(candidate_sessions)},
+            )
 
         best_session_id = None
         best_score = -1.0
+        candidate_scores = []
         for session in candidate_sessions:
             payload = getattr(session, "payload", None) or {}
             embedding_score = float(getattr(session, "score", 0.0) or 0.0)
@@ -369,11 +491,41 @@ class MidTermUpdater:
                 self.config.embedding_similarity_weight * embedding_score
                 + self.config.keyword_overlap_weight * overlap_score
             )
+            if observation_context:
+                score = {
+                    "session_id": str(session.id),
+                    "embedding_similarity": embedding_score,
+                    "keyword_score": overlap_score,
+                    "combined_score": combined_score,
+                    "threshold": self.config.session_similarity_threshold,
+                }
+                candidate_scores.append(score)
+                self._emit(
+                    observation_context,
+                    "midterm.session_score_computed",
+                    "succeeded",
+                    output_data=score,
+                    entity_type="midterm_session",
+                    entity_id=str(session.id),
+                )
             if combined_score > best_score:
                 best_score = combined_score
                 best_session_id = str(session.id)
 
-        if best_session_id and best_score >= self.config.session_similarity_threshold:
+        matched = bool(best_session_id and best_score >= self.config.session_similarity_threshold)
+        if observation_context:
+            self._emit(
+                observation_context,
+                "midterm.session_score_computed",
+                "succeeded",
+                output_data={
+                    "candidates": candidate_scores,
+                    "threshold": self.config.session_similarity_threshold,
+                    "decision": "merge" if matched else "create",
+                    "selected_session_id": best_session_id if matched else new_session_id,
+                },
+            )
+        if matched:
             return self._append_page_to_session(
                 best_session_id,
                 page_payload,
@@ -388,7 +540,46 @@ class MidTermUpdater:
         filters: Dict[str, Any],
         *,
         source_job_id: Optional[str] = None,
+        trace_id: Optional[str] = None,
         degraded: bool = False,
+    ) -> List[Dict[str, Any]]:
+        effective_trace_id = trace_id if self._observability_enabled() else None
+        context = (
+            self._context(effective_trace_id, self._scope_filters(filters), source_job_id)
+            if effective_trace_id
+            else None
+        )
+        event_type = "midterm.degraded" if degraded else "midterm.succeeded"
+        with observation_stage(
+            self.observation_sink,
+            context,
+            "midterm",
+            started_event="midterm.started",
+            succeeded_event=event_type,
+            failed_event="midterm.failed",
+            input_data={"message_count": len(evicted_messages or [])},
+        ) as state:
+            pages = self._process_evicted_messages(
+                evicted_messages,
+                filters,
+                source_job_id=source_job_id,
+                trace_id=effective_trace_id,
+                degraded=degraded,
+                observation_context=context,
+            )
+            if context:
+                state["output"] = {"page_count": len(pages)}
+            return pages
+
+    def _process_evicted_messages(
+        self,
+        evicted_messages: List[Dict[str, Any]],
+        filters: Dict[str, Any],
+        *,
+        source_job_id: Optional[str],
+        trace_id: Optional[str],
+        degraded: bool,
+        observation_context: Optional[ObservationContext],
     ) -> List[Dict[str, Any]]:
         scope_filters = self._scope_filters(filters)
         if not evicted_messages or not scope_filters:
@@ -396,7 +587,14 @@ class MidTermUpdater:
 
         pages = []
         previous_page_id = self._latest_page_id(scope_filters)
-        for index, qa_pair in enumerate(self._messages_to_qa_pairs(evicted_messages)):
+        qa_pairs = self._messages_to_qa_pairs(evicted_messages)
+        for index, qa_pair in enumerate(qa_pairs):
+            self._emit(
+                observation_context,
+                "midterm.qa_pair_created",
+                "succeeded",
+                output_data={"index": index, "qa_pair_count": len(qa_pairs)},
+            )
             page_id = (
                 str(uuid.uuid5(uuid.NAMESPACE_URL, f"mem0:midterm:{source_job_id}:{index}"))
                 if source_job_id
@@ -404,8 +602,7 @@ class MidTermUpdater:
             )
             now = beijing_now_iso()
             raw_dialogue = (
-                f"User: {qa_pair.get('user_input', '')}\n"
-                f"Assistant: {qa_pair.get('assistant_response', '')}"
+                f"User: {qa_pair.get('user_input', '')}\nAssistant: {qa_pair.get('assistant_response', '')}"
             ).strip()
             existing_page = self.midterm_memory.get_page(page_id) if source_job_id else None
             if existing_page:
@@ -429,6 +626,7 @@ class MidTermUpdater:
                         qa_pair.get("user_input", ""),
                         qa_pair.get("assistant_response", ""),
                         allow_fallback=source_job_id is None,
+                        observation_context=observation_context,
                     )
                 created_at = normalize_iso_timestamp_to_beijing(qa_pair.get("created_at")) or now
                 page_payload = {
@@ -450,7 +648,23 @@ class MidTermUpdater:
                     "degraded": degraded,
                     "needs_reprocessing": degraded,
                 }
-                self.midterm_memory.insert_page(page_id, page_payload)
+                if trace_id:
+                    page_payload["trace_id"] = trace_id
+                if observation_context:
+                    page_payload["_observation_context"] = observation_context
+                stored_page_payload = {
+                    key: value for key, value in page_payload.items() if key != "_observation_context"
+                }
+                self.midterm_memory.insert_page(page_id, stored_page_payload)
+                self._emit(
+                    observation_context,
+                    "midterm.page_written",
+                    "succeeded",
+                    entity_type="midterm_page",
+                    entity_id=page_id,
+                )
+            if observation_context:
+                page_payload["_observation_context"] = observation_context
             self._link_previous_page(previous_page_id, page_id)
 
             new_session_id = (
@@ -469,8 +683,17 @@ class MidTermUpdater:
                 )
             page_payload["session_id"] = session_id
             page_payload["updated_at"] = beijing_now_iso()
-            self.midterm_memory.update_page(page_id, page_payload, reembed=False)
-            pages.append(page_payload)
+            stored_page_payload = {key: value for key, value in page_payload.items() if key != "_observation_context"}
+            self.midterm_memory.update_page(page_id, stored_page_payload, reembed=False)
+            self._emit(
+                observation_context,
+                "midterm.page_linked",
+                "succeeded",
+                output_data={"session_id": session_id},
+                entity_type="midterm_page",
+                entity_id=page_id,
+            )
+            pages.append(stored_page_payload)
             previous_page_id = page_id
 
         return pages

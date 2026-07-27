@@ -83,6 +83,9 @@ test = [
     "pytest-mock>=3.14.0",
     "pytest-asyncio>=0.23.7",
 ]
+monitor = [
+    "streamlit>=1.36.0",
+]
 dev = [
     "ruff>=0.6.5",
     "isort>=5.13.2",
@@ -96,16 +99,20 @@ pythonpath = ["."]
 include = [
     "mem0/**/*.py",
     "mem0/configs/finance_bm25_dict.txt",
+    "memory_monitor/**/*.py",
+    "memory_monitor/README.md",
 ]
 exclude = [
     "**/*",
     "!mem0/**/*.py",
     "!mem0/configs/finance_bm25_dict.txt",
+    "!memory_monitor/**/*.py",
+    "!memory_monitor/README.md",
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["mem0"]
-only-include = ["mem0"]
+packages = ["mem0", "memory_monitor"]
+only-include = ["mem0", "memory_monitor"]
 
 [tool.hatch.envs.dev_py_3_10]
 python = "3.10"
@@ -150,6 +157,14 @@ lint-fix = [
 test = [
     "pytest tests/ {args}",
 ]
+
+[tool.hatch.envs.monitor]
+features = [
+  "monitor",
+]
+
+[tool.hatch.envs.monitor.scripts]
+start = "streamlit run memory_monitor/app.py"
 
 [tool.ruff]
 line-length = 120

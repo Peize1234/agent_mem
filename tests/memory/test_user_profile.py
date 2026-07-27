@@ -66,6 +66,98 @@ def test_predefined_attributes_are_initialized(db):
     assert all(item["is_predefined"] for item in attributes)
 
 
+def test_apply_update_plan_validates_once_before_writing(profile_manager):
+    validate = MagicMock(wraps=profile_manager.validate_update_plan)
+    validated = MagicMock()
+    profile_manager.validate_update_plan = validate
+
+    profile = profile_manager.apply_update_plan(
+        "user-1",
+        {
+            "operations": [
+                {"operation": "set", "attribute_key": "risk_level", "value": "balanced"},
+            ]
+        },
+        on_validated=validated,
+    )
+
+    assert profile["profile"]["risk_level"] == "balanced"
+    validate.assert_called_once()
+    validated.assert_called_once_with()
+
+
+def test_profile_update_without_observability_trace_keeps_public_value_shape(profile_manager, db):
+    profile_manager.apply_update_plan(
+        "user-1",
+        {
+            "operations": [
+                {"operation": "set", "attribute_key": "risk_level", "value": "balanced"},
+            ]
+        },
+    )
+
+    stored = db.get_user_profile_values("user-1")[0]
+    database_trace = db.connection.execute(
+        "SELECT trace_id FROM user_profile_values WHERE user_id = ?",
+        ("user-1",),
+    ).fetchone()[0]
+    assert "trace_id" not in stored
+    assert database_trace is None
+
+
+@pytest.mark.parametrize(
+    ("first_trace_id", "second_trace_id", "expected_trace_id"),
+    [
+        pytest.param("trace-A", "trace-B", "trace-B", id="enabled-then-enabled"),
+        pytest.param("trace-A", None, None, id="enabled-then-disabled"),
+        pytest.param(None, "trace-B", "trace-B", id="disabled-then-enabled"),
+        pytest.param(None, None, None, id="always-disabled"),
+    ],
+)
+def test_profile_value_trace_matches_latest_update(
+    tmp_path,
+    first_trace_id,
+    second_trace_id,
+    expected_trace_id,
+):
+    manager = SQLiteManager(str(tmp_path / "profile.db"))
+    try:
+        manager.upsert_user_profile_value(
+            "user-1",
+            "risk_level",
+            "aggressive",
+            trace_id=first_trace_id,
+        )
+        current = manager.upsert_user_profile_value(
+            "user-1",
+            "risk_level",
+            "conservative",
+            trace_id=second_trace_id,
+        )
+        row = manager.connection.execute(
+            """
+            SELECT value_json, trace_id, value_version, source_type, confidence
+            FROM user_profile_values
+            WHERE user_id = ?
+            """,
+            ("user-1",),
+        ).fetchone()
+
+        assert json.loads(row[0]) == "conservative"
+        assert row[1] == expected_trace_id
+        assert row[2] == 2
+        assert row[3] == "explicit"
+        assert row[4] == 1.0
+        assert current["value"] == "conservative"
+        assert current["value_version"] == 2
+        if expected_trace_id is None:
+            assert "trace_id" not in current
+        else:
+            assert current["trace_id"] == expected_trace_id
+    finally:
+        manager.close()
+
+
 def test_dynamic_attributes_are_disabled_by_default(db):
     manager = ProfileManager(db, UserProfileConfig(allow_dynamic_attributes=False))
 

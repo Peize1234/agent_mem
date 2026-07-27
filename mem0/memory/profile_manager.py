@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import Any, Callable, Dict, Optional, TYPE_CHECKING
 
 from mem0.configs.base import UserProfileConfig
 from mem0.memory.profile_schema import ProfileUpdatePlan
@@ -58,20 +58,28 @@ class ProfileManager:
             if operation.operation == "set":
                 value_json = serialize_profile_value(operation.value)
                 if len(value_json.encode("utf-8")) > self.config.max_value_json_bytes:
-                    raise ValueError(
-                        f"Profile attribute '{operation.attribute_key}' exceeds max_value_json_bytes"
-                    )
+                    raise ValueError(f"Profile attribute '{operation.attribute_key}' exceeds max_value_json_bytes")
         return update_plan
 
-    def apply_update_plan(self, user_id: str, plan: Any) -> Dict[str, Any]:
+    def apply_update_plan(
+        self,
+        user_id: str,
+        plan: Any,
+        *,
+        trace_id: Optional[str] = None,
+        on_validated: Optional[Callable[[], None]] = None,
+    ) -> Dict[str, Any]:
         """Validate and atomically apply a profile update plan."""
         if not user_id:
             raise ValueError("user_id is required")
         update_plan = self.validate_update_plan(plan)
+        if on_validated is not None:
+            on_validated()
         self.db.apply_profile_update_plan(
             user_id,
             update_plan,
             max_value_json_bytes=self.config.max_value_json_bytes,
+            trace_id=trace_id,
         )
         return self.get_profile(user_id)
 
