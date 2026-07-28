@@ -8,7 +8,7 @@ import pytest
 
 from mem0.configs.base import BackgroundTaskConfig, UserProfileConfig
 from mem0.configs.enums import MemoryType
-from mem0.memory.main import AsyncMemory
+from mem0.memory.main import AsyncMemory, _acquire_thread_lock_async
 from mem0.memory.profile_manager import ProfileManager
 from mem0.memory.profile_schema import ProfileUpdatePlan
 from mem0.memory.profile_updater import ProfileUpdater
@@ -84,8 +84,9 @@ def _build_async_memory(db, *, config=None, llm=None):
     memory._profile_manager = None
     memory._profile_updater = None
     memory._profile_user_locks = {}
-    memory._profile_user_locks_guard = asyncio.Lock()
+    memory._profile_user_locks_guard = threading.Lock()
     memory._entity_store = None
+    memory._component_init_lock = threading.RLock()
     return memory
 
 
@@ -178,6 +179,59 @@ async def test_empty_async_update_does_not_call_llm(db):
 
 
 @pytest.mark.asyncio
+async def test_cancelled_profile_lock_waiter_does_not_leak(db):
+    memory = _build_async_memory(db)
+    user_lock = memory._get_profile_user_thread_lock("user-1")
+    assert user_lock.acquire(timeout=1)
+    waiter = asyncio.create_task(
+        memory.update_profile("user-1", [{"role": "user", "content": "I prefer balanced risk."}])
+    )
+    await asyncio.sleep(0.02)
+    waiter.cancel()
+    user_lock.release()
+
+    with pytest.raises(asyncio.CancelledError):
+        await asyncio.wait_for(waiter, timeout=1)
+    profile = await asyncio.wait_for(memory.update_profile("user-1", []), timeout=1)
+    assert profile["profile"] == {}
+
+
+@pytest.mark.asyncio
+async def test_cancelled_delete_lock_waiter_does_not_leak(db):
+    db.upsert_user_profile_value("user-1", "risk_level", "balanced")
+    memory = _build_async_memory(db)
+    user_lock = memory._get_profile_user_thread_lock("user-1")
+    assert user_lock.acquire(timeout=1)
+    waiter = asyncio.create_task(memory.delete_profile("user-1"))
+    await asyncio.sleep(0.02)
+    waiter.cancel()
+    user_lock.release()
+
+    with pytest.raises(asyncio.CancelledError):
+        await asyncio.wait_for(waiter, timeout=1)
+    assert await asyncio.wait_for(memory.delete_profile("user-1"), timeout=1) == 1
+
+
+@pytest.mark.asyncio
+async def test_cancel_after_thread_lock_acquired_releases_lock():
+    lock = threading.Lock()
+    entered = asyncio.Event()
+
+    async def holder():
+        async with _acquire_thread_lock_async(lock):
+            entered.set()
+            await asyncio.Event().wait()
+
+    task = asyncio.create_task(holder())
+    await asyncio.wait_for(entered.wait(), timeout=1)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await asyncio.wait_for(task, timeout=1)
+    assert lock.acquire(timeout=1)
+    lock.release()
+
+
+@pytest.mark.asyncio
 async def test_async_automatic_update_respects_update_on_add_switch(db):
     config = UserProfileConfig(enabled=True, update_on_add=False)
     memory = _build_async_memory(db, config=config)
@@ -205,7 +259,7 @@ async def test_async_add_profile_failure_preserves_result(db, monkeypatch, caplo
     assert result["results"] == []
     assert result["background"]["profile_job_id"]
     assert await memory.flush_background_tasks(2)
-    assert db.get_background_job(result["background"]["profile_job_id"], "profile")["status"] == "dead"
+    assert db.get_background_job(result["background"]["profile_job_id"], "profile")["status"] == "discarded"
     memory.close()
 
 
@@ -306,7 +360,7 @@ async def test_async_reset_recreates_profile_storage(tmp_path, monkeypatch):
     memory._reset_midterm_state = MagicMock()
     memory._profile_manager = memory.profile_manager
     memory._profile_updater = memory.profile_updater
-    memory._profile_user_locks["user-1"] = asyncio.Lock()
+    memory._profile_user_locks["user-1"] = threading.Lock()
     monkeypatch.setattr("mem0.memory.main.VectorStoreFactory.reset", lambda store: store)
     monkeypatch.setattr("mem0.memory.main.capture_event", lambda *args: None)
     monkeypatch.setattr("mem0.memory.main.display_first_run_notice_async", AsyncMock())
@@ -327,7 +381,7 @@ def test_async_close_releases_profile_references():
     memory = _build_async_memory(db)
     memory._profile_manager = memory.profile_manager
     memory._profile_updater = memory.profile_updater
-    memory._profile_user_locks["user-1"] = asyncio.Lock()
+    memory._profile_user_locks["user-1"] = threading.Lock()
 
     memory.close()
 
@@ -410,6 +464,40 @@ async def test_different_user_async_updates_can_overlap(db):
     )
 
     assert max_active == 2
+
+
+@pytest.mark.asyncio
+async def test_async_and_background_profile_updates_are_serialized(db):
+    memory = _build_async_memory(db)
+    active = 0
+    max_active = 0
+    active_guard = threading.Lock()
+
+    async def generate_update_plan_async(**kwargs):
+        nonlocal active, max_active
+        with active_guard:
+            active += 1
+            max_active = max(max_active, active)
+        await asyncio.sleep(0.04)
+        with active_guard:
+            active -= 1
+        return ProfileUpdatePlan()
+
+    memory._profile_updater = SimpleNamespace(generate_update_plan_async=generate_update_plan_async)
+    profile_job_id = db.create_profile_update_job("user-1", [{"role": "user", "content": "background"}])
+    profile_job = db.claim_profile_job(profile_job_id)
+    background = threading.Thread(target=memory._background_process_profile, args=(profile_job,))
+    background.start()
+    await asyncio.sleep(0.005)
+
+    await asyncio.wait_for(
+        memory.update_profile("user-1", [{"role": "user", "content": "async"}]),
+        timeout=1,
+    )
+    background.join(1)
+
+    assert not background.is_alive()
+    assert max_active == 1
 
 
 @pytest.mark.asyncio

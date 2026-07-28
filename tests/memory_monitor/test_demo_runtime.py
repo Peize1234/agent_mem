@@ -1,9 +1,11 @@
 from types import SimpleNamespace
+import threading
 from unittest.mock import MagicMock
 
 from mem0.configs.base import BackgroundTaskConfig, MemoryConfig
 from mem0.memory.background_worker import BackgroundWorkerManager
 from mem0.memory.main import Memory
+from mem0.memory.process_lock import ProcessInstanceLock
 from mem0.memory.storage import SQLiteManager
 from memory_monitor.runtime import DemoBackgroundWorkerManager, DemoMemory
 
@@ -29,14 +31,78 @@ def _migration_job(db, label):
     return job_id
 
 
-def _demo_worker(db, *, midterm=None, longterm=None, profile=None):
+def _demo_worker(db, *, midterm=None, longterm=None, profile=None, event_recorder=None, **kwargs):
     return DemoBackgroundWorkerManager(
         db,
         BackgroundTaskConfig(enabled=True, max_retries=0),
         process_midterm=midterm or (lambda *args: None),
         process_longterm=longterm or (lambda *args: None),
         process_profile=profile or (lambda *args: None),
+        event_recorder=event_recorder,
+        **kwargs,
     )
+
+
+def test_demo_profile_stale_lease_is_not_reported_as_failure():
+    db = SQLiteManager(":memory:")
+    events = []
+    try:
+        job_id = db.create_profile_update_job("user-1", _messages("profile"))
+        worker = _demo_worker(
+            db,
+            profile=lambda job: False,
+            event_recorder=lambda event_type, payload: events.append((event_type, payload)),
+        )
+
+        assert worker.process_profile_job(job_id)
+
+        job = db.get_background_job(job_id, "profile")
+        assert job["status"] == "running"
+        assert job["attempts"] == 0
+        assert all(event_type != "job.failed" for event_type, _payload in events)
+    finally:
+        db.close()
+
+
+def test_demo_close_does_not_close_db_while_manual_job_is_alive(tmp_path):
+    db_path = str(tmp_path / "history.db")
+    db = SQLiteManager(db_path)
+    job_id = _migration_job(db, "blocked-close")
+    entered = threading.Event()
+    release = threading.Event()
+
+    def midterm(job, messages, degraded):
+        entered.set()
+        assert release.wait(2)
+
+    worker = _demo_worker(db, midterm=midterm)
+    memory = DemoMemory.__new__(DemoMemory)
+    memory.config = SimpleNamespace(
+        history_db_path=db_path,
+        background=BackgroundTaskConfig(enabled=True, shutdown_timeout_seconds=0.01),
+    )
+    memory.db = db
+    memory._background_worker = worker
+    memory._process_instance_lock = ProcessInstanceLock(db_path, enabled=False)
+    memory.vector_store = MagicMock()
+    memory.embedding_model = MagicMock()
+    memory.llm = MagicMock()
+    memory.reranker = None
+    memory._entity_store = None
+    memory._midterm_memory = None
+    processing = threading.Thread(target=worker.process_midterm_job, args=(job_id,))
+    processing.start()
+    assert entered.wait(1)
+
+    assert memory.close() is False
+    assert memory.db is db
+    assert db.connection is not None
+
+    release.set()
+    processing.join(2)
+    assert not processing.is_alive()
+    assert memory.close() is True
+    assert memory.db is None
 
 
 def test_default_worker_factory_preserves_production_manager():
@@ -221,6 +287,7 @@ def test_demo_worker_runs_complete_migration_and_preserves_queue_order():
     try:
         worker.start()
         assert worker.threads_alive() is False
+        assert not hasattr(worker, "_manual_lock")
         assert worker.flush(timeout=0) is False
         assert worker.process_migration_job(second) is False
         assert worker.process_migration_job(first) is True
@@ -239,6 +306,71 @@ def test_demo_worker_runs_complete_migration_and_preserves_queue_order():
         db.close()
 
 
+def test_demo_worker_can_run_longterm_and_midterm_stages_separately():
+    db = SQLiteManager(":memory:")
+    job_id = _migration_job(db, "separate-stages")
+    stages = []
+    worker = _demo_worker(
+        db,
+        midterm=lambda job, messages, degraded: stages.append("midterm"),
+        longterm=lambda job, messages, degraded: stages.append("longterm"),
+    )
+    try:
+        worker.start()
+        assert worker.process_longterm_job(job_id) is True
+        job = worker.get_job_status(job_id, "migration")
+        assert job["longterm_status"] == "succeeded"
+        assert job["midterm_status"] == "pending"
+        assert db.get_migration_job_messages(job_id)
+
+        assert worker.process_midterm_job(job_id) is True
+        assert worker.get_job_status(job_id, "migration")["status"] == "succeeded"
+        assert db.get_migration_job_messages(job_id) == []
+        assert stages == ["longterm", "midterm"]
+    finally:
+        worker.stop(timeout=1)
+        db.close()
+
+
+def test_demo_worker_reports_discarded_stage_and_completed_with_loss():
+    db = SQLiteManager(":memory:")
+    job_id = _migration_job(db, "discarded")
+    events = []
+
+    def fail_longterm(job, messages, degraded):
+        raise RuntimeError("longterm unavailable")
+
+    worker = _demo_worker(
+        db,
+        longterm=fail_longterm,
+        event_recorder=lambda event_type, payload: events.append((event_type, payload)),
+    )
+    try:
+        worker.start()
+        assert worker.process_migration_job(job_id) is True
+        job = worker.get_job_status(job_id, "migration")
+        assert job["status"] == "completed_with_loss"
+        assert job["midterm_status"] == "succeeded"
+        assert job["longterm_status"] == "discarded"
+        assert job["longterm_attempts"] == 1
+        assert job["longterm_last_error"] == "degradation: longterm unavailable"
+        discarded_events = [payload for event_type, payload in events if event_type == "job.discarded"]
+        assert discarded_events == [
+            {
+                "job_type": "migration",
+                "stage": "longterm",
+                "job_id": job_id,
+                "attempts": 1,
+                "last_error": "degradation: longterm unavailable",
+            }
+        ]
+        assert worker.process_longterm_job(job_id) is False
+        assert len([payload for event_type, payload in events if event_type == "job.discarded"]) == 1
+    finally:
+        worker.stop(timeout=1)
+        db.close()
+
+
 def test_demo_worker_runs_profile_job_manually():
     db = SQLiteManager(":memory:")
     job_id = db.create_profile_update_job("user-1", _messages("profile"))
@@ -251,4 +383,78 @@ def test_demo_worker_runs_profile_job_manually():
         assert worker.get_job_status(job_id, "profile")["status"] == "succeeded"
     finally:
         worker.stop(timeout=1)
+        db.close()
+
+
+def test_demo_worker_records_profile_discarded_once():
+    db = SQLiteManager(":memory:")
+    job_id = db.create_profile_update_job("user-1", _messages("profile-discarded"))
+    events = []
+
+    def fail_profile(job):
+        raise RuntimeError("profile unavailable")
+
+    worker = _demo_worker(
+        db,
+        profile=fail_profile,
+        event_recorder=lambda event_type, payload: events.append((event_type, payload)),
+    )
+    try:
+        worker.start()
+        assert worker.process_profile_job(job_id) is True
+        assert worker.process_profile_job(job_id) is False
+        discarded_events = [payload for event_type, payload in events if event_type == "job.discarded"]
+        assert discarded_events == [
+            {
+                "job_type": "profile",
+                "job_id": job_id,
+                "attempts": 1,
+                "last_error": "profile unavailable",
+            }
+        ]
+    finally:
+        worker.stop(timeout=1)
+        db.close()
+
+
+def test_demo_worker_handles_unexpected_stage_failure_with_new_signature():
+    db = SQLiteManager(":memory:")
+    job_id = _migration_job(db, "unexpected")
+    worker = _demo_worker(db)
+    worker._run_migration_stage = MagicMock(side_effect=RuntimeError("unexpected"))
+    worker._persist_unexpected_stage_failure = MagicMock()
+    try:
+        assert worker.process_midterm_job(job_id) is True
+        claimed_job = worker._persist_unexpected_stage_failure.call_args.args[0]
+        worker._persist_unexpected_stage_failure.assert_called_once_with(
+            claimed_job,
+            "midterm",
+            worker.process_midterm,
+            worker._run_migration_stage.side_effect,
+        )
+        assert claimed_job["midterm_lease_token"]
+    finally:
+        db.close()
+
+
+def test_demo_worker_uses_fenced_output_cleanup():
+    db = SQLiteManager(":memory:")
+    job_id = _migration_job(db, "fenced-cleanup")
+    claimed_tokens = []
+    cleanup_tokens = []
+
+    def fail_stage(job, messages, degraded):
+        claimed_tokens.append(job["longterm_lease_token"])
+        raise RuntimeError("failed")
+
+    worker = _demo_worker(
+        db,
+        longterm=fail_stage,
+        discard_migration_outputs=lambda job, stage, token: cleanup_tokens.append(token),
+    )
+    try:
+        assert worker.process_longterm_job(job_id) is True
+        assert cleanup_tokens == [claimed_tokens[-1]]
+        assert db.get_background_job(job_id)["longterm_status"] == "discarded"
+    finally:
         db.close()

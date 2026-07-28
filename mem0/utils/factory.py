@@ -1,6 +1,7 @@
 import importlib
 import inspect
-from typing import Dict, Optional, Union
+import logging
+from typing import Any, Dict, Optional, Union
 
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.configs.llms.anthropic import AnthropicConfig
@@ -22,6 +23,52 @@ from mem0.configs.rerankers.llm import LLMRerankerConfig
 from mem0.configs.rerankers.sentence_transformer import SentenceTransformerRerankerConfig
 from mem0.configs.rerankers.zero_entropy import ZeroEntropyRerankerConfig
 from mem0.embeddings.mock import MockEmbeddings
+
+logger = logging.getLogger(__name__)
+
+
+def _configure_native_timeout(instance: Any, timeout_seconds: Optional[float]) -> Any:
+    """Forward a request timeout to provider-native clients when available."""
+    if timeout_seconds is None:
+        return instance
+    timeout_seconds = float(timeout_seconds)
+    if timeout_seconds <= 0:
+        raise ValueError("timeout_seconds must be greater than 0")
+
+    instance.request_timeout_seconds = timeout_seconds
+    config = getattr(instance, "config", None)
+    if config is not None:
+        try:
+            config.request_timeout_seconds = timeout_seconds
+        except Exception:
+            logger.debug("Provider config does not expose request_timeout_seconds", exc_info=True)
+        http_client = getattr(config, "http_client", None)
+        if http_client is not None:
+            try:
+                http_client.timeout = timeout_seconds
+            except Exception:
+                logger.debug("Provider HTTP client timeout could not be configured", exc_info=True)
+
+    client = getattr(instance, "client", None)
+    if client is None:
+        return instance
+    with_options = getattr(client, "with_options", None)
+    if callable(with_options):
+        try:
+            configured_client = with_options(timeout=timeout_seconds)
+            if configured_client is not None:
+                instance.client = configured_client
+                client = configured_client
+        except Exception:
+            logger.debug("Provider client with_options(timeout=...) is unavailable", exc_info=True)
+    for attribute in ("timeout", "request_timeout"):
+        if hasattr(client, attribute):
+            try:
+                setattr(client, attribute, timeout_seconds)
+                break
+            except Exception:
+                logger.debug("Provider client %s could not be configured", attribute, exc_info=True)
+    return instance
 
 
 def load_class(class_type):
@@ -59,7 +106,14 @@ class LlmFactory:
     }
 
     @classmethod
-    def create(cls, provider_name: str, config: Optional[Union[BaseLlmConfig, Dict]] = None, **kwargs):
+    def create(
+        cls,
+        provider_name: str,
+        config: Optional[Union[BaseLlmConfig, Dict]] = None,
+        *,
+        timeout_seconds: Optional[float] = None,
+        **kwargs,
+    ):
         """
         Create an LLM instance with the appropriate configuration.
 
@@ -120,7 +174,7 @@ class LlmFactory:
             # Assume it's already the correct config type
             pass
 
-        return llm_class(config)
+        return _configure_native_timeout(llm_class(config), timeout_seconds)
 
     @classmethod
     def register_provider(cls, name: str, class_path: str, config_class=None):
@@ -163,14 +217,21 @@ class EmbedderFactory:
     }
 
     @classmethod
-    def create(cls, provider_name, config, vector_config: Optional[dict]):
+    def create(
+        cls,
+        provider_name,
+        config,
+        vector_config: Optional[dict],
+        *,
+        timeout_seconds: Optional[float] = None,
+    ):
         if provider_name == "upstash_vector" and vector_config and vector_config.enable_embeddings:
-            return MockEmbeddings()
+            return _configure_native_timeout(MockEmbeddings(), timeout_seconds)
         class_type = cls.provider_to_class.get(provider_name)
         if class_type:
             embedder_instance = load_class(class_type)
             base_config = BaseEmbedderConfig(**config)
-            return embedder_instance(base_config)
+            return _configure_native_timeout(embedder_instance(base_config), timeout_seconds)
         else:
             raise ValueError(f"Unsupported Embedder provider: {provider_name}")
 
@@ -204,13 +265,17 @@ class VectorStoreFactory:
     }
 
     @classmethod
-    def create(cls, provider_name, config):
+    def create(cls, provider_name, config, *, timeout_seconds: Optional[float] = None):
         class_type = cls.provider_to_class.get(provider_name)
         if class_type:
             if not isinstance(config, dict):
                 config = config.model_dump()
             vector_store_instance = load_class(class_type)
-            return vector_store_instance(**config)
+            if timeout_seconds is not None:
+                constructor_parameters = inspect.signature(vector_store_instance).parameters
+                if "timeout_seconds" in constructor_parameters and "timeout_seconds" not in config:
+                    config["timeout_seconds"] = float(timeout_seconds)
+            return _configure_native_timeout(vector_store_instance(**config), timeout_seconds)
         else:
             raise ValueError(f"Unsupported VectorStore provider: {provider_name}")
 
@@ -239,7 +304,14 @@ class RerankerFactory:
     }
 
     @classmethod
-    def create(cls, provider_name: str, config: Optional[Union[BaseRerankerConfig, Dict]] = None, **kwargs):
+    def create(
+        cls,
+        provider_name: str,
+        config: Optional[Union[BaseRerankerConfig, Dict]] = None,
+        *,
+        timeout_seconds: Optional[float] = None,
+        **kwargs,
+    ):
         """
         Create a reranker instance based on the provider and configuration.
 
@@ -274,4 +346,4 @@ class RerankerFactory:
         except (ImportError, AttributeError) as e:
             raise ImportError(f"Could not import reranker for provider '{provider_name}': {e}")
 
-        return reranker_class(config)
+        return _configure_native_timeout(reranker_class(config), timeout_seconds)

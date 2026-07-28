@@ -23,6 +23,9 @@ class DemoMemory(Memory):
             process_midterm=self._background_process_midterm,
             process_longterm=self._background_process_longterm,
             process_profile=self._background_process_profile,
+            commit_migration_outputs=self._commit_migration_stage_outputs,
+            discard_migration_outputs=self._discard_migration_stage_outputs,
+            startup_cleanup=self._cleanup_orphan_staging_outputs,
             event_recorder=self._record_demo_event,
         )
 

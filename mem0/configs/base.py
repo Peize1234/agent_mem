@@ -1,7 +1,8 @@
+import math
 import os
 from typing import Any, Dict, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from mem0.configs.rerankers.config import RerankerConfig
 from mem0.embeddings.configs import EmbedderConfig
@@ -56,12 +57,39 @@ class UserProfileConfig(BaseModel):
 class BackgroundTaskConfig(BaseModel):
     enabled: bool = True
     max_retries: int = Field(3, ge=0)
+    retry_delays_seconds: tuple[float, ...] = (2.0, 10.0, 30.0)
     poll_interval_seconds: float = Field(1.0, gt=0)
-    stale_running_timeout_seconds: int = Field(300, ge=1)
+    lease_timeout_seconds: float = Field(120.0, gt=0)
+    heartbeat_interval_seconds: float = Field(20.0, gt=0)
+    watchdog_interval_seconds: float = Field(10.0, gt=0)
+    max_stale_recoveries: int = Field(3, ge=0)
     shutdown_timeout_seconds: float = Field(30.0, ge=0)
-    include_pending_in_context: bool = True
-    max_pending_context_messages: int = Field(20, ge=0)
-    include_failed_in_context: bool = False
+    include_pending_in_context: bool = Field(
+        True,
+        description="Legacy context preference; unfinished migration sources are always retained for correctness",
+    )
+    max_pending_context_messages: int = Field(
+        20,
+        ge=0,
+        description="Legacy bridge limit; it never truncates unfinished migration source messages",
+    )
+    include_failed_in_context: bool = Field(
+        False,
+        description="Legacy context preference; unfinished migration sources remain visible until finalized",
+    )
+
+    @field_validator("retry_delays_seconds")
+    @classmethod
+    def validate_retry_delays_seconds(cls, delays: tuple[float, ...]) -> tuple[float, ...]:
+        if any(not math.isfinite(delay) or delay < 0 for delay in delays):
+            raise ValueError("retry_delays_seconds values must be finite and greater than or equal to 0")
+        return delays
+
+    @model_validator(mode="after")
+    def validate_lease_intervals(self):
+        if self.heartbeat_interval_seconds >= self.lease_timeout_seconds:
+            raise ValueError("heartbeat_interval_seconds must be less than lease_timeout_seconds")
+        return self
 
 
 class MemoryConfig(BaseModel):
@@ -81,6 +109,15 @@ class MemoryConfig(BaseModel):
         description="Path to the history database",
         default=os.path.join(mem0_dir, "history.db"),
     )
+    enforce_single_process: bool = Field(
+        True,
+        description="Prevent multiple service processes from using the same history database",
+    )
+    llm_timeout_seconds: float = Field(60.0, gt=0)
+    embedding_timeout_seconds: float = Field(30.0, gt=0)
+    vector_store_timeout_seconds: float = Field(15.0, gt=0)
+    reranker_timeout_seconds: float = Field(30.0, gt=0)
+    entity_extraction_timeout_seconds: float = Field(60.0, gt=0)
     reranker: Optional[RerankerConfig] = Field(
         description="Configuration for the reranker",
         default=None,

@@ -1,5 +1,6 @@
 import json
 import threading
+import time
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -535,6 +536,166 @@ def _memory_with_profile_storage(db, config=None):
     return memory
 
 
+def test_sync_and_background_profile_updates_are_serialized(db):
+    memory = _memory_with_profile_storage(db)
+    active = 0
+    max_active = 0
+    active_guard = threading.Lock()
+
+    def enter_update():
+        nonlocal active, max_active
+        with active_guard:
+            active += 1
+            max_active = max(max_active, active)
+        time.sleep(0.04)
+        with active_guard:
+            active -= 1
+        return ProfileUpdatePlan()
+
+    memory._profile_updater = SimpleNamespace(
+        generate_update_plan=lambda **kwargs: enter_update(),
+        generate_update_plan_async=lambda **kwargs: enter_update(),
+    )
+    profile_job_id = db.create_profile_update_job("user-1", [{"role": "user", "content": "background"}])
+    profile_job = db.claim_profile_job(profile_job_id)
+    background = threading.Thread(target=memory._background_process_profile, args=(profile_job,))
+    foreground = threading.Thread(
+        target=memory.update_profile,
+        args=("user-1", [{"role": "user", "content": "sync"}]),
+    )
+
+    background.start()
+    foreground.start()
+    background.join(1)
+    foreground.join(1)
+
+    assert not background.is_alive()
+    assert not foreground.is_alive()
+    assert max_active == 1
+
+
+def test_different_user_profile_updates_can_overlap(db):
+    memory = _memory_with_profile_storage(db)
+    active = 0
+    max_active = 0
+    active_guard = threading.Lock()
+    both_entered = threading.Event()
+
+    def enter_update():
+        nonlocal active, max_active
+        with active_guard:
+            active += 1
+            max_active = max(max_active, active)
+            if active == 2:
+                both_entered.set()
+        both_entered.wait(0.5)
+        with active_guard:
+            active -= 1
+        return ProfileUpdatePlan()
+
+    memory._profile_updater = SimpleNamespace(
+        generate_update_plan=lambda **kwargs: enter_update(),
+        generate_update_plan_async=lambda **kwargs: enter_update(),
+    )
+    profile_job_id = db.create_profile_update_job("user-1", [{"role": "user", "content": "background"}])
+    profile_job = db.claim_profile_job(profile_job_id)
+    first = threading.Thread(target=memory._background_process_profile, args=(profile_job,))
+    second = threading.Thread(
+        target=memory.update_profile,
+        args=("user-2", [{"role": "user", "content": "sync"}]),
+    )
+
+    first.start()
+    second.start()
+    first.join(1)
+    second.join(1)
+
+    assert max_active == 2
+    assert not first.is_alive()
+    assert not second.is_alive()
+
+
+def test_background_profile_plan_and_job_finish_commit_together(db):
+    memory = _memory_with_profile_storage(db)
+    memory._profile_updater.generate_update_plan_async = MagicMock(
+        return_value=ProfileUpdatePlan.model_validate(
+            {
+                "operations": [
+                    {
+                        "operation": "set",
+                        "attribute_key": "risk_level",
+                        "value": "balanced",
+                    }
+                ]
+            }
+        )
+    )
+    job_id = db.create_profile_update_job("user-1", [{"role": "user", "content": "balanced"}])
+    job = db.claim_profile_job(job_id, lease_timeout_seconds=5)
+
+    assert memory._background_process_profile(job) is True
+    assert db.get_background_job(job_id, "profile")["status"] == "succeeded"
+    assert memory.get_profile("user-1")["profile"]["risk_level"] == "balanced"
+
+
+def test_profile_delete_is_serialized_with_update(db):
+    memory = _memory_with_profile_storage(db)
+    update_entered = threading.Event()
+    release_update = threading.Event()
+    delete_entered = threading.Event()
+    original_delete = memory.profile_manager.delete_profile
+
+    def blocked_plan(**kwargs):
+        update_entered.set()
+        assert release_update.wait(1)
+        return ProfileUpdatePlan()
+
+    def recording_delete(user_id):
+        delete_entered.set()
+        return original_delete(user_id)
+
+    memory._profile_updater.generate_update_plan.side_effect = blocked_plan
+    memory.profile_manager.delete_profile = recording_delete
+    update_thread = threading.Thread(
+        target=memory.update_profile,
+        args=("user-1", [{"role": "user", "content": "sync"}]),
+    )
+    delete_thread = threading.Thread(target=memory.delete_profile, args=("user-1",))
+
+    update_thread.start()
+    assert update_entered.wait(1)
+    delete_thread.start()
+    assert not delete_entered.wait(0.05)
+    release_update.set()
+    update_thread.join(1)
+    delete_thread.join(1)
+
+    assert delete_entered.is_set()
+    assert not update_thread.is_alive()
+    assert not delete_thread.is_alive()
+
+
+def test_profile_lock_is_released_after_exception(db):
+    memory = _memory_with_profile_storage(db)
+    memory._profile_updater.generate_update_plan.side_effect = RuntimeError("profile failure")
+
+    with pytest.raises(RuntimeError, match="profile failure"):
+        memory.update_profile("user-1", [{"role": "user", "content": "first"}])
+
+    memory._profile_updater.generate_update_plan.side_effect = None
+    memory._profile_updater.generate_update_plan.return_value = ProfileUpdatePlan()
+    completed = threading.Event()
+    thread = threading.Thread(
+        target=lambda: (
+            memory.update_profile("user-1", [{"role": "user", "content": "second"}]),
+            completed.set(),
+        )
+    )
+    thread.start()
+    thread.join(1)
+    assert completed.is_set()
+
+
 def _disable_sync_add_notices(monkeypatch):
     monkeypatch.setattr("mem0.memory.main.detect_scale_threshold_from_add_result", lambda *args: None)
     monkeypatch.setattr("mem0.memory.main.display_first_run_notice", lambda *args: None)
@@ -715,7 +876,7 @@ def test_profile_failure_preserves_memory_add_result(db, monkeypatch):
     assert result["results"] == []
     assert result["background"]["profile_job_id"]
     assert memory.flush_background_tasks(2)
-    assert db.get_background_job(result["background"]["profile_job_id"], "profile")["status"] == "dead"
+    assert db.get_background_job(result["background"]["profile_job_id"], "profile")["status"] == "discarded"
     memory.close()
 
 

@@ -166,8 +166,18 @@ class MidTermUpdater:
         rows.sort(key=created_at)
         return str(rows[-1].id)
 
-    def _session_id_for_page(self, page_id: str, filters: Dict[str, Any]) -> Optional[str]:
-        for session in self.midterm_memory.list_sessions(filters=filters, top_k=10000):
+    def _session_id_for_page(
+        self,
+        page_id: str,
+        filters: Dict[str, Any],
+        *,
+        include_uncommitted: bool = False,
+    ) -> Optional[str]:
+        for session in self.midterm_memory.list_sessions(
+            filters=filters,
+            top_k=10000,
+            include_uncommitted=include_uncommitted,
+        ):
             payload = getattr(session, "payload", None) or {}
             if page_id in (payload.get("page_ids") or []):
                 return str(session.id)
@@ -186,6 +196,39 @@ class MidTermUpdater:
             self.midterm_memory.update_page(previous_page_id, payload, reembed=False)
         except Exception as exc:
             logger.debug("Failed to update midterm previous page link: %s", exc)
+
+    def _take_over_staging_session_output(
+        self,
+        page_payload: Dict[str, Any],
+        source_job_id: str,
+        lease_token: str,
+        lease_is_current,
+    ) -> None:
+        session_id = page_payload.get("_commit_session_id") or page_payload.get("session_id")
+        if not session_id:
+            return
+        session = self.midterm_memory.get_session(session_id)
+        if session is None:
+            return
+        session_payload = dict(getattr(session, "payload", None) or {})
+        changed = False
+        if (
+            session_payload.get("output_state") == "staging"
+            and session_payload.get("created_by_source_job_id") == source_job_id
+        ):
+            session_payload["output_lease_token"] = lease_token
+            session_payload["created_by_lease_token"] = lease_token
+            changed = True
+        elif (
+            page_payload.get("_commit_session_backup") is not None
+            and session_payload.get("last_output_job_id") == source_job_id
+        ):
+            session_payload["last_output_lease_token"] = lease_token
+            changed = True
+        if changed:
+            if lease_is_current is not None and not lease_is_current():
+                raise RuntimeError("stale migration stage lease")
+            self.midterm_memory.update_session(session_id, session_payload, reembed=False)
 
     @staticmethod
     def _dedupe_keywords(*keyword_lists: List[str], limit: int = 12) -> List[str]:
@@ -289,6 +332,13 @@ class MidTermUpdater:
         if page_payload["id"] in page_ids:
             return session_id
         page_ids.append(page_payload["id"])
+        source_job_ids = list(payload.get("source_job_ids") or [])
+        initial_source_job_id = payload.get("source_job_id")
+        if initial_source_job_id and initial_source_job_id not in source_job_ids:
+            source_job_ids.append(initial_source_job_id)
+        page_source_job_id = page_payload.get("source_job_id")
+        if page_source_job_id and page_source_job_id not in source_job_ids:
+            source_job_ids.append(page_source_job_id)
 
         if use_llm:
             summary, keywords = self._merge_session(
@@ -310,12 +360,19 @@ class MidTermUpdater:
                 "summary": summary,
                 "summary_keywords": keywords,
                 "page_ids": page_ids,
+                "source_job_ids": source_job_ids,
                 "L_interaction": len(page_ids),
                 "updated_at": beijing_now_iso(),
             }
         )
         payload["R_recency"] = float(payload.get("R_recency", 1.0) or 1.0)
         payload["H_segment"] = compute_session_heat(payload, self.config)
+        if page_source_job_id and page_payload.get("output_state") == "staging":
+            page_payload["_commit_session_id"] = session_id
+            page_payload["_commit_session_backup"] = dict(getattr(session, "payload", None) or {})
+            self.midterm_memory.update_page(page_payload["id"], page_payload, reembed=False)
+            payload["last_output_job_id"] = page_source_job_id
+            payload["last_output_lease_token"] = page_payload.get("output_lease_token")
         self.midterm_memory.update_session(session_id, payload, reembed=True)
         return session_id
 
@@ -338,6 +395,12 @@ class MidTermUpdater:
             "agent_id": page_payload.get("agent_id"),
             "run_id": page_payload.get("run_id"),
             "source_job_id": page_payload.get("source_job_id"),
+            "source_job_ids": [page_payload["source_job_id"]] if page_payload.get("source_job_id") else [],
+            "source_stage": page_payload.get("source_stage"),
+            "output_state": page_payload.get("output_state", "committed"),
+            "output_lease_token": page_payload.get("output_lease_token"),
+            "created_by_source_job_id": page_payload.get("source_job_id"),
+            "created_by_lease_token": page_payload.get("output_lease_token"),
         }
         payload["H_segment"] = compute_session_heat(payload, self.config)
         self.midterm_memory.insert_session(session_id, payload)
@@ -351,18 +414,26 @@ class MidTermUpdater:
         allow_fallback: bool = True,
         use_llm: bool = True,
         new_session_id: Optional[str] = None,
+        include_uncommitted: bool = False,
     ) -> str:
         query = self.midterm_memory.page_embedding_text(page_payload)
-        candidate_sessions = self.midterm_memory.search_sessions(
-            query=query,
-            filters=filters,
-            top_k=self.config.top_k_sessions,
-        )
+        search_kwargs = {
+            "query": query,
+            "filters": filters,
+            "top_k": self.config.top_k_sessions,
+        }
+        if include_uncommitted:
+            search_kwargs["include_uncommitted"] = True
+        candidate_sessions = self.midterm_memory.search_sessions(**search_kwargs)
 
         best_session_id = None
         best_score = -1.0
         for session in candidate_sessions:
             payload = getattr(session, "payload", None) or {}
+            if include_uncommitted and not self.midterm_memory.output_is_visible(payload):
+                owner_job_id = payload.get("last_output_job_id") or payload.get("source_job_id")
+                if owner_job_id != page_payload.get("source_job_id"):
+                    continue
             embedding_score = float(getattr(session, "score", 0.0) or 0.0)
             overlap_score = keyword_overlap(page_payload.get("keywords") or [], payload.get("summary_keywords") or [])
             combined_score = (
@@ -388,6 +459,8 @@ class MidTermUpdater:
         filters: Dict[str, Any],
         *,
         source_job_id: Optional[str] = None,
+        lease_token: Optional[str] = None,
+        lease_is_current=None,
         degraded: bool = False,
     ) -> List[Dict[str, Any]]:
         scope_filters = self._scope_filters(filters)
@@ -397,6 +470,8 @@ class MidTermUpdater:
         pages = []
         previous_page_id = self._latest_page_id(scope_filters)
         for index, qa_pair in enumerate(self._messages_to_qa_pairs(evicted_messages)):
+            if lease_is_current is not None and not lease_is_current():
+                raise RuntimeError("stale migration stage lease")
             page_id = (
                 str(uuid.uuid5(uuid.NAMESPACE_URL, f"mem0:midterm:{source_job_id}:{index}"))
                 if source_job_id
@@ -411,6 +486,29 @@ class MidTermUpdater:
             if existing_page:
                 page_payload = dict(getattr(existing_page, "payload", None) or {})
                 page_payload.setdefault("id", page_id)
+                if source_job_id:
+                    page_payload.update(
+                        {
+                            "source_stage": "midterm",
+                            "output_state": "staging",
+                            "output_lease_token": lease_token,
+                            "degraded": degraded,
+                            "needs_reprocessing": degraded,
+                            "updated_at": now,
+                        }
+                    )
+                    if lease_is_current is not None and not lease_is_current():
+                        raise RuntimeError("stale migration stage lease")
+                    self.midterm_memory.update_page(page_id, page_payload, reembed=False)
+                    self._take_over_staging_session_output(
+                        page_payload,
+                        source_job_id,
+                        lease_token,
+                        lease_is_current,
+                    )
+                    pages.append(page_payload)
+                    previous_page_id = page_id
+                    continue
                 if page_payload.get("session_id"):
                     pages.append(page_payload)
                     previous_page_id = page_id
@@ -447,10 +545,19 @@ class MidTermUpdater:
                     "agent_id": scope_filters.get("agent_id"),
                     "run_id": scope_filters.get("run_id"),
                     "source_job_id": source_job_id,
+                    "source_stage": "midterm" if source_job_id else None,
+                    "output_state": "staging" if source_job_id else "committed",
+                    "output_lease_token": lease_token,
                     "degraded": degraded,
                     "needs_reprocessing": degraded,
                 }
+                if lease_is_current is not None and not lease_is_current():
+                    raise RuntimeError("stale migration stage lease")
                 self.midterm_memory.insert_page(page_id, page_payload)
+            if source_job_id:
+                pages.append(page_payload)
+                previous_page_id = page_id
+                continue
             self._link_previous_page(previous_page_id, page_id)
 
             new_session_id = (
@@ -474,6 +581,124 @@ class MidTermUpdater:
             previous_page_id = page_id
 
         return pages
+
+    def commit_source_job_outputs(
+        self,
+        source_job_id: str,
+        lease_token: str,
+        *,
+        degraded: bool,
+        lease_is_current,
+    ) -> None:
+        """Publish all prepared pages only while the caller still owns the stage."""
+        rows = self.midterm_memory.list_pages(top_k=10000, include_uncommitted=True)
+        rows = [
+            row
+            for row in rows
+            if (getattr(row, "payload", None) or {}).get("source_job_id") == source_job_id
+        ]
+        rows.sort(key=lambda row: (getattr(row, "payload", None) or {}).get("created_at") or "")
+        for row in rows:
+            if not lease_is_current():
+                raise RuntimeError("stale migration stage lease")
+            page_id = str(row.id)
+            page_payload = dict(getattr(row, "payload", None) or {})
+            if page_payload.get("output_state") == "committed":
+                continue
+            if page_payload.get("output_lease_token") != lease_token:
+                raise RuntimeError("staging output is owned by another lease")
+            scope_filters = self._scope_filters(page_payload)
+            session_id = self._session_id_for_page(
+                page_id,
+                scope_filters,
+                include_uncommitted=True,
+            )
+            if session_id is None:
+                session_id = self._assign_session(
+                    page_payload,
+                    scope_filters,
+                    allow_fallback=False,
+                    use_llm=not degraded,
+                    new_session_id=str(
+                        uuid.uuid5(uuid.NAMESPACE_URL, f"mem0:midterm-session:{source_job_id}:{page_id}")
+                    ),
+                    include_uncommitted=True,
+                )
+            session = self.midterm_memory.get_session(session_id)
+            if session:
+                session_payload = dict(getattr(session, "payload", None) or {})
+                if (
+                    session_payload.get("output_state") == "staging"
+                    and session_payload.get("created_by_source_job_id") == source_job_id
+                    and session_payload.get("created_by_lease_token") == lease_token
+                    and session_payload.get("output_lease_token") == lease_token
+                ):
+                    if not lease_is_current():
+                        raise RuntimeError("stale migration stage lease")
+                    session_payload["output_state"] = "committed"
+                    session_payload["output_lease_token"] = None
+                    self.midterm_memory.update_session(session_id, session_payload, reembed=False)
+            if not lease_is_current():
+                raise RuntimeError("stale migration stage lease")
+            page_payload["session_id"] = session_id
+            page_payload["output_state"] = "committed"
+            page_payload["output_lease_token"] = None
+            page_payload["degraded"] = degraded
+            page_payload["needs_reprocessing"] = degraded
+            page_payload.pop("_commit_session_backup", None)
+            page_payload.pop("_commit_session_id", None)
+            self.midterm_memory.update_page(page_id, page_payload, reembed=False)
+
+    def discard_source_job_outputs(self, source_job_id: str, lease_token: str) -> Optional[str]:
+        """Hide first, then best-effort restore/delete session side effects."""
+        cleanup_errors = []
+        rows = self.midterm_memory.list_pages(top_k=10000, include_uncommitted=True)
+        rows = [
+            row
+            for row in rows
+            if (getattr(row, "payload", None) or {}).get("source_job_id") == source_job_id
+        ]
+        for row in rows:
+            page_payload = dict(getattr(row, "payload", None) or {})
+            if page_payload.get("output_state") != "staging":
+                continue
+            if page_payload.get("output_lease_token") != lease_token:
+                continue
+            page_payload["output_state"] = "discarded"
+            page_payload["output_lease_token"] = None
+            try:
+                self.midterm_memory.update_page(str(row.id), page_payload, reembed=False)
+            except Exception as exc:
+                cleanup_errors.append(f"page {row.id}: {exc}")
+                continue
+            session_id = page_payload.get("_commit_session_id") or page_payload.get("session_id")
+            if not session_id:
+                continue
+            try:
+                session = self.midterm_memory.get_session(session_id)
+                session_payload = dict(getattr(session, "payload", None) or {}) if session else {}
+                if (
+                    session_payload.get("output_state") == "staging"
+                    and session_payload.get("output_lease_token") == lease_token
+                    and session_payload.get("created_by_source_job_id") == source_job_id
+                    and session_payload.get("created_by_lease_token") == lease_token
+                ):
+                    session_payload["output_state"] = "discarded"
+                    session_payload["output_lease_token"] = None
+                    self.midterm_memory.update_session(session_id, session_payload, reembed=False)
+                elif (
+                    page_payload.get("_commit_session_backup") is not None
+                    and session_payload.get("last_output_job_id") == source_job_id
+                    and session_payload.get("last_output_lease_token") == lease_token
+                ):
+                    self.midterm_memory.update_session(
+                        session_id,
+                        page_payload["_commit_session_backup"],
+                        reembed=True,
+                    )
+            except Exception as exc:
+                cleanup_errors.append(f"session {session_id}: {exc}")
+        return "; ".join(cleanup_errors) or None
 
     def promote_hot_sessions(self) -> List[Dict[str, Any]]:
         hot_sessions = []

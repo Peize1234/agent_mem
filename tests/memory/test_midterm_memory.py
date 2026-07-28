@@ -159,7 +159,7 @@ class InMemoryVectorStore:
 def fake_memory_env(monkeypatch):
     stores = {}
 
-    def create_vector_store(provider, config):
+    def create_vector_store(provider, config, **kwargs):
         collection_name = getattr(config, "collection_name", None)
         if collection_name is None and isinstance(config, dict):
             collection_name = config.get("collection_name")
@@ -475,6 +475,234 @@ def test_memory_search_returns_long_and_midterm_sources(tmp_path, fake_memory_en
     memory.close()
 
 
+def test_midterm_partial_write_is_not_visible_before_commit(tmp_path, fake_memory_env):
+    config = _memory_config(tmp_path, collection_name="midterm_staging")
+    config.background.enabled = False
+    memory = Memory(config)
+    messages = [
+        {"role": "user", "content": "我偏好中长期投资。"},
+        {"role": "assistant", "content": "我会记住。"},
+    ]
+    filters = {"user_id": "u1", "run_id": "r1"}
+
+    memory._process_midterm_evictions(
+        messages,
+        filters,
+        source_job_id="midterm-staging-job",
+        lease_token="midterm-staging-lease",
+        raise_on_error=True,
+    )
+
+    assert memory.midterm_memory.list_pages(filters=filters, top_k=10) == []
+    staged = memory.midterm_memory.list_pages(
+        filters=filters,
+        top_k=10,
+        include_uncommitted=True,
+    )
+    assert len(staged) == 1
+    assert staged[0].payload["output_state"] == "staging"
+    assert memory.midterm_retriever.search("中长期", filters) == []
+    memory.close()
+
+
+def test_discarded_midterm_does_not_pollute_existing_session_summary(tmp_path, fake_memory_env):
+    config = _memory_config(tmp_path, collection_name="midterm_discard")
+    config.background.enabled = False
+    memory = Memory(config)
+    filters = {"user_id": "u1", "run_id": "r1"}
+    memory._process_midterm_evictions(
+        [
+            {"role": "user", "content": "我比较保守，最大亏损10%。"},
+            {"role": "assistant", "content": "我会按这个约束考虑。"},
+        ],
+        filters,
+        raise_on_error=True,
+    )
+    before = {
+        row.id: dict(row.payload)
+        for row in memory.midterm_memory.list_sessions(filters=filters, top_k=10)
+    }
+
+    memory._process_midterm_evictions(
+        [
+            {"role": "user", "content": "这条内容不应进入现有摘要。"},
+            {"role": "assistant", "content": "临时回答。"},
+        ],
+        filters,
+        source_job_id="discarded-midterm-job",
+        lease_token="discarded-midterm-lease",
+        raise_on_error=True,
+    )
+    cleanup_error = memory.midterm_updater.discard_source_job_outputs(
+        "discarded-midterm-job",
+        "discarded-midterm-lease",
+    )
+    after = {
+        row.id: dict(row.payload)
+        for row in memory.midterm_memory.list_sessions(filters=filters, top_k=10)
+    }
+    staged = memory.midterm_memory.list_pages(
+        filters=filters,
+        top_k=10,
+        include_uncommitted=True,
+    )
+
+    assert cleanup_error is None
+    assert before == after
+    assert any(row.payload.get("output_state") == "discarded" for row in staged)
+    assert all(row.payload.get("source_job_id") != "discarded-midterm-job" for row in memory.midterm_memory.list_pages(filters=filters))
+    memory.close()
+
+
+def test_old_midterm_lease_cannot_cleanup_new_lease_output(tmp_path, fake_memory_env):
+    config = _memory_config(tmp_path, collection_name="midterm_cleanup_fencing")
+    config.background.enabled = False
+    memory = Memory(config)
+    filters = {"user_id": "u1", "run_id": "r1"}
+    memory._process_midterm_evictions(
+        [
+            {"role": "user", "content": "新的租约应保留这条页面。"},
+            {"role": "assistant", "content": "收到。"},
+        ],
+        filters,
+        source_job_id="shared-job",
+        lease_token="old-lease",
+        raise_on_error=True,
+    )
+    row = memory.midterm_memory.list_pages(top_k=10, include_uncommitted=True)[0]
+    payload = dict(row.payload)
+    payload["output_lease_token"] = "new-lease"
+    memory.midterm_memory.update_page(str(row.id), payload, reembed=False)
+    session_id = memory.midterm_updater._create_session(payload)
+
+    assert memory.midterm_updater.discard_source_job_outputs("shared-job", "old-lease") is None
+    current_page = memory.midterm_memory.get_page(str(row.id)).payload
+    current_session = memory.midterm_memory.get_session(session_id).payload
+    assert current_page["output_state"] == "staging"
+    assert current_page["output_lease_token"] == "new-lease"
+    assert current_session["output_state"] == "staging"
+    assert current_session["created_by_lease_token"] == "new-lease"
+    memory.close()
+
+
+def test_stale_midterm_cleanup_cannot_restore_new_session_state(tmp_path, fake_memory_env):
+    config = _memory_config(tmp_path, collection_name="midterm_session_cleanup_fencing")
+    config.background.enabled = False
+    memory = Memory(config)
+    filters = {"user_id": "u1", "run_id": "r1"}
+    memory._process_midterm_evictions(
+        [
+            {"role": "user", "content": "旧租约页面。"},
+            {"role": "assistant", "content": "旧租约回答。"},
+        ],
+        filters,
+        source_job_id="shared-job",
+        lease_token="old-lease",
+        raise_on_error=True,
+    )
+    row = memory.midterm_memory.list_pages(top_k=10, include_uncommitted=True)[0]
+    page_payload = dict(row.payload)
+    session_id = memory.midterm_updater._create_session(
+        {
+            **page_payload,
+            "output_lease_token": "new-lease",
+        }
+    )
+    session = memory.midterm_memory.get_session(session_id)
+    session_payload = dict(session.payload)
+    session_payload.update(
+        {
+            "summary": "new lease summary",
+            "last_output_job_id": "shared-job",
+            "last_output_lease_token": "new-lease",
+        }
+    )
+    memory.midterm_memory.update_session(session_id, session_payload, reembed=False)
+    page_payload.update(
+        {
+            "session_id": session_id,
+            "_commit_session_id": session_id,
+            "_commit_session_backup": {"summary": "old backup"},
+        }
+    )
+    memory.midterm_memory.update_page(str(row.id), page_payload, reembed=False)
+
+    memory.midterm_updater.discard_source_job_outputs("shared-job", "old-lease")
+    current_session = memory.midterm_memory.get_session(session_id).payload
+    assert current_session["summary"] == "new lease summary"
+    assert current_session["last_output_lease_token"] == "new-lease"
+    memory.close()
+
+
+def test_stale_midterm_cleanup_cannot_modify_committed_page(tmp_path, fake_memory_env):
+    config = _memory_config(tmp_path, collection_name="midterm_committed_cleanup_fencing")
+    config.background.enabled = False
+    memory = Memory(config)
+    memory._process_midterm_evictions(
+        [
+            {"role": "user", "content": "已提交页面。"},
+            {"role": "assistant", "content": "不会被旧租约清理。"},
+        ],
+        {"user_id": "u1", "run_id": "r1"},
+        source_job_id="shared-job",
+        lease_token="new-lease",
+        raise_on_error=True,
+    )
+    row = memory.midterm_memory.list_pages(top_k=10, include_uncommitted=True)[0]
+    payload = dict(row.payload)
+    payload["output_state"] = "committed"
+    payload["output_lease_token"] = None
+    memory.midterm_memory.update_page(str(row.id), payload, reembed=False)
+
+    memory.midterm_updater.discard_source_job_outputs("shared-job", "old-lease")
+    current = memory.midterm_memory.get_page(str(row.id)).payload
+    assert current["output_state"] == "committed"
+    assert current["output_lease_token"] is None
+    memory.close()
+
+
+def test_success_commits_all_midterm_stage_outputs(tmp_path, fake_memory_env):
+    config = _memory_config(tmp_path, collection_name="midterm_commit")
+    config.background.enabled = False
+    memory = Memory(config)
+    messages = [
+        {"role": "user", "content": "我偏好中长期投资。"},
+        {"role": "assistant", "content": "我会记住。"},
+    ]
+    filters = {"user_id": "u1", "run_id": "r1"}
+    job_id = memory.db.save_messages_and_create_migration_job(
+        messages,
+        "run_id=r1&user_id=u1",
+        max_messages=0,
+        filters=filters,
+        metadata=filters,
+        infer=True,
+        prompt=None,
+    )
+    job = memory.db.claim_migration_stage(job_id, "midterm")
+
+    memory._background_process_midterm(job, messages, False)
+    assert memory.midterm_memory.list_pages(filters=filters, top_k=10) == []
+    memory._commit_migration_stage_outputs(
+        job,
+        "midterm",
+        job["midterm_lease_token"],
+        False,
+    )
+    assert memory.db.mark_migration_stage_succeeded(
+        job_id,
+        "midterm",
+        job["midterm_lease_token"],
+    )
+
+    pages = memory.midterm_memory.list_pages(filters=filters, top_k=10)
+    sessions = memory.midterm_memory.list_sessions(filters=filters, top_k=10)
+    assert pages and sessions
+    assert all(page.payload["output_state"] == "committed" for page in pages)
+    assert all(page.payload["degraded"] is False for page in pages)
+    memory.close()
+
+
 def test_memory_add_infer_true_updates_long_and_midterm(tmp_path, fake_memory_env):
     memory = Memory(_memory_config(tmp_path, collection_name="midterm_infer_true"))
     filters = {"user_id": "u1"}
@@ -508,6 +736,7 @@ def test_memory_add_infer_true_updates_long_and_midterm(tmp_path, fake_memory_en
     assert pages
     assert sessions
     assert {row.payload["source_job_id"] for row in pages}.issubset(set(migration_job_ids))
+    assert all(set(row.payload.get("source_job_ids") or []) <= set(migration_job_ids) for row in sessions)
     longterm_rows = memory.vector_store.list(filters=filters, top_k=10)
     assert {row.payload["source_job_id"] for row in longterm_rows}.issubset(set(migration_job_ids))
     for row in [*pages, *sessions]:

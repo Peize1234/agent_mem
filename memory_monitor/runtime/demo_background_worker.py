@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from typing import Any, Callable, Dict, Optional
 
 from mem0.memory.background_worker import BackgroundWorkerManager
@@ -12,23 +13,76 @@ DemoEventRecorder = Callable[[str, Dict[str, Any]], None]
 
 
 class DemoBackgroundWorkerManager(BackgroundWorkerManager):
-    """Manual facade over the production worker's complete job state machine."""
+    """Manual facade over the production stage-level state machines."""
 
     def __init__(self, *args, event_recorder: Optional[DemoEventRecorder] = None, **kwargs):
         super().__init__(*args, **kwargs)
         self._event_recorder = event_recorder
-        self._manual_lock = threading.RLock()
+        self._manual_locks = {
+            "midterm": threading.Lock(),
+            "longterm": threading.Lock(),
+            "profile": threading.Lock(),
+        }
         self._recovered = False
+        self._manual_condition = threading.Condition()
+        self._accepting_manual_work = True
+        self._active_manual_calls = 0
 
     def start(self) -> None:
         """Recover stale work but deliberately avoid starting background threads."""
         with self._state_lock:
             if self._recovered or not self.enabled:
                 return
-            self.db.recover_stale_background_jobs(self.config.stale_running_timeout_seconds)
+            recovered = self.db.recover_expired_background_leases(self.config.max_stale_recoveries)
+            logger.info(
+                "Demo recovered stale background jobs migration=%s profile=%s",
+                recovered.get("migration", 0),
+                recovered.get("profile", 0),
+            )
+            if self.startup_cleanup is not None:
+                try:
+                    self.startup_cleanup()
+                except Exception:
+                    logger.exception("Demo orphan staging cleanup failed during startup")
+            with self._manual_condition:
+                self._accepting_manual_work = True
             self._recovered = True
 
-    def wake_migration(self) -> None:
+    def stop(self, *, wait: bool = True, timeout: Optional[float] = None) -> bool:
+        deadline = None if timeout is None else time.monotonic() + max(float(timeout), 0)
+        with self._manual_condition:
+            self._accepting_manual_work = False
+            while wait and self._active_manual_calls:
+                remaining = None if deadline is None else max(deadline - time.monotonic(), 0)
+                if remaining == 0:
+                    return False
+                self._manual_condition.wait(remaining)
+            if self._active_manual_calls:
+                return False
+        remaining = None if deadline is None else max(deadline - time.monotonic(), 0)
+        return super().stop(wait=wait, timeout=remaining)
+
+    def threads_alive(self) -> bool:
+        with self._manual_condition:
+            manual_work_alive = self._active_manual_calls > 0
+        return manual_work_alive or super().threads_alive()
+
+    def _begin_manual_call(self) -> bool:
+        with self._manual_condition:
+            if not self._accepting_manual_work:
+                return False
+            self._active_manual_calls += 1
+            return True
+
+    def _end_manual_call(self) -> None:
+        with self._manual_condition:
+            self._active_manual_calls -= 1
+            self._manual_condition.notify_all()
+
+    def wake_midterm(self) -> None:
+        return None
+
+    def wake_longterm(self) -> None:
         return None
 
     def wake_profile(self) -> None:
@@ -38,74 +92,154 @@ class DemoBackgroundWorkerManager(BackgroundWorkerManager):
         """Report queue state without waiting for threads that do not exist."""
         return not self.db.background_jobs_pending()
 
+    def process_next_midterm_job(self) -> bool:
+        return self._process_claimed_stage("midterm")
+
+    def process_next_longterm_job(self) -> bool:
+        return self._process_claimed_stage("longterm")
+
     def process_next_migration_job(self) -> bool:
-        return self._process_claimed_job("migration")
+        midterm_processed = self.process_next_midterm_job()
+        longterm_processed = self.process_next_longterm_job()
+        return midterm_processed or longterm_processed
 
     def process_next_profile_job(self) -> bool:
-        return self._process_claimed_job("profile")
+        return self._process_claimed_profile()
+
+    def process_midterm_job(self, job_id: str) -> bool:
+        return self._process_claimed_stage("midterm", job_id)
+
+    def process_longterm_job(self, job_id: str) -> bool:
+        return self._process_claimed_stage("longterm", job_id)
 
     def process_migration_job(self, job_id: str) -> bool:
-        return self._process_claimed_job("migration", job_id)
+        """Compatibility helper that manually advances both independent stages."""
+        midterm_processed = self.process_midterm_job(job_id)
+        longterm_processed = self.process_longterm_job(job_id)
+        return midterm_processed or longterm_processed
 
     def process_profile_job(self, job_id: str) -> bool:
-        return self._process_claimed_job("profile", job_id)
+        return self._process_claimed_profile(job_id)
 
     def get_job_status(self, job_id: str, job_type: str) -> Optional[Dict[str, Any]]:
         return self.db.get_background_job(job_id, job_type)
 
-    def _process_claimed_job(self, job_type: str, job_id: Optional[str] = None) -> bool:
-        if job_type not in {"migration", "profile"}:
-            raise ValueError("job_type must be 'migration' or 'profile'")
+    def _process_claimed_stage(self, stage: str, job_id: Optional[str] = None) -> bool:
+        if stage not in {"midterm", "longterm"}:
+            raise ValueError("stage must be 'midterm' or 'longterm'")
+        if not self._begin_manual_call():
+            return False
+        handler = self.process_midterm if stage == "midterm" else self.process_longterm
+        try:
+            with self._manual_locks[stage]:
+                job = (
+                    self.db.claim_migration_stage(job_id, stage, self.config.lease_timeout_seconds)
+                    if job_id is not None
+                    else self.db.claim_next_migration_stage(stage, self.config.lease_timeout_seconds)
+                )
+                if not isinstance(job, dict):
+                    return False
+                self._record("job.started", {"job_type": "migration", "stage": stage, "job_id": job["job_id"]})
+                try:
+                    self._run_migration_stage(job, stage, handler)
+                except Exception as exc:
+                    self._record_unexpected_stage_failure(job, stage, exc)
+                status = self.db.get_background_job(job["job_id"], "migration")
+                stage_status = (status or {}).get(f"{stage}_status")
+                self._record(
+                    "job.finished",
+                    {
+                        "job_type": "migration",
+                        "stage": stage,
+                        "job_id": job["job_id"],
+                        "status": stage_status,
+                    },
+                )
+                if stage_status == "discarded":
+                    self._record(
+                        "job.discarded",
+                        {
+                            "job_type": "migration",
+                            "stage": stage,
+                            "job_id": job["job_id"],
+                            "attempts": (status or {}).get(f"{stage}_attempts"),
+                            "last_error": (status or {}).get(f"{stage}_last_error"),
+                        },
+                    )
+                return True
+        finally:
+            self._end_manual_call()
 
-        with self._manual_lock:
-            claim = self.db.claim_migration_job if job_type == "migration" else self.db.claim_profile_job
-            claim_next = self.db.claim_next_migration_job if job_type == "migration" else self.db.claim_next_profile_job
-            job = claim(job_id) if job_id is not None else claim_next()
-            if not isinstance(job, dict):
-                return False
-
-            self._record("job.started", {"job_type": job_type, "job_id": job["job_id"]})
-            try:
-                if job_type == "migration":
-                    self._run_migration_job(job)
-                else:
+    def _process_claimed_profile(self, job_id: Optional[str] = None) -> bool:
+        if not self._begin_manual_call():
+            return False
+        try:
+            with self._manual_locks["profile"]:
+                job = (
+                    self.db.claim_profile_job(job_id, self.config.lease_timeout_seconds)
+                    if job_id is not None
+                    else self.db.claim_next_profile_job(self.config.lease_timeout_seconds)
+                )
+                if not isinstance(job, dict):
+                    return False
+                self._record("job.started", {"job_type": "profile", "job_id": job["job_id"]})
+                try:
                     self._run_profile_job(job)
-            except Exception as exc:
-                self._record_unexpected_failure(job_type, job, exc)
-            status = self.db.get_background_job(job["job_id"], job_type)
-            self._record(
-                "job.finished",
-                {
-                    "job_type": job_type,
-                    "job_id": job["job_id"],
-                    "status": (status or {}).get("status"),
-                },
-            )
-            return True
+                except Exception as exc:
+                    self._record_unexpected_profile_failure(job, exc)
+                status = self.db.get_background_job(job["job_id"], "profile")
+                profile_status = (status or {}).get("status")
+                self._record(
+                    "job.finished",
+                    {
+                        "job_type": "profile",
+                        "job_id": job["job_id"],
+                        "status": profile_status,
+                    },
+                )
+                if profile_status == "discarded":
+                    self._record(
+                        "job.discarded",
+                        {
+                            "job_type": "profile",
+                            "job_id": job["job_id"],
+                            "attempts": (status or {}).get("attempts"),
+                            "last_error": (status or {}).get("last_error"),
+                        },
+                    )
+                return True
+        finally:
+            self._end_manual_call()
 
-    def _record_unexpected_failure(self, job_type: str, job: Dict[str, Any], exc: Exception) -> None:
-        logger.exception("Unexpected demo %s job failure for job_id=%s", job_type, job.get("job_id"))
-        attempt = int(job.get("attempts", 0)) + 1
-        if job_type == "migration":
-            action = self.db.record_migration_failure(
-                job["job_id"],
-                f"unexpected migration worker failure: {exc}",
-                max_retries=int(self.config.max_retries),
-                retry_delay_seconds=self._retry_delay(attempt),
-            )
-            if action == "exhausted":
-                self.db.mark_migration_dead(job["job_id"], f"unexpected migration worker failure: {exc}")
-        else:
-            self.db.record_profile_failure(
-                job["job_id"],
-                f"unexpected profile worker failure: {exc}",
-                max_retries=int(self.config.max_retries),
-                retry_delay_seconds=self._retry_delay(attempt),
-            )
+    def _record_unexpected_stage_failure(self, job: Dict[str, Any], stage: str, exc: Exception) -> None:
+        logger.exception("Unexpected demo migration stage failure job_id=%s stage=%s", job.get("job_id"), stage)
+        handler = self.process_midterm if stage == "midterm" else self.process_longterm
+        self._persist_unexpected_stage_failure(job, stage, handler, exc)
         self._record(
             "job.failed",
             {
-                "job_type": job_type,
+                "job_type": "migration",
+                "stage": stage,
+                "job_id": job["job_id"],
+                "error_type": type(exc).__name__,
+                "error": str(exc),
+            },
+        )
+
+    def _record_unexpected_profile_failure(self, job: Dict[str, Any], exc: Exception) -> None:
+        logger.exception("Unexpected demo profile job failure job_id=%s", job.get("job_id"))
+        attempt = int(job.get("attempts", 0)) + 1
+        self.db.record_profile_failure(
+            job["job_id"],
+            job["lease_token"],
+            f"unexpected profile worker failure: {exc}",
+            max_retries=int(self.config.max_retries),
+            retry_delay_seconds=self._retry_delay(attempt),
+        )
+        self._record(
+            "job.failed",
+            {
+                "job_type": "profile",
                 "job_id": job["job_id"],
                 "error_type": type(exc).__name__,
                 "error": str(exc),

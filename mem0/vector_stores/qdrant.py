@@ -40,6 +40,7 @@ class Qdrant(VectorStoreBase):
         https: bool | None = None,
         on_disk: bool = False,
         bm25_language: str = "en",
+        timeout_seconds: float | None = None,
     ):
         """
         Initialize the Qdrant vector store.
@@ -76,6 +77,8 @@ class Qdrant(VectorStoreBase):
                 params["port"] = port
             if https is not None:
                 params["https"] = https
+            if timeout_seconds is not None:
+                params["timeout"] = timeout_seconds
 
             if not params:
                 params["path"] = path

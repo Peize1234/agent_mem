@@ -1,6 +1,8 @@
 import hashlib
+import threading
 import time
 import uuid
+from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -126,11 +128,14 @@ def _worker(db, memory, *, max_retries=0):
         db,
         BackgroundTaskConfig(
             max_retries=max_retries,
+            retry_delays_seconds=(0.05,),
             poll_interval_seconds=0.005,
         ),
         process_midterm=lambda *args: None,
         process_longterm=memory._background_process_longterm,
         process_profile=lambda *args: None,
+        commit_migration_outputs=memory._commit_migration_stage_outputs,
+        discard_migration_outputs=memory._discard_migration_stage_outputs,
     )
 
 
@@ -185,10 +190,188 @@ def test_valid_empty_response_marks_background_longterm_complete():
         assert worker.flush(2)
         job = db.get_background_job(job_id)
         assert job["status"] == "succeeded"
-        assert job["longterm_done"] is True
+        assert job["longterm_status"] == "succeeded"
         assert db.get_migration_job_messages(job_id) == []
     finally:
         worker.stop(timeout=1)
+        db.close()
+
+
+def test_longterm_partial_write_is_not_visible_before_commit():
+    db = SQLiteManager(":memory:")
+    memory = _memory(db, '{"memory": [{"text": "staged fact"}]}')
+    try:
+        memory._process_evicted_long_term_memories(
+            MESSAGES,
+            METADATA,
+            FILTERS,
+            source_job_id="job-staging",
+            lease_token="lease-staging",
+        )
+        memory_id = _longterm_memory_id("job-staging", "staged fact")
+        assert memory.vector_store.rows[memory_id]["payload"]["output_state"] == "staging"
+        assert memory.get(memory_id) is None
+        assert db.get_history(memory_id) == []
+    finally:
+        db.close()
+
+
+def test_success_commits_all_longterm_stage_outputs():
+    db = SQLiteManager(":memory:")
+    memory = _memory(db, '{"memory": [{"text": "committed fact"}]}')
+    job_id = _reserve(db)
+    worker = _worker(db, memory)
+    try:
+        worker.start()
+        worker.wake_migration()
+        assert worker.flush(2)
+        memory_id = _longterm_memory_id(job_id, "committed fact")
+        payload = memory.vector_store.rows[memory_id]["payload"]
+        assert payload["output_state"] == "committed"
+        assert payload["output_lease_token"] is None
+        assert db.get_history(memory_id)
+        assert memory.get(memory_id)["memory"] == "committed fact"
+    finally:
+        worker.stop(timeout=1)
+        db.close()
+
+
+def test_stale_lease_cannot_commit_longterm_outputs():
+    db = SQLiteManager(":memory:")
+    memory = _memory(db, '{"memory": [{"text": "stale fact"}]}')
+    job_id = _reserve(db)
+    first = db.claim_migration_stage(job_id, "longterm")
+    try:
+        memory._background_process_longterm(first, MESSAGES, False)
+        db.connection.execute(
+            "UPDATE memory_migration_jobs SET longterm_lease_expires_at = ? WHERE job_id = ?",
+            ((memory_main.beijing_now() - timedelta(seconds=1)).isoformat(), job_id),
+        )
+        db.connection.commit()
+        db.recover_expired_background_leases(max_stale_recoveries=3)
+        second = db.claim_migration_stage(job_id, "longterm")
+        assert second["longterm_lease_token"] != first["longterm_lease_token"]
+
+        with pytest.raises(RuntimeError, match="stale migration stage lease"):
+            memory._commit_migration_stage_outputs(
+                first,
+                "longterm",
+                first["longterm_lease_token"],
+                False,
+            )
+        memory_id = _longterm_memory_id(job_id, "stale fact")
+        assert memory.vector_store.rows[memory_id]["payload"]["output_state"] == "staging"
+        assert memory.get(memory_id) is None
+    finally:
+        db.close()
+
+
+def test_cleanup_failure_still_hides_discarded_longterm_outputs():
+    db = SQLiteManager(":memory:")
+    memory = _memory(db, '{"memory": [{"text": "discarded fact"}]}')
+    job_id = _reserve(db)
+    claimed = db.claim_migration_stage(job_id, "longterm")
+    try:
+        memory._background_process_longterm(claimed, MESSAGES, False)
+        memory_id = _longterm_memory_id(job_id, "discarded fact")
+        db.add_history(memory_id, None, "discarded fact", "ADD")
+        memory.vector_store.update = MagicMock(side_effect=RuntimeError("hide failed"))
+        db.delete_history_for_memory_ids = MagicMock(side_effect=RuntimeError("cleanup failed"))
+        cleanup_error = memory._discard_migration_stage_outputs(
+            claimed,
+            "longterm",
+            claimed["longterm_lease_token"],
+        )
+        assert db.mark_migration_stage_discarded(
+            job_id,
+            "longterm",
+            claimed["longterm_lease_token"],
+            "degradation failed",
+            cleanup_error=cleanup_error,
+        )
+        assert "hide failed" in cleanup_error
+        db.delete_history_for_memory_ids.assert_not_called()
+        assert memory.vector_store.rows[memory_id]["payload"]["output_state"] == "staging"
+        assert memory.get(memory_id) is None
+        assert memory.history(memory_id) == []
+    finally:
+        db.close()
+
+
+def test_old_longterm_lease_cannot_cleanup_new_or_committed_output():
+    db = SQLiteManager(":memory:")
+    memory = _memory(db, '{"memory": [{"text": "fenced fact"}]}')
+    job_id = _reserve(db)
+    claimed = db.claim_migration_stage(job_id, "longterm")
+    try:
+        memory._background_process_longterm(claimed, MESSAGES, False)
+        memory_id = _longterm_memory_id(job_id, "fenced fact")
+        payload = memory.vector_store.rows[memory_id]["payload"]
+        payload["output_lease_token"] = "new-lease"
+        db.add_history(memory_id, None, "new history", "ADD")
+        db.delete_history_for_memory_ids = MagicMock()
+        memory._strict_remove_stage_entity_links = MagicMock()
+
+        assert (
+            memory._discard_migration_stage_outputs(
+                claimed,
+                "longterm",
+                claimed["longterm_lease_token"],
+            )
+            is None
+        )
+        assert payload["output_state"] == "staging"
+        assert payload["output_lease_token"] == "new-lease"
+        db.delete_history_for_memory_ids.assert_not_called()
+        memory._strict_remove_stage_entity_links.assert_not_called()
+
+        payload["output_state"] = "committed"
+        payload["output_lease_token"] = None
+        memory._discard_migration_stage_outputs(
+            claimed,
+            "longterm",
+            claimed["longterm_lease_token"],
+        )
+        assert payload["output_state"] == "committed"
+        db.delete_history_for_memory_ids.assert_not_called()
+        memory._strict_remove_stage_entity_links.assert_not_called()
+    finally:
+        db.close()
+
+
+def test_commit_rollback_does_not_remove_new_lease_side_effects():
+    db = SQLiteManager(":memory:")
+    memory = _memory(db, '{"memory": [{"text": "rollback fact"}]}')
+    job_id = _reserve(db)
+    claimed = db.claim_migration_stage(job_id, "longterm")
+    try:
+        memory._background_process_longterm(claimed, MESSAGES, False)
+        memory_id = _longterm_memory_id(job_id, "rollback fact")
+        db.delete_history_for_memory_ids = MagicMock()
+        memory._strict_remove_stage_entity_links = MagicMock()
+
+        def new_lease_takes_over(*args, **kwargs):
+            payload = memory.vector_store.rows[memory_id]["payload"]
+            payload["output_state"] = "staging"
+            payload["output_lease_token"] = "new-lease"
+            raise RuntimeError("old worker failed after takeover")
+
+        memory._link_entities_for_memory = new_lease_takes_over
+        memory._component_init_lock = threading.RLock()
+        with pytest.raises(RuntimeError, match="old worker failed after takeover"):
+            memory._commit_migration_stage_outputs(
+                claimed,
+                "longterm",
+                claimed["longterm_lease_token"],
+                False,
+            )
+
+        payload = memory.vector_store.rows[memory_id]["payload"]
+        assert payload["output_state"] == "staging"
+        assert payload["output_lease_token"] == "new-lease"
+        db.delete_history_for_memory_ids.assert_not_called()
+        memory._strict_remove_stage_entity_links.assert_not_called()
+    finally:
         db.close()
 
 
@@ -241,8 +424,7 @@ async def test_sync_and_async_strict_parsing_match(async_mode):
         db.close()
 
 
-def test_invalid_json_enters_retry_then_can_succeed(monkeypatch):
-    monkeypatch.setattr("mem0.memory.background_worker._RETRY_DELAYS_SECONDS", (0.05, 0.05, 0.05))
+def test_invalid_json_enters_retry_then_can_succeed():
     db = SQLiteManager(":memory:")
     memory = _memory(db, "not-json")
     memory.llm.generate_response.side_effect = ["not-json", '{"memory": []}']
@@ -282,6 +464,9 @@ def test_invalid_json_exhaustion_uses_longterm_degradation():
             if row["payload"].get("memory_type") == "raw_fallback"
         ]
         assert len(fallback_rows) == 1
+        assert fallback_rows[0]["payload"]["output_state"] == "committed"
+        assert fallback_rows[0]["payload"]["degraded"] is True
+        assert fallback_rows[0]["payload"]["needs_reprocessing"] is True
     finally:
         worker.stop(timeout=1)
         db.close()
@@ -378,8 +563,7 @@ def test_partial_fact_embedding_failure_does_not_write_partial_results():
         db.close()
 
 
-def test_embedding_failure_enters_retry_then_succeeds(monkeypatch):
-    monkeypatch.setattr("mem0.memory.background_worker._RETRY_DELAYS_SECONDS", (0.05, 0.05, 0.05))
+def test_embedding_failure_enters_retry_then_succeeds():
     db = SQLiteManager(":memory:")
     memory = _memory(db, '{"memory": [{"text": "retry fact"}]}')
     memory.embedding_model.embed_batch.side_effect = [
@@ -451,24 +635,24 @@ def test_hash_duplicate_and_existing_deterministic_id_need_no_fact_embedding():
             == []
         )
         memory.embedding_model.embed_batch.assert_not_called()
-        assert db.get_history(deterministic_id)
+        assert db.get_history(deterministic_id) == []
+        assert memory.vector_store.rows[deterministic_id]["payload"]["output_state"] == "staging"
     finally:
         db.close()
 
 
-def test_retry_repairs_history_without_repeating_vector_write():
+def test_staging_retry_defers_history_without_repeating_vector_write():
     db = SQLiteManager(":memory:")
     memory = _memory(db, '{"memory": [{"text": "persisted fact"}]}')
     original_add_history = db.add_history
     db.add_history = MagicMock(side_effect=RuntimeError("history unavailable"))
     try:
-        with pytest.raises(RuntimeError, match="history unavailable"):
-            memory._process_evicted_long_term_memories(
-                MESSAGES,
-                METADATA,
-                FILTERS,
-                source_job_id="job-history-retry",
-            )
+        memory._process_evicted_long_term_memories(
+            MESSAGES,
+            METADATA,
+            FILTERS,
+            source_job_id="job-history-retry",
+        )
         assert memory.vector_store.insert_calls == 1
 
         db.add_history = original_add_history
@@ -483,13 +667,14 @@ def test_retry_repairs_history_without_repeating_vector_write():
         )
         assert memory.vector_store.insert_calls == 1
         deterministic_id = _longterm_memory_id("job-history-retry", "persisted fact")
-        assert db.get_history(deterministic_id)
+        assert db.get_history(deterministic_id) == []
+        assert memory.vector_store.rows[deterministic_id]["payload"]["output_state"] == "staging"
     finally:
         db.close()
 
 
 @pytest.mark.parametrize("fallback_fails", [False, True])
-def test_embedding_exhaustion_degrades_or_marks_dead(fallback_fails):
+def test_embedding_exhaustion_degrades_or_marks_discarded(fallback_fails):
     db = SQLiteManager(":memory:")
     memory = _memory(db, '{"memory": [{"text": "fact cannot embed"}]}')
     memory.embedding_model.embed_batch.side_effect = RuntimeError("batch unavailable")
@@ -511,13 +696,9 @@ def test_embedding_exhaustion_degrades_or_marks_dead(fallback_fails):
         worker.wake_migration()
 
         assert worker.flush(2)
-        expected_status = "dead" if fallback_fails else "succeeded_degraded"
+        expected_status = "completed_with_loss" if fallback_fails else "succeeded_degraded"
         assert db.get_background_job(job_id)["status"] == expected_status
-        if fallback_fails:
-            assert db.get_migration_job_messages(job_id)
-            assert {row["status"] for row in db.get_migration_job_messages(job_id)} == {"failed"}
-        else:
-            assert db.get_migration_job_messages(job_id) == []
+        assert db.get_migration_job_messages(job_id) == []
     finally:
         worker.stop(timeout=1)
         db.close()
@@ -535,8 +716,7 @@ def test_content_based_ids_are_stable_when_fact_order_changes():
     assert first_ids["fact A"] != first_ids["fact B"]
 
 
-def test_partial_write_then_reordered_retry_preserves_all_facts(monkeypatch):
-    monkeypatch.setattr("mem0.memory.background_worker._RETRY_DELAYS_SECONDS", (0.05, 0.05, 0.05))
+def test_partial_write_then_reordered_retry_preserves_all_facts():
     db = SQLiteManager(":memory:")
     memory = _memory(db, None)
     memory.vector_store = PartialWriteThenRecoverStore()
@@ -572,8 +752,7 @@ def test_partial_write_then_reordered_retry_preserves_all_facts(monkeypatch):
         db.close()
 
 
-def test_history_failure_then_reordered_retry_repairs_correct_histories(monkeypatch):
-    monkeypatch.setattr("mem0.memory.background_worker._RETRY_DELAYS_SECONDS", (0.05, 0.05, 0.05))
+def test_history_failure_then_reordered_retry_repairs_correct_histories():
     db = SQLiteManager(":memory:")
     memory = _memory(db, None)
     memory.llm.generate_response.side_effect = [
@@ -689,12 +868,11 @@ def test_existing_deterministic_id_hash_mismatch_retries_without_overwrite(caplo
         worker.start()
         worker.wake_migration()
         deadline = time.monotonic() + 1
-        while db.get_background_job(job_id)["status"] != "retry" and time.monotonic() < deadline:
+        while db.get_background_job(job_id)["longterm_status"] != "retry" and time.monotonic() < deadline:
             time.sleep(0.005)
 
         job = db.get_background_job(job_id)
-        assert job["status"] == "retry"
-        assert job["longterm_done"] is False
+        assert job["longterm_status"] == "retry"
         assert db.get_migration_job_messages(job_id)
         assert memory.vector_store.rows[memory_id]["payload"] == wrong_payload
         assert str(job_id) in caplog.text

@@ -1,4 +1,5 @@
 import json
+import threading
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -310,6 +311,7 @@ def test_retrieve_context_returns_latest_window_in_order_and_isolates_session():
         memory.search = MagicMock(return_value={"results": []})
         memory._profile_manager = None
         memory._profile_updater = None
+        memory._component_init_lock = threading.RLock()
 
         session_1 = memory._retrieve_context("question", user_id="user-1", session_id="session-1")
         session_2 = memory._retrieve_context("question", user_id="user-1", session_id="session-2")

@@ -38,6 +38,8 @@ class MidTermRetriever:
             "run_id": payload.get("run_id"),
             "summary_keywords": payload.get("summary_keywords", []),
             "H_segment": payload.get("H_segment"),
+            "source_job_id": payload.get("source_job_id"),
+            "source_job_ids": payload.get("source_job_ids", []),
         }
 
     @staticmethod
@@ -58,6 +60,7 @@ class MidTermRetriever:
             "run_id": payload.get("run_id"),
             "keywords": payload.get("keywords", []),
             "session_score": session_score,
+            "source_job_id": payload.get("source_job_id"),
         }
 
     @staticmethod

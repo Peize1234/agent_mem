@@ -18,6 +18,11 @@ def vector_rows(listed) -> List[Any]:
     return []
 
 
+def derived_output_is_visible(payload: Dict[str, Any]) -> bool:
+    """Manual/legacy rows are committed; background rows require an explicit commit."""
+    return not payload.get("source_job_id") or payload.get("output_state") == "committed"
+
+
 def keyword_overlap(left: List[str], right: List[str]) -> float:
     left_set = {str(item).strip().lower() for item in left or [] if str(item).strip()}
     right_set = {str(item).strip().lower() for item in right or [] if str(item).strip()}
@@ -60,6 +65,8 @@ class MidTermMemory:
         embedding_model,
         config,
         primary_vector_store=None,
+        output_is_visible=None,
+        vector_store_timeout_seconds: Optional[float] = None,
     ):
         self.provider = provider
         self.base_vector_config = base_vector_config
@@ -67,6 +74,8 @@ class MidTermMemory:
         self.embedding_model = embedding_model
         self.config = config
         self.primary_vector_store = primary_vector_store
+        self.output_is_visible = output_is_visible or derived_output_is_visible
+        self.vector_store_timeout_seconds = vector_store_timeout_seconds
         self.pages_collection_name = f"{base_collection_name}_midterm_pages"
         self.sessions_collection_name = f"{base_collection_name}_midterm_sessions"
         self.pages_store = self._create_store(self.pages_collection_name)
@@ -91,7 +100,11 @@ class MidTermMemory:
             if client is not None:
                 config["client"] = client
 
-        return VectorStoreFactory.create(self.provider, config)
+        return VectorStoreFactory.create(
+            self.provider,
+            config,
+            timeout_seconds=self.vector_store_timeout_seconds,
+        )
 
     @staticmethod
     def page_embedding_text(payload: Dict[str, Any]) -> str:
@@ -156,12 +169,34 @@ class MidTermMemory:
     def get_page(self, page_id: str):
         return self.pages_store.get(vector_id=page_id)
 
-    def list_pages(self, filters: Optional[Dict[str, Any]] = None, top_k: int = 1000) -> List[Any]:
-        return vector_rows(self.pages_store.list(filters=filters, top_k=top_k))
+    def list_pages(
+        self,
+        filters: Optional[Dict[str, Any]] = None,
+        top_k: int = 1000,
+        *,
+        include_uncommitted: bool = False,
+    ) -> List[Any]:
+        rows = vector_rows(self.pages_store.list(filters=filters, top_k=max(top_k * 4, top_k)))
+        if not include_uncommitted:
+            rows = [row for row in rows if self.output_is_visible(getattr(row, "payload", None) or {})]
+        return rows[:top_k]
 
     def search_pages(self, query: str, filters: Optional[Dict[str, Any]] = None, top_k: int = 5) -> List[Any]:
         vector = self.embedding_model.embed(query, "search")
-        return self.pages_store.search(query=query, vectors=vector, top_k=top_k, filters=filters)
+        rows = self.pages_store.search(
+            query=query,
+            vectors=vector,
+            top_k=max(top_k * 4, top_k),
+            filters=filters,
+        )
+        return [
+            row
+            for row in rows
+            if self.output_is_visible(getattr(row, "payload", None) or {})
+        ][:top_k]
+
+    def delete_page(self, page_id: str) -> None:
+        self.pages_store.delete(vector_id=page_id)
 
     def insert_session(self, session_id: str, payload: Dict[str, Any]) -> None:
         embedding_text = self.session_embedding_text(payload)
@@ -175,12 +210,43 @@ class MidTermMemory:
     def get_session(self, session_id: str):
         return self.sessions_store.get(vector_id=session_id)
 
-    def list_sessions(self, filters: Optional[Dict[str, Any]] = None, top_k: int = 1000) -> List[Any]:
-        return vector_rows(self.sessions_store.list(filters=filters, top_k=top_k))
+    def list_sessions(
+        self,
+        filters: Optional[Dict[str, Any]] = None,
+        top_k: int = 1000,
+        *,
+        include_uncommitted: bool = False,
+    ) -> List[Any]:
+        rows = vector_rows(self.sessions_store.list(filters=filters, top_k=max(top_k * 4, top_k)))
+        if not include_uncommitted:
+            rows = [row for row in rows if self.output_is_visible(getattr(row, "payload", None) or {})]
+        return rows[:top_k]
 
-    def search_sessions(self, query: str, filters: Optional[Dict[str, Any]] = None, top_k: int = 5) -> List[Any]:
+    def search_sessions(
+        self,
+        query: str,
+        filters: Optional[Dict[str, Any]] = None,
+        top_k: int = 5,
+        *,
+        include_uncommitted: bool = False,
+    ) -> List[Any]:
         vector = self.embedding_model.embed(query, "search")
-        return self.sessions_store.search(query=query, vectors=vector, top_k=top_k, filters=filters)
+        rows = self.sessions_store.search(
+            query=query,
+            vectors=vector,
+            top_k=max(top_k * 4, top_k),
+            filters=filters,
+        )
+        if include_uncommitted:
+            return rows[:top_k]
+        return [
+            row
+            for row in rows
+            if self.output_is_visible(getattr(row, "payload", None) or {})
+        ][:top_k]
+
+    def delete_session(self, session_id: str) -> None:
+        self.sessions_store.delete(vector_id=session_id)
 
     def record_session_visit(self, session_id: str) -> Optional[Dict[str, Any]]:
         session = self.get_session(session_id)

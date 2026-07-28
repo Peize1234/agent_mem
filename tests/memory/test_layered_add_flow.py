@@ -1,4 +1,5 @@
 import asyncio
+import threading
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -45,6 +46,8 @@ def _sync_memory(
     memory._process_evicted_long_term_memories = MagicMock(return_value=[])
     memory._update_profile_after_add = MagicMock()
     memory._background_worker = MagicMock()
+    memory._background_lifecycle_lock = threading.RLock()
+    memory._closed = False
     return memory
 
 
@@ -73,6 +76,8 @@ def _async_memory(
     memory._process_evicted_long_term_memories = AsyncMock(return_value=[])
     memory._update_profile_after_add = AsyncMock()
     memory._background_worker = MagicMock()
+    memory._background_lifecycle_lock = threading.RLock()
+    memory._closed = False
     return memory
 
 
@@ -232,6 +237,48 @@ def test_infer_true_passes_declared_additive_prompt_inputs(monkeypatch):
         db.close()
 
 
+def test_background_longterm_context_excludes_current_job_midterm_pages():
+    db = SQLiteManager(":memory:")
+    try:
+        memory = _sync_memory(db, capacity=4)
+        memory.config.midterm.max_total_pages = 4
+        memory._midterm_retriever = MagicMock()
+        memory._midterm_retriever._scope_filters.return_value = {"user_id": "u1", "run_id": "r1"}
+        memory._midterm_retriever._format_page.side_effect = lambda page, score: {
+            "id": page.id,
+            "source": "mid_term_page",
+            "summary": page.payload["summary"],
+            "source_job_id": page.payload.get("source_job_id"),
+        }
+        memory._midterm_memory = MagicMock()
+        memory._midterm_memory.search_pages.return_value = [
+            SimpleNamespace(
+                id="current-page",
+                score=1.0,
+                payload={"summary": "current batch", "source_job_id": "migration-current"},
+            ),
+            SimpleNamespace(
+                id="previous-page",
+                score=0.9,
+                payload={"summary": "previous batch", "source_job_id": "migration-previous"},
+            ),
+        ]
+
+        session_summary, related = memory_main._additive_midterm_context(
+            memory,
+            "query",
+            {"user_id": "u1", "run_id": "r1"},
+            exclude_source_job_id="migration-current",
+        )
+
+        assert session_summary == ""
+        assert [item["summary"] for item in related] == ["previous batch"]
+        assert related[0]["source_job_id"] == "migration-previous"
+        memory._midterm_retriever.search.assert_not_called()
+    finally:
+        db.close()
+
+
 def test_procedural_add_keeps_existing_path_and_reports_no_migration_job():
     db = SQLiteManager(":memory:")
     try:
@@ -292,6 +339,40 @@ async def test_concurrent_async_adds_keep_session_jobs_isolated():
         db.close()
 
 
+def test_concurrent_sync_adds_create_ordered_jobs_without_sqlite_errors():
+    db = SQLiteManager(":memory:")
+    try:
+        memory = _sync_memory(db, capacity=0)
+        barrier = threading.Barrier(5)
+        results = []
+        errors = []
+
+        def add(index):
+            try:
+                barrier.wait(timeout=1)
+                results.append(memory.add(_qa(index), user_id="u1", run_id="r1"))
+            except Exception as exc:
+                errors.append(exc)
+
+        threads = [threading.Thread(target=add, args=(index,)) for index in range(4)]
+        for thread in threads:
+            thread.start()
+        barrier.wait(timeout=1)
+        for thread in threads:
+            thread.join(timeout=2)
+
+        assert all(not thread.is_alive() for thread in threads)
+        assert errors == []
+        assert len(results) == 4
+        rows = db.connection.execute(
+            "SELECT sequence_no FROM memory_migration_jobs ORDER BY sequence_no"
+        ).fetchall()
+        assert rows == [(1,), (2,), (3,), (4,)]
+        assert db.connection.execute("SELECT COUNT(*) FROM messages").fetchone()[0] == 8
+    finally:
+        db.close()
+
+
 def test_background_disabled_uses_sync_layered_and_profile_path():
     db = SQLiteManager(":memory:")
     try:
@@ -343,44 +424,42 @@ async def test_async_background_disabled_matches_sync_fallback():
         db.close()
 
 
-def test_profile_enqueue_failure_does_not_fail_add_or_duplicate_short_term(caplog):
+def test_profile_enqueue_failure_rolls_back_add_and_raises(caplog):
     database = SQLiteManager(":memory:")
     try:
         memory = _sync_memory(database, capacity=0, profile_enabled=True)
-        database.create_profile_update_job = MagicMock(side_effect=RuntimeError("profile queue unavailable"))
+        database._create_profile_job_in_transaction = MagicMock(side_effect=RuntimeError("profile queue unavailable"))
 
         with caplog.at_level("ERROR"):
-            result = memory.add(_qa(1), user_id="u1", run_id="r1")
+            with pytest.raises(RuntimeError, match="profile queue unavailable"):
+                memory.add(_qa(1), user_id="u1", run_id="r1")
 
-        migration_job_id = result["background"]["migration_job_id"]
-        assert migration_job_id
-        assert result["background"]["profile_job_id"] is None
-        assert _contents(database.get_migration_job_messages(migration_job_id)) == ["u1", "a1"]
-        assert database.connection.execute("SELECT COUNT(*) FROM messages").fetchone()[0] == 2
-        memory._background_worker.wake_migration.assert_called_once()
+        assert database.connection.execute("SELECT COUNT(*) FROM messages").fetchone()[0] == 0
+        assert database.connection.execute("SELECT COUNT(*) FROM memory_migration_jobs").fetchone()[0] == 0
+        assert database.connection.execute("SELECT COUNT(*) FROM profile_update_jobs").fetchone()[0] == 0
+        memory._background_worker.wake_migration.assert_not_called()
         memory._background_worker.wake_profile.assert_not_called()
-        assert "Failed to enqueue profile update job for user_id=u1" in caplog.text
+        assert "Failed to save messages and enqueue background jobs" in caplog.text
     finally:
         database.close()
 
 
 @pytest.mark.asyncio
-async def test_async_profile_enqueue_failure_is_isolated(caplog):
+async def test_async_profile_enqueue_failure_rolls_back_add_and_raises(caplog):
     database = SQLiteManager(":memory:")
     try:
         memory = _async_memory(database, capacity=0, profile_enabled=True)
-        database.create_profile_update_job = MagicMock(side_effect=RuntimeError("profile queue unavailable"))
+        database._create_profile_job_in_transaction = MagicMock(side_effect=RuntimeError("profile queue unavailable"))
 
         with caplog.at_level("ERROR"):
-            result = await memory.add(_qa(1), user_id="u1", run_id="r1")
+            with pytest.raises(RuntimeError, match="profile queue unavailable"):
+                await memory.add(_qa(1), user_id="u1", run_id="r1")
 
-        migration_job_id = result["background"]["migration_job_id"]
-        assert migration_job_id
-        assert result["background"]["profile_job_id"] is None
-        assert _contents(database.get_migration_job_messages(migration_job_id)) == ["u1", "a1"]
-        assert database.connection.execute("SELECT COUNT(*) FROM messages").fetchone()[0] == 2
-        memory._background_worker.wake_migration.assert_called_once()
+        assert database.connection.execute("SELECT COUNT(*) FROM messages").fetchone()[0] == 0
+        assert database.connection.execute("SELECT COUNT(*) FROM memory_migration_jobs").fetchone()[0] == 0
+        assert database.connection.execute("SELECT COUNT(*) FROM profile_update_jobs").fetchone()[0] == 0
+        memory._background_worker.wake_migration.assert_not_called()
         memory._background_worker.wake_profile.assert_not_called()
-        assert "Failed to enqueue profile update job for user_id=u1" in caplog.text
+        assert "Failed to save messages and enqueue background jobs" in caplog.text
     finally:
         database.close()

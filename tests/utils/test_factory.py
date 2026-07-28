@@ -4,7 +4,7 @@ from mem0.configs.llms.anthropic import AnthropicConfig
 from mem0.configs.llms.aws_bedrock import AWSBedrockConfig
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.llms.openai import OpenAIConfig
-from mem0.utils.factory import LlmFactory
+from mem0.utils.factory import LlmFactory, _configure_native_timeout
 
 
 def _capture_config(provider_name, config):
@@ -51,3 +51,15 @@ def test_base_to_provider_without_reasoning_fields_still_builds():
 
     assert isinstance(built, AnthropicConfig)
     assert built.model == "claude-3-5-sonnet-20240620"
+
+
+def test_provider_timeout_is_forwarded_to_native_client():
+    client = Mock()
+    client.with_options.return_value = client
+    provider = Mock(client=client, config=Mock(http_client=None))
+
+    configured = _configure_native_timeout(provider, 17)
+
+    assert configured is provider
+    assert provider.request_timeout_seconds == 17
+    client.with_options.assert_called_once_with(timeout=17)

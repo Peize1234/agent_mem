@@ -1,4 +1,3 @@
-import sqlite3
 import threading
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -465,52 +464,31 @@ def test_memory_add_without_idempotency_key_still_works_after_reset(tmp_path, mo
         memory.close()
 
 
-def test_existing_database_is_migrated_in_place_for_idempotency(tmp_path):
-    db_path = tmp_path / "legacy.db"
-    connection = sqlite3.connect(db_path)
-    connection.executescript(
-        """
-        CREATE TABLE messages (
-            id TEXT PRIMARY KEY, session_scope TEXT, role TEXT, content TEXT,
-            name TEXT, created_at DATETIME, status TEXT NOT NULL DEFAULT 'active',
-            migration_job_id TEXT
-        );
-        CREATE TABLE memory_migration_jobs (
-            job_id TEXT PRIMARY KEY, session_scope TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'pending', midterm_done INTEGER NOT NULL DEFAULT 0,
-            longterm_done INTEGER NOT NULL DEFAULT 0, attempts INTEGER NOT NULL DEFAULT 0,
-            next_retry_at TEXT, last_error TEXT, filters_json TEXT NOT NULL,
-            metadata_json TEXT NOT NULL, infer INTEGER NOT NULL DEFAULT 1, prompt TEXT,
-            sequence_no INTEGER NOT NULL, degraded INTEGER NOT NULL DEFAULT 0,
-            created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
-            UNIQUE(session_scope, sequence_no)
-        );
-        CREATE TABLE profile_update_jobs (
-            job_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, messages_json TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'pending', attempts INTEGER NOT NULL DEFAULT 0,
-            next_retry_at TEXT, last_error TEXT, sequence_no INTEGER NOT NULL,
-            created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
-            UNIQUE(user_id, sequence_no)
-        );
-        """
-    )
-    connection.commit()
-    connection.close()
-
-    db = SQLiteManager(str(db_path))
+def test_new_database_uses_independent_migration_stage_schema(tmp_path):
+    db = SQLiteManager(str(tmp_path / "history.db"))
     try:
-        tables = {
-            row[0] for row in db.connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()
-        }
-        message_columns = {row[1] for row in db.connection.execute("PRAGMA table_info(messages)").fetchall()}
         migration_columns = {
             row[1] for row in db.connection.execute("PRAGMA table_info(memory_migration_jobs)").fetchall()
         }
-        profile_columns = {row[1] for row in db.connection.execute("PRAGMA table_info(profile_update_jobs)").fetchall()}
-
-        assert "memory_idempotency_operations" in tables
-        assert {"source_operation_key", "source_message_index"} <= message_columns
-        assert "source_operation_key" in migration_columns
-        assert "source_operation_key" in profile_columns
+        assert {
+            "midterm_status",
+            "midterm_attempts",
+            "midterm_next_retry_at",
+            "midterm_last_error",
+            "midterm_degraded",
+            "midterm_started_at",
+            "midterm_finished_at",
+            "longterm_status",
+            "longterm_attempts",
+            "longterm_next_retry_at",
+            "longterm_last_error",
+            "longterm_degraded",
+            "longterm_started_at",
+            "longterm_finished_at",
+            "finalized_at",
+        } <= migration_columns
+        assert {"midterm_done", "longterm_done", "attempts", "next_retry_at", "degraded"}.isdisjoint(
+            migration_columns
+        )
     finally:
         db.close()

@@ -78,7 +78,12 @@ class SarvamLLM(LLMBase):
         params.update(kwargs)
 
         try:
-            response = requests.post(url, headers=headers, json=params, timeout=30)
+            response = requests.post(
+                url,
+                headers=headers,
+                json=params,
+                timeout=getattr(self, "request_timeout_seconds", 30),
+            )
             response.raise_for_status()
 
             result = response.json()

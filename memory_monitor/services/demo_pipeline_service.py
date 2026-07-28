@@ -264,7 +264,7 @@ class DemoPipelineService:
         )
         status = worker.get_job_status(job_id, job_type)
         status_name = (status or {}).get("status")
-        if status_name not in {"succeeded", "succeeded_degraded"}:
+        if status_name not in {"succeeded", "succeeded_degraded", "completed_with_loss"}:
             raise RuntimeError(
                 f"{job_type} job did not complete successfully: "
                 f"job_id={job_id} status={status_name} processed={processed}"

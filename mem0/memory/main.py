@@ -10,6 +10,7 @@ import time
 import uuid
 import warnings
 from copy import deepcopy
+from contextlib import asynccontextmanager
 from datetime import date, datetime
 from typing import Any, Dict, Optional
 
@@ -55,6 +56,8 @@ from mem0.memory.notices import (
     get_temporal_feature_error_message_async,
 )
 from mem0.memory.profile_manager import ProfileManager
+from mem0.memory.process_lock import ProcessInstanceLock
+from mem0.memory.profile_schema import ProfileUpdatePlan
 from mem0.memory.profile_updater import ProfileUpdater
 from mem0.memory.profile_validator import (
     normalize_memory_identifier,
@@ -62,7 +65,7 @@ from mem0.memory.profile_validator import (
     select_profile_user_messages,
 )
 from mem0.memory.setup import mem0_dir, setup_config
-from mem0.memory.storage import SQLiteManager
+from mem0.memory.storage import MIGRATION_STAGE_TERMINAL_STATUSES, SQLiteManager
 from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
 from mem0.memory.utils import (
     extract_json,
@@ -72,6 +75,7 @@ from mem0.memory.utils import (
     remove_code_blocks,
 )
 from mem0.utils.entity_extraction import extract_entities, extract_entities_batch
+from mem0.utils.bounded_timeout import BoundedTimeoutExecutor
 from mem0.utils.factory import (
     EmbedderFactory,
     LlmFactory,
@@ -98,6 +102,42 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigva
 
 # Initialize logger early for util functions
 logger = logging.getLogger(__name__)
+
+_ENTITY_EXTRACTION_EXECUTOR = BoundedTimeoutExecutor(
+    max_workers=2,
+    max_pending=4,
+    thread_name_prefix="mem0-entity-extraction",
+)
+
+
+@asynccontextmanager
+async def _acquire_thread_lock_async(lock: threading.Lock):
+    """Acquire a thread lock without leaking it when the waiting coroutine is cancelled."""
+    acquire_task = asyncio.create_task(asyncio.to_thread(lock.acquire))
+    acquired = False
+    try:
+        try:
+            acquired = await asyncio.shield(acquire_task)
+        except asyncio.CancelledError:
+            while not acquire_task.done():
+                try:
+                    await asyncio.shield(acquire_task)
+                except asyncio.CancelledError:
+                    continue
+            acquired = acquire_task.result()
+            if acquired:
+                lock.release()
+                acquired = False
+            raise
+        try:
+            yield
+        finally:
+            if acquired:
+                lock.release()
+                acquired = False
+    finally:
+        if acquire_task.done() and not acquire_task.cancelled():
+            acquire_task.exception()
 
 
 def _parse_extracted_memories(response: Any, *, strict: bool) -> list[dict]:
@@ -225,6 +265,19 @@ def _vector_store_list_rows(listed):
     return []
 
 
+def _update_vector_store_payload(store, memory_id: str, payload: Dict[str, Any]) -> None:
+    update = getattr(store, "update", None)
+    if callable(update):
+        update(vector_id=memory_id, vector=None, payload=payload)
+        return
+    # Small in-memory stores used by the SDK tests expose their rows directly.
+    rows = getattr(store, "rows", None)
+    if isinstance(rows, dict) and memory_id in rows:
+        rows[memory_id]["payload"] = dict(payload)
+        return
+    raise RuntimeError("Vector store does not support payload updates")
+
+
 def _new_entity_payload(entity_text, entity_type, linked_memory_ids, filters):
     """Build a timestamped payload for a newly created entity."""
     now = beijing_now_iso()
@@ -256,13 +309,29 @@ def _configured_bm25_language(config: MemoryConfig) -> str | None:
     return getattr(config.vector_store.config, "bm25_language", "en")
 
 
-def _additive_midterm_context(memory, query, filters):
+def _additive_midterm_context(memory, query, filters, *, exclude_source_job_id=None):
     """Return the session summary and related page context declared by the additive prompt."""
     if not memory._midterm_enabled():
         return "", []
 
     try:
-        results = memory.midterm_retriever.search(query, filters)
+        if exclude_source_job_id is None:
+            results = memory.midterm_retriever.search(query, filters)
+        else:
+            scope_filters = memory.midterm_retriever._scope_filters(filters)
+            pages = memory.midterm_memory.search_pages(
+                query=query,
+                filters=scope_filters,
+                top_k=10000,
+            )
+            results = []
+            for page in pages:
+                payload = getattr(page, "payload", None) or {}
+                if payload.get("source_job_id") == exclude_source_job_id:
+                    continue
+                score = float(getattr(page, "score", 0.0) or 0.0)
+                results.append(memory.midterm_retriever._format_page(page, score))
+            results = results[: int(memory.config.midterm.max_total_pages)]
     except Exception as exc:
         logger.warning("Mid-term context retrieval for long-term extraction failed: %s", exc)
         return "", []
@@ -279,7 +348,7 @@ def _additive_midterm_context(memory, query, filters):
 
         related_memory = {
             key: result.get(key)
-            for key in ("source", "summary", "raw_dialogue", "created_at")
+            for key in ("source", "summary", "raw_dialogue", "created_at", "source_job_id")
             if result.get(key) not in (None, "")
         }
         if not related_memory and summary:
@@ -757,6 +826,15 @@ class _BackgroundMemoryMixin:
             return BackgroundTaskConfig(enabled=False)
         return configured
 
+    def _run_entity_extraction(self, function, *args):
+        config = getattr(self, "config", None)
+        return _ENTITY_EXTRACTION_EXECUTOR.run(
+            function,
+            *args,
+            timeout_seconds=getattr(config, "entity_extraction_timeout_seconds", 60.0),
+            operation_name="Entity extraction",
+        )
+
     def _create_background_worker_manager(self) -> BackgroundWorkerManager:
         """Create the worker manager used by this memory runtime.
 
@@ -769,7 +847,236 @@ class _BackgroundMemoryMixin:
             process_midterm=self._background_process_midterm,
             process_longterm=self._background_process_longterm,
             process_profile=self._background_process_profile,
+            commit_migration_outputs=self._commit_migration_stage_outputs,
+            discard_migration_outputs=self._discard_migration_stage_outputs,
+            startup_cleanup=self._cleanup_orphan_staging_outputs,
         )
+
+    def _acquire_process_instance_lock(self) -> None:
+        self._process_instance_lock = ProcessInstanceLock(
+            self.config.history_db_path,
+            enabled=self.config.enforce_single_process,
+        )
+        self._process_instance_lock.acquire()
+        if self._process_instance_lock.acquired:
+            logger.info("single process lock acquired history_db_path=%s", self.config.history_db_path)
+
+    def _release_process_instance_lock(self) -> None:
+        process_lock = getattr(self, "_process_instance_lock", None)
+        if process_lock is None or not process_lock.acquired:
+            return
+        process_lock.release()
+        logger.info("process lock released history_db_path=%s", self.config.history_db_path)
+
+    def _cleanup_orphan_staging_outputs(self) -> Dict[str, Any]:
+        result = {
+            "midterm_discarded": 0,
+            "longterm_discarded": 0,
+            "cleanup_errors": [],
+        }
+        terminal_statuses = MIGRATION_STAGE_TERMINAL_STATUSES
+
+        if (
+            self._midterm_enabled()
+            and hasattr(self, "vector_store")
+            and getattr(self.config, "vector_store", None) is not None
+        ):
+            ephemeral_midterm = False
+            midterm_memory = None
+            try:
+                midterm_memory = getattr(self, "_midterm_memory", None)
+                if midterm_memory is None:
+                    ephemeral_midterm = True
+                    midterm_memory = MidTermMemory(
+                        provider=self.config.vector_store.provider,
+                        base_vector_config=self.config.vector_store.config,
+                        base_collection_name=self.collection_name,
+                        embedding_model=self.embedding_model,
+                        config=self.config.midterm,
+                        primary_vector_store=self.vector_store,
+                        output_is_visible=lambda payload: self._stage_output_is_visible(payload, "midterm"),
+                        vector_store_timeout_seconds=getattr(
+                            self.config,
+                            "vector_store_timeout_seconds",
+                            15.0,
+                        ),
+                    )
+                midterm_updater = getattr(self, "_midterm_updater", None)
+                if midterm_updater is None:
+                    midterm_updater = MidTermUpdater(midterm_memory, self.llm, self.config.midterm)
+                pages = midterm_memory.list_pages(top_k=10000, include_uncommitted=True)
+                cleanup_groups = set()
+                for row in pages:
+                    payload = dict(getattr(row, "payload", None) or {})
+                    source_job_id = payload.get("source_job_id")
+                    if payload.get("output_state") != "staging" or not source_job_id:
+                        continue
+                    job = self.db.get_background_job(source_job_id, "migration")
+                    if not job or job.get("midterm_status") not in terminal_statuses:
+                        continue
+                    cleanup_groups.add((source_job_id, payload.get("output_lease_token")))
+                for source_job_id, lease_token in cleanup_groups:
+                    before = {
+                        str(row.id)
+                        for row in midterm_memory.list_pages(top_k=10000, include_uncommitted=True)
+                        if (getattr(row, "payload", None) or {}).get("source_job_id") == source_job_id
+                        and (getattr(row, "payload", None) or {}).get("output_state") == "staging"
+                        and (getattr(row, "payload", None) or {}).get("output_lease_token") == lease_token
+                    }
+                    cleanup_error = midterm_updater.discard_source_job_outputs(source_job_id, lease_token)
+                    if cleanup_error:
+                        result["cleanup_errors"].append(f"midterm {source_job_id}: {cleanup_error}")
+                    for page_id in before:
+                        page = midterm_memory.get_page(page_id)
+                        payload = dict(getattr(page, "payload", None) or {}) if page else {}
+                        if payload.get("output_state") != "discarded":
+                            continue
+                        payload["cleanup_reason"] = "orphan staging after terminal stage"
+                        try:
+                            midterm_memory.update_page(page_id, payload, reembed=False)
+                        except Exception as exc:
+                            result["cleanup_errors"].append(f"midterm page {page_id}: {exc}")
+                    after = {
+                        str(row.id)
+                        for row in midterm_memory.list_pages(top_k=10000, include_uncommitted=True)
+                        if (getattr(row, "payload", None) or {}).get("output_state") == "staging"
+                    }
+                    result["midterm_discarded"] += len(before - after)
+
+                for row in midterm_memory.list_sessions(top_k=10000, include_uncommitted=True):
+                    payload = dict(getattr(row, "payload", None) or {})
+                    source_job_id = payload.get("last_output_job_id") or payload.get("source_job_id")
+                    if payload.get("output_state") != "staging" or not source_job_id:
+                        continue
+                    job = self.db.get_background_job(source_job_id, "migration")
+                    if not job or job.get("midterm_status") not in terminal_statuses:
+                        continue
+                    payload.update(
+                        {
+                            "output_state": "discarded",
+                            "output_lease_token": None,
+                            "cleanup_reason": "orphan staging after terminal stage",
+                        }
+                    )
+                    try:
+                        midterm_memory.update_session(str(row.id), payload, reembed=False)
+                    except Exception as exc:
+                        result["cleanup_errors"].append(f"midterm session {row.id}: {exc}")
+            except Exception as exc:
+                result["cleanup_errors"].append(f"midterm scan: {exc}")
+                logger.warning("Failed to clean orphan midterm staging outputs", exc_info=True)
+            finally:
+                if ephemeral_midterm and midterm_memory is not None:
+                    primary_client = getattr(self.vector_store, "client", None)
+                    for store in (midterm_memory.pages_store, midterm_memory.sessions_store):
+                        close = getattr(store, "close", None)
+                        client = getattr(store, "client", None)
+                        if callable(close):
+                            try:
+                                close()
+                            except Exception:
+                                logger.debug("Failed to close temporary midterm cleanup store", exc_info=True)
+                        elif client is not None and client is not primary_client:
+                            client_close = getattr(client, "close", None)
+                            if callable(client_close):
+                                try:
+                                    client_close()
+                                except Exception:
+                                    logger.debug(
+                                        "Failed to close temporary midterm cleanup client",
+                                        exc_info=True,
+                                    )
+
+        try:
+            if not hasattr(self, "vector_store"):
+                return result
+            list_method = getattr(self.vector_store, "list", None)
+            if callable(list_method):
+                longterm_rows = _vector_store_list_rows(list_method(filters=None, top_k=10000))
+            else:
+                rows = getattr(self.vector_store, "rows", {})
+                longterm_rows = [
+                    type("VectorRow", (), {"id": memory_id, "payload": dict(row.get("payload") or {})})()
+                    for memory_id, row in rows.items()
+                ]
+            for row in longterm_rows:
+                payload = dict(getattr(row, "payload", None) or {})
+                source_job_id = payload.get("source_job_id")
+                if (
+                    payload.get("source_stage") != "longterm"
+                    or payload.get("output_state") != "staging"
+                    or not source_job_id
+                ):
+                    continue
+                job = self.db.get_background_job(source_job_id, "migration")
+                if not job or job.get("longterm_status") not in terminal_statuses:
+                    continue
+                memory_id = str(row.id)
+                payload.update(
+                    {
+                        "output_state": "discarded",
+                        "output_lease_token": None,
+                        "cleanup_reason": "orphan staging after terminal stage",
+                    }
+                )
+                try:
+                    _update_vector_store_payload(self.vector_store, memory_id, payload)
+                    result["longterm_discarded"] += 1
+                except Exception as exc:
+                    result["cleanup_errors"].append(f"longterm hide {memory_id}: {exc}")
+                    continue
+                try:
+                    self.db.delete_history_for_memory_ids([memory_id])
+                except Exception as exc:
+                    result["cleanup_errors"].append(f"longterm history {memory_id}: {exc}")
+                try:
+                    self._strict_remove_stage_entity_links(memory_id, job.get("filters") or {})
+                except Exception as exc:
+                    result["cleanup_errors"].append(f"longterm entity {memory_id}: {exc}")
+        except Exception as exc:
+            result["cleanup_errors"].append(f"longterm scan: {exc}")
+            logger.warning("Failed to clean orphan longterm staging outputs", exc_info=True)
+
+        for cleanup_error in result["cleanup_errors"]:
+            logger.warning("Orphan staging cleanup error cleanup_error=%s", cleanup_error)
+        return result
+
+    def _stage_output_is_visible(self, payload: Dict[str, Any], stage: str) -> bool:
+        source_job_id = payload.get("last_output_job_id") or payload.get("source_job_id")
+        if not source_job_id:
+            return True
+        if payload.get("output_state") != "committed":
+            return False
+        db = getattr(self, "db", None)
+        if db is None or getattr(db, "connection", None) is None:
+            return False
+        try:
+            job = db.get_background_job(source_job_id, "migration")
+        except Exception:
+            return False
+        return bool(job and job.get(f"{stage}_status") in {"succeeded", "succeeded_degraded"})
+
+    def _get_profile_user_thread_lock(self, user_id: str) -> threading.Lock:
+        normalized_user_id = normalize_profile_user_id(user_id)
+        guard = getattr(self, "_profile_user_locks_guard", None)
+        if guard is None or not hasattr(guard, "__enter__"):
+            self._profile_user_locks_guard = threading.Lock()
+            self._profile_user_locks = {}
+        with self._profile_user_locks_guard:
+            lock = self._profile_user_locks.get(normalized_user_id)
+            if lock is None:
+                lock = threading.Lock()
+                self._profile_user_locks[normalized_user_id] = lock
+            return lock
+
+    def _clear_profile_user_thread_locks(self) -> None:
+        guard = getattr(self, "_profile_user_locks_guard", None)
+        if guard is None or not hasattr(guard, "__enter__"):
+            self._profile_user_locks_guard = threading.Lock()
+            self._profile_user_locks = {}
+            return
+        with guard:
+            self._profile_user_locks.clear()
 
     def _initialize_background_workers(self) -> None:
         if not hasattr(self, "_background_lifecycle_lock"):
@@ -788,10 +1095,20 @@ class _BackgroundMemoryMixin:
     def _background_process_midterm(self, job, messages, degraded: bool) -> None:
         if not self._midterm_enabled():
             return
+        def lease_is_current():
+            return self.db.migration_stage_lease_is_current(
+                job["job_id"],
+                "midterm",
+                job["midterm_lease_token"],
+            )
+        if not lease_is_current():
+            raise RuntimeError("stale migration stage lease")
         result = self._process_midterm_evictions(
             messages,
             job["filters"],
             source_job_id=job["job_id"],
+            lease_token=job["midterm_lease_token"],
+            lease_is_current=lease_is_current,
             degraded=degraded,
             raise_on_error=True,
         )
@@ -799,8 +1116,16 @@ class _BackgroundMemoryMixin:
             asyncio.run(result)
 
     def _background_process_longterm(self, job, messages, degraded: bool) -> None:
+        def lease_is_current():
+            return self.db.migration_stage_lease_is_current(
+                job["job_id"],
+                "longterm",
+                job["longterm_lease_token"],
+            )
+        if not lease_is_current():
+            raise RuntimeError("stale migration stage lease")
         if degraded:
-            self._store_longterm_fallback(job, messages)
+            self._store_longterm_fallback(job, messages, lease_is_current=lease_is_current)
             return
         result = self._process_evicted_long_term_memories(
             messages,
@@ -809,24 +1134,34 @@ class _BackgroundMemoryMixin:
             infer=job["infer"],
             prompt=job.get("prompt"),
             source_job_id=job["job_id"],
+            lease_token=job["longterm_lease_token"],
+            lease_is_current=lease_is_current,
         )
         if asyncio.iscoroutine(result):
             asyncio.run(result)
 
-    def _store_longterm_fallback(self, job, messages) -> None:
+    def _store_longterm_fallback(self, job, messages, *, lease_is_current=None) -> None:
         job_id = job["job_id"]
         memory_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"mem0:longterm-fallback:{job_id}"))
         try:
             existing = self.vector_store.get(vector_id=memory_id)
         except Exception:
             existing = None
+        if lease_is_current is not None and not lease_is_current():
+            raise RuntimeError("stale migration stage lease")
         if existing is not None:
-            payload = getattr(existing, "payload", None) or {}
-            self._ensure_longterm_history(
-                memory_id,
-                payload.get("data") or parse_messages(messages),
-                payload.get("created_at"),
+            payload = dict(getattr(existing, "payload", None) or {})
+            payload.update(
+                {
+                    "source_job_id": job_id,
+                    "source_stage": "longterm",
+                    "output_state": "staging",
+                    "output_lease_token": job.get("longterm_lease_token"),
+                    "degraded": True,
+                    "needs_reprocessing": True,
+                }
             )
+            _update_vector_store_payload(self.vector_store, memory_id, payload)
             return
 
         raw_dialogue = parse_messages(messages)
@@ -834,6 +1169,9 @@ class _BackgroundMemoryMixin:
         metadata.update(
             {
                 "source_job_id": job_id,
+                "source_stage": "longterm",
+                "output_state": "staging",
+                "output_lease_token": job.get("longterm_lease_token"),
                 "memory_type": "raw_fallback",
                 "needs_reprocessing": True,
                 "degraded": True,
@@ -865,24 +1203,263 @@ class _BackgroundMemoryMixin:
             created_at=created_at,
         )
 
-    def _background_process_profile(self, job) -> None:
-        user_messages = select_profile_user_messages(
-            job["messages"],
-            self.config.profile.max_input_user_messages,
-        )
-        if not user_messages:
+    def _longterm_source_rows(self, source_job_id: str):
+        list_method = getattr(self.vector_store, "list", None)
+        if callable(list_method):
+            listed = list_method(filters={"source_job_id": source_job_id}, top_k=10000)
+        else:
+            rows = getattr(self.vector_store, "rows", {})
+            listed = [
+                type("VectorRow", (), {"id": memory_id, "payload": dict(row.get("payload") or {})})()
+                for memory_id, row in rows.items()
+            ]
+        return [
+            row
+            for row in _vector_store_list_rows(listed)
+            if (getattr(row, "payload", None) or {}).get("source_job_id") == source_job_id
+        ]
+
+    def _longterm_staging_payload_owned_by_lease(
+        self,
+        memory_id: str,
+        lease_token: str,
+    ) -> Optional[Dict[str, Any]]:
+        row = self.vector_store.get(vector_id=memory_id)
+        if row is None:
+            return None
+        payload = dict(getattr(row, "payload", None) or {})
+        if payload.get("output_state") != "staging":
+            return None
+        if payload.get("output_lease_token") != lease_token:
+            return None
+        return payload
+
+    @staticmethod
+    def _run_maybe_async(result):
+        if asyncio.iscoroutine(result):
+            return asyncio.run(result)
+        return result
+
+    def _strict_remove_stage_entity_links(self, memory_id: str, filters: Dict[str, Any]) -> None:
+        if getattr(self, "_entity_store", None) is None:
             return
-        current_profile = self.profile_manager.get_profile(job["user_id"])
-        attribute_catalog = self.profile_manager.list_attributes()
-        plan = self.profile_updater.generate_update_plan_async(
-            current_profile=current_profile,
-            attribute_catalog=attribute_catalog,
-            messages=user_messages,
-        )
-        if asyncio.iscoroutine(plan):
-            plan = asyncio.run(plan)
-        if plan is not None:
-            self.profile_manager.apply_update_plan(job["user_id"], plan)
+        search_filters = {
+            key: value
+            for key, value in filters.items()
+            if key in ("user_id", "agent_id", "run_id") and value
+        }
+        rows = _vector_store_list_rows(self.entity_store.list(filters=search_filters, top_k=10000))
+        for row in rows:
+            payload = dict(getattr(row, "payload", None) or {})
+            linked = payload.get("linked_memory_ids") or []
+            if memory_id not in linked:
+                continue
+            remaining = [linked_id for linked_id in linked if linked_id != memory_id]
+            if not remaining:
+                self.entity_store.delete(vector_id=row.id)
+                continue
+            entity_text = payload.get("data")
+            vector = self.embedding_model.embed(entity_text, "update") if entity_text else None
+            self.entity_store.update(
+                vector_id=row.id,
+                vector=vector,
+                payload=_update_entity_payload(payload, remaining),
+            )
+
+    def _commit_migration_stage_outputs(
+        self,
+        job: Dict[str, Any],
+        stage: str,
+        lease_token: str,
+        degraded: bool,
+    ) -> None:
+        def lease_is_current():
+            return self.db.migration_stage_lease_is_current(
+                job["job_id"],
+                stage,
+                lease_token,
+            )
+        if not lease_is_current():
+            raise RuntimeError("stale migration stage lease")
+        if stage == "midterm":
+            if not self._midterm_enabled():
+                return
+            self.midterm_updater.commit_source_job_outputs(
+                job["job_id"],
+                lease_token,
+                degraded=degraded,
+                lease_is_current=lease_is_current,
+            )
+            return
+
+        if not hasattr(self, "vector_store"):
+            return
+        pending_rows = []
+        prepared_memory_ids = []
+        try:
+            for row in self._longterm_source_rows(job["job_id"]):
+                if not lease_is_current():
+                    raise RuntimeError("stale migration stage lease")
+                memory_id = str(row.id)
+                payload = dict(getattr(row, "payload", None) or {})
+                if payload.get("output_state") == "committed":
+                    continue
+                if (
+                    payload.get("output_state") != "staging"
+                    or payload.get("output_lease_token") != lease_token
+                ):
+                    raise RuntimeError("staging output is owned by another lease")
+                pending_rows.append((memory_id, payload))
+                if not lease_is_current():
+                    raise RuntimeError("stale migration stage lease")
+                self._ensure_longterm_history(
+                    memory_id,
+                    payload.get("data", ""),
+                    payload.get("created_at"),
+                )
+                prepared_memory_ids.append(memory_id)
+                if hasattr(self, "_component_init_lock"):
+                    self._run_maybe_async(
+                        self._link_entities_for_memory(memory_id, payload.get("data", ""), job["filters"])
+                    )
+                if not lease_is_current():
+                    raise RuntimeError("stale migration stage lease")
+            if not lease_is_current():
+                raise RuntimeError("stale migration stage lease")
+            for memory_id, _payload in pending_rows:
+                if not lease_is_current():
+                    raise RuntimeError("stale migration stage lease")
+                current_payload = self._longterm_staging_payload_owned_by_lease(memory_id, lease_token)
+                if current_payload is None:
+                    raise RuntimeError("staging output is no longer owned by this lease")
+                _update_vector_store_payload(
+                    self.vector_store,
+                    memory_id,
+                    {
+                        **current_payload,
+                        "output_state": "committed",
+                        "output_lease_token": None,
+                        "degraded": degraded,
+                        "needs_reprocessing": degraded,
+                    },
+                )
+            if not lease_is_current():
+                raise RuntimeError("stale migration stage lease")
+        except Exception:
+            owned_memory_ids = [
+                memory_id
+                for memory_id in prepared_memory_ids
+                if self._longterm_staging_payload_owned_by_lease(memory_id, lease_token) is not None
+            ]
+            if owned_memory_ids:
+                self.db.delete_history_for_memory_ids(owned_memory_ids)
+            for memory_id in owned_memory_ids:
+                try:
+                    self._strict_remove_stage_entity_links(memory_id, job["filters"])
+                except Exception:
+                    logger.warning("Failed to roll back stage entity links memory_id=%s", memory_id, exc_info=True)
+            raise
+
+    def _discard_migration_stage_outputs(
+        self,
+        job: Dict[str, Any],
+        stage: str,
+        lease_token: str,
+    ) -> Optional[str]:
+        if stage == "midterm":
+            if not self._midterm_enabled():
+                return None
+            return self.midterm_updater.discard_source_job_outputs(job["job_id"], lease_token)
+
+        if not hasattr(self, "vector_store"):
+            return None
+        cleanup_errors = []
+        owned_staging_rows = []
+        for row in self._longterm_source_rows(job["job_id"]):
+            memory_id = str(row.id)
+            payload = dict(getattr(row, "payload", None) or {})
+            if payload.get("output_state") != "staging":
+                continue
+            if payload.get("output_lease_token") != lease_token:
+                continue
+            owned_staging_rows.append((memory_id, payload))
+
+        discarded_memory_ids = []
+        for memory_id, _payload in owned_staging_rows:
+            payload = self._longterm_staging_payload_owned_by_lease(memory_id, lease_token)
+            if payload is None:
+                continue
+            try:
+                _update_vector_store_payload(
+                    self.vector_store,
+                    memory_id,
+                    {
+                        **payload,
+                        "output_state": "discarded",
+                        "output_lease_token": None,
+                        "discarded_by_lease_token": lease_token,
+                    },
+                )
+                discarded_memory_ids.append(memory_id)
+            except Exception as exc:
+                cleanup_errors.append(f"hide {memory_id}: {exc}")
+
+        cleanup_memory_ids = []
+        for memory_id in discarded_memory_ids:
+            current = self.vector_store.get(vector_id=memory_id)
+            payload = dict(getattr(current, "payload", None) or {}) if current else {}
+            if (
+                payload.get("output_state") == "discarded"
+                and payload.get("discarded_by_lease_token") == lease_token
+            ):
+                cleanup_memory_ids.append(memory_id)
+        if cleanup_memory_ids:
+            try:
+                self.db.delete_history_for_memory_ids(cleanup_memory_ids)
+            except Exception as exc:
+                cleanup_errors.append(f"history: {exc}")
+        for memory_id in cleanup_memory_ids:
+            current = self.vector_store.get(vector_id=memory_id)
+            payload = dict(getattr(current, "payload", None) or {}) if current else {}
+            if (
+                payload.get("output_state") != "discarded"
+                or payload.get("discarded_by_lease_token") != lease_token
+            ):
+                continue
+            try:
+                self._strict_remove_stage_entity_links(memory_id, job["filters"])
+            except Exception as exc:
+                cleanup_errors.append(f"entity {memory_id}: {exc}")
+        return "; ".join(cleanup_errors) or None
+
+    def _background_process_profile(self, job) -> bool:
+        lock = self._get_profile_user_thread_lock(job["user_id"])
+        with lock:
+            user_messages = select_profile_user_messages(
+                job["messages"],
+                self.config.profile.max_input_user_messages,
+            )
+            plan = None
+            if user_messages:
+                current_profile = self.profile_manager.get_profile(job["user_id"])
+                attribute_catalog = self.profile_manager.list_attributes()
+                plan = self.profile_updater.generate_update_plan_async(
+                    current_profile=current_profile,
+                    attribute_catalog=attribute_catalog,
+                    messages=user_messages,
+                )
+                if asyncio.iscoroutine(plan):
+                    plan = asyncio.run(plan)
+            validated_plan = self.profile_manager.validate_update_plan(
+                plan or ProfileUpdatePlan(operations=[]),
+            )
+            return self.db.apply_profile_plan_and_finish_job(
+                job["job_id"],
+                job["lease_token"],
+                job["user_id"],
+                validated_plan,
+                max_value_json_bytes=self.config.profile.max_value_json_bytes,
+            )
 
     def _profile_job_user_id_after_add(self, user_id) -> Optional[str]:
         profile_config = getattr(self.config, "profile", None)
@@ -907,11 +1484,7 @@ class _BackgroundMemoryMixin:
         with self._background_lifecycle_lock:
             if getattr(self, "_closed", False):
                 raise RuntimeError("Cannot add memories after Memory.close()")
-            try:
-                profile_job_id = self._create_profile_job_after_add(user_id, messages)
-            except Exception:
-                logger.exception("Failed to enqueue profile update job for user_id=%s", user_id)
-                return None
+            profile_job_id = self._create_profile_job_after_add(user_id, messages)
             if profile_job_id:
                 self._ensure_background_workers().wake_profile()
             return profile_job_id
@@ -952,7 +1525,7 @@ class _BackgroundMemoryMixin:
                 migration_job_id = background["migration_job_id"]
                 profile_job_id = background["profile_job_id"]
             else:
-                migration_job_id = self.db.save_messages_and_create_migration_job(
+                migration_job_id, profile_job_id = self.db.save_messages_and_create_background_jobs(
                     messages,
                     session_scope,
                     max_messages=self._short_term_capacity(),
@@ -960,15 +1533,8 @@ class _BackgroundMemoryMixin:
                     metadata=processed_metadata,
                     infer=infer,
                     prompt=prompt,
+                    profile_user_id=self._profile_job_user_id_after_add(normalized_user_id),
                 )
-                try:
-                    profile_job_id = self._create_profile_job_after_add(normalized_user_id, messages)
-                except Exception:
-                    logger.exception(
-                        "Failed to enqueue profile update job for user_id=%s",
-                        normalized_user_id,
-                    )
-                    profile_job_id = None
             if migration_job_id:
                 worker.wake_migration()
             if profile_job_id:
@@ -981,12 +1547,6 @@ class _BackgroundMemoryMixin:
     def get_background_job(self, job_id: str, job_type: str = "migration"):
         return self.db.get_background_job(job_id, job_type)
 
-    def retry_background_job(self, job_id: str, job_type: str = "migration") -> bool:
-        retried = self.db.retry_background_job(job_id, job_type)
-        if retried:
-            self._ensure_background_workers().wake_all()
-        return retried
-
     def _stop_background_workers(self, timeout: Optional[float]) -> bool:
         worker = getattr(self, "_background_worker", None)
         if worker is None:
@@ -998,9 +1558,12 @@ class _BackgroundMemoryMixin:
             self._background_lifecycle_lock = threading.RLock()
         with self._background_lifecycle_lock:
             self._closed = True
-            if not self._stop_background_workers(timeout=None):
-                raise RuntimeError("Cannot reset while background workers are still running")
-            self._background_worker = None
+            worker = getattr(self, "_background_worker", None)
+        if worker is not None and not worker.stop(wait=True, timeout=None):
+            raise RuntimeError("Cannot reset while background workers are still running")
+        with self._background_lifecycle_lock:
+            if getattr(self, "_background_worker", None) is worker:
+                self._background_worker = None
 
     def _close_background_workers_and_db(self) -> bool:
         if not hasattr(self, "_background_lifecycle_lock"):
@@ -1008,13 +1571,76 @@ class _BackgroundMemoryMixin:
         with self._background_lifecycle_lock:
             self._closed = True
             timeout = self._background_config().shutdown_timeout_seconds
-            if not self._stop_background_workers(timeout=timeout):
-                logger.warning("Background workers did not stop within %.1f seconds; SQLite remains open", timeout)
-                return False
-            if hasattr(self, "db") and self.db is not None:
-                self.db.close()
-                self.db = None
+            worker = getattr(self, "_background_worker", None)
+            db = getattr(self, "db", None)
+        if db is None:
+            self._release_process_instance_lock()
             return True
+        logger.info("worker shutdown started timeout_seconds=%s", timeout)
+        if worker is not None and not worker.stop(wait=True, timeout=timeout):
+            logger.warning(
+                "worker shutdown timed out timeout_seconds=%.1f; database and process lock remain open",
+                timeout,
+            )
+            return False
+        logger.info("all workers stopped")
+        db.close()
+        with self._background_lifecycle_lock:
+            self.db = None
+            if getattr(self, "_background_worker", None) is worker:
+                self._background_worker = None
+        logger.info(
+            "database closed history_db_path=%s",
+            getattr(self.config, "history_db_path", getattr(db, "db_path", None)),
+        )
+        self._close_external_resources()
+        self._release_process_instance_lock()
+        return True
+
+    def _close_external_resources(self) -> None:
+        resources = [
+            getattr(self, "_telemetry_vector_store", None),
+            getattr(self, "_midterm_memory", None),
+            getattr(self, "_entity_store", None),
+            getattr(self, "reranker", None),
+            getattr(self, "llm", None),
+            getattr(self, "embedding_model", None),
+            getattr(self, "vector_store", None),
+        ]
+        midterm = getattr(self, "_midterm_memory", None)
+        if midterm is not None:
+            resources.extend(
+                [
+                    getattr(midterm, "pages_store", None),
+                    getattr(midterm, "sessions_store", None),
+                ]
+            )
+        closed_objects = set()
+        for resource in resources:
+            if resource is None or id(resource) in closed_objects:
+                continue
+            closed_objects.add(id(resource))
+            close = getattr(resource, "close", None)
+            if callable(close):
+                try:
+                    close()
+                except Exception:
+                    logger.warning("Failed to close resource type=%s", type(resource).__name__, exc_info=True)
+                continue
+            client = getattr(resource, "client", None)
+            if client is None or id(client) in closed_objects:
+                continue
+            closed_objects.add(id(client))
+            client_close = getattr(client, "close", None)
+            if callable(client_close):
+                try:
+                    client_close()
+                except Exception:
+                    logger.warning(
+                        "Failed to close provider client type=%s",
+                        type(client).__name__,
+                        exc_info=True,
+                    )
 
     def _get_context_messages(self, session_scope: str, active_limit: int):
         reader = getattr(self.db, "get_context_messages", None)
@@ -1033,17 +1659,25 @@ class _BackgroundMemoryMixin:
 class Memory(_BackgroundMemoryMixin, MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
+        self._acquire_process_instance_lock()
         self._bm25_language = _configured_bm25_language(config)
 
         self.embedding_model = EmbedderFactory.create(
             self.config.embedder.provider,
             self.config.embedder.config,
             self.config.vector_store.config,
+            timeout_seconds=self.config.embedding_timeout_seconds,
         )
         self.vector_store = VectorStoreFactory.create(
-            self.config.vector_store.provider, self.config.vector_store.config
+            self.config.vector_store.provider,
+            self.config.vector_store.config,
+            timeout_seconds=self.config.vector_store_timeout_seconds,
         )
-        self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
+        self.llm = LlmFactory.create(
+            self.config.llm.provider,
+            self.config.llm.config,
+            timeout_seconds=self.config.llm_timeout_seconds,
+        )
         self.db = SQLiteManager(self.config.history_db_path)
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
@@ -1054,7 +1688,8 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         if config.reranker:
             self.reranker = RerankerFactory.create(
                 config.reranker.provider,
-                config.reranker.config
+                config.reranker.config,
+                timeout_seconds=self.config.reranker_timeout_seconds,
             )
 
         # Entity store is initialized lazily on first use
@@ -1064,6 +1699,9 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         self._midterm_retriever = None
         self._profile_manager = None
         self._profile_updater = None
+        self._component_init_lock = threading.RLock()
+        self._profile_user_locks = {}
+        self._profile_user_locks_guard = threading.Lock()
 
         if MEM0_TELEMETRY:
             # Create telemetry config manually to avoid deepcopy issues with thread locks
@@ -1090,7 +1728,9 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             # Create the config object using the same class as the original
             telemetry_config = self.config.vector_store.config.__class__(**telemetry_config_dict)
             self._telemetry_vector_store = VectorStoreFactory.create(
-                self.config.vector_store.provider, telemetry_config
+                self.config.vector_store.provider,
+                telemetry_config,
+                timeout_seconds=self.config.vector_store_timeout_seconds,
             )
         if getattr(type(self.vector_store), "keyword_search", None) is VectorStoreBase.keyword_search:
             logger.warning(
@@ -1112,24 +1752,31 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
     def entity_store(self):
         """Lazily initialize entity store on first use."""
         if self._entity_store is None:
-            entity_config = _safe_deepcopy_config(self.config.vector_store.config)
-            entity_collection = _entity_collection_name(self.config.vector_store.provider, self.collection_name)
-            # Set collection name on the cloned config
-            if hasattr(entity_config, 'collection_name'):
-                entity_config.collection_name = entity_collection
-            elif isinstance(entity_config, dict):
-                entity_config['collection_name'] = entity_collection
-            # For Qdrant, share the existing client to avoid RocksDB lock contention
-            # when using embedded mode (path=...). QdrantConfig.client takes precedence
-            # over host/port/path.
-            if self.config.vector_store.provider == "qdrant" and hasattr(self.vector_store, "client"):
-                if hasattr(entity_config, "client"):
-                    entity_config.client = self.vector_store.client
-                elif isinstance(entity_config, dict):
-                    entity_config["client"] = self.vector_store.client
-            self._entity_store = VectorStoreFactory.create(
-                self.config.vector_store.provider, entity_config
-            )
+            with self._component_init_lock:
+                if self._entity_store is None:
+                    entity_config = _safe_deepcopy_config(self.config.vector_store.config)
+                    entity_collection = _entity_collection_name(
+                        self.config.vector_store.provider,
+                        self.collection_name,
+                    )
+                    # Set collection name on the cloned config
+                    if hasattr(entity_config, "collection_name"):
+                        entity_config.collection_name = entity_collection
+                    elif isinstance(entity_config, dict):
+                        entity_config["collection_name"] = entity_collection
+                    # For Qdrant, share the existing client to avoid RocksDB lock contention
+                    # when using embedded mode (path=...). QdrantConfig.client takes precedence
+                    # over host/port/path.
+                    if self.config.vector_store.provider == "qdrant" and hasattr(self.vector_store, "client"):
+                        if hasattr(entity_config, "client"):
+                            entity_config.client = self.vector_store.client
+                        elif isinstance(entity_config, dict):
+                            entity_config["client"] = self.vector_store.client
+                    self._entity_store = VectorStoreFactory.create(
+                        self.config.vector_store.provider,
+                        entity_config,
+                        timeout_seconds=getattr(self.config, "vector_store_timeout_seconds", 15.0),
+                    )
         return self._entity_store
 
     def _midterm_enabled(self):
@@ -1138,40 +1785,56 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
     @property
     def midterm_memory(self):
         if self._midterm_memory is None:
-            self._midterm_memory = MidTermMemory(
-                provider=self.config.vector_store.provider,
-                base_vector_config=self.config.vector_store.config,
-                base_collection_name=self.collection_name,
-                embedding_model=self.embedding_model,
-                config=self.config.midterm,
-                primary_vector_store=self.vector_store,
-            )
+            with self._component_init_lock:
+                if self._midterm_memory is None:
+                    self._midterm_memory = MidTermMemory(
+                        provider=self.config.vector_store.provider,
+                        base_vector_config=self.config.vector_store.config,
+                        base_collection_name=self.collection_name,
+                        embedding_model=self.embedding_model,
+                        config=self.config.midterm,
+                        primary_vector_store=self.vector_store,
+                        output_is_visible=lambda payload: self._stage_output_is_visible(payload, "midterm"),
+                        vector_store_timeout_seconds=getattr(
+                            self.config,
+                            "vector_store_timeout_seconds",
+                            15.0,
+                        ),
+                    )
         return self._midterm_memory
 
     @property
     def midterm_updater(self):
         if self._midterm_updater is None:
-            self._midterm_updater = MidTermUpdater(self.midterm_memory, self.llm, self.config.midterm)
+            with self._component_init_lock:
+                if self._midterm_updater is None:
+                    self._midterm_updater = MidTermUpdater(self.midterm_memory, self.llm, self.config.midterm)
         return self._midterm_updater
 
     @property
     def midterm_retriever(self):
         if self._midterm_retriever is None:
-            self._midterm_retriever = MidTermRetriever(self.midterm_memory, self.config.midterm)
+            with self._component_init_lock:
+                if self._midterm_retriever is None:
+                    self._midterm_retriever = MidTermRetriever(self.midterm_memory, self.config.midterm)
         return self._midterm_retriever
 
     @property
     def profile_manager(self):
         """Lazily initialize profile storage and assembly without touching the LLM."""
         if self._profile_manager is None:
-            self._profile_manager = ProfileManager(self.db, self.config.profile)
+            with self._component_init_lock:
+                if self._profile_manager is None:
+                    self._profile_manager = ProfileManager(self.db, self.config.profile)
         return self._profile_manager
 
     @property
     def profile_updater(self):
         """Lazily initialize the LLM-backed profile plan generator."""
         if self._profile_updater is None:
-            self._profile_updater = ProfileUpdater(self.llm, self.config.profile)
+            with self._component_init_lock:
+                if self._profile_updater is None:
+                    self._profile_updater = ProfileUpdater(self.llm, self.config.profile)
         return self._profile_updater
 
     def get_profile(self, user_id: str, include_metadata: Optional[bool] = None):
@@ -1265,20 +1928,26 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             raise ValueError(
                 "User profile updates are disabled; set profile.enabled=True before calling update_profile"
             )
-        plan = self._generate_profile_update_plan(normalized_user_id, messages)
-        if plan is None:
-            return self.profile_manager.get_profile(normalized_user_id)
-        return self.profile_manager.apply_update_plan(normalized_user_id, plan)
+        lock = self._get_profile_user_thread_lock(normalized_user_id)
+        with lock:
+            plan = self._generate_profile_update_plan(normalized_user_id, messages)
+            if plan is None:
+                return self.profile_manager.get_profile(normalized_user_id)
+            return self.profile_manager.apply_update_plan(normalized_user_id, plan)
 
     def delete_profile_value(self, user_id: str, attribute_key: str):
         """Delete one current profile value for a user."""
         normalized_user_id = normalize_profile_user_id(user_id)
-        return self.profile_manager.delete_value(normalized_user_id, attribute_key)
+        lock = self._get_profile_user_thread_lock(normalized_user_id)
+        with lock:
+            return self.profile_manager.delete_value(normalized_user_id, attribute_key)
 
     def delete_profile(self, user_id: str):
         """Delete all current profile values for a user."""
         normalized_user_id = normalize_profile_user_id(user_id)
-        return self.profile_manager.delete_profile(normalized_user_id)
+        lock = self._get_profile_user_thread_lock(normalized_user_id)
+        with lock:
+            return self.profile_manager.delete_profile(normalized_user_id)
 
     def create_profile_attribute(self, definition):
         """Create a manually managed profile attribute definition."""
@@ -1309,10 +1978,12 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
 
         try:
             normalized_user_id = normalize_profile_user_id(user_id)
-            plan = self._generate_profile_update_plan(normalized_user_id, messages)
-            if plan is None:
-                return
-            self.profile_manager.apply_update_plan(normalized_user_id, plan)
+            lock = self._get_profile_user_thread_lock(normalized_user_id)
+            with lock:
+                plan = self._generate_profile_update_plan(normalized_user_id, messages)
+                if plan is None:
+                    return
+                self.profile_manager.apply_update_plan(normalized_user_id, plan)
         except Exception as exc:
             logger.warning("Automatic profile update failed for user %s: %s", user_id, exc)
 
@@ -1357,6 +2028,8 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         filters,
         *,
         source_job_id=None,
+        lease_token=None,
+        lease_is_current=None,
         degraded=False,
         raise_on_error=False,
     ):
@@ -1367,6 +2040,8 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                 evicted_messages,
                 filters,
                 source_job_id=source_job_id,
+                lease_token=lease_token,
+                lease_is_current=lease_is_current,
                 degraded=degraded,
             )
         except Exception as e:
@@ -1527,7 +2202,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         existing `_upsert_entity` helper. Non-fatal on any failure.
         """
         try:
-            entities = extract_entities(text)
+            entities = self._run_entity_extraction(extract_entities, text)
             if not entities:
                 return
             seen = set()
@@ -1617,9 +2292,9 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
 
 
         Returns:
-            dict: A dictionary containing the result of the memory addition operation, typically
-                  including a list of memory items affected (added, updated) under a "results" key.
-                  Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "event": "ADD"}]}`
+            dict: A submission result. When background processing is enabled, ``results`` is empty
+                  and ``background`` contains the durable migration/profile job IDs (or ``None``
+                  when no job was needed). A job ID means enqueued, not completed.
 
         Raises:
             Mem0ValidationError: If input validation fails (invalid memory_type, messages format, etc.).
@@ -1780,10 +2455,14 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         infer=True,
         prompt=None,
         source_job_id=None,
+        lease_token=None,
+        lease_is_current=None,
     ):
         if not infer:
             returned_memories = []
             for index, message_dict in enumerate(evicted_messages):
+                if lease_is_current is not None and not lease_is_current():
+                    raise RuntimeError("stale migration stage lease")
                 if (
                     not isinstance(message_dict, dict)
                     or message_dict.get("role") is None
@@ -1798,7 +2477,14 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                 per_msg_meta = deepcopy(metadata)
                 per_msg_meta["role"] = message_dict["role"]
                 if source_job_id:
-                    per_msg_meta["source_job_id"] = source_job_id
+                    per_msg_meta.update(
+                        {
+                            "source_job_id": source_job_id,
+                            "source_stage": "longterm",
+                            "output_state": "staging",
+                            "output_lease_token": lease_token,
+                        }
+                    )
 
                 actor_name = message_dict.get("name")
                 if actor_name:
@@ -1812,12 +2498,16 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                 )
                 existing_memory = self.vector_store.get(vector_id=memory_id) if memory_id else None
                 if existing_memory is not None:
-                    existing_payload = getattr(existing_memory, "payload", None) or {}
-                    self._ensure_longterm_history(
-                        memory_id,
-                        existing_payload.get("data") or msg_content,
-                        existing_payload.get("created_at"),
+                    existing_payload = dict(getattr(existing_memory, "payload", None) or {})
+                    existing_payload.update(
+                        {
+                            "source_job_id": source_job_id,
+                            "output_state": "staging",
+                            "output_lease_token": lease_token,
+                            "source_stage": "longterm",
+                        }
                     )
+                    _update_vector_store_payload(self.vector_store, memory_id, existing_payload)
                     returned_memories.append(
                         {
                             "id": memory_id,
@@ -1857,18 +2547,24 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             self,
             parsed_evicted_messages,
             filters,
+            exclude_source_job_id=source_job_id,
         )
 
         # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         query_embedding = self.embedding_model.embed(parsed_evicted_messages, "search")
-        existing_results = self.vector_store.search(
+        raw_existing_results = self.vector_store.search(
             query=parsed_evicted_messages,
             vectors=query_embedding,
             top_k=10,
             filters=search_filters,
         )
 
+        existing_results = [
+            mem
+            for mem in raw_existing_results
+            if self._stage_output_is_visible(getattr(mem, "payload", None) or {}, "longterm")
+        ]
         existing_long_term_memories = [
             {"id": str(mem.id), "text": mem.payload.get("data", "")} for mem in existing_results
         ]
@@ -1910,9 +2606,11 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
 
         if not extracted_memories:
             return []
+        if lease_is_current is not None and not lease_is_current():
+            raise RuntimeError("stale migration stage lease")
 
         # Phase 3: Determine which validated facts actually require a new write.
-        existing_hashes, existing_source_hashes = _existing_longterm_hashes(existing_results, source_job_id)
+        existing_hashes, existing_source_hashes = _existing_longterm_hashes(raw_existing_results, source_job_id)
 
         pending_records = []  # (memory_id, text, memory_hash, extracted_memory)
         seen_hashes = set()
@@ -1928,21 +2626,34 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                     memory_id=memory_id,
                     expected_hash=mem_hash,
                 )
-                self._ensure_longterm_history(
-                    memory_id,
-                    existing_payload.get("data") or text,
-                    existing_payload.get("created_at"),
+                existing_payload.update(
+                    {
+                        "source_job_id": source_job_id,
+                        "source_stage": "longterm",
+                        "output_state": "staging",
+                        "output_lease_token": lease_token,
+                    }
                 )
+                _update_vector_store_payload(self.vector_store, memory_id, existing_payload)
                 seen_hashes.add(mem_hash)
                 continue
             existing_job_memory = existing_source_hashes.get(mem_hash)
             if existing_job_memory is not None:
                 existing_job_payload = getattr(existing_job_memory, "payload", None) or {}
                 existing_job_memory_id = str(existing_job_memory.id)
-                self._ensure_longterm_history(
+                existing_job_payload = dict(existing_job_payload)
+                existing_job_payload.update(
+                    {
+                        "source_job_id": source_job_id,
+                        "source_stage": "longterm",
+                        "output_state": "staging",
+                        "output_lease_token": lease_token,
+                    }
+                )
+                _update_vector_store_payload(
+                    self.vector_store,
                     existing_job_memory_id,
-                    existing_job_payload.get("data") or text,
-                    existing_job_payload.get("created_at"),
+                    existing_job_payload,
                 )
                 seen_hashes.add(mem_hash)
                 continue
@@ -1993,7 +2704,14 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             )
             mem_metadata["updated_at"] = mem_metadata["created_at"]
             if source_job_id:
-                mem_metadata["source_job_id"] = source_job_id
+                mem_metadata.update(
+                    {
+                        "source_job_id": source_job_id,
+                        "source_stage": "longterm",
+                        "output_state": "staging",
+                        "output_lease_token": lease_token,
+                    }
+                )
             if mem.get("attributed_to"):
                 mem_metadata["attributed_to"] = mem["attributed_to"]
 
@@ -2001,6 +2719,8 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
 
         if not records:
             return []
+        if lease_is_current is not None and not lease_is_current():
+            raise RuntimeError("stale migration stage lease")
 
         # Phase 6: Batch persist
         all_vectors = [r[2] for r in records]
@@ -2039,14 +2759,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             }
             for r in persisted_records
         ]
-        if source_job_id:
-            for history_record in history_records:
-                self._ensure_longterm_history(
-                    history_record["memory_id"],
-                    history_record["new_memory"],
-                    history_record.get("created_at"),
-                )
-        else:
+        if not source_job_id:
             try:
                 self.db.batch_add_history(history_records)
             except Exception:
@@ -2066,10 +2779,13 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         if insertion_errors and source_job_id:
             raise RuntimeError(f"Failed to insert {len(insertion_errors)} long-term memories") from insertion_errors[0]
 
+        if source_job_id:
+            return [{"id": r[0], "memory": r[1], "event": "ADD"} for r in records]
+
         # Phase 7: Batch entity linking
         try:
             all_texts = [r[1] for r in records]
-            all_entities = extract_entities_batch(all_texts)
+            all_entities = self._run_entity_extraction(extract_entities_batch, all_texts)
 
             # 7a: Global dedup — collect unique entities across all memories
             global_entities = {}  # normalized_key -> (entity_type, entity_text, set of memory_ids)
@@ -2204,7 +2920,10 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         """
         capture_event("mem0.get", self, {"memory_id": memory_id, "sync_type": "sync"})
         memory = self.vector_store.get(vector_id=memory_id)
-        if not memory:
+        if not memory or not self._stage_output_is_visible(
+            getattr(memory, "payload", None) or {},
+            "longterm",
+        ):
             display_first_run_notice(self, "sync", "get")
             return None
 
@@ -2339,6 +3058,8 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
 
         formatted_memories = []
         for mem in actual_memories:
+            if not self._stage_output_is_visible(getattr(mem, "payload", None) or {}, "longterm"):
+                continue
             if not show_expired and _payload_is_expired(mem.payload):
                 continue
             memory_item_dict = MemoryItem(
@@ -2624,7 +3345,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
 
         # Step 1: Preprocess query
         query_lemmatized = lemmatize_for_bm25(query, language=getattr(self, "_bm25_language", None))
-        query_entities = extract_entities(query)
+        query_entities = self._run_entity_extraction(extract_entities, query)
 
         # Step 2: Embed query
         embeddings = self.embedding_model.embed(query, "search")
@@ -2659,6 +3380,8 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         candidates = []
         for mem in semantic_results:
             payload = mem.payload if hasattr(mem, 'payload') else {}
+            if not self._stage_output_is_visible(payload, "longterm"):
+                continue
             if not show_expired and _payload_is_expired(payload):
                 continue
             mem_id = str(mem.id)
@@ -2919,6 +3642,12 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             list: List of changes for the memory.
         """
         capture_event("mem0.history", self, {"memory_id": memory_id, "sync_type": "sync"})
+        memory = self.vector_store.get(vector_id=memory_id)
+        if memory is not None and not self._stage_output_is_visible(
+            getattr(memory, "payload", None) or {},
+            "longterm",
+        ):
+            return []
         history = self.db.get_history(memory_id)
         display_first_run_notice(self, "sync", "history")
         return history
@@ -2946,16 +3675,17 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             ids=[memory_id],
             payloads=[new_metadata],
         )
-        self.db.add_history(
-            memory_id,
-            None,
-            data,
-            "ADD",
-            created_at=new_metadata.get("created_at"),
-            updated_at=new_metadata.get("updated_at"),
-            actor_id=new_metadata.get("actor_id"),
-            role=new_metadata.get("role"),
-        )
+        if new_metadata.get("output_state") != "staging":
+            self.db.add_history(
+                memory_id,
+                None,
+                data,
+                "ADD",
+                created_at=new_metadata.get("created_at"),
+                updated_at=new_metadata.get("updated_at"),
+                actor_id=new_metadata.get("actor_id"),
+                role=new_metadata.get("role"),
+            )
         return memory_id
 
     def _create_procedural_memory(self, messages, metadata=None, prompt=None):
@@ -3118,7 +3848,9 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             logger.warning("Vector store does not support reset. Skipping.")
             self.vector_store.delete_col()
             self.vector_store = VectorStoreFactory.create(
-                self.config.vector_store.provider, self.config.vector_store.config
+                self.config.vector_store.provider,
+                self.config.vector_store.config,
+                timeout_seconds=self.config.vector_store_timeout_seconds,
             )
         # Reset entity store if initialized
         if self._entity_store is not None:
@@ -3132,9 +3864,9 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         capture_event("mem0.reset", self, {"sync_type": "sync"})
         display_first_run_notice(self, "sync", "reset")
 
-    def close(self):
+    def close(self) -> bool:
         """Release resources held by this Memory instance (SQLite connections, etc.)."""
-        self._close_background_workers_and_db()
+        return self._close_background_workers_and_db()
 
     def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")
@@ -3145,17 +3877,25 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
 
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
+        self._acquire_process_instance_lock()
         self._bm25_language = _configured_bm25_language(config)
 
         self.embedding_model = EmbedderFactory.create(
             self.config.embedder.provider,
             self.config.embedder.config,
             self.config.vector_store.config,
+            timeout_seconds=self.config.embedding_timeout_seconds,
         )
         self.vector_store = VectorStoreFactory.create(
-            self.config.vector_store.provider, self.config.vector_store.config
+            self.config.vector_store.provider,
+            self.config.vector_store.config,
+            timeout_seconds=self.config.vector_store_timeout_seconds,
         )
-        self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
+        self.llm = LlmFactory.create(
+            self.config.llm.provider,
+            self.config.llm.config,
+            timeout_seconds=self.config.llm_timeout_seconds,
+        )
         self.db = SQLiteManager(self.config.history_db_path)
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
@@ -3166,15 +3906,17 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         self._midterm_retriever = None
         self._profile_manager = None
         self._profile_updater = None
+        self._component_init_lock = threading.RLock()
         self._profile_user_locks = {}
-        self._profile_user_locks_guard = asyncio.Lock()
+        self._profile_user_locks_guard = threading.Lock()
 
         # Initialize reranker if configured
         self.reranker = None
         if config.reranker:
             self.reranker = RerankerFactory.create(
                 config.reranker.provider,
-                config.reranker.config
+                config.reranker.config,
+                timeout_seconds=self.config.reranker_timeout_seconds,
             )
 
         if MEM0_TELEMETRY:
@@ -3184,7 +3926,11 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                 provider_path = f"migrations_{self.config.vector_store.provider}"
                 telemetry_config.path = os.path.join(mem0_dir, provider_path)
                 os.makedirs(telemetry_config.path, exist_ok=True)
-            self._telemetry_vector_store = VectorStoreFactory.create(self.config.vector_store.provider, telemetry_config)
+            self._telemetry_vector_store = VectorStoreFactory.create(
+                self.config.vector_store.provider,
+                telemetry_config,
+                timeout_seconds=self.config.vector_store_timeout_seconds,
+            )
 
         if getattr(type(self.vector_store), "keyword_search", None) is VectorStoreBase.keyword_search:
             logger.warning(
@@ -3206,23 +3952,30 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
     def entity_store(self):
         """Lazily initialize entity store on first use."""
         if self._entity_store is None:
-            entity_config = _safe_deepcopy_config(self.config.vector_store.config)
-            entity_collection = _entity_collection_name(self.config.vector_store.provider, self.collection_name)
-            if hasattr(entity_config, 'collection_name'):
-                entity_config.collection_name = entity_collection
-            elif isinstance(entity_config, dict):
-                entity_config['collection_name'] = entity_collection
-            # For Qdrant, share the existing client to avoid RocksDB lock contention
-            # when using embedded mode (path=...). QdrantConfig.client takes precedence
-            # over host/port/path.
-            if self.config.vector_store.provider == "qdrant" and hasattr(self.vector_store, "client"):
-                if hasattr(entity_config, "client"):
-                    entity_config.client = self.vector_store.client
-                elif isinstance(entity_config, dict):
-                    entity_config["client"] = self.vector_store.client
-            self._entity_store = VectorStoreFactory.create(
-                self.config.vector_store.provider, entity_config
-            )
+            with self._component_init_lock:
+                if self._entity_store is None:
+                    entity_config = _safe_deepcopy_config(self.config.vector_store.config)
+                    entity_collection = _entity_collection_name(
+                        self.config.vector_store.provider,
+                        self.collection_name,
+                    )
+                    if hasattr(entity_config, "collection_name"):
+                        entity_config.collection_name = entity_collection
+                    elif isinstance(entity_config, dict):
+                        entity_config["collection_name"] = entity_collection
+                    # For Qdrant, share the existing client to avoid RocksDB lock contention
+                    # when using embedded mode (path=...). QdrantConfig.client takes precedence
+                    # over host/port/path.
+                    if self.config.vector_store.provider == "qdrant" and hasattr(self.vector_store, "client"):
+                        if hasattr(entity_config, "client"):
+                            entity_config.client = self.vector_store.client
+                        elif isinstance(entity_config, dict):
+                            entity_config["client"] = self.vector_store.client
+                    self._entity_store = VectorStoreFactory.create(
+                        self.config.vector_store.provider,
+                        entity_config,
+                        timeout_seconds=getattr(self.config, "vector_store_timeout_seconds", 15.0),
+                    )
         return self._entity_store
 
     def _midterm_enabled(self):
@@ -3231,40 +3984,56 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
     @property
     def midterm_memory(self):
         if self._midterm_memory is None:
-            self._midterm_memory = MidTermMemory(
-                provider=self.config.vector_store.provider,
-                base_vector_config=self.config.vector_store.config,
-                base_collection_name=self.collection_name,
-                embedding_model=self.embedding_model,
-                config=self.config.midterm,
-                primary_vector_store=self.vector_store,
-            )
+            with self._component_init_lock:
+                if self._midterm_memory is None:
+                    self._midterm_memory = MidTermMemory(
+                        provider=self.config.vector_store.provider,
+                        base_vector_config=self.config.vector_store.config,
+                        base_collection_name=self.collection_name,
+                        embedding_model=self.embedding_model,
+                        config=self.config.midterm,
+                        primary_vector_store=self.vector_store,
+                        output_is_visible=lambda payload: self._stage_output_is_visible(payload, "midterm"),
+                        vector_store_timeout_seconds=getattr(
+                            self.config,
+                            "vector_store_timeout_seconds",
+                            15.0,
+                        ),
+                    )
         return self._midterm_memory
 
     @property
     def midterm_updater(self):
         if self._midterm_updater is None:
-            self._midterm_updater = MidTermUpdater(self.midterm_memory, self.llm, self.config.midterm)
+            with self._component_init_lock:
+                if self._midterm_updater is None:
+                    self._midterm_updater = MidTermUpdater(self.midterm_memory, self.llm, self.config.midterm)
         return self._midterm_updater
 
     @property
     def midterm_retriever(self):
         if self._midterm_retriever is None:
-            self._midterm_retriever = MidTermRetriever(self.midterm_memory, self.config.midterm)
+            with self._component_init_lock:
+                if self._midterm_retriever is None:
+                    self._midterm_retriever = MidTermRetriever(self.midterm_memory, self.config.midterm)
         return self._midterm_retriever
 
     @property
     def profile_manager(self):
         """Lazily initialize profile storage without touching the LLM."""
         if self._profile_manager is None:
-            self._profile_manager = ProfileManager(self.db, self.config.profile)
+            with self._component_init_lock:
+                if self._profile_manager is None:
+                    self._profile_manager = ProfileManager(self.db, self.config.profile)
         return self._profile_manager
 
     @property
     def profile_updater(self):
         """Lazily initialize the LLM-backed profile plan generator."""
         if self._profile_updater is None:
-            self._profile_updater = ProfileUpdater(self.llm, self.config.profile)
+            with self._component_init_lock:
+                if self._profile_updater is None:
+                    self._profile_updater = ProfileUpdater(self.llm, self.config.profile)
         return self._profile_updater
 
     async def get_profile(self, user_id: str, include_metadata: Optional[bool] = None):
@@ -3371,8 +4140,8 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                 "User profile updates are disabled; set profile.enabled=True before calling update_profile"
             )
 
-        user_lock = await self._get_profile_user_lock(normalized_user_id)
-        async with user_lock:
+        user_lock = self._get_profile_user_thread_lock(normalized_user_id)
+        async with _acquire_thread_lock_async(user_lock):
             plan = await self._generate_profile_update_plan(normalized_user_id, messages)
             if plan is None:
                 return await asyncio.to_thread(self.profile_manager.get_profile, normalized_user_id)
@@ -3381,25 +4150,20 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
     async def delete_profile_value(self, user_id: str, attribute_key: str):
         """Delete one current profile value for a user."""
         normalized_user_id = normalize_profile_user_id(user_id)
-        return await asyncio.to_thread(self.profile_manager.delete_value, normalized_user_id, attribute_key)
+        user_lock = self._get_profile_user_thread_lock(normalized_user_id)
+        async with _acquire_thread_lock_async(user_lock):
+            return await asyncio.to_thread(self.profile_manager.delete_value, normalized_user_id, attribute_key)
 
     async def delete_profile(self, user_id: str):
         """Delete all current profile values for a user."""
         normalized_user_id = normalize_profile_user_id(user_id)
-        return await asyncio.to_thread(self.profile_manager.delete_profile, normalized_user_id)
+        user_lock = self._get_profile_user_thread_lock(normalized_user_id)
+        async with _acquire_thread_lock_async(user_lock):
+            return await asyncio.to_thread(self.profile_manager.delete_profile, normalized_user_id)
 
     async def create_profile_attribute(self, definition):
         """Create a dynamically managed profile attribute definition."""
         return await asyncio.to_thread(self.profile_manager.create_attribute, definition)
-
-    async def _get_profile_user_lock(self, user_id: str) -> asyncio.Lock:
-        normalized_user_id = normalize_profile_user_id(user_id)
-        async with self._profile_user_locks_guard:
-            lock = self._profile_user_locks.get(normalized_user_id)
-            if lock is None:
-                lock = asyncio.Lock()
-                self._profile_user_locks[normalized_user_id] = lock
-            return lock
 
     async def _generate_profile_update_plan(self, user_id, messages):
         normalized_user_id = normalize_profile_user_id(user_id)
@@ -3426,8 +4190,8 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
 
         try:
             normalized_user_id = normalize_profile_user_id(user_id)
-            user_lock = await self._get_profile_user_lock(normalized_user_id)
-            async with user_lock:
+            user_lock = self._get_profile_user_thread_lock(normalized_user_id)
+            async with _acquire_thread_lock_async(user_lock):
                 plan = await self._generate_profile_update_plan(normalized_user_id, messages)
                 if plan is None:
                     return
@@ -3477,6 +4241,8 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         filters,
         *,
         source_job_id=None,
+        lease_token=None,
+        lease_is_current=None,
         degraded=False,
         raise_on_error=False,
     ):
@@ -3487,6 +4253,8 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                 evicted_messages,
                 filters,
                 source_job_id=source_job_id,
+                lease_token=lease_token,
+                lease_is_current=lease_is_current,
                 degraded=degraded,
             )
         except Exception as e:
@@ -3657,7 +4425,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
     async def _link_entities_for_memory(self, memory_id, text, filters):
         """Async variant of `Memory._link_entities_for_memory`."""
         try:
-            entities = await asyncio.to_thread(extract_entities, text)
+            entities = await asyncio.to_thread(self._run_entity_extraction, extract_entities, text)
             if not entities:
                 return
             seen = set()
@@ -3737,7 +4505,8 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
             llm (BaseChatModel, optional): LLM class to use for generating procedural memories. Defaults to None. Useful when user is using LangChain ChatModel.
         Returns:
-            dict: A dictionary containing the result of the memory addition operation.
+            dict: The same submission result as :meth:`Memory.add`; background job IDs indicate
+                  durable enqueue only and do not imply that extraction has completed.
         """
         if timestamp is not None:
             raise ValueError(await get_temporal_feature_error_message_async("async", "add", "timestamp"))
@@ -3874,10 +4643,14 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         infer: bool = True,
         prompt: Optional[str] = None,
         source_job_id: Optional[str] = None,
+        lease_token: Optional[str] = None,
+        lease_is_current=None,
     ):
         if not infer:
             returned_memories = []
             for index, message_dict in enumerate(evicted_messages):
+                if lease_is_current is not None and not lease_is_current():
+                    raise RuntimeError("stale migration stage lease")
                 if (
                     not isinstance(message_dict, dict)
                     or message_dict.get("role") is None
@@ -3892,7 +4665,14 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                 per_msg_meta = deepcopy(metadata)
                 per_msg_meta["role"] = message_dict["role"]
                 if source_job_id:
-                    per_msg_meta["source_job_id"] = source_job_id
+                    per_msg_meta.update(
+                        {
+                            "source_job_id": source_job_id,
+                            "source_stage": "longterm",
+                            "output_state": "staging",
+                            "output_lease_token": lease_token,
+                        }
+                    )
 
                 actor_name = message_dict.get("name")
                 if actor_name:
@@ -3908,12 +4688,18 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                     await asyncio.to_thread(self.vector_store.get, vector_id=memory_id) if memory_id else None
                 )
                 if existing_memory is not None:
-                    existing_payload = getattr(existing_memory, "payload", None) or {}
+                    existing_payload = dict(getattr(existing_memory, "payload", None) or {})
                     await asyncio.to_thread(
-                        self._ensure_longterm_history,
+                        _update_vector_store_payload,
+                        self.vector_store,
                         memory_id,
-                        existing_payload.get("data") or msg_content,
-                        existing_payload.get("created_at"),
+                        {
+                            **existing_payload,
+                            "source_job_id": source_job_id,
+                            "source_stage": "longterm",
+                            "output_state": "staging",
+                            "output_lease_token": lease_token,
+                        },
                     )
                     returned_memories.append(
                         {
@@ -3959,12 +4745,13 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             self,
             parsed_evicted_messages,
             effective_filters,
+            exclude_source_job_id=source_job_id,
         )
 
         # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in effective_filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         query_embedding = await asyncio.to_thread(self.embedding_model.embed, parsed_evicted_messages, "search")
-        existing_results = await asyncio.to_thread(
+        raw_existing_results = await asyncio.to_thread(
             self.vector_store.search,
             query=parsed_evicted_messages,
             vectors=query_embedding,
@@ -3972,6 +4759,11 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             filters=search_filters,
         )
 
+        existing_results = [
+            mem
+            for mem in raw_existing_results
+            if self._stage_output_is_visible(getattr(mem, "payload", None) or {}, "longterm")
+        ]
         existing_long_term_memories = [
             {"id": str(mem.id), "text": mem.payload.get("data", "")} for mem in existing_results
         ]
@@ -4012,9 +4804,11 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
 
         if not extracted_memories:
             return []
+        if lease_is_current is not None and not lease_is_current():
+            raise RuntimeError("stale migration stage lease")
 
         # Phase 3: Determine which validated facts actually require a new write.
-        existing_hashes, existing_source_hashes = _existing_longterm_hashes(existing_results, source_job_id)
+        existing_hashes, existing_source_hashes = _existing_longterm_hashes(raw_existing_results, source_job_id)
 
         pending_records = []
         seen_hashes = set()
@@ -4032,11 +4826,19 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                     memory_id=memory_id,
                     expected_hash=mem_hash,
                 )
+                existing_payload.update(
+                    {
+                        "source_job_id": source_job_id,
+                        "source_stage": "longterm",
+                        "output_state": "staging",
+                        "output_lease_token": lease_token,
+                    }
+                )
                 await asyncio.to_thread(
-                    self._ensure_longterm_history,
+                    _update_vector_store_payload,
+                    self.vector_store,
                     memory_id,
-                    existing_payload.get("data") or text,
-                    existing_payload.get("created_at"),
+                    existing_payload,
                 )
                 seen_hashes.add(mem_hash)
                 continue
@@ -4044,11 +4846,18 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             if existing_job_memory is not None:
                 existing_job_payload = getattr(existing_job_memory, "payload", None) or {}
                 existing_job_memory_id = str(existing_job_memory.id)
+                existing_job_payload = {
+                    **existing_job_payload,
+                    "source_job_id": source_job_id,
+                    "source_stage": "longterm",
+                    "output_state": "staging",
+                    "output_lease_token": lease_token,
+                }
                 await asyncio.to_thread(
-                    self._ensure_longterm_history,
+                    _update_vector_store_payload,
+                    self.vector_store,
                     existing_job_memory_id,
-                    existing_job_payload.get("data") or text,
-                    existing_job_payload.get("created_at"),
+                    existing_job_payload,
                 )
                 seen_hashes.add(mem_hash)
                 continue
@@ -4099,7 +4908,14 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             )
             mem_metadata["updated_at"] = mem_metadata["created_at"]
             if source_job_id:
-                mem_metadata["source_job_id"] = source_job_id
+                mem_metadata.update(
+                    {
+                        "source_job_id": source_job_id,
+                        "source_stage": "longterm",
+                        "output_state": "staging",
+                        "output_lease_token": lease_token,
+                    }
+                )
             if mem.get("attributed_to"):
                 mem_metadata["attributed_to"] = mem["attributed_to"]
 
@@ -4107,6 +4923,8 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
 
         if not records:
             return []
+        if lease_is_current is not None and not lease_is_current():
+            raise RuntimeError("stale migration stage lease")
 
         # Phase 6: Batch persist
         all_vectors = [r[2] for r in records]
@@ -4145,15 +4963,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             }
             for r in persisted_records
         ]
-        if source_job_id:
-            for history_record in history_records:
-                await asyncio.to_thread(
-                    self._ensure_longterm_history,
-                    history_record["memory_id"],
-                    history_record["new_memory"],
-                    history_record.get("created_at"),
-                )
-        else:
+        if not source_job_id:
             try:
                 await asyncio.to_thread(self.db.batch_add_history, history_records)
             except Exception:
@@ -4169,10 +4979,17 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         if insertion_errors and source_job_id:
             raise RuntimeError(f"Failed to insert {len(insertion_errors)} long-term memories") from insertion_errors[0]
 
+        if source_job_id:
+            return [{"id": r[0], "memory": r[1], "event": "ADD"} for r in records]
+
         # Phase 7: Batch entity linking
         try:
             all_texts = [r[1] for r in records]
-            all_entities = await asyncio.to_thread(extract_entities_batch, all_texts)
+            all_entities = await asyncio.to_thread(
+                self._run_entity_extraction,
+                extract_entities_batch,
+                all_texts,
+            )
 
             # 7a: Global dedup
             global_entities = {}
@@ -4312,7 +5129,10 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         """
         capture_event("mem0.get", self, {"memory_id": memory_id, "sync_type": "async"})
         memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
-        if not memory:
+        if not memory or not self._stage_output_is_visible(
+            getattr(memory, "payload", None) or {},
+            "longterm",
+        ):
             await display_first_run_notice_async(self, "async", "get")
             return None
 
@@ -4447,6 +5267,8 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
 
         formatted_memories = []
         for mem in actual_memories:
+            if not self._stage_output_is_visible(getattr(mem, "payload", None) or {}, "longterm"):
+                continue
             if not show_expired and _payload_is_expired(mem.payload):
                 continue
             memory_item_dict = MemoryItem(
@@ -4741,7 +5563,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             query,
             language=getattr(self, "_bm25_language", None),
         )
-        query_entities = await asyncio.to_thread(extract_entities, query)
+        query_entities = await asyncio.to_thread(self._run_entity_extraction, extract_entities, query)
 
         # Step 2: Embed query
         embeddings = await asyncio.to_thread(self.embedding_model.embed, query, "search")
@@ -4776,6 +5598,8 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         candidates = []
         for mem in semantic_results:
             payload = mem.payload if hasattr(mem, 'payload') else {}
+            if not self._stage_output_is_visible(payload, "longterm"):
+                continue
             if not show_expired and _payload_is_expired(payload):
                 continue
             mem_id = str(mem.id)
@@ -5040,6 +5864,12 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             list: List of changes for the memory.
         """
         capture_event("mem0.history", self, {"memory_id": memory_id, "sync_type": "async"})
+        memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
+        if memory is not None and not self._stage_output_is_visible(
+            getattr(memory, "payload", None) or {},
+            "longterm",
+        ):
+            return []
         history = await asyncio.to_thread(self.db.get_history, memory_id)
         await display_first_run_notice_async(self, "async", "history")
         return history
@@ -5070,17 +5900,18 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             payloads=[new_metadata],
         )
 
-        await asyncio.to_thread(
-            self.db.add_history,
-            memory_id,
-            None,
-            data,
-            "ADD",
-            created_at=new_metadata.get("created_at"),
-            updated_at=new_metadata.get("updated_at"),
-            actor_id=new_metadata.get("actor_id"),
-            role=new_metadata.get("role"),
-        )
+        if new_metadata.get("output_state") != "staging":
+            await asyncio.to_thread(
+                self.db.add_history,
+                memory_id,
+                None,
+                data,
+                "ADD",
+                created_at=new_metadata.get("created_at"),
+                updated_at=new_metadata.get("updated_at"),
+                actor_id=new_metadata.get("actor_id"),
+                role=new_metadata.get("role"),
+            )
 
         return memory_id
 
@@ -5251,8 +6082,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         await asyncio.to_thread(self._reset_midterm_state)
         self._profile_manager = None
         self._profile_updater = None
-        async with self._profile_user_locks_guard:
-            self._profile_user_locks.clear()
+        self._clear_profile_user_thread_locks()
         await asyncio.to_thread(self.db.reset)
         await asyncio.to_thread(self.db.close)
         self.db = await asyncio.to_thread(SQLiteManager, self.config.history_db_path)
@@ -5263,7 +6093,9 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             logger.warning("Vector store does not support reset. Skipping.")
             await asyncio.to_thread(self.vector_store.delete_col)
             self.vector_store = VectorStoreFactory.create(
-                self.config.vector_store.provider, self.config.vector_store.config
+                self.config.vector_store.provider,
+                self.config.vector_store.config,
+                timeout_seconds=self.config.vector_store_timeout_seconds,
             )
 
         gc.collect()
@@ -5282,13 +6114,14 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
     async def flush_background_tasks(self, timeout: Optional[float] = None) -> bool:
         return await asyncio.to_thread(self._ensure_background_workers().flush, timeout)
 
-    def close(self):
+    def close(self) -> bool:
         """Release resources held by this AsyncMemory instance."""
         closed = self._close_background_workers_and_db()
         if closed:
             self._profile_manager = None
             self._profile_updater = None
-            self._profile_user_locks.clear()
+            self._clear_profile_user_thread_locks()
+        return closed
 
     async def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")
