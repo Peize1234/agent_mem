@@ -34,22 +34,43 @@ class _FakeStateService:
 class _FakeWorker:
     def __init__(self, memory):
         self.memory = memory
+        self.calls = {"midterm": [], "longterm": [], "profile": []}
         self.jobs = {
-            "migration-1": {"job_id": "migration-1", "status": "pending"},
+            "migration-1": {
+                "job_id": "migration-1",
+                "status": "pending",
+                "midterm_status": "pending",
+                "longterm_status": "pending",
+            },
             "profile-1": {"job_id": "profile-1", "status": "pending"},
         }
 
-    def process_migration_job(self, job_id):
+    def process_midterm_job(self, job_id):
+        self.calls["midterm"].append(job_id)
         job = self.jobs[job_id]
-        if job["status"] == "succeeded":
+        if job["midterm_status"] == "succeeded":
             return False
-        job["status"] = "succeeded"
-        self.memory.state["jobs"]["migration"][0]["status"] = "succeeded"
+        job["midterm_status"] = "succeeded"
+        self._refresh_migration(job)
+        self.memory.state["jobs"]["migration"][0].update(deepcopy(job))
+        self.memory.state["midterm_pages"].append({"id": "mid-1", "payload": {"data": "summary"}})
+        self.memory._events.append({"event_type": "job.finished", "job_id": job_id, "stage": "midterm"})
+        return True
+
+    def process_longterm_job(self, job_id):
+        self.calls["longterm"].append(job_id)
+        job = self.jobs[job_id]
+        if job["longterm_status"] == "succeeded":
+            return False
+        job["longterm_status"] = "succeeded"
+        self._refresh_migration(job)
+        self.memory.state["jobs"]["migration"][0].update(deepcopy(job))
         self.memory.state["long_term"].append({"id": "long-1", "payload": {"data": "durable"}})
-        self.memory._events.append({"event_type": "job.finished", "job_id": job_id})
+        self.memory._events.append({"event_type": "job.finished", "job_id": job_id, "stage": "longterm"})
         return True
 
     def process_profile_job(self, job_id):
+        self.calls["profile"].append(job_id)
         job = self.jobs[job_id]
         if job["status"] == "succeeded":
             return False
@@ -61,6 +82,10 @@ class _FakeWorker:
 
     def get_job_status(self, job_id, job_type):
         return deepcopy(self.jobs[job_id])
+
+    @staticmethod
+    def _refresh_migration(job):
+        job["status"] = "succeeded" if {job["midterm_status"], job["longterm_status"]} == {"succeeded"} else "pending"
 
 
 class _FakeDemoMemory:
@@ -218,7 +243,7 @@ def test_pipeline_controls_are_disabled_without_a_selected_turn():
         def columns(count):
             return [_Column() for _ in range(count)]
 
-    assert pipeline_panel.render_controls(_Streamlit(), disabled=True) is None
+    assert pipeline_panel.render_controls(_Streamlit(), disabled=True) == (None, None)
     assert calls
     assert all(disabled for _, disabled, _ in calls)
 
@@ -242,7 +267,7 @@ def test_all_pipeline_operations_reject_a_turn_from_another_session(tmp_path):
         ),
         lambda: pipeline.skip_step(
             turn["turn_id"],
-            PipelineStep.RUN_MIGRATION,
+            PipelineStep.RUN_MIDTERM,
             session_id=session_b["session_id"],
         ),
         lambda: pipeline.run_until(
@@ -300,7 +325,7 @@ def test_steps_run_in_order_and_prompt_sent_matches_persisted_prompt(tmp_path):
 
     steps = repository.list_steps(turn["turn_id"])
     assert [step["status"] for step in steps[:4]] == [StepStatus.SUCCEEDED.value] * 4
-    assert [step["status"] for step in steps[4:]] == [StepStatus.PENDING.value] * 4
+    assert [step["status"] for step in steps[4:]] == [StepStatus.PENDING.value] * 5
     prompt_output = repository.get_step(turn["turn_id"], PipelineStep.BUILD_PROMPT)["output"]
     generation_input = repository.get_step(turn["turn_id"], PipelineStep.GENERATE_RESPONSE)["input"]
     assert prompt_output["messages"] == memory.generated_messages
@@ -387,12 +412,14 @@ def test_optional_steps_skip_and_full_pipeline_snapshot_diff(tmp_path):
 
     skipped = pipeline.skip_step(
         turn["turn_id"],
-        PipelineStep.RUN_MIGRATION,
+        PipelineStep.RUN_MIDTERM,
         session_id=session["session_id"],
         reason="inspect profile only",
     )
     assert skipped["status"] == StepStatus.SKIPPED.value
-    pipeline.run_until(turn["turn_id"], PipelineStep.REFRESH_STATE, session_id=session["session_id"])
+    pipeline.skip_step(turn["turn_id"], PipelineStep.RUN_LONGTERM, session_id=session["session_id"])
+    pipeline.run_step(turn["turn_id"], PipelineStep.RUN_PROFILE, session_id=session["session_id"])
+    pipeline.run_step(turn["turn_id"], PipelineStep.REFRESH_STATE, session_id=session["session_id"])
 
     assert memory.demo_background_worker.jobs["migration-1"]["status"] == "pending"
     assert memory.demo_background_worker.jobs["profile-1"]["status"] == "succeeded"
@@ -405,18 +432,19 @@ def test_background_step_fails_until_complete_job_reaches_success(tmp_path):
 
     def leave_in_retry(job_id):
         memory.demo_background_worker.jobs[job_id]["status"] = "retry"
+        memory.demo_background_worker.jobs[job_id]["midterm_status"] = "retry"
         return True
 
-    memory.demo_background_worker.process_migration_job = leave_in_retry
+    memory.demo_background_worker.process_midterm_job = leave_in_retry
 
     with pytest.raises(PipelineStepError, match="status=retry"):
         pipeline.run_step(
             turn["turn_id"],
-            PipelineStep.RUN_MIGRATION,
+            PipelineStep.RUN_MIDTERM,
             session_id=session["session_id"],
         )
 
-    assert repository.get_step(turn["turn_id"], PipelineStep.RUN_MIGRATION)["status"] == "failed"
+    assert repository.get_step(turn["turn_id"], PipelineStep.RUN_MIDTERM)["status"] == "failed"
 
 
 def test_pipeline_progress_recovers_from_a_new_repository_instance(tmp_path):
@@ -545,12 +573,31 @@ def test_simulation_service_reopens_existing_sandbox_without_monkey_patch(tmp_pa
     assert (environment.root / "demo.db").exists()
     assert environment.memory.config.history_db_path == str(environment.root / "history.db")
 
+    environment.coordinator.shutdown(wait=True)
+    environment.memory.close()
     service._environments.clear()
     reopened = service.environment("sandbox-1")
 
     assert marker.read_text(encoding="utf-8") == "keep"
     assert not hasattr(reopened, "midterm_handler")
     assert not hasattr(reopened, "longterm_handler")
+    service.close()
+
+
+def test_simulation_service_clear_closes_coordinator_and_memory_before_delete(tmp_path):
+    service = SimulationService(
+        tmp_path / "runs",
+        memory_factory=_SimulationMemory,
+    )
+    environment = service.create_environment("delete-me")
+    root = environment.root
+
+    service.clear_environment("delete-me")
+
+    assert environment.memory.closed
+    assert not environment.coordinator.accepting
+    assert not root.exists()
+    assert "delete-me" not in service._environments
 
 
 def test_simulation_service_preserves_qdrant_bm25_language(tmp_path):

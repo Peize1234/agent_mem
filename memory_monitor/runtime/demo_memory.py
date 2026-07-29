@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
 from copy import deepcopy
 from typing import Any, Dict, Optional
 
@@ -14,6 +15,7 @@ class DemoMemory(Memory):
 
     def __init__(self, config):
         self._demo_events: list[Dict[str, Any]] = []
+        self._demo_events_lock = threading.Lock()
         super().__init__(config)
 
     def _create_background_worker_manager(self) -> DemoBackgroundWorkerManager:
@@ -126,10 +128,30 @@ class DemoMemory(Memory):
         return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
     def _record_demo_event(self, event_type: str, payload: Dict[str, Any]) -> None:
-        self._demo_events.append({"event_type": event_type, **deepcopy(payload)})
+        lock = getattr(self, "_demo_events_lock", None)
+        if lock is None:
+            lock = self._demo_events_lock = threading.Lock()
+        with lock:
+            self._demo_events.append({"event_type": event_type, **deepcopy(payload)})
 
     def demo_events(self) -> list[Dict[str, Any]]:
-        return deepcopy(self._demo_events)
+        lock = getattr(self, "_demo_events_lock", None)
+        if lock is None:
+            return deepcopy(self._demo_events)
+        with lock:
+            return deepcopy(self._demo_events)
+
+    def close(self) -> bool:
+        closed = super().close()
+        if not closed:
+            return False
+        vector_store = getattr(self, "vector_store", None)
+        client = getattr(vector_store, "client", None)
+        close = getattr(client, "close", None)
+        if callable(close) and not getattr(self, "_demo_vector_client_closed", False):
+            close()
+            self._demo_vector_client_closed = True
+        return True
 
     @property
     def demo_background_worker(self) -> DemoBackgroundWorkerManager:

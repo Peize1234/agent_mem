@@ -8,7 +8,12 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterator, Optional
 
-from memory_monitor.models.demo_pipeline import PIPELINE_STEPS, PipelineStep, StepStatus
+from memory_monitor.models.demo_pipeline import (
+    PIPELINE_STEPS,
+    BackgroundStepConfig,
+    PipelineStep,
+    StepStatus,
+)
 
 _JSON_COLUMNS = {
     "input_json": "input",
@@ -71,6 +76,10 @@ class DemoRepository:
                     assistant_message TEXT,
                     generation_json TEXT,
                     commit_json TEXT,
+                    run_midterm INTEGER NOT NULL DEFAULT 1,
+                    run_longterm INTEGER NOT NULL DEFAULT 1,
+                    run_profile INTEGER NOT NULL DEFAULT 1,
+                    background_submitted_at TEXT,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 );
@@ -114,7 +123,73 @@ class DemoRepository:
                     ON demo_snapshots(turn_id, step, phase);
                 """
             )
-            connection.commit()
+            connection.execute("BEGIN IMMEDIATE")
+            self._migrate_turn_columns(connection)
+            self._migrate_pipeline_steps(connection)
+            self._recover_expired_step_leases(connection)
+            connection.execute("COMMIT")
+
+    @staticmethod
+    def _migrate_turn_columns(connection: sqlite3.Connection) -> None:
+        columns = {row["name"] for row in connection.execute("PRAGMA table_info(demo_turns)").fetchall()}
+        additions = {
+            "run_midterm": "INTEGER NOT NULL DEFAULT 1",
+            "run_longterm": "INTEGER NOT NULL DEFAULT 1",
+            "run_profile": "INTEGER NOT NULL DEFAULT 1",
+            "background_submitted_at": "TEXT",
+        }
+        for name, declaration in additions.items():
+            if name not in columns:
+                connection.execute(f"ALTER TABLE demo_turns ADD COLUMN {name} {declaration}")
+
+    @staticmethod
+    def _migrate_pipeline_steps(connection: sqlite3.Connection) -> None:
+        step_columns = (
+            "turn_id, step, position, status, input_json, output_json, error_type, error_message, "
+            "started_at, ended_at, duration_ms, attempts, lock_token, lease_expires_at, "
+            "before_snapshot_id, after_snapshot_id, diff_json, skip_reason"
+        )
+        copied_columns = (
+            "turn_id, ?, ?, status, input_json, output_json, error_type, error_message, "
+            "started_at, ended_at, duration_ms, attempts, NULL, NULL, "
+            "before_snapshot_id, after_snapshot_id, diff_json, skip_reason"
+        )
+        for step in (PipelineStep.RUN_MIDTERM, PipelineStep.RUN_LONGTERM):
+            connection.execute(
+                f"""
+                INSERT OR IGNORE INTO demo_step_runs ({step_columns})
+                SELECT {copied_columns}
+                FROM demo_step_runs
+                WHERE step = 'run_migration'
+                """,
+                (step.value, PIPELINE_STEPS.index(step)),
+            )
+        for position, step in enumerate(PIPELINE_STEPS):
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO demo_step_runs (turn_id, step, position, status)
+                SELECT turn_id, ?, ?, ? FROM demo_turns
+                """,
+                (step.value, position, StepStatus.PENDING.value),
+            )
+            connection.execute(
+                "UPDATE demo_step_runs SET position = ? WHERE step = ?",
+                (position, step.value),
+            )
+
+    @staticmethod
+    def _recover_expired_step_leases(connection: sqlite3.Connection) -> None:
+        now = _now()
+        connection.execute(
+            """
+            UPDATE demo_step_runs
+            SET status = ?, lock_token = NULL, lease_expires_at = NULL,
+                error_type = 'RecoveredExpiredLease',
+                error_message = 'Recovered an expired Demo step lease'
+            WHERE status = ? AND lease_expires_at IS NOT NULL AND lease_expires_at <= ?
+            """,
+            (StepStatus.PENDING.value, StepStatus.RUNNING.value, now),
+        )
 
     def create_session(
         self,
@@ -158,9 +233,15 @@ class DemoRepository:
         run_id: str,
         user_message: str,
         turn_id: Optional[str] = None,
+        background_config: BackgroundStepConfig | Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
         if not user_message or not user_message.strip():
             raise ValueError("user_message is required")
+        config = (
+            background_config
+            if isinstance(background_config, BackgroundStepConfig)
+            else BackgroundStepConfig.from_mapping(background_config)
+        )
         turn_id = turn_id or str(uuid.uuid4())
         now = _now()
         with self._connection() as connection:
@@ -177,10 +258,22 @@ class DemoRepository:
                 connection.execute(
                     """
                     INSERT INTO demo_turns (
-                        turn_id, session_id, user_id, run_id, user_message, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                        turn_id, session_id, user_id, run_id, user_message,
+                        run_midterm, run_longterm, run_profile, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (turn_id, session_id, user_id, run_id, user_message.strip(), now, now),
+                    (
+                        turn_id,
+                        session_id,
+                        user_id,
+                        run_id,
+                        user_message.strip(),
+                        int(config.run_midterm),
+                        int(config.run_longterm),
+                        int(config.run_profile),
+                        now,
+                        now,
+                    ),
                 )
                 connection.executemany(
                     """
@@ -218,6 +311,65 @@ class DemoRepository:
             (session_id,),
         )
 
+    def background_config(self, turn_id: str) -> BackgroundStepConfig:
+        turn = self.get_turn(turn_id)
+        if turn is None:
+            raise KeyError(f"Unknown demo turn: {turn_id}")
+        return BackgroundStepConfig.from_mapping(turn)
+
+    def update_background_config(
+        self,
+        turn_id: str,
+        config: BackgroundStepConfig | Dict[str, Any],
+    ) -> Dict[str, Any]:
+        config = config if isinstance(config, BackgroundStepConfig) else BackgroundStepConfig.from_mapping(config)
+        with self._connection() as connection:
+            try:
+                connection.execute("BEGIN IMMEDIATE")
+                turn = connection.execute(
+                    "SELECT background_submitted_at FROM demo_turns WHERE turn_id = ?",
+                    (turn_id,),
+                ).fetchone()
+                if turn is None:
+                    raise KeyError(f"Unknown demo turn: {turn_id}")
+                if turn["background_submitted_at"] is not None:
+                    raise RuntimeError("Background configuration is locked after branch submission")
+                connection.execute(
+                    """
+                    UPDATE demo_turns
+                    SET run_midterm = ?, run_longterm = ?, run_profile = ?, updated_at = ?
+                    WHERE turn_id = ?
+                    """,
+                    (
+                        int(config.run_midterm),
+                        int(config.run_longterm),
+                        int(config.run_profile),
+                        _now(),
+                        turn_id,
+                    ),
+                )
+                connection.execute("COMMIT")
+            except Exception:
+                connection.execute("ROLLBACK")
+                raise
+        return self.get_turn(turn_id)
+
+    def mark_background_submitted(self, turn_id: str) -> Dict[str, Any]:
+        now = _now()
+        with self._connection() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE demo_turns
+                SET background_submitted_at = COALESCE(background_submitted_at, ?), updated_at = ?
+                WHERE turn_id = ?
+                """,
+                (now, now, turn_id),
+            )
+            if cursor.rowcount != 1:
+                raise KeyError(f"Unknown demo turn: {turn_id}")
+            connection.commit()
+        return self.get_turn(turn_id)
+
     def raw_messages(self, session_id: str) -> list[Dict[str, Any]]:
         messages = []
         for turn in self.list_turns(session_id):
@@ -247,9 +399,14 @@ class DemoRepository:
         )
 
     def list_steps(self, turn_id: str) -> list[Dict[str, Any]]:
+        placeholders = ", ".join("?" for _ in PIPELINE_STEPS)
         return self._all(
-            "SELECT * FROM demo_step_runs WHERE turn_id = ? ORDER BY position ASC",
-            (turn_id,),
+            f"""
+            SELECT * FROM demo_step_runs
+            WHERE turn_id = ? AND step IN ({placeholders})
+            ORDER BY position ASC
+            """,
+            (turn_id, *(step.value for step in PIPELINE_STEPS)),
         )
 
     def claim_step(
@@ -426,6 +583,53 @@ class DemoRepository:
             connection.commit()
         return self.get_step(turn_id, step_value)
 
+    def defer_step(
+        self,
+        turn_id: str,
+        step: PipelineStep | str,
+        token: str,
+        *,
+        input_data: Any,
+        reason: str,
+        duration_ms: float,
+        before_snapshot_id: Optional[str],
+        after_snapshot_id: Optional[str],
+        diff: Any,
+    ) -> Dict[str, Any]:
+        step_value = _step_value(step)
+        with self._connection() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE demo_step_runs
+                SET status = ?, input_json = ?, error_type = ?, error_message = ?,
+                    ended_at = ?, duration_ms = ?, lock_token = NULL,
+                    lease_expires_at = NULL, before_snapshot_id = ?,
+                    after_snapshot_id = ?, diff_json = ?
+                WHERE turn_id = ? AND step = ? AND status = ? AND lock_token = ?
+                """,
+                (
+                    StepStatus.PENDING.value,
+                    _json(input_data),
+                    "BackgroundJobDeferred",
+                    reason,
+                    _now(),
+                    max(float(duration_ms), 0.0),
+                    before_snapshot_id,
+                    after_snapshot_id,
+                    _json(diff),
+                    turn_id,
+                    step_value,
+                    StepStatus.RUNNING.value,
+                    token,
+                ),
+            )
+            if cursor.rowcount != 1:
+                raise StepAlreadyRunningError(
+                    f"Pipeline step lease was lost while deferring work: turn={turn_id} step={step_value}"
+                )
+            connection.commit()
+        return self.get_step(turn_id, step_value)
+
     def create_snapshot(
         self,
         turn_id: str,
@@ -481,7 +685,7 @@ class DemoRepository:
                     """
                     UPDATE demo_turns
                     SET assistant_message = NULL, generation_json = NULL,
-                        commit_json = NULL, updated_at = ?
+                        commit_json = NULL, background_submitted_at = NULL, updated_at = ?
                     WHERE turn_id = ?
                     """,
                     (_now(), turn_id),
@@ -511,6 +715,9 @@ class DemoRepository:
                 row[output_name] = json.loads(value)
             except json.JSONDecodeError:
                 row[output_name] = value
+        for column in ("run_midterm", "run_longterm", "run_profile"):
+            if column in row:
+                row[column] = bool(row[column])
         return row
 
 

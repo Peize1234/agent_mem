@@ -11,6 +11,7 @@ if str(_REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPOSITORY_ROOT))
 
 from mem0.configs.base import MemoryConfig
+from memory_monitor.components import styles
 from memory_monitor.config import DemoLabConfig
 from memory_monitor.services.simulation_service import SimulationService
 from memory_monitor.views import demo_lab
@@ -29,6 +30,7 @@ def main() -> None:
         raise RuntimeError("Install the monitor extra and run: hatch run monitor:start") from exc
 
     st.set_page_config(page_title="Agent Memory Demo Lab", page_icon="🧠", layout="wide")
+    styles.inject(st)
     config = DemoLabConfig.from_env()
 
     @st.cache_resource

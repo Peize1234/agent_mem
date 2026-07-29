@@ -9,7 +9,8 @@ from typing import Any, Callable, Dict, Optional
 
 from mem0.configs.base import MemoryConfig
 from mem0.vector_stores.configs import VectorStoreConfig
-from memory_monitor.runtime import DemoMemory
+from qdrant_client import QdrantClient
+from memory_monitor.runtime import DemoBackgroundCoordinator, DemoMemory
 from memory_monitor.services.demo_pipeline_service import DemoPipelineService
 from memory_monitor.services.demo_repository import DemoRepository
 from memory_monitor.services.memory_state_service import MemoryStateService
@@ -24,6 +25,7 @@ class SimulationEnvironment:
     memory: Any
     repository: DemoRepository
     state_service: MemoryStateService
+    coordinator: DemoBackgroundCoordinator
     pipeline: DemoPipelineService
 
 
@@ -56,12 +58,26 @@ class SimulationService:
             raise NotADirectoryError(f"Simulation path is not a directory: {run_root}")
 
         config = self._simulation_config(simulation_id, run_root)
+        memory = None
+        coordinator = None
         try:
             memory = self.memory_factory(config)
             repository = DemoRepository(run_root / "demo.db")
             state_service = MemoryStateService(memory)
-            pipeline = DemoPipelineService(memory, repository, state_service)
+            coordinator = DemoBackgroundCoordinator(simulation_id, repository)
+            pipeline = DemoPipelineService(
+                memory,
+                repository,
+                state_service,
+                coordinator=coordinator,
+            )
         except Exception:
+            if coordinator is not None:
+                coordinator.shutdown(wait=True)
+            if memory is not None:
+                memory.close()
+            else:
+                self._close_config_vector_client(config)
             if created:
                 shutil.rmtree(run_root, ignore_errors=True)
             raise
@@ -72,6 +88,7 @@ class SimulationService:
             memory=memory,
             repository=repository,
             state_service=state_service,
+            coordinator=coordinator,
             pipeline=pipeline,
         )
         self._environments[simulation_id] = environment
@@ -99,13 +116,25 @@ class SimulationService:
 
     def clear_environment(self, simulation_id: str) -> None:
         self._validate_simulation_id(simulation_id)
-        environment = self._environments.pop(simulation_id, None)
+        environment = self._environments.get(simulation_id)
         run_root = (self.root / simulation_id).resolve()
         self._assert_inside_root(run_root)
         if environment is not None:
-            environment.memory.close()
+            environment.coordinator.shutdown(wait=True)
+            closed = environment.memory.close()
+            if closed is False:
+                raise RuntimeError(f"Could not safely close simulation memory: {simulation_id}")
         if run_root.exists():
             shutil.rmtree(run_root)
+        self._environments.pop(simulation_id, None)
+
+    def close(self) -> None:
+        for simulation_id, environment in list(self._environments.items()):
+            environment.coordinator.shutdown(wait=True)
+            closed = environment.memory.close()
+            if closed is False:
+                raise RuntimeError(f"Could not safely close simulation memory: {simulation_id}")
+            self._environments.pop(simulation_id, None)
 
     def list_simulations(self) -> list[str]:
         if not self.root.exists():
@@ -117,25 +146,38 @@ class SimulationService:
     def _simulation_config(self, simulation_id: str, run_root: Path) -> MemoryConfig:
         config = self.base_config.model_copy(deep=True)
         config.history_db_path = str(run_root / "history.db")
+        qdrant_path = run_root / "qdrant"
+        vector_config = {
+            "collection_name": f"memory_monitor_{simulation_id}",
+            "path": str(qdrant_path),
+            "embedding_model_dims": getattr(
+                self.base_config.vector_store.config,
+                "embedding_model_dims",
+                1536,
+            ),
+            "bm25_language": getattr(
+                self.base_config.vector_store.config,
+                "bm25_language",
+                "en",
+            ),
+        }
+        # A prebuilt embedded client keeps the global vector timeout from
+        # turning Demo-local Qdrant into an accidental localhost connection.
+        if self.memory_factory is DemoMemory:
+            vector_config["client"] = QdrantClient(path=str(qdrant_path))
         config.vector_store = VectorStoreConfig(
             provider="qdrant",
-            config={
-                "collection_name": f"memory_monitor_{simulation_id}",
-                "path": str(run_root / "qdrant"),
-                "embedding_model_dims": getattr(
-                    self.base_config.vector_store.config,
-                    "embedding_model_dims",
-                    1536,
-                ),
-                "bm25_language": getattr(
-                    self.base_config.vector_store.config,
-                    "bm25_language",
-                    "en",
-                ),
-            },
+            config=vector_config,
         )
         config.background.enabled = True
         return config
+
+    @staticmethod
+    def _close_config_vector_client(config: MemoryConfig) -> None:
+        client = getattr(config.vector_store.config, "client", None)
+        close = getattr(client, "close", None)
+        if callable(close):
+            close()
 
     def _assert_inside_root(self, path: Path) -> None:
         root = self.root.resolve()
