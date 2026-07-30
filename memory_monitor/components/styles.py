@@ -76,7 +76,7 @@ div[class*="st-key-active_turn_"] button p {
 .demo-pipeline-scroll {
     overflow-x: hidden;
     overscroll-behavior-x: contain;
-    min-height: 300px;
+    min-height: 370px;
     padding: 0.05rem 0.08rem 0.18rem;
 }
 .demo-flow-row {
@@ -87,7 +87,7 @@ div[class*="st-key-active_turn_"] button p {
     gap: 0;
     width: 100%;
     min-width: 0;
-    min-height: 290px;
+    min-height: 350px;
 }
 .demo-foreground-chain {
     display: flex;
@@ -219,6 +219,8 @@ div[class*="st-key-active_turn_"] button p {
     align-items: center;
     flex: 0 0 25%;
     min-height: 0;
+    padding-block: 0.3rem;
+    box-sizing: border-box;
 }
 .demo-memory-branch .demo-node {
     width: 100%;

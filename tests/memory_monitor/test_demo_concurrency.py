@@ -82,9 +82,15 @@ def test_dag_has_four_visible_branches_and_derived_completion_only():
     assert "flex-direction: column" in styles._DEMO_LAB_CSS
     pipeline_scroll = styles._DEMO_LAB_CSS.split(".demo-pipeline-scroll {", 1)[1].split("}", 1)[0]
     flow_row = styles._DEMO_LAB_CSS.split(".demo-flow-row {", 1)[1].split("}", 1)[0]
+    memory_branch = styles._DEMO_LAB_CSS.split(".demo-memory-branch {", 1)[1].split("}", 1)[0]
     assert "overflow-x: hidden" in pipeline_scroll
+    assert "min-height: 370px" in pipeline_scroll
     assert "width: 100%" in flow_row
     assert "min-width: 0" in flow_row
+    assert "min-height: 350px" in flow_row
+    assert "flex: 0 0 25%" in memory_branch
+    assert "padding-block: 0.3rem" in memory_branch
+    assert "box-sizing: border-box" in memory_branch
     assert "max-content" not in styles._DEMO_LAB_CSS
     assert 'class="demo-complete-node"' in rendered
     assert 'title="四个记忆步骤全部完成后，本轮自动完成"' in rendered

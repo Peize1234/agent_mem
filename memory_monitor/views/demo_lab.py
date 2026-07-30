@@ -65,10 +65,12 @@ def render(st, simulation_service, config) -> None:
 
     left, right = st.columns([0.92, 1.62], gap="large")
     with left:
-        chat_panel.render_history(
+        _render_chat_history_workspace(
             st,
-            repository.raw_messages(session["session_id"]),
+            repository,
             simulation_id=environment.simulation_id,
+            session_id=session["session_id"],
+            poll_interval_seconds=config.poll_interval_seconds,
         )
         user_message = chat_panel.chat_input(
             st,
@@ -185,6 +187,26 @@ def _render_scope_controls(st):
     return simulation, user, run, create_clicked
 
 
+def _render_chat_history_workspace(
+    st,
+    repository,
+    *,
+    simulation_id: str,
+    session_id: str,
+    poll_interval_seconds: float,
+) -> None:
+    @st.fragment(run_every=poll_interval_seconds)
+    def chat_history_workspace() -> None:
+        chat_panel.render_history(
+            st,
+            repository.raw_messages(session_id),
+            simulation_id=simulation_id,
+            session_id=session_id,
+        )
+
+    chat_history_workspace()
+
+
 def _render_right_workspace(
     st,
     environment,
@@ -273,7 +295,7 @@ def _render_right_workspace(
                 ["执行流程", "检索上下文", "最终 Prompt", "模型调用", "数据库和任务", "Trace"],
                 key=f"{key_scope}:tabs",
             )
-            with tabs[0], st.container(height=390, border=False, key=f"{key_scope}:pipeline"):
+            with tabs[0], st.container(height=450, border=False, key=f"{key_scope}:pipeline"):
                 pipeline_panel.render_steps(st, steps, selected_config)
             with tabs[1], st.container(height=515, border=False, key=f"{key_scope}:context"):
                 context_panel.render(

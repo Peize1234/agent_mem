@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-CHAT_HISTORY_HEIGHT = 650
+CHAT_HISTORY_HEIGHT = 700
 
 
 def render_history(
@@ -8,13 +8,14 @@ def render_history(
     messages: list[dict],
     *,
     simulation_id: str,
+    session_id: str,
     height: int = CHAT_HISTORY_HEIGHT,
 ) -> None:
     st.subheader("完整原始对话")
     with st.container(
         height=height,
         border=True,
-        key=f"chat_history_{simulation_id}",
+        key=f"chat_history_{simulation_id}_{session_id}",
         autoscroll=False,
     ):
         if not messages:

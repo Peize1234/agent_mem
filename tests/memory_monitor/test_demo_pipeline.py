@@ -272,14 +272,19 @@ def test_chat_history_uses_tall_keyed_native_scroll_container():
         def caption(value):
             return None
 
-    chat_panel.render_history(_Streamlit(), [], simulation_id="simulation-1")
+    chat_panel.render_history(
+        _Streamlit(),
+        [],
+        simulation_id="simulation-1",
+        session_id="session-1",
+    )
 
-    assert chat_panel.CHAT_HISTORY_HEIGHT == 650
+    assert chat_panel.CHAT_HISTORY_HEIGHT == 700
     assert containers == [
         {
-            "height": 650,
+            "height": 700,
             "border": True,
-            "key": "chat_history_simulation-1",
+            "key": "chat_history_simulation-1_session-1",
             "autoscroll": False,
         }
     ]
@@ -288,23 +293,105 @@ def test_chat_history_uses_tall_keyed_native_scroll_container():
     assert "scrollbar-gutter: stable" in chat_style
 
 
+def test_chat_history_fragment_reloads_messages_and_renders_new_assistant_reply():
+    class _Repository:
+        calls = []
+
+        @classmethod
+        def raw_messages(cls, session_id):
+            cls.calls.append(session_id)
+            messages = [{"role": "user", "content": "question"}]
+            if len(cls.calls) > 1:
+                messages.append({"role": "assistant", "content": "new answer"})
+            return messages
+
+    class _Context:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    class _Streamlit:
+        fragment_callback = None
+        fragment_intervals = []
+        rendered = []
+        container_keys = []
+
+        @classmethod
+        def fragment(cls, *, run_every):
+            cls.fragment_intervals.append(run_every)
+
+            def decorate(callback):
+                cls.fragment_callback = callback
+                return callback
+
+            return decorate
+
+        @staticmethod
+        def subheader(value):
+            return None
+
+        @classmethod
+        def container(cls, *, height, border, key, autoscroll):
+            cls.container_keys.append(key)
+            return _Context()
+
+        @staticmethod
+        def chat_message(role):
+            return _Context()
+
+        @classmethod
+        def markdown(cls, value):
+            cls.rendered.append(value)
+
+        @staticmethod
+        def caption(value):
+            return None
+
+    demo_lab._render_chat_history_workspace(
+        _Streamlit(),
+        _Repository(),
+        simulation_id="simulation-1",
+        session_id="session-1",
+        poll_interval_seconds=0.4,
+    )
+    assert _Repository.calls == ["session-1"]
+    assert "new answer" not in _Streamlit.rendered
+
+    _Streamlit.fragment_callback()
+
+    assert _Repository.calls == ["session-1", "session-1"]
+    assert _Streamlit.rendered[-1] == "new answer"
+    assert _Streamlit.fragment_intervals == [0.4]
+    assert set(_Streamlit.container_keys) == {"chat_history_simulation-1_session-1"}
+
+
 def test_right_controls_and_live_status_share_one_fragment_boundary():
     page_source = inspect.getsource(demo_lab.render)
+    chat_fragment_source = inspect.getsource(demo_lab._render_chat_history_workspace)
     fragment_source = inspect.getsource(demo_lab._render_right_workspace)
 
-    assert "chat_panel.render_history" in page_source
+    assert "_render_chat_history_workspace" in page_source
     assert "chat_panel.chat_input" in page_source
-    assert page_source.index("chat_panel.render_history") < page_source.index("_render_right_workspace")
+    assert page_source.index("_render_chat_history_workspace") < page_source.index("chat_panel.chat_input")
+    assert page_source.index("chat_panel.chat_input") < page_source.index("_render_right_workspace")
+    assert "repository.raw_messages" not in page_source
     assert "pipeline_panel.render_controls" not in page_source
     assert "pipeline_panel.apply_action" not in page_source
     assert "pipeline_panel.render_memory_gates" not in page_source
 
+    assert "@st.fragment(run_every=poll_interval_seconds)" in chat_fragment_source
+    assert "repository.raw_messages(session_id)" in chat_fragment_source
+    assert "chat_panel.render_history" in chat_fragment_source
+    assert "session_id=session_id" in chat_fragment_source
     assert "@st.fragment(run_every=poll_interval_seconds)" in fragment_source
     assert "pipeline_panel.render_memory_gates" in fragment_source
     assert "pipeline_panel.render_controls" in fragment_source
     assert "pipeline_panel.apply_action" in fragment_source
     assert "_render_turn_navigation" in fragment_source
     assert "st.tabs" in fragment_source
+    assert "st.container(height=450" in fragment_source
     assert fragment_source.count("repository.list_steps(turn_id)") >= 2
     assert fragment_source.rindex("repository.list_steps(turn_id)") > fragment_source.index(
         "pipeline_panel.apply_action"
