@@ -2,6 +2,9 @@
 
 set -Eeuo pipefail
 
+export MEM0_TELEMETRY="${MEM0_TELEMETRY:-false}"
+export PYTHONNOUSERSITE="${PYTHONNOUSERSITE:-1}"
+
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repository_root="$(cd -- "${script_dir}/.." && pwd)"
 cd "${repository_root}"
@@ -23,11 +26,55 @@ else
 fi
 
 echo "正在检查 Conda 环境 ${conda_environment}..."
-if ! "${python_command[@]}" -c \
-    "import openai, qdrant_client, sentence_transformers, streamlit" >/dev/null; then
-    echo "错误：Conda 环境 ${conda_environment} 缺少 Demo Lab 所需依赖。" >&2
+set +e
+dependency_report="$("${python_command[@]}" -c '
+import importlib
+import site
+from pathlib import Path
+
+modules = (
+    "openai",
+    "qdrant_client",
+    "sentence_transformers",
+    "streamlit",
+    "pyarrow",
+    "pandas",
+    "requests",
+    "urllib3",
+    "posthog",
+)
+user_site = Path(site.getusersitepackages()).expanduser().resolve()
+invalid = []
+missing = []
+for name in modules:
+    try:
+        module = importlib.import_module(name)
+    except Exception as exc:
+        missing.append(f"{name}: {type(exc).__name__}: {exc}")
+        continue
+    module_path = Path(module.__file__).expanduser().resolve()
+    print(f"{name}: {module_path}")
+    if module_path.is_relative_to(user_site) or "/.local/lib/" in module_path.as_posix():
+        invalid.append(f"{name}: {module_path}")
+if missing:
+    raise SystemExit(
+        "Conda 环境缺少 Demo Lab 依赖（已禁用用户级 site-packages）：\n"
+        + "\n".join(missing)
+        + "\n请在目标 Conda 环境中补齐依赖后重试。"
+    )
+if invalid:
+    raise SystemExit(
+        "检测到用户级依赖，拒绝混用 Conda 和 ~/.local：\n" + "\n".join(invalid)
+    )
+')"
+dependency_status=$?
+set -e
+if ((dependency_status != 0)); then
+    echo "错误：Conda 环境 ${conda_environment} 依赖检查失败。" >&2
+    echo "${dependency_report}" >&2
     exit 1
 fi
+echo "${dependency_report}"
 
 if [[ ! "${server_port}" =~ ^[0-9]+$ ]] || ((server_port < 1 || server_port > 65535)); then
     echo "错误：MEMORY_MONITOR_PORT 必须是 1 到 65535 之间的端口号。" >&2

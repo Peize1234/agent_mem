@@ -510,12 +510,14 @@ def test_released_branch_waits_for_shortterm_then_runs_from_persisted_target(tmp
         pipeline.run_all(turn["turn_id"], session_id=session["session_id"])
         assert shortterm_entered.wait(2)
 
-        released = pipeline.release_step(
+        released = pipeline.set_memory_step_runnable(
             turn["turn_id"],
             PipelineStep.RUN_MIDTERM,
+            True,
             session_id=session["session_id"],
         )
-        assert released["scheduled"] is False
+        assert released["resumed"] is True
+        assert released["submissions"] == {}
         waiting = repository.get_step(turn["turn_id"], PipelineStep.RUN_MIDTERM)
         assert waiting["status"] == "pending"
         assert waiting["is_held"] is False
@@ -601,9 +603,10 @@ def test_resuming_old_held_turn_does_not_interrupt_new_running_turn(tmp_path):
             second["turn_id"],
         }
 
-        pipeline.release_step(
+        pipeline.set_memory_step_runnable(
             first["turn_id"],
             PipelineStep.RUN_MIDTERM,
+            True,
             session_id=session["session_id"],
         )
         assert first_midterm_resumed.wait(3)
@@ -860,9 +863,10 @@ def test_held_memory_step_stays_pending_across_restart_and_runs_immediately_afte
         assert "pending · 已阻塞" in rendered
         assert "重新勾选后继续执行" in rendered
 
-        pipeline.release_step(
+        pipeline.set_memory_step_runnable(
             turn_id,
             PipelineStep.RUN_MIDTERM,
+            True,
             session_id=session["session_id"],
         )
         assert coordinator.wait_for_idle(4)
@@ -905,9 +909,10 @@ def test_restart_restores_held_step_and_persisted_target_before_release(tmp_path
         assert resumed_coordinator.wait_for_idle(1)
         assert reopened.get_step(turn["turn_id"], PipelineStep.RUN_MIDTERM)["attempts"] == 0
 
-        resumed.release_step(
+        resumed.set_memory_step_runnable(
             turn["turn_id"],
             PipelineStep.RUN_MIDTERM,
+            True,
             session_id=session["session_id"],
         )
         assert resumed_coordinator.wait_for_idle(4)
@@ -966,9 +971,10 @@ def test_held_core_branch_is_not_called_and_prevents_completion_until_release(tm
         assert repository.get_turn(turn["turn_id"])["execution_target"] == "all"
         assert [item["turn_id"] for item in repository.list_active_turns(session["session_id"])] == [turn["turn_id"]]
 
-        pipeline.release_step(
+        pipeline.set_memory_step_runnable(
             turn["turn_id"],
             PipelineStep.RUN_LONGTERM,
+            True,
             session_id=session["session_id"],
         )
         assert coordinator.wait_for_idle(4)

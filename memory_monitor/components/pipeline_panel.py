@@ -99,30 +99,36 @@ def render_memory_gates(
     simulation_id: str,
     session_id: str,
     turn_id: str | None,
+    steps: list[dict] | None = None,
 ) -> None:
     """Render one persisted hold toggle for each selected-turn memory step."""
-    st.caption("本轮记忆阻塞控制")
+    st.caption("本轮记忆步骤开关")
     if turn_id is None:
-        st.caption("创建轮次后可独立阻塞或恢复四个记忆步骤。")
+        st.caption("创建轮次后可独立设置四个记忆步骤是否允许执行。")
         return
 
-    repository.assert_turn_belongs_to_session(turn_id, session_id)
-    steps = _memory_step_map(repository.list_steps(turn_id))
+    if steps is None:
+        repository.assert_turn_belongs_to_session(turn_id, session_id)
+        steps = repository.list_steps(turn_id)
+    memory_steps = _memory_step_map(steps)
     key_prefix = f"memory_gate:{simulation_id}:{turn_id}"
-    fingerprint = _gate_fingerprint(steps)
+    fingerprint = _gate_fingerprint(memory_steps)
     marker_key = f"{key_prefix}:persisted"
     if st.session_state.get(marker_key) != fingerprint:
-        _store_gate_widget_state(st.session_state, key_prefix, steps)
+        _store_gate_widget_state(st.session_state, key_prefix, memory_steps)
 
     columns = st.columns(4)
     for column, (step, label, _summary_label) in zip(columns, _MEMORY_GATE_CONTROLS):
-        current = steps[step]
+        current = memory_steps[step]
         status = current["status"]
         column.toggle(
             label,
             key=f"{key_prefix}:{step.value}",
             disabled=status != StepStatus.PENDING.value,
-            help="取消勾选会将尚未执行的步骤保持为 pending 并阻塞；重新勾选会立即恢复调度。",
+            help=(
+                "该开关只决定本步骤是否允许执行，不会单独启动流程。请通过“下一步”“运行记忆阶段”"
+                "或“运行全部”启动；如果已启动流程因该步骤关闭而阻塞，重新开启后会恢复执行。"
+            ),
             on_change=_apply_memory_gate,
             args=(
                 st.session_state,
@@ -135,15 +141,14 @@ def render_memory_gates(
             ),
         )
 
-    refreshed = _memory_step_map(repository.list_steps(turn_id))
     summary = " · ".join(
-        f"{label}{'已阻塞' if refreshed[step].get('is_held') else '可执行'}"
+        f"{label}{'已关闭' if memory_steps[step].get('is_held') else '可执行'}"
         for step, _widget_label, label in _MEMORY_GATE_CONTROLS
     )
     st.caption(summary)
-    notice_key = f"{key_prefix}:resume_notice"
+    notice_key = f"{key_prefix}:gate_notice"
     if notice := st.session_state.pop(notice_key, None):
-        st.caption(f"{notice}正在恢复执行……")
+        st.caption(notice)
 
 
 def _apply_memory_gate(
@@ -159,24 +164,23 @@ def _apply_memory_gate(
     key_prefix = f"memory_gate:{simulation_id}:{turn_id}"
     key = f"{key_prefix}:{step.value}"
     desired_runnable = bool(session_state[key])
-    current = repository.get_step(turn_id, step)
-    if current is None:
-        raise KeyError(f"Unknown Demo step: turn={turn_id} step={step.value}")
-    if current["status"] != StepStatus.PENDING.value:
-        _store_gate_widget_state(
-            session_state,
-            key_prefix,
-            _memory_step_map(repository.list_steps(turn_id)),
-        )
-        return
 
     try:
-        if desired_runnable and current.get("is_held"):
-            pipeline.release_step(turn_id, step, session_id=session_id)
-            label = next(label for item, _widget, label in _MEMORY_GATE_CONTROLS if item is step)
-            session_state[f"{key_prefix}:resume_notice"] = label
-        elif not desired_runnable and not current.get("is_held"):
-            pipeline.hold_step(turn_id, step, session_id=session_id)
+        result = pipeline.set_memory_step_runnable(
+            turn_id,
+            step,
+            desired_runnable,
+            session_id=session_id,
+        )
+        if desired_runnable:
+            notice = (
+                "已解除阻塞，正在恢复已启动的流程。"
+                if result["resumed"]
+                else "已开启，等待点击“下一步”或其他运行按钮。"
+            )
+        else:
+            notice = "已关闭，该步骤将在运行流程时保持 pending。"
+        session_state[f"{key_prefix}:gate_notice"] = notice
     finally:
         _store_gate_widget_state(
             session_state,

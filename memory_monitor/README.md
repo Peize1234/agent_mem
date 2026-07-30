@@ -84,7 +84,7 @@ The page supports:
 - retry one selected failed step;
 - reset an uncommitted turn.
 
-The pipeline controls contain one four-toggle row named “本轮记忆阻塞控制”.
+The pipeline controls contain one four-toggle row named “本轮记忆步骤开关”.
 Each switch reads the selected turn's persisted `demo_step_runs.is_held`
 value. Clearing a pending switch holds that one step as `pending`; it never
 turns the step into `skipped` and never counts it as complete. Re-enabling a

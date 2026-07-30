@@ -260,6 +260,21 @@ class DemoRepository:
     def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
         return self._one("SELECT * FROM demo_sessions WHERE session_id = ?", (session_id,))
 
+    def find_session(
+        self,
+        simulation_id: str,
+        user_id: str,
+        run_id: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Find an existing session without refreshing its persisted timestamp."""
+        return self._one(
+            """
+            SELECT * FROM demo_sessions
+            WHERE simulation_id = ? AND user_id = ? AND run_id = ?
+            """,
+            (simulation_id, user_id, run_id),
+        )
+
     def create_turn(
         self,
         session_id: str,

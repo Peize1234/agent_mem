@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from memory_monitor.components.common import render_json
+from memory_monitor.components.common import render_json, render_table
 
 
 def render(st, steps: list[dict], *, key_prefix: str) -> None:
     if not steps:
         st.caption("暂无 Trace。")
         return
-    st.dataframe(
+    render_table(
+        st,
         [
             {
                 "step": step["step"],
@@ -20,8 +21,7 @@ def render(st, steps: list[dict], *, key_prefix: str) -> None:
             }
             for step in steps
         ],
-        width="stretch",
-        hide_index=True,
+        key_prefix=f"{key_prefix}:steps",
     )
     selected = st.selectbox(
         "Trace 步骤",

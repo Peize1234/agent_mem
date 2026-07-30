@@ -1,15 +1,23 @@
 import hashlib
 import inspect
 import json
+import os
+import sqlite3
+import subprocess
+import sys
 import threading
 from copy import deepcopy
+from datetime import datetime, timezone
+from pathlib import Path
 from types import SimpleNamespace
 
+import pyarrow as pa
 import pytest
 
 from mem0.configs.base import MemoryConfig
 from mem0.memory.storage import SQLiteManager
-from memory_monitor.components import chat_panel, common, pipeline_panel, styles
+from memory_monitor.components import chat_panel, common, memory_panel, pipeline_panel, styles
+from memory_monitor.config import DemoLabConfig
 from memory_monitor.models import PIPELINE_STEPS, PipelineStep, StepStatus
 from memory_monitor.runtime import DemoBackgroundCoordinator, DemoMemory
 from memory_monitor.services.demo_pipeline_service import DemoPipelineService
@@ -22,6 +30,8 @@ from memory_monitor.services.memory_state_service import MemoryStateService
 from memory_monitor.services.simulation_service import SimulationService
 from memory_monitor.views import demo_lab
 from memory_monitor.views.demo_lab import resolve_selected_turn_id, synchronize_selected_turn_id
+
+_REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 
 
 class _FakeStateService:
@@ -371,6 +381,7 @@ def test_right_controls_and_live_status_share_one_fragment_boundary():
     page_source = inspect.getsource(demo_lab.render)
     chat_fragment_source = inspect.getsource(demo_lab._render_chat_history_workspace)
     fragment_source = inspect.getsource(demo_lab._render_right_workspace)
+    content_source = inspect.getsource(demo_lab._render_right_workspace_content)
 
     assert "_render_chat_history_workspace" in page_source
     assert "chat_panel.chat_input" in page_source
@@ -386,17 +397,154 @@ def test_right_controls_and_live_status_share_one_fragment_boundary():
     assert "chat_panel.render_history" in chat_fragment_source
     assert "session_id=session_id" in chat_fragment_source
     assert "@st.fragment(run_every=poll_interval_seconds)" in fragment_source
-    assert "pipeline_panel.render_memory_gates" in fragment_source
-    assert "pipeline_panel.render_controls" in fragment_source
-    assert "pipeline_panel.apply_action" in fragment_source
-    assert "_render_turn_navigation" in fragment_source
-    assert "st.tabs" in fragment_source
-    assert "st.container(height=450" in fragment_source
-    assert fragment_source.count("repository.list_steps(turn_id)") >= 2
-    assert fragment_source.rindex("repository.list_steps(turn_id)") > fragment_source.index(
-        "pipeline_panel.apply_action"
-    )
+    assert 'st.rerun(scope="app")' not in fragment_source
+    assert "logger.exception" in fragment_source
+    assert "重新加载右侧区域" in fragment_source
+    assert fragment_source.count("repository.list_turns(session_id)") == 1
+    assert fragment_source.count("repository.list_steps(turn_id)") == 1
+    assert "pipeline_panel.render_memory_gates" in content_source
+    assert "pipeline_panel.render_controls" in content_source
+    assert "pipeline_panel.apply_action" in content_source
+    assert "_render_turn_navigation" in content_source
+    assert "st.segmented_control" in content_source
+    assert "st.tabs" not in content_source
+    assert "st.container(height=450" in content_source
+    assert "repository.list_steps" not in content_source
     assert "_render_live_workspace" not in inspect.getsource(demo_lab)
+
+
+def test_restore_existing_environment_is_read_only_and_never_creates_session(tmp_path):
+    repository = DemoRepository(tmp_path / "restore.db")
+    session = repository.create_session("restore", "user-1", "run-1")
+    original_updated_at = session["updated_at"]
+    environment = SimpleNamespace(repository=repository)
+
+    class _Service:
+        create_session_calls = 0
+
+        @staticmethod
+        def environment(simulation_id):
+            assert simulation_id == "restore"
+            return environment
+
+        @classmethod
+        def create_session(cls, *args, **kwargs):
+            cls.create_session_calls += 1
+            raise AssertionError("page restoration must not create a session")
+
+    class _Streamlit:
+        session_state = {
+            "demo_simulation_id": "restore",
+            "demo_user_id": "user-1",
+            "demo_run_id": "run-1",
+            "demo_session_id": session["session_id"],
+        }
+
+        @staticmethod
+        def warning(value):
+            raise AssertionError(value)
+
+        @staticmethod
+        def error(value):
+            raise AssertionError(value)
+
+    first_environment, first_session = demo_lab._restore_environment(_Streamlit(), _Service())
+    second_environment, second_session = demo_lab._restore_environment(_Streamlit(), _Service())
+
+    assert first_environment is second_environment is environment
+    assert first_session["session_id"] == second_session["session_id"] == session["session_id"]
+    assert repository.get_session(session["session_id"])["updated_at"] == original_updated_at
+    assert _Service.create_session_calls == 0
+
+
+def test_right_workspace_renders_only_selected_section(monkeypatch):
+    rendered = []
+
+    class _Context:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    class _Streamlit:
+        session_state = {}
+
+        @staticmethod
+        def container(**kwargs):
+            return _Context()
+
+        @staticmethod
+        def segmented_control(label, options, **kwargs):
+            assert kwargs["key"] == "workspace_section:simulation-1:session-1:turn-1"
+            return "Trace"
+
+    monkeypatch.setattr(pipeline_panel, "render_memory_gates", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pipeline_panel, "render_controls", lambda *args, **kwargs: (None, None))
+    monkeypatch.setattr(demo_lab, "_render_turn_navigation", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pipeline_panel, "render_steps", lambda *args, **kwargs: rendered.append("pipeline"))
+    monkeypatch.setattr(demo_lab.context_panel, "render", lambda *args, **kwargs: rendered.append("context"))
+    monkeypatch.setattr(demo_lab.prompt_panel, "render_prompt", lambda *args, **kwargs: rendered.append("prompt"))
+    monkeypatch.setattr(
+        demo_lab.prompt_panel,
+        "render_generation",
+        lambda *args, **kwargs: rendered.append("generation"),
+    )
+    monkeypatch.setattr(demo_lab.memory_panel, "render", lambda *args, **kwargs: rendered.append("database"))
+    monkeypatch.setattr(demo_lab.trace_panel, "render", lambda *args, **kwargs: rendered.append("trace"))
+    monkeypatch.setattr(
+        demo_lab,
+        "_latest_session_state",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("hidden database page rendered")),
+    )
+
+    demo_lab._render_right_workspace_content(
+        _Streamlit(),
+        SimpleNamespace(simulation_id="simulation-1", repository=object(), pipeline=object()),
+        "session-1",
+        {"turn_id": "turn-1"},
+        [],
+        [],
+        [],
+    )
+
+    assert rendered == ["trace"]
+
+
+def test_chat_fragment_degrades_sqlite_lock_to_local_warning():
+    warnings = []
+
+    class _Repository:
+        @staticmethod
+        def raw_messages(session_id):
+            raise sqlite3.OperationalError("database is locked")
+
+    class _Streamlit:
+        @staticmethod
+        def fragment(*, run_every):
+            return lambda callback: callback
+
+        @staticmethod
+        def warning(value):
+            warnings.append(value)
+
+    demo_lab._render_chat_history_workspace(
+        _Streamlit(),
+        _Repository(),
+        simulation_id="simulation-1",
+        session_id="session-1",
+        poll_interval_seconds=1.0,
+    )
+
+    assert warnings == ["对话数据库正忙，将在下一次刷新时自动重试。"]
+
+
+def test_default_polling_is_stable_and_environment_override_is_bounded(monkeypatch):
+    assert DemoLabConfig().poll_interval_seconds == 1.0
+    monkeypatch.setenv("MEMORY_MONITOR_POLL_INTERVAL_SECONDS", "0.2")
+    assert DemoLabConfig.from_env().poll_interval_seconds == 0.5
+    monkeypatch.setenv("MEMORY_MONITOR_POLL_INTERVAL_SECONDS", "0.8")
+    assert DemoLabConfig.from_env().poll_interval_seconds == 0.8
 
 
 def test_page_has_one_memory_gate_group_bound_to_selected_turn_step_holds(tmp_path):
@@ -406,7 +554,7 @@ def test_page_has_one_memory_gate_group_bound_to_selected_turn_step_holds(tmp_pa
     assert panel_source.count(".toggle(") == 1
     assert "记忆步骤操作" not in page_source + panel_source
     assert "render_memory_config" not in page_source + panel_source
-    assert "本轮记忆阻塞控制" in panel_source
+    assert "本轮记忆步骤开关" in panel_source
 
     pipeline, repository, _, session, first = _pipeline(tmp_path)
     pipeline.hold_step(
@@ -472,14 +620,14 @@ def test_page_has_one_memory_gate_group_bound_to_selected_turn_step_holds(tmp_pa
         key.startswith(f"memory_gate:simulation-1:{first['turn_id']}:") for key, _value, _disabled in toggles[-4:]
     )
 
-    release_calls = []
-    release_step = pipeline.release_step
+    gate_calls = []
+    set_memory_step_runnable = pipeline.set_memory_step_runnable
 
-    def tracked_release(*args, **kwargs):
-        release_calls.append((args, kwargs))
-        return release_step(*args, **kwargs)
+    def tracked_gate(*args, **kwargs):
+        gate_calls.append((args, kwargs))
+        return set_memory_step_runnable(*args, **kwargs)
 
-    pipeline.release_step = tracked_release
+    pipeline.set_memory_step_runnable = tracked_gate
     longterm_key = f"memory_gate:simulation-1:{first['turn_id']}:run_longterm"
     _Streamlit.changes[longterm_key] = True
     pipeline_panel.render_memory_gates(
@@ -493,7 +641,7 @@ def test_page_has_one_memory_gate_group_bound_to_selected_turn_step_holds(tmp_pa
     released = repository.get_step(first["turn_id"], PipelineStep.RUN_LONGTERM)
     assert released["status"] == "pending"
     assert released["is_held"] is False
-    assert len(release_calls) == 1
+    assert len(gate_calls) == 1
 
     pipeline_panel.render_memory_gates(
         _Streamlit(),
@@ -596,9 +744,176 @@ def test_memory_gate_toggle_holds_only_its_step_and_never_creates_skipped(tmp_pa
     released = repository.get_step(turn["turn_id"], PipelineStep.RUN_SHORTTERM)
     assert released["status"] == "pending"
     assert released["is_held"] is False
+    assert repository.get_turn(turn["turn_id"])["execution_target"] is None
+    assert repository.get_turn(turn["turn_id"])["background_submitted_at"] is None
+    assert state[f"{prefix}:gate_notice"] == "已开启，等待点击“下一步”或其他运行按钮。"
+
+    callback_source = inspect.getsource(pipeline_panel._apply_memory_gate)
+    assert "set_memory_step_runnable" in callback_source
+    assert "pipeline.release_step" not in callback_source
+    assert "pipeline.hold_step" not in callback_source
 
 
-def test_rechecking_held_gate_submits_immediately_without_another_run_action(tmp_path):
+def test_release_step_only_clears_held_flag_even_when_dependencies_are_complete(tmp_path):
+    pipeline, repository, memory, session, turn = _pipeline(tmp_path)
+    coordinator = _coordinator(pipeline, repository, "release-only")
+    try:
+        pipeline.run_to_answer(turn["turn_id"], session_id=session["session_id"])
+        assert coordinator.wait_for_idle(3)
+        pipeline.hold_step(
+            turn["turn_id"],
+            PipelineStep.RUN_SHORTTERM,
+            session_id=session["session_id"],
+        )
+
+        released = pipeline.release_step(
+            turn["turn_id"],
+            PipelineStep.RUN_SHORTTERM,
+            session_id=session["session_id"],
+        )
+
+        assert released["status"] == StepStatus.PENDING.value
+        assert released["is_held"] is False
+        assert repository.get_turn(turn["turn_id"])["execution_target"] is None
+        assert repository.get_turn(turn["turn_id"])["background_submitted_at"] is None
+        assert coordinator.wait_for_idle(0.2)
+        assert memory.commit_calls == 0
+    finally:
+        coordinator.shutdown(wait=True)
+
+
+def test_enabling_gate_without_execution_target_only_releases_step(tmp_path):
+    pipeline, repository, memory, session, turn = _pipeline(tmp_path)
+    coordinator = _coordinator(pipeline, repository, "gate-without-target")
+    try:
+        pipeline.run_to_answer(turn["turn_id"], session_id=session["session_id"])
+        assert coordinator.wait_for_idle(3)
+        pipeline.hold_step(
+            turn["turn_id"],
+            PipelineStep.RUN_SHORTTERM,
+            session_id=session["session_id"],
+        )
+
+        result = pipeline.set_memory_step_runnable(
+            turn["turn_id"],
+            PipelineStep.RUN_SHORTTERM,
+            True,
+            session_id=session["session_id"],
+        )
+
+        assert result["changed"] is True
+        assert result["resumed"] is False
+        assert result["submissions"] == {}
+        assert repository.get_step(turn["turn_id"], PipelineStep.RUN_SHORTTERM)["status"] == "pending"
+        assert repository.get_turn(turn["turn_id"])["execution_target"] is None
+        assert repository.get_turn(turn["turn_id"])["background_submitted_at"] is None
+        assert memory.commit_calls == 0
+    finally:
+        coordinator.shutdown(wait=True)
+
+
+def test_enabling_gate_with_answer_target_does_not_start_memory(tmp_path):
+    pipeline, repository, memory, session, turn = _pipeline(tmp_path)
+    coordinator = _coordinator(pipeline, repository, "gate-answer-target")
+    try:
+        pipeline.run_to_answer(turn["turn_id"], session_id=session["session_id"])
+        assert coordinator.wait_for_idle(3)
+        pipeline.hold_step(
+            turn["turn_id"],
+            PipelineStep.RUN_SHORTTERM,
+            session_id=session["session_id"],
+        )
+        repository.set_execution_target(turn["turn_id"], "answer")
+
+        result = pipeline.set_memory_step_runnable(
+            turn["turn_id"],
+            PipelineStep.RUN_SHORTTERM,
+            True,
+            session_id=session["session_id"],
+        )
+
+        assert result["changed"] is True
+        assert result["resumed"] is False
+        assert result["submissions"] == {}
+        assert repository.get_step(turn["turn_id"], PipelineStep.RUN_SHORTTERM)["status"] == "pending"
+        assert repository.get_turn(turn["turn_id"])["execution_target"] == "answer"
+        assert repository.get_turn(turn["turn_id"])["background_submitted_at"] is None
+        assert memory.commit_calls == 0
+    finally:
+        coordinator.shutdown(wait=True)
+
+
+def test_enabling_gate_resumes_started_memory_target(tmp_path):
+    pipeline, repository, memory, session, turn = _pipeline(tmp_path)
+    coordinator = _coordinator(pipeline, repository, "gate-memory-target")
+    try:
+        pipeline.run_to_answer(turn["turn_id"], session_id=session["session_id"])
+        assert coordinator.wait_for_idle(3)
+        pipeline.hold_step(
+            turn["turn_id"],
+            PipelineStep.RUN_SHORTTERM,
+            session_id=session["session_id"],
+        )
+        stalled = pipeline.run_memory_stage(turn["turn_id"], session_id=session["session_id"])
+        assert stalled["submissions"] == {}
+        assert repository.get_turn(turn["turn_id"])["execution_target"] == "memory"
+
+        result = pipeline.set_memory_step_runnable(
+            turn["turn_id"],
+            PipelineStep.RUN_SHORTTERM,
+            True,
+            session_id=session["session_id"],
+        )
+
+        assert result["changed"] is True
+        assert result["resumed"] is True
+        assert list(result["submissions"]) == [PipelineStep.RUN_SHORTTERM]
+        assert coordinator.wait_for_idle(3)
+        assert [step["status"] for step in repository.list_steps(turn["turn_id"])[4:]] == ["succeeded"] * 4
+        assert memory.commit_calls == 1
+    finally:
+        coordinator.shutdown(wait=True)
+
+
+def test_setting_pending_memory_gate_never_changes_execution_intent_or_other_steps(tmp_path):
+    pipeline, repository, memory, session, turn = _pipeline(tmp_path)
+    before = repository.list_steps(turn["turn_id"])
+
+    held = pipeline.set_memory_step_runnable(
+        turn["turn_id"],
+        PipelineStep.RUN_LONGTERM,
+        False,
+        session_id=session["session_id"],
+    )
+
+    assert held["changed"] is True
+    assert held["resumed"] is False
+    assert held["submissions"] == {}
+    after_hold = repository.list_steps(turn["turn_id"])
+    assert after_hold[6]["status"] == "pending"
+    assert after_hold[6]["is_held"] is True
+    assert [(step["step"], step["status"], step["is_held"]) for index, step in enumerate(after_hold) if index != 6] == [
+        (step["step"], step["status"], step["is_held"]) for index, step in enumerate(before) if index != 6
+    ]
+    assert repository.get_turn(turn["turn_id"])["execution_target"] is None
+    assert repository.get_turn(turn["turn_id"])["background_submitted_at"] is None
+    assert memory.commit_calls == 0
+
+    released = pipeline.set_memory_step_runnable(
+        turn["turn_id"],
+        PipelineStep.RUN_LONGTERM,
+        True,
+        session_id=session["session_id"],
+    )
+    assert released["changed"] is True
+    assert released["resumed"] is False
+    assert repository.get_step(turn["turn_id"], PipelineStep.RUN_LONGTERM)["status"] == "pending"
+    assert repository.get_step(turn["turn_id"], PipelineStep.RUN_LONGTERM)["is_held"] is False
+    assert repository.get_turn(turn["turn_id"])["execution_target"] is None
+    assert repository.get_turn(turn["turn_id"])["background_submitted_at"] is None
+
+
+def test_rechecking_held_gate_resumes_existing_run_all_without_another_action(tmp_path):
     pipeline, repository, memory, session, turn = _pipeline(tmp_path)
     coordinator = _coordinator(pipeline, repository, "gate-resume")
     pipeline.hold_step(turn["turn_id"], PipelineStep.RUN_MIDTERM, session_id=session["session_id"])
@@ -752,7 +1067,7 @@ def test_active_turn_buttons_switch_selection_with_stable_scoped_keys():
         "active_turn:simulation-1:turn-new",
     ]
     assert _Streamlit.session_state["demo_turn_id"] == "turn-old"
-    assert _Streamlit.reruns == ["app"]
+    assert _Streamlit.reruns == ["fragment"]
 
 
 def test_active_and_completed_turn_queries_do_not_overlap(tmp_path):
@@ -886,6 +1201,213 @@ def test_record_detail_widgets_use_caller_scoped_stable_keys():
         "simulation:turn:long_term:detail_selector",
     ]
     assert len(set(selectbox_keys + expander_keys)) == 4
+
+
+def test_table_normalization_handles_mixed_nested_and_scalar_values_without_mutation():
+    created = datetime(2026, 7, 30, 12, 34, tzinfo=timezone.utc)
+    records = [
+        {
+            "属性": "preferences",
+            "值": ["稳健", {"周期": "长期"}],
+            "tuple": ("a", 1),
+            "set": {"b", "a"},
+            "created_at": created,
+            "payload": b"\xe4\xb8\xad\xe6\x96\x87",
+            "nullable": None,
+        },
+        {
+            "属性": "risk",
+            "值": "低",
+            "tuple": "scalar",
+            "set": 3,
+            "created_at": None,
+            "payload": "text",
+            "nullable": None,
+        },
+    ]
+    original = deepcopy(records)
+
+    normalized = common.normalize_table_rows(records)
+
+    assert records == original
+    assert all(isinstance(row["值"], str) for row in normalized)
+    assert json.loads(normalized[0]["值"]) == ["稳健", {"周期": "长期"}]
+    assert json.loads(normalized[0]["tuple"]) == ["a", 1]
+    assert json.loads(normalized[0]["set"]) == ["a", "b"]
+    assert normalized[0]["created_at"] == created.isoformat()
+    assert normalized[0]["payload"] == "中文"
+    assert normalized[0]["nullable"] is None
+    assert normalized[1]["set"] == "3"
+    assert pa.Table.from_pylist(normalized).num_rows == 2
+
+
+def test_render_records_uses_normalized_table_but_keeps_original_detail_json():
+    tables = []
+    details = []
+
+    class _Context:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    class _Streamlit:
+        @staticmethod
+        def caption(value):
+            return None
+
+        @staticmethod
+        def dataframe(value, **kwargs):
+            tables.append(value)
+
+        @staticmethod
+        def selectbox(label, options, *, format_func, key):
+            return options[0]
+
+        @staticmethod
+        def expander(label, *, expanded, key):
+            return _Context()
+
+        @staticmethod
+        def code(value, **kwargs):
+            details.append(json.loads(value))
+
+    records = [{"id": "nested", "value": [1, {"key": "value"}]}]
+    common.render_records(_Streamlit(), records, key_prefix="records:test")
+
+    assert isinstance(tables[0][0]["value"], str)
+    assert details[-1]["value"] == [1, {"key": "value"}]
+    assert records[0]["value"] == [1, {"key": "value"}]
+
+
+def test_table_render_failure_degrades_to_original_json():
+    errors = []
+    details = []
+
+    class _Context:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    class _Streamlit:
+        @staticmethod
+        def dataframe(value, **kwargs):
+            raise RuntimeError("arrow unavailable")
+
+        @staticmethod
+        def error(value):
+            errors.append(value)
+
+        @staticmethod
+        def expander(label, *, expanded, key):
+            return _Context()
+
+        @staticmethod
+        def code(value, **kwargs):
+            details.append(json.loads(value))
+
+    records = [{"value": ["still", "structured"]}]
+    assert common.render_table(_Streamlit(), records, key_prefix="fallback:test") is False
+    assert errors == ["表格暂时无法显示，已切换为原始 JSON。"]
+    assert details == [records]
+
+
+def test_memory_panel_renders_only_selected_database_partition():
+    tables = []
+
+    class _Context:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    class _Streamlit:
+        @staticmethod
+        def segmented_control(label, options, *, default, key, label_visibility):
+            assert key == "details:simulation:session:turn:records:section"
+            return "用户画像"
+
+        @staticmethod
+        def caption(value):
+            return None
+
+        @staticmethod
+        def dataframe(value, **kwargs):
+            tables.append(value)
+
+        @staticmethod
+        def selectbox(label, options, *, format_func, key):
+            return options[0]
+
+        @staticmethod
+        def expander(label, *, expanded, key):
+            return _Context()
+
+        @staticmethod
+        def code(value, **kwargs):
+            return None
+
+    snapshot = {
+        "short_term": [{"id": "short"}],
+        "midterm_sessions": [{"id": "session"}],
+        "midterm_pages": [{"id": "page"}],
+        "long_term": [{"id": "long"}],
+        "profile": [{"id": "profile"}],
+        "jobs": {"migration": [{"id": "migration"}], "profile": [{"id": "profile-job"}]},
+    }
+    memory_panel.render(
+        _Streamlit(),
+        snapshot,
+        key_prefix="details:simulation:session:turn:records",
+    )
+
+    assert tables == [[{"id": "profile"}]]
+    assert "st.tabs" not in inspect.getsource(memory_panel.render)
+
+
+def test_monitor_disables_telemetry_before_mem0_import_and_rejects_user_site_dependencies():
+    app_path = _REPOSITORY_ROOT / "memory_monitor" / "app.py"
+    launcher_path = _REPOSITORY_ROOT / "memory_monitor" / "start_demo_lab.sh"
+    app_source = app_path.read_text(encoding="utf-8")
+    launcher = launcher_path.read_text(encoding="utf-8")
+
+    assert app_source.index('os.environ.setdefault("MEM0_TELEMETRY", "false")') < app_source.index(
+        "from mem0.configs.base import MemoryConfig"
+    )
+    telemetry_export = 'export MEM0_TELEMETRY="${MEM0_TELEMETRY:-false}"'
+    user_site_export = 'export PYTHONNOUSERSITE="${PYTHONNOUSERSITE:-1}"'
+    assert launcher.index(telemetry_export) < launcher.index('"${python_command[@]}" -c')
+    assert launcher.index(user_site_export) < launcher.index('"${python_command[@]}" -c')
+    for module in ("streamlit", "pyarrow", "pandas", "requests", "urllib3", "posthog"):
+        assert f'"{module}"' in launcher
+    assert "getusersitepackages" in launcher
+    assert '"/.local/lib/"' in launcher
+
+    environment = os.environ.copy()
+    environment.pop("MEM0_TELEMETRY", None)
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import memory_monitor.app; "
+                "from mem0.memory import telemetry; "
+                "assert telemetry.MEM0_TELEMETRY is False; "
+                "assert telemetry.client_telemetry.posthog is None"
+            ),
+        ],
+        cwd=_REPOSITORY_ROOT,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
 
 
 def test_all_pipeline_operations_reject_a_turn_from_another_session(tmp_path):
@@ -1054,11 +1576,13 @@ def test_holding_shortterm_waits_without_blocking_other_gate_choices_then_fans_o
         assert repository.get_turn(turn["turn_id"])["completed_at"] is None
         assert repository.get_turn(turn["turn_id"])["execution_target"] == "all"
 
-        pipeline.release_step(
+        resumed = pipeline.set_memory_step_runnable(
             turn["turn_id"],
             PipelineStep.RUN_SHORTTERM,
+            True,
             session_id=session["session_id"],
         )
+        assert resumed["resumed"] is True
         assert coordinator.wait_for_idle(3)
 
         assert [step["status"] for step in repository.list_steps(turn["turn_id"])[4:]] == ["succeeded"] * 4
@@ -1506,6 +2030,46 @@ def test_latest_session_snapshot_survives_selecting_a_new_turn_without_snapshots
     assert latest["turn_id"] == first["turn_id"]
     assert latest["data"]["short_term"] == [{"id": "message-1", "status": "active"}]
     assert displayed["short_term"] == [{"id": "message-1", "status": "active"}]
+
+
+def test_repository_reads_messages_steps_and_latest_snapshot_after_multiple_turns(tmp_path):
+    repository = DemoRepository(tmp_path / "multiple-turns.db")
+    session = repository.create_session("multiple-turns", "user-1", "run-1")
+    turns = []
+    for index in range(1, 5):
+        turn = repository.create_turn(
+            session["session_id"],
+            user_id="user-1",
+            run_id="run-1",
+            user_message=f"question-{index}",
+        )
+        with repository._connection() as connection:
+            connection.execute(
+                "UPDATE demo_turns SET assistant_message = ?, updated_at = ? WHERE turn_id = ?",
+                (f"answer-{index}", f"2026-07-30T12:00:0{index}+00:00", turn["turn_id"]),
+            )
+            connection.commit()
+        repository.create_snapshot(
+            turn["turn_id"],
+            PipelineStep.RUN_SHORTTERM,
+            "after",
+            {**deepcopy(_FakeDemoMemory().state), "round": index},
+        )
+        turns.append(turn)
+
+    messages = repository.raw_messages(session["session_id"])
+    assert [message["content"] for message in messages] == [
+        "question-1",
+        "answer-1",
+        "question-2",
+        "answer-2",
+        "question-3",
+        "answer-3",
+        "question-4",
+        "answer-4",
+    ]
+    assert all(len(repository.list_steps(turn["turn_id"])) == len(PIPELINE_STEPS) for turn in turns)
+    assert repository.latest_session_snapshot(session["session_id"])["data"]["round"] == 4
 
 
 def test_memory_state_uses_core_session_scope_and_only_lists_active_messages(tmp_path):

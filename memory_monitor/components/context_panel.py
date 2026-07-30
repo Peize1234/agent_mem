@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from memory_monitor.components.common import render_records
+from memory_monitor.components.common import render_records, render_table
 
 
 def render(st, context: dict | None, *, key_prefix: str) -> None:
@@ -19,10 +19,10 @@ def render(st, context: dict | None, *, key_prefix: str) -> None:
     st.markdown("#### 用户画像")
     profile = context.get("user_profile") or context.get("profile") or {}
     if profile:
-        st.dataframe(
+        render_table(
+            st,
             [{"属性": key, "值": value} for key, value in profile.items()],
-            width="stretch",
-            hide_index=True,
+            key_prefix=f"{key_prefix}:profile",
         )
     else:
         st.caption("暂无画像")

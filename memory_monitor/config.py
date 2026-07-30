@@ -12,7 +12,7 @@ class DemoLabConfig:
     foreground_workers: int = 4
     branch_workers: int = 1
     step_lease_seconds: int = 900
-    poll_interval_seconds: float = 0.4
+    poll_interval_seconds: float = 1.0
     completion_animation_seconds: float = 0.8
 
     @classmethod
@@ -24,7 +24,7 @@ class DemoLabConfig:
             foreground_workers=max(int(os.getenv("MEMORY_MONITOR_FOREGROUND_WORKERS", "4")), 1),
             branch_workers=max(int(os.getenv("MEMORY_MONITOR_BRANCH_WORKERS", "1")), 1),
             step_lease_seconds=max(int(os.getenv("MEMORY_MONITOR_STEP_LEASE_SECONDS", "900")), 1),
-            poll_interval_seconds=max(float(os.getenv("MEMORY_MONITOR_POLL_INTERVAL_SECONDS", "0.4")), 0.1),
+            poll_interval_seconds=max(float(os.getenv("MEMORY_MONITOR_POLL_INTERVAL_SECONDS", "1.0")), 0.5),
             completion_animation_seconds=max(
                 float(os.getenv("MEMORY_MONITOR_COMPLETION_ANIMATION_SECONDS", "0.8")),
                 0,

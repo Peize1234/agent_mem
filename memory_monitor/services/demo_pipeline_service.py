@@ -183,20 +183,59 @@ class DemoPipelineService:
         *,
         session_id: str,
     ) -> Dict[str, Any]:
-        """Release a held memory step and submit it immediately when dependencies allow."""
+        """Release a held memory step without starting or resuming execution."""
         self._require_turn(turn_id, session_id)
         step = PipelineStep(step)
-        released = self.repository.release_step(turn_id, step)
-        if not self._prerequisites_complete(turn_id, step):
+        if step not in MEMORY_STEPS:
+            raise ValueError(f"Only held memory steps can be released: {step.value}")
+        return self.repository.release_step(turn_id, step)
+
+    def set_memory_step_runnable(
+        self,
+        turn_id: str,
+        step: PipelineStep | str,
+        runnable: bool,
+        *,
+        session_id: str,
+    ) -> Dict[str, Any]:
+        """Persist a memory gate and resume only a previously started memory flow."""
+        turn = self._require_turn(turn_id, session_id)
+        step = PipelineStep(step)
+        if step not in MEMORY_STEPS:
+            raise ValueError(f"Only memory steps have runnable switches: {step.value}")
+        current = self._require_step(turn_id, step)
+        if current["status"] != StepStatus.PENDING.value:
             return {
                 "turn_id": turn_id,
-                "released": True,
-                "scheduled": False,
-                "step": released,
+                "step": current,
+                "runnable": not bool(current.get("is_held")),
+                "changed": False,
+                "resumed": False,
+                "execution_target": turn.get("execution_target"),
+                "submissions": {},
             }
-        self.repository.mark_background_submitted(turn_id)
-        submission = self._submit_step(turn_id, step, session_id)
-        return self._submission_payload(turn_id, {step: submission})
+
+        changed = False
+        if runnable and current.get("is_held"):
+            current = self.release_step(turn_id, step, session_id=session_id)
+            changed = True
+        elif not runnable and not current.get("is_held"):
+            current = self.hold_step(turn_id, step, session_id=session_id)
+            changed = True
+
+        turn = self._require_turn(turn_id, session_id)
+        target = turn.get("execution_target")
+        resumed = bool(runnable and changed and target in {TARGET_MEMORY, TARGET_ALL})
+        submissions = self._advance_turn(turn_id, session_id) if resumed else {}
+        return {
+            "turn_id": turn_id,
+            "step": current,
+            "runnable": not bool(current.get("is_held")),
+            "changed": changed,
+            "resumed": resumed,
+            "execution_target": target,
+            "submissions": submissions,
+        }
 
     def skip_step(
         self,

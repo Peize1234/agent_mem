@@ -1,6 +1,15 @@
 from __future__ import annotations
 
-from memory_monitor.components.common import render_records
+from memory_monitor.components.common import render_records, render_table
+
+_SECTIONS = (
+    ("短期记忆", "short_term"),
+    ("中期 Sessions", "midterm_sessions"),
+    ("中期 Pages", "midterm_pages"),
+    ("长期记忆", "long_term"),
+    ("用户画像", "profile"),
+    ("Jobs", "jobs"),
+)
 
 
 def render(
@@ -10,34 +19,16 @@ def render(
     *,
     key_prefix: str,
 ) -> None:
-    tabs = st.tabs(
-        [
-            "短期记忆",
-            "中期 Sessions",
-            "中期 Pages",
-            "长期记忆",
-            "用户画像",
-            "Jobs",
-        ]
+    labels = [label for label, _section in _SECTIONS]
+    selected = st.segmented_control(
+        "数据库分区",
+        labels,
+        default=labels[0],
+        key=f"{key_prefix}:section",
+        label_visibility="collapsed",
     )
-    sections = (
-        snapshot.get("short_term", []),
-        snapshot.get("midterm_sessions", []),
-        snapshot.get("midterm_pages", []),
-        snapshot.get("long_term", []),
-        snapshot.get("profile", []),
-    )
-    section_names = ("short_term", "midterm_sessions", "midterm_pages", "long_term", "profile")
-    for tab, records, section_name in zip(tabs[:5], sections, section_names):
-        with tab:
-            render_records(st, records, key_prefix=f"{key_prefix}:{section_name}")
-            _render_step_changes(
-                st,
-                step_run,
-                _section_for_records(records, snapshot),
-                key_prefix=f"{key_prefix}:{section_name}",
-            )
-    with tabs[5]:
+    section = dict(_SECTIONS).get(selected or labels[0], "short_term")
+    if section == "jobs":
         st.markdown("#### Migration")
         render_records(
             st,
@@ -64,17 +55,16 @@ def render(
                 diff.get("profile_jobs"),
                 key=f"{key_prefix}:profile_diff",
             )
+        return
 
-
-def _section_for_records(records: list[dict], snapshot: dict) -> str:
-    mapping = (
-        ("short_term", snapshot.get("short_term", [])),
-        ("midterm_sessions", snapshot.get("midterm_sessions", [])),
-        ("midterm_pages", snapshot.get("midterm_pages", [])),
-        ("long_term", snapshot.get("long_term", [])),
-        ("profile", snapshot.get("profile", [])),
+    records = snapshot.get(section, [])
+    render_records(st, records, key_prefix=f"{key_prefix}:{section}")
+    _render_step_changes(
+        st,
+        step_run,
+        section,
+        key_prefix=f"{key_prefix}:{section}",
     )
-    return next((name for name, candidate in mapping if records is candidate), "")
 
 
 def _render_step_changes(
@@ -107,4 +97,4 @@ def _render_diff(st, title: str, diff: dict | None, *, key: str) -> None:
         records = diff.get(diff_key) or []
         if records:
             with st.expander(label, key=f"{key}:{diff_key}"):
-                st.dataframe(records, width="stretch", hide_index=True)
+                render_table(st, records, key_prefix=f"{key}:{diff_key}")

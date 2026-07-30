@@ -127,6 +127,17 @@ class SimulationService:
         environment = self.environment(simulation_id)
         return environment.repository.create_session(simulation_id, user_id, run_id)
 
+    def find_session(
+        self,
+        simulation_id: str,
+        *,
+        user_id: str,
+        run_id: str,
+    ) -> Dict[str, Any] | None:
+        """Read an existing session without producing a SQLite write."""
+        environment = self.environment(simulation_id)
+        return environment.repository.find_session(simulation_id, user_id, run_id)
+
     def clear_environment(self, simulation_id: str) -> None:
         self._validate_simulation_id(simulation_id)
         environment = self._environments.get(simulation_id)

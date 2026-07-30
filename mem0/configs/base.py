@@ -57,7 +57,7 @@ class UserProfileConfig(BaseModel):
 class BackgroundTaskConfig(BaseModel):
     enabled: bool = True
     max_retries: int = Field(3, ge=0)
-    retry_delays_seconds: tuple[float, ...] = (2.0, 10.0, 30.0)
+    retry_delays_seconds: tuple[float, ...] = (1.0, 2.0, 3.0)
     poll_interval_seconds: float = Field(1.0, gt=0)
     lease_timeout_seconds: float = Field(120.0, gt=0)
     heartbeat_interval_seconds: float = Field(20.0, gt=0)

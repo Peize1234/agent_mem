@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import html
+import logging
+import sqlite3
 from collections.abc import Mapping, MutableMapping, Sequence
 from datetime import datetime
 from typing import Any
@@ -13,7 +15,9 @@ from memory_monitor.components import (
     prompt_panel,
     trace_panel,
 )
-from memory_monitor.models import PipelineStep
+from memory_monitor.models import BackgroundStepConfig, PipelineStep
+
+logger = logging.getLogger(__name__)
 
 _SESSION_KEYS = (
     "demo_simulation_id",
@@ -30,12 +34,26 @@ _EMPTY_SNAPSHOT = {
     "profile": [],
     "jobs": {"migration": [], "profile": []},
 }
+_WORKSPACE_SECTIONS = (
+    ("执行流程", "pipeline"),
+    ("检索上下文", "context"),
+    ("最终 Prompt", "prompt"),
+    ("模型调用", "generation"),
+    ("数据库和任务", "database"),
+    ("Trace", "trace"),
+)
 
 
 def render(st, simulation_service, config) -> None:
-    environment, session = _restore_environment(st, simulation_service)
-    header = st.container()
+    header = st.empty()
+    restoring = all(st.session_state.get(key) for key in _SESSION_KEYS[:3])
+    with header.container():
+        _render_header(st, simulation_service, None, restoring=restoring)
+
     simulation, user, run, create_clicked = _render_scope_controls(st)
+    environment = None
+    session = None
+    open_error = None
     if create_clicked:
         try:
             environment = simulation_service.create_environment(simulation)
@@ -50,12 +68,17 @@ def render(st, simulation_service, config) -> None:
             )
             st.session_state.pop("demo_turn_id", None)
         except Exception as exc:
-            st.error(str(exc))
-            return
+            logger.exception("Could not open Demo sandbox simulation=%s", simulation)
+            open_error = exc
+    else:
+        environment, session = _restore_environment(st, simulation_service)
 
-    with header:
+    with header.container():
         _render_header(st, simulation_service, environment)
 
+    if open_error is not None:
+        st.error(f"打开沙盒失败（{type(open_error).__name__}）：{_error_summary(open_error)}")
+        return
     if environment is None or session is None:
         st.info("先打开一个隔离沙盒。")
         return
@@ -98,19 +121,50 @@ def _restore_environment(st, simulation_service):
     simulation_id = st.session_state.get("demo_simulation_id")
     user_id = st.session_state.get("demo_user_id")
     run_id = st.session_state.get("demo_run_id")
+    session_id = st.session_state.get("demo_session_id")
+    environment = None
     if not all((simulation_id, user_id, run_id)):
         return None, None
     try:
-        environment = simulation_service.create_environment(simulation_id)
-        session = simulation_service.create_session(simulation_id, user_id=user_id, run_id=run_id)
+        environment = simulation_service.environment(simulation_id)
+        repository = environment.repository
+        session = repository.get_session(session_id) if session_id else None
+        if session is not None and (
+            session["simulation_id"] != simulation_id or session["user_id"] != user_id or session["run_id"] != run_id
+        ):
+            session = None
+        if session is None:
+            session = repository.find_session(simulation_id, user_id, run_id)
+        if session is None:
+            st.warning("未找到已保存的会话，请点击“打开沙盒”重新建立会话。")
+            return environment, None
         st.session_state["demo_session_id"] = session["session_id"]
         return environment, session
+    except sqlite3.OperationalError as exc:
+        logger.warning(
+            "Demo session restore query failed simulation=%s",
+            simulation_id,
+            exc_info=True,
+        )
+        if _is_database_locked(exc):
+            st.warning("数据库正忙，当前沙盒将在下一次刷新时自动恢复。")
+            if environment is not None and session_id:
+                return environment, {
+                    "session_id": session_id,
+                    "simulation_id": simulation_id,
+                    "user_id": user_id,
+                    "run_id": run_id,
+                }
+        else:
+            st.error(f"恢复沙盒失败（{type(exc).__name__}）：{_error_summary(exc)}")
+        return None, None
     except Exception as exc:
-        st.error(f"恢复沙盒失败：{exc}")
+        logger.exception("Could not restore Demo sandbox simulation=%s", simulation_id)
+        st.error(f"恢复沙盒失败（{type(exc).__name__}）：{_error_summary(exc)}")
         return None, None
 
 
-def _render_header(st, simulation_service, environment) -> None:
+def _render_header(st, simulation_service, environment, *, restoring: bool = False) -> None:
     title, sandbox = st.columns([1.45, 1], vertical_alignment="center")
     with title:
         st.markdown('<h1 class="demo-lab-title">Agent Memory · Demo Lab</h1>', unsafe_allow_html=True)
@@ -120,7 +174,7 @@ def _render_header(st, simulation_service, environment) -> None:
         )
     with sandbox:
         if environment is None:
-            st.caption("尚未打开沙盒")
+            st.caption("正在恢复沙盒…" if restoring else "尚未打开沙盒")
             return
         summary, manage = st.columns([3.2, 1], vertical_alignment="center")
         with summary:
@@ -197,12 +251,28 @@ def _render_chat_history_workspace(
 ) -> None:
     @st.fragment(run_every=poll_interval_seconds)
     def chat_history_workspace() -> None:
-        chat_panel.render_history(
-            st,
-            repository.raw_messages(session_id),
-            simulation_id=simulation_id,
-            session_id=session_id,
-        )
+        try:
+            chat_panel.render_history(
+                st,
+                repository.raw_messages(session_id),
+                simulation_id=simulation_id,
+                session_id=session_id,
+            )
+        except sqlite3.OperationalError as exc:
+            logger.warning(
+                "Could not query Demo chat history session=%s",
+                session_id,
+                exc_info=True,
+            )
+            if _is_database_locked(exc):
+                st.warning("对话数据库正忙，将在下一次刷新时自动重试。")
+            else:
+                st.error(f"对话记录查询失败（{type(exc).__name__}）：{_error_summary(exc)}")
+        except Exception:
+            logger.exception("Could not render Demo chat history session=%s", session_id)
+            st.error("对话记录暂时无法加载。")
+            if st.button("重新加载对话", key=f"chat_reload:{simulation_id}:{session_id}"):
+                st.rerun(scope="fragment")
 
     chat_history_workspace()
 
@@ -215,113 +285,168 @@ def _render_right_workspace(
     poll_interval_seconds: float,
 ) -> None:
     repository = environment.repository
-    pipeline = environment.pipeline
 
     @st.fragment(run_every=poll_interval_seconds)
     def right_workspace() -> None:
-        with st.container(key=f"right_workspace_{environment.simulation_id}_{session_id}"):
+        try:
             turns = repository.list_turns(session_id)
             turn_id = synchronize_selected_turn_id(st.session_state, turns)
-            if turn_id is None:
-                pipeline_panel.render_memory_gates(
-                    st,
-                    pipeline,
-                    repository,
-                    simulation_id=environment.simulation_id,
-                    session_id=session_id,
-                    turn_id=None,
-                )
-                st.caption("在左侧输入问题后，可异步执行当前轮。")
-                return
-
-            repository.assert_turn_belongs_to_session(turn_id, session_id)
-            steps = repository.list_steps(turn_id)
-            with st.container(key=f"right_controls_{environment.simulation_id}_{turn_id}"):
-                pipeline_panel.render_memory_gates(
-                    st,
-                    pipeline,
-                    repository,
-                    simulation_id=environment.simulation_id,
-                    session_id=session_id,
-                    turn_id=turn_id,
-                )
-                action, target = pipeline_panel.render_controls(
-                    st,
-                    key_prefix=f"pipeline:{environment.simulation_id}:{turn_id}",
-                    disabled=False,
-                    steps=steps,
-                )
-                if action:
-                    pipeline_panel.apply_action(
-                        st,
-                        pipeline,
-                        repository,
-                        turn_id,
-                        session_id,
-                        action,
-                        target=target,
-                    )
-
-            # Actions only submit persisted work. Re-read the authoritative
-            # rows in this fragment so queued state is visible immediately.
-            steps = repository.list_steps(turn_id)
+            turn = next((item for item in turns if item["turn_id"] == turn_id), None)
+            steps = repository.list_steps(turn_id) if turn_id is not None else []
             active_turns = repository.list_active_turns(session_id)
-            completed_turns = repository.list_completed_turns(session_id)
-            _render_turn_navigation(
-                st,
-                repository,
-                active_turns,
-                completed_turns,
-                turn_id,
-                simulation_id=environment.simulation_id,
-                session_id=session_id,
-            )
-
-            selected_config = repository.background_config(turn_id)
-            current = pipeline_panel.current_step(steps, selected_config)
-            display_step = _display_step(steps, current)
-            snapshot = _latest_session_state(
-                st,
-                environment,
+            completed_turns = [item for item in turns if item.get("completed_at") is not None]
+            with st.container(key=f"right_workspace_{environment.simulation_id}_{session_id}"):
+                _render_right_workspace_content(
+                    st,
+                    environment,
+                    session_id,
+                    turn,
+                    steps,
+                    active_turns,
+                    completed_turns,
+                )
+        except sqlite3.OperationalError as exc:
+            logger.warning(
+                "Could not query Demo right workspace session=%s",
                 session_id,
+                exc_info=True,
             )
-            step_map = {step["step"]: step for step in steps}
-            retrieve = step_map.get(PipelineStep.RETRIEVE_CONTEXT.value)
-            prompt = step_map.get(PipelineStep.BUILD_PROMPT.value)
-            generation = step_map.get(PipelineStep.GENERATE_RESPONSE.value)
-            key_scope = f"details:{environment.simulation_id}:{turn_id}"
-
-            tabs = st.tabs(
-                ["执行流程", "检索上下文", "最终 Prompt", "模型调用", "数据库和任务", "Trace"],
-                key=f"{key_scope}:tabs",
-            )
-            with tabs[0], st.container(height=450, border=False, key=f"{key_scope}:pipeline"):
-                pipeline_panel.render_steps(st, steps, selected_config)
-            with tabs[1], st.container(height=515, border=False, key=f"{key_scope}:context"):
-                context_panel.render(
-                    st,
-                    (retrieve or {}).get("output"),
-                    key_prefix=f"{key_scope}:retrieval",
-                )
-            with tabs[2], st.container(height=515, border=False, key=f"{key_scope}:prompt"):
-                prompt_panel.render_prompt(st, (prompt or {}).get("output"))
-            with tabs[3], st.container(height=515, border=False, key=f"{key_scope}:generation"):
-                prompt_panel.render_generation(
-                    st,
-                    (generation or {}).get("output"),
-                    key_prefix=f"{key_scope}:generation",
-                )
-            with tabs[4], st.container(height=515, border=False, key=f"{key_scope}:database"):
-                memory_panel.render(
-                    st,
-                    snapshot,
-                    display_step,
-                    key_prefix=f"{key_scope}:records",
-                )
-            with tabs[5], st.container(height=515, border=False, key=f"{key_scope}:trace"):
-                trace_panel.render(st, steps, key_prefix=f"{key_scope}:trace")
+            if _is_database_locked(exc):
+                st.warning("数据库正忙，右侧状态将在下一次刷新时自动恢复。")
+            else:
+                st.error(f"右侧数据查询失败（{type(exc).__name__}）：{_error_summary(exc)}")
+        except Exception:
+            logger.exception("Could not render Demo right workspace session=%s", session_id)
+            st.error("右侧工作区暂时无法加载。")
+            if st.button(
+                "重新加载右侧区域",
+                key=f"right_reload:{environment.simulation_id}:{session_id}",
+            ):
+                st.rerun(scope="fragment")
 
     right_workspace()
+
+
+def _render_right_workspace_content(
+    st,
+    environment,
+    session_id: str,
+    turn: dict | None,
+    steps: list[dict],
+    active_turns: list[dict],
+    completed_turns: list[dict],
+) -> None:
+    repository = environment.repository
+    pipeline = environment.pipeline
+    turn_id = turn["turn_id"] if turn is not None else None
+    if turn_id is None:
+        pipeline_panel.render_memory_gates(
+            st,
+            pipeline,
+            repository,
+            simulation_id=environment.simulation_id,
+            session_id=session_id,
+            turn_id=None,
+        )
+        st.caption("在左侧输入问题后，可异步执行当前轮。")
+        return
+
+    with st.container(key=f"right_controls_{environment.simulation_id}_{session_id}_{turn_id}"):
+        pipeline_panel.render_memory_gates(
+            st,
+            pipeline,
+            repository,
+            simulation_id=environment.simulation_id,
+            session_id=session_id,
+            turn_id=turn_id,
+            steps=steps,
+        )
+        action, target = pipeline_panel.render_controls(
+            st,
+            key_prefix=f"pipeline:{environment.simulation_id}:{session_id}:{turn_id}",
+            disabled=False,
+            steps=steps,
+        )
+        if action:
+            pipeline_panel.apply_action(
+                st,
+                pipeline,
+                repository,
+                turn_id,
+                session_id,
+                action,
+                target=target,
+            )
+
+    _render_turn_navigation(
+        st,
+        active_turns,
+        completed_turns,
+        turn_id,
+        simulation_id=environment.simulation_id,
+        session_id=session_id,
+    )
+
+    selected_config = BackgroundStepConfig.from_mapping(turn)
+    step_map = {step["step"]: step for step in steps}
+    key_scope = f"details:{environment.simulation_id}:{session_id}:{turn_id}"
+    labels = [label for label, _section in _WORKSPACE_SECTIONS]
+    selected = st.segmented_control(
+        "工作区页面",
+        labels,
+        default=labels[0],
+        key=f"workspace_section:{environment.simulation_id}:{session_id}:{turn_id}",
+        label_visibility="collapsed",
+        width="stretch",
+    )
+    section = dict(_WORKSPACE_SECTIONS).get(selected or labels[0], "pipeline")
+    if section == "pipeline":
+        with st.container(height=450, border=False, key=f"{key_scope}:pipeline"):
+            pipeline_panel.render_steps(st, steps, selected_config)
+    elif section == "context":
+        with st.container(height=515, border=False, key=f"{key_scope}:context"):
+            retrieve = step_map.get(PipelineStep.RETRIEVE_CONTEXT.value)
+            context_panel.render(
+                st,
+                (retrieve or {}).get("output"),
+                key_prefix=f"{key_scope}:retrieval",
+            )
+    elif section == "prompt":
+        with st.container(height=515, border=False, key=f"{key_scope}:prompt"):
+            prompt = step_map.get(PipelineStep.BUILD_PROMPT.value)
+            prompt_panel.render_prompt(st, (prompt or {}).get("output"))
+    elif section == "generation":
+        with st.container(height=515, border=False, key=f"{key_scope}:generation"):
+            generation = step_map.get(PipelineStep.GENERATE_RESPONSE.value)
+            prompt_panel.render_generation(
+                st,
+                (generation or {}).get("output"),
+                key_prefix=f"{key_scope}:generation",
+            )
+    elif section == "database":
+        with st.container(height=515, border=False, key=f"{key_scope}:database"):
+            try:
+                current = pipeline_panel.current_step(steps, selected_config)
+                memory_panel.render(
+                    st,
+                    _latest_session_state(st, environment, session_id),
+                    _display_step(steps, current),
+                    key_prefix=f"{key_scope}:records",
+                )
+            except sqlite3.OperationalError as exc:
+                logger.warning(
+                    "Could not query Demo database panel session=%s turn=%s",
+                    session_id,
+                    turn_id,
+                    exc_info=True,
+                )
+                if _is_database_locked(exc):
+                    st.warning("数据库正忙，本分区将在下一次刷新时自动恢复。")
+                else:
+                    st.error(f"数据库分区查询失败（{type(exc).__name__}）：{_error_summary(exc)}")
+    else:
+        with st.container(height=515, border=False, key=f"{key_scope}:trace"):
+            trace_panel.render(st, steps, key_prefix=f"{key_scope}:trace")
 
 
 def _latest_session_state(st, environment, session_id: str) -> dict:
@@ -342,6 +467,7 @@ def _latest_session_state(st, environment, session_id: str) -> dict:
             run_id=session["run_id"],
         )
     except Exception as exc:
+        logger.exception("Could not capture live Demo snapshot session=%s", session_id)
         snapshot = {**_EMPTY_SNAPSHOT, "snapshot_error": f"{type(exc).__name__}: {exc}"}
     st.session_state[cache_key] = snapshot
     return snapshot
@@ -349,7 +475,6 @@ def _latest_session_state(st, environment, session_id: str) -> dict:
 
 def _render_turn_navigation(
     st,
-    repository,
     active_turns: list[dict],
     completed_turns: list[dict],
     selected_turn_id: str,
@@ -365,13 +490,13 @@ def _render_turn_navigation(
         "历史轮次",
         options,
         index=options.index(selected_turn_id) if selected_turn_id in options else None,
-        format_func=lambda value: _turn_label(repository, completed_turns, value),
+        format_func=lambda value: _turn_label(completed_turns, value),
         placeholder="选择已完成轮次",
         key=f"history_turn:{simulation_id}:{session_id}:selected:{selected_turn_id}",
     )
     if selected and selected != selected_turn_id:
         st.session_state["demo_turn_id"] = selected
-        st.rerun(scope="app")
+        st.rerun(scope="fragment")
 
 
 def _render_active_turns(
@@ -403,7 +528,7 @@ def _render_active_turns(
                 width="stretch",
             ):
                 st.session_state["demo_turn_id"] = turn["turn_id"]
-                st.rerun(scope="app")
+                st.rerun(scope="fragment")
 
 
 def _clear_sandbox_session_state(session_state: MutableMapping[str, Any], simulation_id: str) -> None:
@@ -420,6 +545,9 @@ def _clear_sandbox_session_state(session_state: MutableMapping[str, Any], simula
         f"session_snapshot:{simulation_id}:",
         f"sandbox:{simulation_id}:",
         f"chat_input:{simulation_id}:",
+        f"chat_reload:{simulation_id}:",
+        f"right_reload:{simulation_id}:",
+        f"workspace_section:{simulation_id}:",
     )
     for key in list(session_state):
         if key.startswith(scoped_fragments):
@@ -450,10 +578,9 @@ def synchronize_selected_turn_id(
     return resolved
 
 
-def _turn_label(repository, turns: list[dict], turn_id: str) -> str:
+def _turn_label(turns: list[dict], turn_id: str) -> str:
     turn = next(item for item in turns if item["turn_id"] == turn_id)
-    summary = repository.turn_summary(turn)
-    return f"{_summarize(turn['user_message'], 32)} · {summary['status']} · {summary['completed_steps']}/{summary['total_steps']}"
+    return f"{_summarize(turn['user_message'], 32)} · 已完成"
 
 
 def _summarize(value: str, limit: int) -> str:
@@ -476,3 +603,12 @@ def _display_step(steps: list[dict], current: dict | None) -> dict | None:
         return failed[-1]
     completed = [step for step in steps if step["status"] in {"succeeded", "skipped"}]
     return completed[-1] if completed else current
+
+
+def _is_database_locked(exc: sqlite3.OperationalError) -> bool:
+    return "locked" in str(exc).lower() or "busy" in str(exc).lower()
+
+
+def _error_summary(exc: Exception) -> str:
+    message = str(exc).strip().splitlines()[0] if str(exc).strip() else "未知错误"
+    return message[:240]
