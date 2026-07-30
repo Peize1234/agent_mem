@@ -3,7 +3,13 @@ from __future__ import annotations
 from memory_monitor.components.common import render_records
 
 
-def render(st, snapshot: dict, step_run: dict | None = None) -> None:
+def render(
+    st,
+    snapshot: dict,
+    step_run: dict | None = None,
+    *,
+    key_prefix: str,
+) -> None:
     tabs = st.tabs(
         [
             "短期记忆",
@@ -21,19 +27,43 @@ def render(st, snapshot: dict, step_run: dict | None = None) -> None:
         snapshot.get("long_term", []),
         snapshot.get("profile", []),
     )
-    for tab, records in zip(tabs[:5], sections):
+    section_names = ("short_term", "midterm_sessions", "midterm_pages", "long_term", "profile")
+    for tab, records, section_name in zip(tabs[:5], sections, section_names):
         with tab:
-            render_records(st, records)
-            _render_step_changes(st, step_run, _section_for_records(records, snapshot))
+            render_records(st, records, key_prefix=f"{key_prefix}:{section_name}")
+            _render_step_changes(
+                st,
+                step_run,
+                _section_for_records(records, snapshot),
+                key_prefix=f"{key_prefix}:{section_name}",
+            )
     with tabs[5]:
         st.markdown("#### Migration")
-        render_records(st, snapshot.get("jobs", {}).get("migration", []))
+        render_records(
+            st,
+            snapshot.get("jobs", {}).get("migration", []),
+            key_prefix=f"{key_prefix}:migration_jobs",
+        )
         st.markdown("#### Profile")
-        render_records(st, snapshot.get("jobs", {}).get("profile", []))
+        render_records(
+            st,
+            snapshot.get("jobs", {}).get("profile", []),
+            key_prefix=f"{key_prefix}:profile_jobs",
+        )
         if step_run:
             diff = step_run.get("diff") or {}
-            _render_diff(st, "Migration 本步骤变化", diff.get("migration_jobs"))
-            _render_diff(st, "Profile 本步骤变化", diff.get("profile_jobs"))
+            _render_diff(
+                st,
+                "Migration 本步骤变化",
+                diff.get("migration_jobs"),
+                key=f"{key_prefix}:migration_diff",
+            )
+            _render_diff(
+                st,
+                "Profile 本步骤变化",
+                diff.get("profile_jobs"),
+                key=f"{key_prefix}:profile_diff",
+            )
 
 
 def _section_for_records(records: list[dict], snapshot: dict) -> str:
@@ -47,13 +77,24 @@ def _section_for_records(records: list[dict], snapshot: dict) -> str:
     return next((name for name, candidate in mapping if records is candidate), "")
 
 
-def _render_step_changes(st, step_run: dict | None, section: str) -> None:
+def _render_step_changes(
+    st,
+    step_run: dict | None,
+    section: str,
+    *,
+    key_prefix: str,
+) -> None:
     if not step_run or not section:
         return
-    _render_diff(st, "本步骤变化", (step_run.get("diff") or {}).get(section))
+    _render_diff(
+        st,
+        "本步骤变化",
+        (step_run.get("diff") or {}).get(section),
+        key=f"{key_prefix}:step_diff",
+    )
 
 
-def _render_diff(st, title: str, diff: dict | None) -> None:
+def _render_diff(st, title: str, diff: dict | None, *, key: str) -> None:
     if not diff:
         return
     st.markdown(f"#### {title}")
@@ -62,8 +103,8 @@ def _render_diff(st, title: str, diff: dict | None) -> None:
     metrics[1].metric("新增", len(diff.get("added") or []))
     metrics[2].metric("更新", len(diff.get("updated") or []))
     metrics[3].metric("删除", len(diff.get("deleted") or []))
-    for label, key in (("新增记录", "added"), ("更新记录", "updated"), ("删除记录", "deleted")):
-        records = diff.get(key) or []
+    for label, diff_key in (("新增记录", "added"), ("更新记录", "updated"), ("删除记录", "deleted")):
+        records = diff.get(diff_key) or []
         if records:
-            with st.expander(label):
-                st.dataframe(records, use_container_width=True, hide_index=True)
+            with st.expander(label, key=f"{key}:{diff_key}"):
+                st.dataframe(records, width="stretch", hide_index=True)

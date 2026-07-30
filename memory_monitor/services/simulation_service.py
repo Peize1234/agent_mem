@@ -38,10 +38,16 @@ class SimulationService:
         *,
         base_config: Optional[MemoryConfig] = None,
         memory_factory: Callable[[MemoryConfig], Any] = DemoMemory,
+        foreground_workers: int = 4,
+        branch_workers: int = 1,
+        step_lease_seconds: int = 900,
     ):
         self.root = Path(root).expanduser().resolve()
         self.base_config = base_config or MemoryConfig()
         self.memory_factory = memory_factory
+        self.foreground_workers = max(int(foreground_workers), 1)
+        self.branch_workers = max(int(branch_workers), 1)
+        self.step_lease_seconds = max(int(step_lease_seconds), 1)
         self._environments: Dict[str, SimulationEnvironment] = {}
 
     def create_environment(self, simulation_id: Optional[str] = None) -> SimulationEnvironment:
@@ -64,13 +70,20 @@ class SimulationService:
             memory = self.memory_factory(config)
             repository = DemoRepository(run_root / "demo.db")
             state_service = MemoryStateService(memory)
-            coordinator = DemoBackgroundCoordinator(simulation_id, repository)
+            coordinator = DemoBackgroundCoordinator(
+                simulation_id,
+                repository,
+                foreground_workers=self.foreground_workers,
+                branch_workers=self.branch_workers,
+                lease_seconds=self.step_lease_seconds,
+            )
             pipeline = DemoPipelineService(
                 memory,
                 repository,
                 state_service,
                 coordinator=coordinator,
             )
+            pipeline.resume_pending_work()
         except Exception:
             if coordinator is not None:
                 coordinator.shutdown(wait=True)

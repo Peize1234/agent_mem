@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 from collections.abc import Mapping, MutableMapping, Sequence
+from datetime import datetime
 from typing import Any
 
 from memory_monitor.components import (
@@ -12,7 +13,7 @@ from memory_monitor.components import (
     prompt_panel,
     trace_panel,
 )
-from memory_monitor.models import BACKGROUND_STEPS, BackgroundStepConfig, PipelineStep
+from memory_monitor.models import PipelineStep
 
 _SESSION_KEYS = (
     "demo_simulation_id",
@@ -20,19 +21,20 @@ _SESSION_KEYS = (
     "demo_run_id",
     "demo_session_id",
     "demo_turn_id",
-    "demo_retry_target",
 )
-_CONFIG_CONTROLS = (
-    ("run_midterm", "执行中期记忆"),
-    ("run_longterm", "执行长期记忆"),
-    ("run_profile", "执行用户画像"),
-)
+_EMPTY_SNAPSHOT = {
+    "short_term": [],
+    "midterm_sessions": [],
+    "midterm_pages": [],
+    "long_term": [],
+    "profile": [],
+    "jobs": {"migration": [], "profile": []},
+}
 
 
-def render(st, simulation_service) -> None:
+def render(st, simulation_service, config) -> None:
     environment, session = _restore_environment(st, simulation_service)
-    _render_header(st, simulation_service, environment)
-
+    header = st.container()
     simulation, user, run, create_clicked = _render_scope_controls(st)
     if create_clicked:
         try:
@@ -47,10 +49,12 @@ def render(st, simulation_service) -> None:
                 }
             )
             st.session_state.pop("demo_turn_id", None)
-            st.rerun()
         except Exception as exc:
             st.error(str(exc))
             return
+
+    with header:
+        _render_header(st, simulation_service, environment)
 
     if environment is None or session is None:
         st.info("先打开一个隔离沙盒。")
@@ -58,67 +62,33 @@ def render(st, simulation_service) -> None:
 
     repository = environment.repository
     pipeline = environment.pipeline
-    turns = repository.list_turns(session["session_id"])
-    turn_id = synchronize_selected_turn_id(st.session_state, turns)
-    selected_turn = repository.assert_turn_belongs_to_session(turn_id, session["session_id"]) if turn_id else None
-    background_config = _render_background_config(
-        st,
-        pipeline,
-        repository,
-        selected_turn,
-        session["session_id"],
-        environment.simulation_id,
-    )
-    steps = repository.list_steps(turn_id) if turn_id else []
-    action, retry_target = pipeline_panel.render_controls(st, disabled=not bool(turn_id), steps=steps)
-    if action and turn_id:
-        pipeline_panel.apply_action(
-            st,
-            pipeline,
-            repository,
-            turn_id,
-            session["session_id"],
-            action,
-            retry_target=retry_target,
-        )
 
     left, right = st.columns([0.92, 1.62], gap="large")
     with left:
-        if turns:
-            turn_options = [turn["turn_id"] for turn in reversed(turns)]
-            selected_turn_id = st.selectbox(
-                "当前轮次",
-                turn_options,
-                index=turn_options.index(turn_id),
-                format_func=lambda value: _turn_label(turns, value),
-            )
-            if selected_turn_id != turn_id:
-                st.session_state["demo_turn_id"] = selected_turn_id
-                st.rerun()
-        chat_panel.render_history(st, repository.raw_messages(session["session_id"]))
-        user_message = chat_panel.chat_input(st)
+        chat_panel.render_history(
+            st,
+            repository.raw_messages(session["session_id"]),
+            simulation_id=environment.simulation_id,
+        )
+        user_message = chat_panel.chat_input(
+            st,
+            key=f"chat_input:{environment.simulation_id}:{session['session_id']}",
+        )
         if user_message:
-            new_turn_config = background_config if not turns else BackgroundStepConfig()
             turn = pipeline.create_turn(
                 session["session_id"],
                 user_id=session["user_id"],
                 run_id=session["run_id"],
                 user_message=user_message,
-                background_config=new_turn_config,
             )
             st.session_state["demo_turn_id"] = turn["turn_id"]
-            st.rerun()
 
     with right:
-        if not turn_id:
-            st.info("在左侧输入问题后，可逐步执行当前轮。")
-            return
-        _render_live_details(
+        _render_right_workspace(
             st,
             environment,
             session["session_id"],
-            turn_id,
-            background_config,
+            poll_interval_seconds=config.poll_interval_seconds,
         )
 
 
@@ -143,7 +113,7 @@ def _render_header(st, simulation_service, environment) -> None:
     with title:
         st.markdown('<h1 class="demo-lab-title">Agent Memory · Demo Lab</h1>', unsafe_allow_html=True)
         st.markdown(
-            '<p class="demo-lab-subtitle">冻结上下文，逐步观察前台回答与三个独立后台记忆流程。</p>',
+            '<p class="demo-lab-subtitle">前台链异步执行；短期、中期、长期和画像使用四条独立队列。</p>',
             unsafe_allow_html=True,
         )
     with sandbox:
@@ -161,20 +131,24 @@ def _render_header(st, simulation_service, environment) -> None:
                 unsafe_allow_html=True,
             )
         with manage:
-            with st.popover("沙盒管理", use_container_width=True):
+            with st.popover(
+                "沙盒管理",
+                width="stretch",
+                key=f"sandbox:{environment.simulation_id}:manage",
+            ):
                 st.caption(f"simulation_id：`{environment.simulation_id}`")
                 st.code(str(environment.root), language="text")
-                confirm_key = f"demo_delete_confirm:{environment.simulation_id}"
+                confirm_key = f"sandbox:{environment.simulation_id}:delete_confirm"
                 confirm = st.checkbox("确认删除当前沙盒", key=confirm_key)
                 if st.button(
                     "删除沙盒",
                     disabled=not confirm,
                     type="primary",
-                    use_container_width=True,
-                    key=f"demo_delete:{environment.simulation_id}",
+                    width="stretch",
+                    key=f"sandbox:{environment.simulation_id}:delete",
                 ):
                     try:
-                        with st.spinner("正在安全停止后台队列并删除沙盒…"):
+                        with st.spinner("正在等待任务结束、关闭队列并删除沙盒…"):
                             simulation_service.clear_environment(environment.simulation_id)
                     except Exception as exc:
                         st.error(f"删除失败，沙盒保持可恢复：{exc}")
@@ -191,114 +165,242 @@ def _render_scope_controls(st):
     simulation = simulation_column.text_input(
         "simulation_id",
         value=st.session_state.get("demo_simulation_id", "demo"),
+        key="scope:simulation_id",
     )
-    user = user_column.text_input("user_id", value=st.session_state.get("demo_user_id", "demo-user"))
-    run = run_column.text_input("run_id", value=st.session_state.get("demo_run_id", "demo-run"))
-    create_clicked = create_column.button("打开沙盒", use_container_width=True)
+    user = user_column.text_input(
+        "user_id",
+        value=st.session_state.get("demo_user_id", "demo-user"),
+        key="scope:user_id",
+    )
+    run = run_column.text_input(
+        "run_id",
+        value=st.session_state.get("demo_run_id", "demo-run"),
+        key="scope:run_id",
+    )
+    create_clicked = create_column.button(
+        "打开沙盒",
+        width="stretch",
+        key="scope:open_sandbox",
+    )
     return simulation, user, run, create_clicked
 
 
-def _render_background_config(
+def _render_right_workspace(
     st,
-    pipeline,
-    repository,
-    turn: dict | None,
+    environment,
     session_id: str,
-    simulation_id: str,
-) -> BackgroundStepConfig:
-    st.caption("本轮后台配置")
-    if turn is None:
-        config = BackgroundStepConfig()
-        locked = False
-        key_scope = f"{simulation_id}:draft"
-    else:
-        config = repository.background_config(turn["turn_id"])
-        locked = turn.get("background_submitted_at") is not None
-        key_scope = f"{simulation_id}:{turn['turn_id']}"
-
-    values = {}
-    columns = st.columns(3)
-    for column, (field, label) in zip(columns, _CONFIG_CONTROLS):
-        key = f"demo_background_config:{key_scope}:{field}"
-        if key not in st.session_state:
-            st.session_state[key] = getattr(config, field)
-        values[field] = column.toggle(
-            label,
-            key=key,
-            disabled=locked,
-            help="后台分支提交后配置锁定；未启用分支保持 pending。",
-        )
-    selected = BackgroundStepConfig.from_mapping(values)
-    if turn is not None and not locked and selected != config:
-        pipeline.update_background_config(turn["turn_id"], selected, session_id=session_id)
-        config = selected
-    if locked:
-        st.caption("后台分支已提交，本轮配置已锁定。")
-    return config
-
-
-def _render_live_details(st, environment, session_id: str, turn_id: str, initial_config: BackgroundStepConfig) -> None:
+    *,
+    poll_interval_seconds: float,
+) -> None:
     repository = environment.repository
-    auto_refresh = _session_has_running_background(repository, session_id)
-    fragment = getattr(st, "fragment", None) or getattr(st, "experimental_fragment", None)
+    pipeline = environment.pipeline
 
-    def render_details() -> None:
-        selected_turn = repository.assert_turn_belongs_to_session(turn_id, session_id)
-        steps = repository.list_steps(turn_id)
-        config = repository.background_config(turn_id) if selected_turn else initial_config
-        current = pipeline_panel.current_step(steps, config)
-        display_step = _display_step(steps, current)
+    @st.fragment(run_every=poll_interval_seconds)
+    def right_workspace() -> None:
+        with st.container(key=f"right_workspace_{environment.simulation_id}_{session_id}"):
+            turns = repository.list_turns(session_id)
+            turn_id = synchronize_selected_turn_id(st.session_state, turns)
+            if turn_id is None:
+                pipeline_panel.render_memory_gates(
+                    st,
+                    pipeline,
+                    repository,
+                    simulation_id=environment.simulation_id,
+                    session_id=session_id,
+                    turn_id=None,
+                )
+                st.caption("在左侧输入问题后，可异步执行当前轮。")
+                return
+
+            repository.assert_turn_belongs_to_session(turn_id, session_id)
+            steps = repository.list_steps(turn_id)
+            with st.container(key=f"right_controls_{environment.simulation_id}_{turn_id}"):
+                pipeline_panel.render_memory_gates(
+                    st,
+                    pipeline,
+                    repository,
+                    simulation_id=environment.simulation_id,
+                    session_id=session_id,
+                    turn_id=turn_id,
+                )
+                action, target = pipeline_panel.render_controls(
+                    st,
+                    key_prefix=f"pipeline:{environment.simulation_id}:{turn_id}",
+                    disabled=False,
+                    steps=steps,
+                )
+                if action:
+                    pipeline_panel.apply_action(
+                        st,
+                        pipeline,
+                        repository,
+                        turn_id,
+                        session_id,
+                        action,
+                        target=target,
+                    )
+
+            # Actions only submit persisted work. Re-read the authoritative
+            # rows in this fragment so queued state is visible immediately.
+            steps = repository.list_steps(turn_id)
+            active_turns = repository.list_active_turns(session_id)
+            completed_turns = repository.list_completed_turns(session_id)
+            _render_turn_navigation(
+                st,
+                repository,
+                active_turns,
+                completed_turns,
+                turn_id,
+                simulation_id=environment.simulation_id,
+                session_id=session_id,
+            )
+
+            selected_config = repository.background_config(turn_id)
+            current = pipeline_panel.current_step(steps, selected_config)
+            display_step = _display_step(steps, current)
+            snapshot = _latest_session_state(
+                st,
+                environment,
+                session_id,
+            )
+            step_map = {step["step"]: step for step in steps}
+            retrieve = step_map.get(PipelineStep.RETRIEVE_CONTEXT.value)
+            prompt = step_map.get(PipelineStep.BUILD_PROMPT.value)
+            generation = step_map.get(PipelineStep.GENERATE_RESPONSE.value)
+            key_scope = f"details:{environment.simulation_id}:{turn_id}"
+
+            tabs = st.tabs(
+                ["执行流程", "检索上下文", "最终 Prompt", "模型调用", "数据库和任务", "Trace"],
+                key=f"{key_scope}:tabs",
+            )
+            with tabs[0], st.container(height=390, border=False, key=f"{key_scope}:pipeline"):
+                pipeline_panel.render_steps(st, steps, selected_config)
+            with tabs[1], st.container(height=515, border=False, key=f"{key_scope}:context"):
+                context_panel.render(
+                    st,
+                    (retrieve or {}).get("output"),
+                    key_prefix=f"{key_scope}:retrieval",
+                )
+            with tabs[2], st.container(height=515, border=False, key=f"{key_scope}:prompt"):
+                prompt_panel.render_prompt(st, (prompt or {}).get("output"))
+            with tabs[3], st.container(height=515, border=False, key=f"{key_scope}:generation"):
+                prompt_panel.render_generation(
+                    st,
+                    (generation or {}).get("output"),
+                    key_prefix=f"{key_scope}:generation",
+                )
+            with tabs[4], st.container(height=515, border=False, key=f"{key_scope}:database"):
+                memory_panel.render(
+                    st,
+                    snapshot,
+                    display_step,
+                    key_prefix=f"{key_scope}:records",
+                )
+            with tabs[5], st.container(height=515, border=False, key=f"{key_scope}:trace"):
+                trace_panel.render(st, steps, key_prefix=f"{key_scope}:trace")
+
+    right_workspace()
+
+
+def _latest_session_state(st, environment, session_id: str) -> dict:
+    snapshot_row = environment.repository.latest_session_snapshot(session_id)
+    if snapshot_row is not None:
+        return snapshot_row.get("data") or _EMPTY_SNAPSHOT
+
+    cache_key = f"session_snapshot:{environment.simulation_id}:{session_id}"
+    cached = st.session_state.get(cache_key)
+    if cached is not None:
+        return cached
+    session = environment.repository.get_session(session_id)
+    if session is None:
+        return _EMPTY_SNAPSHOT
+    try:
         snapshot = environment.state_service.snapshot(
-            user_id=selected_turn["user_id"],
-            run_id=selected_turn["run_id"],
+            user_id=session["user_id"],
+            run_id=session["run_id"],
         )
-        retrieve = repository.get_step(turn_id, PipelineStep.RETRIEVE_CONTEXT)
-        prompt = repository.get_step(turn_id, PipelineStep.BUILD_PROMPT)
-        generation = repository.get_step(turn_id, PipelineStep.GENERATE_RESPONSE)
+    except Exception as exc:
+        snapshot = {**_EMPTY_SNAPSHOT, "snapshot_error": f"{type(exc).__name__}: {exc}"}
+    st.session_state[cache_key] = snapshot
+    return snapshot
 
-        tabs = st.tabs(["执行流程", "检索上下文", "最终 Prompt", "模型调用", "数据库和任务", "Trace"])
-        with tabs[0], st.container(height=510, border=False):
-            pipeline_panel.render_steps(st, steps, config)
-        with tabs[1], st.container(height=510, border=False):
-            context_panel.render(st, (retrieve or {}).get("output"))
-        with tabs[2], st.container(height=510, border=False):
-            prompt_panel.render_prompt(st, (prompt or {}).get("output"))
-        with tabs[3], st.container(height=510, border=False):
-            prompt_panel.render_generation(st, (generation or {}).get("output"))
-        with tabs[4], st.container(height=510, border=False):
-            memory_panel.render(st, snapshot, display_step)
-        with tabs[5], st.container(height=510, border=False):
-            trace_panel.render(st, steps)
 
-        if auto_refresh and not _session_has_running_background(repository, session_id):
-            st.rerun()
-
-    if fragment is None:
-        render_details()
+def _render_turn_navigation(
+    st,
+    repository,
+    active_turns: list[dict],
+    completed_turns: list[dict],
+    selected_turn_id: str,
+    *,
+    simulation_id: str,
+    session_id: str,
+) -> None:
+    _render_active_turns(st, active_turns, selected_turn_id, simulation_id=simulation_id)
+    if not completed_turns:
         return
-    decorated = fragment(run_every="1s" if auto_refresh else None)(render_details)
-    decorated()
-
-
-def _session_has_running_background(repository, session_id: str) -> bool:
-    background_values = {step.value for step in BACKGROUND_STEPS}
-    return any(
-        step["step"] in background_values and step["status"] == "running"
-        for turn in repository.list_turns(session_id)
-        for step in repository.list_steps(turn["turn_id"])
+    options = [turn["turn_id"] for turn in reversed(completed_turns)]
+    selected = st.selectbox(
+        "历史轮次",
+        options,
+        index=options.index(selected_turn_id) if selected_turn_id in options else None,
+        format_func=lambda value: _turn_label(repository, completed_turns, value),
+        placeholder="选择已完成轮次",
+        key=f"history_turn:{simulation_id}:{session_id}:selected:{selected_turn_id}",
     )
+    if selected and selected != selected_turn_id:
+        st.session_state["demo_turn_id"] = selected
+        st.rerun(scope="app")
+
+
+def _render_active_turns(
+    st,
+    active_turns: list[dict],
+    selected_turn_id: str,
+    *,
+    simulation_id: str,
+) -> None:
+    if not active_turns:
+        st.caption("当前没有未完成轮次。")
+        return
+    st.caption("活跃轮次")
+    for start in range(0, len(active_turns), 3):
+        row = active_turns[start : start + 3]
+        columns = st.columns(len(row))
+        for column, turn in zip(columns, row):
+            status = turn["status"]
+            message = _summarize(turn["user_message"], 30)
+            created = _format_created_at(turn.get("created_at"))
+            selected = turn["turn_id"] == selected_turn_id
+            failed = " · 有失败" if turn.get("has_failure") else ""
+            label = f"{message}\n\n{created} · {turn['completed_steps']}/{turn['total_steps']} · {status}{failed}"
+            if column.button(
+                label,
+                key=f"active_turn:{simulation_id}:{turn['turn_id']}",
+                type="primary" if selected else "secondary",
+                help=turn["user_message"],
+                width="stretch",
+            ):
+                st.session_state["demo_turn_id"] = turn["turn_id"]
+                st.rerun(scope="app")
 
 
 def _clear_sandbox_session_state(session_state: MutableMapping[str, Any], simulation_id: str) -> None:
     for key in _SESSION_KEYS:
         session_state.pop(key, None)
-    prefixes = (
-        f"demo_background_config:{simulation_id}:",
-        f"demo_delete_confirm:{simulation_id}",
-        f"demo_delete:{simulation_id}",
+    scoped_fragments = (
+        f"draft_config:{simulation_id}:",
+        f"turn_config:{simulation_id}:",
+        f"memory_gate:{simulation_id}:",
+        f"history_turn:{simulation_id}:",
+        f"active_turn:{simulation_id}:",
+        f"pipeline:{simulation_id}:",
+        f"details:{simulation_id}:",
+        f"session_snapshot:{simulation_id}:",
+        f"sandbox:{simulation_id}:",
+        f"chat_input:{simulation_id}:",
     )
     for key in list(session_state):
-        if key.startswith(prefixes):
+        if key.startswith(scoped_fragments):
             session_state.pop(key, None)
 
 
@@ -326,10 +428,24 @@ def synchronize_selected_turn_id(
     return resolved
 
 
-def _turn_label(turns: list[dict], turn_id: str) -> str:
+def _turn_label(repository, turns: list[dict], turn_id: str) -> str:
     turn = next(item for item in turns if item["turn_id"] == turn_id)
-    message = turn["user_message"]
-    return f"{message[:28]}{'…' if len(message) > 28 else ''}"
+    summary = repository.turn_summary(turn)
+    return f"{_summarize(turn['user_message'], 32)} · {summary['status']} · {summary['completed_steps']}/{summary['total_steps']}"
+
+
+def _summarize(value: str, limit: int) -> str:
+    return f"{value[:limit]}{'…' if len(value) > limit else ''}"
+
+
+def _format_created_at(value: str | None) -> str:
+    if not value:
+        return "时间未知"
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return value
+    return parsed.astimezone().strftime("%H:%M:%S")
 
 
 def _display_step(steps: list[dict], current: dict | None) -> dict | None:

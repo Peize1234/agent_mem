@@ -3,7 +3,7 @@ from __future__ import annotations
 from memory_monitor.components.common import render_json
 
 
-def render(st, steps: list[dict]) -> None:
+def render(st, steps: list[dict], *, key_prefix: str) -> None:
     if not steps:
         st.caption("暂无 Trace。")
         return
@@ -20,11 +20,15 @@ def render(st, steps: list[dict]) -> None:
             }
             for step in steps
         ],
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
-    selected = st.selectbox("Trace 步骤", [step["step"] for step in steps])
+    selected = st.selectbox(
+        "Trace 步骤",
+        [step["step"] for step in steps],
+        key=f"{key_prefix}:step_selector",
+    )
     step = next(item for item in steps if item["step"] == selected)
-    render_json(st, step.get("input"), label="输入")
-    render_json(st, step.get("output"), label="输出")
-    render_json(st, step.get("diff"), label="数据库差异")
+    render_json(st, step.get("input"), label="输入", key=f"{key_prefix}:input")
+    render_json(st, step.get("output"), label="输出", key=f"{key_prefix}:output")
+    render_json(st, step.get("diff"), label="数据库差异", key=f"{key_prefix}:diff")

@@ -10,15 +10,16 @@ class PipelineStep(str, Enum):
     RETRIEVE_CONTEXT = "retrieve_context"
     BUILD_PROMPT = "build_prompt"
     GENERATE_RESPONSE = "generate_response"
-    COMMIT_TURN = "commit_turn"
+    RUN_SHORTTERM = "run_shortterm"
     RUN_MIDTERM = "run_midterm"
     RUN_LONGTERM = "run_longterm"
     RUN_PROFILE = "run_profile"
-    REFRESH_STATE = "refresh_state"
+    COMPLETE_TURN = "complete_turn"
 
 
 class StepStatus(str, Enum):
     PENDING = "pending"
+    QUEUED = "queued"
     RUNNING = "running"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
@@ -30,29 +31,37 @@ FOREGROUND_STEPS = (
     PipelineStep.RETRIEVE_CONTEXT,
     PipelineStep.BUILD_PROMPT,
     PipelineStep.GENERATE_RESPONSE,
-    PipelineStep.COMMIT_TURN,
 )
-BACKGROUND_STEPS = (
+MEMORY_STEPS = (
+    PipelineStep.RUN_SHORTTERM,
     PipelineStep.RUN_MIDTERM,
     PipelineStep.RUN_LONGTERM,
     PipelineStep.RUN_PROFILE,
 )
-PIPELINE_STEPS = (*FOREGROUND_STEPS, *BACKGROUND_STEPS, PipelineStep.REFRESH_STATE)
-OPTIONAL_PIPELINE_STEPS = frozenset(BACKGROUND_STEPS)
+BACKGROUND_STEPS = MEMORY_STEPS
+PIPELINE_STEPS = (*FOREGROUND_STEPS, *MEMORY_STEPS)
+VISIBLE_PIPELINE_STEPS = (*PIPELINE_STEPS, PipelineStep.COMPLETE_TURN)
+OPTIONAL_PIPELINE_STEPS = frozenset(MEMORY_STEPS)
+TERMINAL_STEP_STATUSES = frozenset({StepStatus.SUCCEEDED.value, StepStatus.SKIPPED.value})
+INFLIGHT_STEP_STATUSES = frozenset({StepStatus.QUEUED.value, StepStatus.RUNNING.value})
 
 STEP_DEPENDENCIES = {
     PipelineStep.CAPTURE_INPUT: (),
     PipelineStep.RETRIEVE_CONTEXT: (PipelineStep.CAPTURE_INPUT,),
     PipelineStep.BUILD_PROMPT: (PipelineStep.RETRIEVE_CONTEXT,),
     PipelineStep.GENERATE_RESPONSE: (PipelineStep.BUILD_PROMPT,),
-    PipelineStep.COMMIT_TURN: (PipelineStep.GENERATE_RESPONSE,),
-    PipelineStep.RUN_MIDTERM: (PipelineStep.COMMIT_TURN,),
-    PipelineStep.RUN_LONGTERM: (PipelineStep.COMMIT_TURN,),
-    PipelineStep.RUN_PROFILE: (PipelineStep.COMMIT_TURN,),
-    PipelineStep.REFRESH_STATE: BACKGROUND_STEPS,
+    PipelineStep.RUN_SHORTTERM: (PipelineStep.GENERATE_RESPONSE,),
+    # Memory.add() in RUN_SHORTTERM creates the real core job IDs consumed by
+    # the other three branches. The graph keeps the branches visually parallel
+    # while their node detail exposes this persisted backend dependency.
+    PipelineStep.RUN_MIDTERM: (PipelineStep.RUN_SHORTTERM,),
+    PipelineStep.RUN_LONGTERM: (PipelineStep.RUN_SHORTTERM,),
+    PipelineStep.RUN_PROFILE: (PipelineStep.RUN_SHORTTERM,),
+    PipelineStep.COMPLETE_TURN: MEMORY_STEPS,
 }
 
 _STEP_CONFIG_FIELDS = {
+    PipelineStep.RUN_SHORTTERM: "run_shortterm",
     PipelineStep.RUN_MIDTERM: "run_midterm",
     PipelineStep.RUN_LONGTERM: "run_longterm",
     PipelineStep.RUN_PROFILE: "run_profile",
@@ -64,22 +73,51 @@ class BackgroundStepConfig:
     run_midterm: bool = True
     run_longterm: bool = True
     run_profile: bool = True
+    # Appended to retain the positional meaning of the three fields used by
+    # older Demo tests and callers.
+    run_shortterm: bool = True
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, object] | None) -> "BackgroundStepConfig":
         value = value or {}
+        run_shortterm = bool(value.get("run_shortterm", True))
+        if not run_shortterm:
+            return cls(
+                run_midterm=False,
+                run_longterm=False,
+                run_profile=False,
+                run_shortterm=False,
+            )
         return cls(
             run_midterm=bool(value.get("run_midterm", True)),
             run_longterm=bool(value.get("run_longterm", True)),
             run_profile=bool(value.get("run_profile", True)),
+            run_shortterm=True,
         )
 
     def as_dict(self) -> dict[str, bool]:
         return {
+            "run_shortterm": self.run_shortterm,
             "run_midterm": self.run_midterm,
             "run_longterm": self.run_longterm,
             "run_profile": self.run_profile,
         }
+
+    def with_toggle(self, field: str, enabled: bool) -> "BackgroundStepConfig":
+        """Apply one UI toggle while preserving the short-term dependency."""
+        if field not in _STEP_CONFIG_FIELDS.values():
+            raise ValueError(f"Unknown memory configuration field: {field}")
+        values = self.as_dict()
+        values[field] = bool(enabled)
+        if field == "run_shortterm" and not enabled:
+            values.update(
+                run_midterm=False,
+                run_longterm=False,
+                run_profile=False,
+            )
+        elif field != "run_shortterm" and enabled:
+            values["run_shortterm"] = True
+        return BackgroundStepConfig.from_mapping(values)
 
     def enabled(self, step: PipelineStep | str) -> bool:
         step = PipelineStep(step)
@@ -98,12 +136,4 @@ def dependencies_for(
     background_config: BackgroundStepConfig | Mapping[str, object] | None = None,
 ) -> tuple[PipelineStep, ...]:
     step = PipelineStep(step)
-    dependencies = STEP_DEPENDENCIES[step]
-    if step is not PipelineStep.REFRESH_STATE:
-        return dependencies
-    config = (
-        background_config
-        if isinstance(background_config, BackgroundStepConfig)
-        else BackgroundStepConfig.from_mapping(background_config)
-    )
-    return tuple(dependency for dependency in dependencies if config.enabled(dependency))
+    return STEP_DEPENDENCIES[step]

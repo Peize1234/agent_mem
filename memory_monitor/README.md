@@ -44,9 +44,10 @@ the environment. It matches the financial trace test defaults:
 `deepseek-v4-flash` and `BAAI/bge-small-zh-v1.5` (512 dimensions).
 It runs in the `MemoryOS` Conda environment, activating it through `conda run`
 when necessary. By default the launcher uses the versioned sandbox root
-`.memory_monitor_runs/demo-lab-v2`, so databases created by the earlier
-single-migration pipeline are left untouched and are not offered in the new
-lab.
+`.memory_monitor_runs/demo-lab-v3`. This intentionally avoids opening the
+temporary v2 core databases that predate the `midterm_status` /
+`longterm_status` task columns. Set `MEMORY_MONITOR_SIMULATION_ROOT`
+explicitly only when you deliberately want another root.
 
 ```bash
 conda activate MemoryOS
@@ -78,59 +79,92 @@ The page supports:
 
 - next step;
 - run through model generation;
-- run through core commit;
-- submit all enabled background branches without waiting;
+- run the four memory branches;
+- run all or continue all remaining work without waiting;
 - retry one selected failed step;
 - reset an uncommitted turn.
 
-Each turn persists three independent switches in `demo.db`: `run_midterm`,
-`run_longterm`, and `run_profile`. They default to enabled for new and legacy
-turns. A disabled branch is not submitted, remains `pending` in both the Demo
-step and core job, is labeled “本轮未启用,” and is excluded from effective
-progress. It is never represented as `skipped`.
+The pipeline controls contain one four-toggle row named “本轮记忆阻塞控制”.
+Each switch reads the selected turn's persisted `demo_step_runs.is_held`
+value. Clearing a pending switch holds that one step as `pending`; it never
+turns the step into `skipped` and never counts it as complete. Re-enabling a
+held step atomically releases it and immediately submits it when its dependency
+is ready. If short-term has not finished yet, the released downstream step
+remains pending and the persisted execution target submits it automatically
+after `Memory.add()` succeeds.
+
+Queued, running, succeeded, and failed steps have individually disabled
+switches, while another held pending step in the same turn remains editable.
+This lets an older incomplete turn stay active while a newer turn runs.
+Returning to that old turn restores each switch directly from `demo.db`;
+releasing it continues only that turn and step without replaying successful
+work.
 
 ## Pipeline and concurrency
 
 The displayed pipeline is a DAG rather than an ordered table:
 
 ```text
-capture_input
-    ↓
-retrieve_context
-    ↓
-build_prompt
-    ↓
-generate_response
-    ↓
-commit_turn
-    ├── run_midterm ─┐
-    ├── run_longterm ┼── refresh_state
-    └── run_profile ─┘
+capture_input → retrieve_context → build_prompt → generate_response
+                                                    ├── run_shortterm ─┐
+                                                    ├── run_midterm ───┤
+                                                    ├── run_longterm ──┤
+                                                    └── run_profile ───┤→ complete_turn
 ```
 
-`refresh_state` waits only for the background branches enabled on that turn.
-Dependencies are explicit in `STEP_DEPENDENCIES`; enum order is used only for
-stable display and storage positions.
+`complete_turn` is derived from the four branch rows and is never persisted as
+an executable step. In the normal Demo flow it becomes successful only when
+all four memory steps are `succeeded`; a held pending step keeps the turn
+active. The `skipped` terminal remains only for system-level compatibility,
+never for the user-facing blocker switches. There is no commit node and no
+refresh node. The real backend dependency remains accurate:
+`run_shortterm` calls `Memory.add()` once, and mid-term, long-term, and profile
+wait for the job IDs created by that transaction. Their parallel visual nodes
+show “waiting for task creation” until then.
 
-Every open sandbox owns one `DemoBackgroundCoordinator`. It has three separate
-`ThreadPoolExecutor(max_workers=1)` instances, one each for mid-term,
-long-term, and profile work. Tasks of the same type retain submission order,
-while the three types can run concurrently. A background click claims the
-persisted Demo step, submits all enabled branches, and returns immediately.
-The core repository still owns the real task lease, heartbeat, retry,
-same-scope ordering, migration finalization, and cleanup semantics.
+The graph remains one compact left-to-right row. The four memory nodes form one
+vertical column between the model node and the centered completion node. It
+fits the normal desktop detail pane without a horizontal scrollbar; only a
+very narrow pane scrolls horizontally instead of changing to a four-column or
+2×2 layout. A fixed-width inline SVG arrow connects model generation to the
+fork, and the fork and merge arms align with the four node centers.
 
-The Streamlit page refreshes the live DAG, snapshots, jobs, and trace in a
-one-second `st.fragment` only while a background Demo step is running. The
-conversation and controls are outside that fragment, so viewing a historical
-turn or typing the next turn does not change selection or configuration.
+Every open sandbox owns one `DemoBackgroundCoordinator`:
+
+- one bounded foreground executor chains capture, retrieval, prompt building,
+  and model generation; different turns can use different workers;
+- four separate `ThreadPoolExecutor(max_workers=1)` queues run short-term,
+  mid-term, long-term, and profile work;
+- each memory type is FIFO across turns, while different types can overlap;
+- queueing first persists `queued`; the executor changes it to `running` only
+  after its worker starts;
+- leases are heartbeated and every completion is fenced by an execution token.
+
+All buttons only persist an execution target and submit eligible, unheld work.
+They do not wait for `Future.result()`. A callback schedules the next foreground
+step or the newly eligible memory branches after a predecessor succeeds.
+“下一步” uses four clicks for the four foreground nodes; its fifth click stores
+the whole memory-batch intent. Short-term is submitted once, then its successful
+completion immediately fans out every unheld mid-term, long-term, and profile
+branch to their independent executors. Held branches do not prevent the others
+from running, and the execution target stays persisted until the held work is
+released and all target steps finish.
+
+The Streamlit page keeps the selected-turn gates, action buttons, navigation,
+DAG, snapshots, jobs, and trace inside one right-side `st.fragment`. The
+fragment polls every 400 ms and reads persisted snapshots; when no snapshot
+exists, the expensive live snapshot fallback is cached. Normal action buttons
+therefore rerender only the right workspace and never call a full-page
+`st.rerun()`. The chat history and input live outside the fragment. Its keyed
+650 px native scroll container uses `autoscroll=False`, contained overscroll,
+and a stable scrollbar gutter. This requires Streamlit 1.56 or newer.
 
 ## Storage isolation
 
 Every simulation owns:
 
 ```text
-.memory_monitor_runs/demo-lab-v2/<simulation_id>/
+.memory_monitor_runs/demo-lab-v3/<simulation_id>/
 ├── history.db
 ├── qdrant/
 └── demo.db
@@ -138,15 +172,21 @@ Every simulation owns:
 
 `history.db` and `qdrant/` contain the normal core memory state. `demo.db`
 contains only `demo_sessions`, `demo_turns`, `demo_step_runs`, and
-`demo_snapshots`. Per-turn switches and the background-submission timestamp
-are columns on `demo_turns`. The complete original transcript is read from
-`demo_turns`; it is never reconstructed from the evictable short-term memory
-table.
+`demo_snapshots`. The blocker for each memory node is stored on its step row as
+`is_held`; execution intent and the background-submission timestamp are stored
+on `demo_turns`. Legacy `run_*` columns remain for compatibility, but the
+current blocker controls do not write them. The complete original transcript
+is read from `demo_turns`; it is never reconstructed from the evictable
+short-term memory table.
 
-Database initialization is idempotent. Existing databases gain the three
-configuration columns with enabled defaults. Legacy `run_migration` rows are
-copied once into `run_midterm` and `run_longterm`; the old row is retained for
-forensics but omitted from the current DAG.
+Database initialization is idempotent. Existing Demo databases gain the
+configuration, scheduling, completion, `queued_at`, and `is_held` columns with
+safe defaults, and missing current steps are inserted. On unfinished turns,
+legacy rows skipped specifically as `Disabled by turn configuration` are
+restored to `pending` and converted into holds from their old `run_*` value;
+completed history and system-level skips are untouched. The launcher
+deliberately uses a new v3 root rather than attempting to mutate temporary v2
+core memory tables.
 
 The page talks to `DemoPipelineService`, `DemoRepository`, and
 `MemoryStateService`. It does not modify task rows with SQL, call core private
@@ -157,6 +197,13 @@ Each committed turn uses `demo-turn:<simulation_id>:<turn_id>` as a persisted
 operation together with its short-term messages and migration/profile jobs, so
 reopening the sandbox or retrying a failed Demo step reuses the original
 result.
+
+On application restart, persisted execution targets are resumed after expired
+leases are recovered. Expired queued work becomes pending; an expired running
+step becomes a retryable failure. Active turns are queried from `demo.db`, not
+Session State. Unfinished turns are clickable active cards; completed turns
+move to the history-only selector and remain in the transcript, steps,
+snapshots, and databases.
 
 Deleting a sandbox first closes its coordinator to new submissions, waits for
 running and queued futures, then closes `DemoMemory` (including worker

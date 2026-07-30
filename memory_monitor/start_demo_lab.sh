@@ -6,7 +6,7 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repository_root="$(cd -- "${script_dir}/.." && pwd)"
 cd "${repository_root}"
 
-default_simulation_root="${repository_root}/.memory_monitor_runs/demo-lab-v2"
+default_simulation_root="${repository_root}/.memory_monitor_runs/demo-lab-v3"
 simulation_root="${MEMORY_MONITOR_SIMULATION_ROOT:-${default_simulation_root}}"
 server_address="${MEMORY_MONITOR_ADDRESS:-127.0.0.1}"
 server_port="${MEMORY_MONITOR_PORT:-8501}"

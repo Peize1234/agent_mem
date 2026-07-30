@@ -6,7 +6,7 @@ import threading
 from copy import deepcopy
 from typing import Any, Dict, Optional
 
-from mem0.memory.main import Memory, _build_answer_prompt_messages
+from mem0.memory.main import Memory, _build_answer_prompt_messages, _build_session_scope
 from memory_monitor.runtime.demo_background_worker import DemoBackgroundWorkerManager
 
 
@@ -119,6 +119,11 @@ class DemoMemory(Memory):
             metadata=commit_metadata or None,
             idempotency_key=idempotency_key,
         )
+
+    @staticmethod
+    def session_scope_for_demo(*, user_id: str, run_id: str) -> str:
+        """Expose the exact core scope builder used by ``Memory.add()``."""
+        return _build_session_scope({"user_id": user_id, "run_id": run_id})
 
     @staticmethod
     def context_hash(context: Dict[str, Any]) -> str:

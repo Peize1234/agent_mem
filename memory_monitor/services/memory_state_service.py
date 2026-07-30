@@ -5,6 +5,8 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Dict, Iterable
 
+from mem0.memory.main import _build_session_scope
+
 
 class MemoryStateService:
     """Read current core memory state and compute stable record-level diffs."""
@@ -14,7 +16,12 @@ class MemoryStateService:
         self.db_path = Path(memory.config.history_db_path).expanduser().resolve()
 
     def snapshot(self, *, user_id: str, run_id: str) -> Dict[str, Any]:
-        session_scope = f"run_id={run_id}&user_id={user_id}"
+        scope_builder = getattr(self.memory, "session_scope_for_demo", None)
+        session_scope = (
+            scope_builder(user_id=user_id, run_id=run_id)
+            if callable(scope_builder)
+            else _build_session_scope({"user_id": user_id, "run_id": run_id})
+        )
         sqlite_state = self._sqlite_state(user_id=user_id, session_scope=session_scope)
         filters = {"user_id": user_id, "run_id": run_id}
         midterm_sessions, midterm_pages = self._midterm_state(filters)
@@ -39,7 +46,11 @@ class MemoryStateService:
             return {
                 "short_term": self._query(
                     connection,
-                    "SELECT * FROM messages WHERE session_scope = ? ORDER BY created_at ASC, rowid ASC",
+                    """
+                    SELECT * FROM messages
+                    WHERE session_scope = ? AND status = 'active'
+                    ORDER BY created_at ASC, rowid ASC
+                    """,
                     (session_scope,),
                 ),
                 "migration_jobs": self._query(

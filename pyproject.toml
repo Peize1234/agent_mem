@@ -84,7 +84,7 @@ test = [
     "pytest-asyncio>=0.23.7",
 ]
 monitor = [
-    "streamlit>=1.36.0",
+    "streamlit>=1.56.0",
 ]
 dev = [
     "ruff>=0.6.5",

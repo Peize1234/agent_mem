@@ -3,7 +3,7 @@ from __future__ import annotations
 from memory_monitor.components.common import render_records
 
 
-def render(st, context: dict | None) -> None:
+def render(st, context: dict | None, *, key_prefix: str) -> None:
     if not context:
         st.caption("执行“检索上下文”后显示冻结结果。")
         return
@@ -13,15 +13,15 @@ def render(st, context: dict | None) -> None:
         ("中期记忆", context.get("mid_term") or []),
         ("长期记忆", context.get("long_term") or []),
     )
-    for title, records in sections:
+    for section, (title, records) in enumerate(sections):
         st.markdown(f"#### {title}")
-        render_records(st, records)
+        render_records(st, records, key_prefix=f"{key_prefix}:section:{section}")
     st.markdown("#### 用户画像")
     profile = context.get("user_profile") or context.get("profile") or {}
     if profile:
         st.dataframe(
             [{"属性": key, "值": value} for key, value in profile.items()],
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
     else:

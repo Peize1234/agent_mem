@@ -2,6 +2,7 @@ from __future__ import annotations
 
 # ruff: noqa: E402
 
+import atexit
 import json
 import sys
 from pathlib import Path
@@ -34,15 +35,32 @@ def main() -> None:
     config = DemoLabConfig.from_env()
 
     @st.cache_resource
-    def simulation_service(root: str, config_path: str) -> SimulationService:
+    def simulation_service(
+        root: str,
+        config_path: str,
+        foreground_workers: int,
+        branch_workers: int,
+        step_lease_seconds: int,
+    ) -> SimulationService:
         path = Path(config_path) if config_path else None
-        return SimulationService(root, base_config=_load_memory_config(path))
+        service = SimulationService(
+            root,
+            base_config=_load_memory_config(path),
+            foreground_workers=foreground_workers,
+            branch_workers=branch_workers,
+            step_lease_seconds=step_lease_seconds,
+        )
+        atexit.register(service.close)
+        return service
 
     service = simulation_service(
         str(config.simulation_root),
         str(config.memory_config_path or ""),
+        config.foreground_workers,
+        config.branch_workers,
+        config.step_lease_seconds,
     )
-    demo_lab.render(st, service)
+    demo_lab.render(st, service, config)
 
 
 if __name__ == "__main__":

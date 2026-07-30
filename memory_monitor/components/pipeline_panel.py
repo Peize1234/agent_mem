@@ -1,16 +1,25 @@
 from __future__ import annotations
 
 from memory_monitor.components import pipeline_graph
-from memory_monitor.models import BackgroundStepConfig, PipelineStep
+from memory_monitor.models import BackgroundStepConfig, PipelineStep, StepStatus
 from memory_monitor.services.demo_repository import StepAlreadyRunningError
 
-_ACTIONS = (
+_PRIMARY_ACTIONS = (
     ("next", "下一步"),
     ("answer", "运行到模型回答"),
-    ("commit", "运行到提交"),
+    ("memory", "运行记忆阶段"),
     ("all", "运行全部"),
-    ("retry", "重试"),
+)
+_SECONDARY_ACTIONS = (
+    ("remaining", "运行剩余步骤"),
+    ("retry", "重试失败步骤"),
     ("reset", "重置当前轮"),
+)
+_MEMORY_GATE_CONTROLS = (
+    (PipelineStep.RUN_SHORTTERM, "添加短期记忆", "短期"),
+    (PipelineStep.RUN_MIDTERM, "添加中期记忆", "中期"),
+    (PipelineStep.RUN_LONGTERM, "添加长期记忆", "长期"),
+    (PipelineStep.RUN_PROFILE, "抽取用户画像", "用户画像"),
 )
 
 _STEP_LABELS = {
@@ -18,34 +27,188 @@ _STEP_LABELS = {
     PipelineStep.RETRIEVE_CONTEXT.value: "检索上下文",
     PipelineStep.BUILD_PROMPT.value: "构建 Prompt",
     PipelineStep.GENERATE_RESPONSE.value: "模型回答",
-    PipelineStep.COMMIT_TURN.value: "提交当前轮",
-    PipelineStep.RUN_MIDTERM.value: "中期记忆",
-    PipelineStep.RUN_LONGTERM.value: "长期记忆",
-    PipelineStep.RUN_PROFILE.value: "用户画像",
-    PipelineStep.REFRESH_STATE.value: "刷新状态",
+    PipelineStep.RUN_SHORTTERM.value: "添加短期记忆",
+    PipelineStep.RUN_MIDTERM.value: "添加中期记忆",
+    PipelineStep.RUN_LONGTERM.value: "添加长期记忆",
+    PipelineStep.RUN_PROFILE.value: "抽取用户画像",
 }
 
 
-def render_controls(st, *, disabled: bool, steps: list[dict] | None = None) -> tuple[str | None, str | None]:
-    failed = failed_steps(steps or [])
-    retry_target = None
-    if len(failed) > 1:
-        retry_target = st.selectbox(
-            "重试目标",
+def render_controls(
+    st,
+    *,
+    key_prefix: str,
+    disabled: bool,
+    steps: list[dict] | None = None,
+) -> tuple[str | None, str | None]:
+    step_runs = steps or []
+    failed = failed_steps(step_runs)
+    target = None
+    if failed:
+        target = st.selectbox(
+            "失败步骤",
             [step["step"] for step in failed],
             format_func=lambda value: _STEP_LABELS.get(value, value),
-            key="demo_retry_target",
+            key=f"{key_prefix}:retry_target",
         )
-    elif len(failed) == 1:
-        retry_target = failed[0]["step"]
 
-    columns = st.columns(len(_ACTIONS))
+    selected = _render_action_row(
+        st,
+        _PRIMARY_ACTIONS,
+        key_prefix=key_prefix,
+        disabled=disabled,
+        failed=failed,
+    )
+    secondary = _render_action_row(
+        st,
+        _SECONDARY_ACTIONS,
+        key_prefix=key_prefix,
+        disabled=disabled,
+        failed=failed,
+    )
+    return selected or secondary, target
+
+
+def _render_action_row(
+    st,
+    actions,
+    *,
+    key_prefix: str,
+    disabled: bool,
+    failed: list[dict],
+) -> str | None:
+    columns = st.columns(len(actions))
     selected = None
-    for column, (action, label) in zip(columns, _ACTIONS):
+    for column, (action, label) in zip(columns, actions):
         action_disabled = disabled or (action == "retry" and not failed)
-        if column.button(label, disabled=action_disabled, use_container_width=True):
+        if column.button(
+            label,
+            key=f"{key_prefix}:action:{action}",
+            disabled=action_disabled,
+            width="stretch",
+        ):
             selected = action
-    return selected, retry_target
+    return selected
+
+
+def render_memory_gates(
+    st,
+    pipeline,
+    repository,
+    *,
+    simulation_id: str,
+    session_id: str,
+    turn_id: str | None,
+) -> None:
+    """Render one persisted hold toggle for each selected-turn memory step."""
+    st.caption("本轮记忆阻塞控制")
+    if turn_id is None:
+        st.caption("创建轮次后可独立阻塞或恢复四个记忆步骤。")
+        return
+
+    repository.assert_turn_belongs_to_session(turn_id, session_id)
+    steps = _memory_step_map(repository.list_steps(turn_id))
+    key_prefix = f"memory_gate:{simulation_id}:{turn_id}"
+    fingerprint = _gate_fingerprint(steps)
+    marker_key = f"{key_prefix}:persisted"
+    if st.session_state.get(marker_key) != fingerprint:
+        _store_gate_widget_state(st.session_state, key_prefix, steps)
+
+    columns = st.columns(4)
+    for column, (step, label, _summary_label) in zip(columns, _MEMORY_GATE_CONTROLS):
+        current = steps[step]
+        status = current["status"]
+        column.toggle(
+            label,
+            key=f"{key_prefix}:{step.value}",
+            disabled=status != StepStatus.PENDING.value,
+            help="取消勾选会将尚未执行的步骤保持为 pending 并阻塞；重新勾选会立即恢复调度。",
+            on_change=_apply_memory_gate,
+            args=(
+                st.session_state,
+                pipeline,
+                repository,
+                simulation_id,
+                session_id,
+                turn_id,
+                step.value,
+            ),
+        )
+
+    refreshed = _memory_step_map(repository.list_steps(turn_id))
+    summary = " · ".join(
+        f"{label}{'已阻塞' if refreshed[step].get('is_held') else '可执行'}"
+        for step, _widget_label, label in _MEMORY_GATE_CONTROLS
+    )
+    st.caption(summary)
+    notice_key = f"{key_prefix}:resume_notice"
+    if notice := st.session_state.pop(notice_key, None):
+        st.caption(f"{notice}正在恢复执行……")
+
+
+def _apply_memory_gate(
+    session_state,
+    pipeline,
+    repository,
+    simulation_id: str,
+    session_id: str,
+    turn_id: str,
+    step_name: str,
+) -> None:
+    step = PipelineStep(step_name)
+    key_prefix = f"memory_gate:{simulation_id}:{turn_id}"
+    key = f"{key_prefix}:{step.value}"
+    desired_runnable = bool(session_state[key])
+    current = repository.get_step(turn_id, step)
+    if current is None:
+        raise KeyError(f"Unknown Demo step: turn={turn_id} step={step.value}")
+    if current["status"] != StepStatus.PENDING.value:
+        _store_gate_widget_state(
+            session_state,
+            key_prefix,
+            _memory_step_map(repository.list_steps(turn_id)),
+        )
+        return
+
+    try:
+        if desired_runnable and current.get("is_held"):
+            pipeline.release_step(turn_id, step, session_id=session_id)
+            label = next(label for item, _widget, label in _MEMORY_GATE_CONTROLS if item is step)
+            session_state[f"{key_prefix}:resume_notice"] = label
+        elif not desired_runnable and not current.get("is_held"):
+            pipeline.hold_step(turn_id, step, session_id=session_id)
+    finally:
+        _store_gate_widget_state(
+            session_state,
+            key_prefix,
+            _memory_step_map(repository.list_steps(turn_id)),
+        )
+
+
+def _memory_step_map(steps: list[dict]) -> dict[PipelineStep, dict]:
+    return {
+        PipelineStep(step["step"]): step
+        for step in steps
+        if PipelineStep(step["step"]) in {item[0] for item in _MEMORY_GATE_CONTROLS}
+    }
+
+
+def _gate_fingerprint(steps: dict[PipelineStep, dict]) -> tuple[tuple[str, str, bool], ...]:
+    return tuple(
+        (step.value, steps[step]["status"], bool(steps[step].get("is_held")))
+        for step, _widget_label, _summary_label in _MEMORY_GATE_CONTROLS
+    )
+
+
+def _store_gate_widget_state(session_state, key_prefix: str, steps: dict[PipelineStep, dict]) -> None:
+    for step, _widget_label, _summary_label in _MEMORY_GATE_CONTROLS:
+        current = steps[step]
+        session_state[f"{key_prefix}:{step.value}"] = (
+            not bool(current.get("is_held"))
+            if current["status"] in {StepStatus.PENDING.value, StepStatus.FAILED.value}
+            else True
+        )
+    session_state[f"{key_prefix}:persisted"] = _gate_fingerprint(steps)
 
 
 def apply_action(
@@ -56,33 +219,37 @@ def apply_action(
     session_id: str,
     action: str,
     *,
-    retry_target: str | None = None,
+    target: str | None = None,
 ) -> None:
     try:
-        result = None
         if action == "next":
             result = pipeline.run_next_step(turn_id, session_id=session_id)
         elif action == "answer":
-            result = pipeline.run_until(turn_id, PipelineStep.GENERATE_RESPONSE, session_id=session_id)
-        elif action == "commit":
-            result = pipeline.run_until(turn_id, PipelineStep.COMMIT_TURN, session_id=session_id)
+            result = pipeline.run_to_answer(turn_id, session_id=session_id)
+        elif action == "memory":
+            result = pipeline.run_memory_stage(turn_id, session_id=session_id)
         elif action == "all":
             result = pipeline.run_all(turn_id, session_id=session_id)
+        elif action == "remaining":
+            result = pipeline.run_remaining(turn_id, session_id=session_id)
         elif action == "retry":
-            if retry_target is None:
+            if target is None:
                 st.info("当前没有失败步骤可重试。")
                 return
-            result = pipeline.retry_step(turn_id, retry_target, session_id=session_id)
+            result = pipeline.retry_step(turn_id, target, session_id=session_id)
         elif action == "reset":
             result = pipeline.reset_turn(turn_id, session_id=session_id)
+        else:
+            raise ValueError(f"Unknown Demo action: {action}")
 
         if isinstance(result, dict) and result.get("blocked"):
-            if result["blocked"] in {"running", "background_running"}:
-                st.info("本轮后台任务仍在执行；页面会自动更新，期间可以继续创建下一轮。")
+            if result["blocked"] == "running":
+                st.caption("本轮已有步骤处于 queued/running，状态区域会自动更新。")
             else:
-                st.warning("存在失败步骤，请选择失败节点后重试。")
+                st.warning("存在失败步骤，请选择失败节点后单独重试。")
             return
-        st.rerun()
+        if action == "reset":
+            st.caption("当前轮已安全重置。")
     except StepAlreadyRunningError as exc:
         st.warning(str(exc))
     except Exception as exc:
@@ -110,7 +277,7 @@ def current_step(
 
 
 def failed_steps(steps: list[dict]) -> list[dict]:
-    return [step for step in steps if step["status"] == "failed"]
+    return [step for step in steps if step["status"] == StepStatus.FAILED.value]
 
 
 def progress(

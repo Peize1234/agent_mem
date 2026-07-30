@@ -13,10 +13,15 @@ def render_prompt(st, prompt_output: dict | None) -> None:
         st.code(message.get("content", ""), language="text")
 
 
-def render_generation(st, generation_output: dict | None) -> None:
+def render_generation(st, generation_output: dict | None, *, key_prefix: str) -> None:
     if not generation_output:
         st.caption("执行“模型回答”后显示调用结果。")
         return
     st.markdown("#### 助手回答")
     st.markdown(generation_output.get("assistant_message", ""))
-    render_json(st, generation_output.get("raw_response"), label="模型原始返回")
+    render_json(
+        st,
+        generation_output.get("raw_response"),
+        label="模型原始返回",
+        key=f"{key_prefix}:raw_response",
+    )

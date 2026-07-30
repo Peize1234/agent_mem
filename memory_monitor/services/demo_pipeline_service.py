@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import json
+import threading
 import time
 from copy import deepcopy
 from typing import Any, Dict, Optional
 
-from memory_monitor.models.demo_pipeline import (
-    BACKGROUND_STEPS,
+from memory_monitor.models import (
     FOREGROUND_STEPS,
+    MEMORY_STEPS,
     OPTIONAL_PIPELINE_STEPS,
+    PIPELINE_STEPS,
+    TERMINAL_STEP_STATUSES,
     BackgroundStepConfig,
     PipelineStep,
     StepStatus,
@@ -17,6 +20,10 @@ from memory_monitor.models.demo_pipeline import (
 from memory_monitor.runtime.demo_background_coordinator import DemoBackgroundCoordinator, SubmissionResult
 from memory_monitor.services.demo_repository import DemoRepository
 from memory_monitor.services.memory_state_service import MemoryStateService
+
+TARGET_ANSWER = "answer"
+TARGET_MEMORY = "memory"
+TARGET_ALL = "all"
 
 
 class PipelineStepError(RuntimeError):
@@ -28,7 +35,7 @@ class BackgroundJobDeferred(RuntimeError):
 
 
 class DemoPipelineService:
-    """Persisted DAG orchestration composed around ``DemoMemory``."""
+    """Persisted asynchronous DAG orchestration composed around ``DemoMemory``."""
 
     def __init__(
         self,
@@ -37,15 +44,14 @@ class DemoPipelineService:
         state_service: MemoryStateService,
         *,
         coordinator: DemoBackgroundCoordinator | None = None,
-        lease_seconds: int = 300,
         generation_kwargs: Optional[Dict[str, Any]] = None,
     ):
         self.memory = memory
         self.repository = repository
         self.state_service = state_service
         self.coordinator = coordinator
-        self.lease_seconds = max(int(lease_seconds), 1)
         self.generation_kwargs = deepcopy(generation_kwargs) if generation_kwargs else {}
+        self._schedule_lock = threading.RLock()
 
     def create_turn(
         self,
@@ -79,61 +85,62 @@ class DemoPipelineService:
     def run_next_step(self, turn_id: str, *, session_id: str) -> Dict[str, Any]:
         turn = self._require_turn(turn_id, session_id)
         step_runs = self._step_map(turn_id)
+        inflight = next(
+            (
+                step
+                for step in PIPELINE_STEPS
+                if step_runs[step]["status"] in {StepStatus.QUEUED.value, StepStatus.RUNNING.value}
+            ),
+            None,
+        )
+        if inflight is not None:
+            return {"turn_id": turn_id, "blocked": "running", "step": inflight.value}
+        failed = next(
+            (step for step in PIPELINE_STEPS if step_runs[step]["status"] == StepStatus.FAILED.value),
+            None,
+        )
+        if failed is not None:
+            return {"turn_id": turn_id, "blocked": "failed", "step": failed.value}
+
+        if turn.get("completed_at") is not None:
+            return {"turn_id": turn_id, "complete": True}
+
         for step in FOREGROUND_STEPS:
             current = step_runs[step]
-            if current["status"] == StepStatus.FAILED.value:
-                return {"turn_id": turn_id, "blocked": "failed", "step": step.value}
-            if current["status"] == StepStatus.RUNNING.value:
-                return {"turn_id": turn_id, "blocked": "running", "step": step.value}
-            if not self._is_complete(current):
-                return self.run_step(turn_id, step, session_id=session_id)
+            if current["status"] != StepStatus.PENDING.value:
+                continue
+            if self._prerequisites_complete(turn_id, step):
+                result = self._submit_step(turn_id, step, session_id)
+                return self._submission_payload(turn_id, {step: result})
 
-        config = self.repository.background_config(turn_id)
-        enabled = config.enabled_background_steps()
-        if turn.get("background_submitted_at") is None:
-            submissions = self.submit_background_branches(turn_id, session_id=session_id)
-            return self._submission_payload(turn_id, submissions)
+        if step_runs[PipelineStep.GENERATE_RESPONSE]["status"] == StepStatus.SUCCEEDED.value:
+            return self.run_memory_stage(turn_id, session_id=session_id)
+        return {"turn_id": turn_id, "complete": False}
 
-        step_runs = self._step_map(turn_id)
-        failed = [step for step in enabled if step_runs[step]["status"] == StepStatus.FAILED.value]
-        if failed:
-            return {
-                "turn_id": turn_id,
-                "blocked": "failed",
-                "steps": [step.value for step in failed],
-            }
-        running = [step for step in enabled if step_runs[step]["status"] == StepStatus.RUNNING.value]
-        if running:
-            return {
-                "turn_id": turn_id,
-                "blocked": "background_running",
-                "steps": [step.value for step in running],
-            }
-        pending = [step for step in enabled if step_runs[step]["status"] == StepStatus.PENDING.value]
-        if pending:
-            submissions = self._submit_steps(turn_id, session_id, tuple(pending))
-            return self._submission_payload(turn_id, submissions)
-
-        refresh = step_runs[PipelineStep.REFRESH_STATE]
-        if refresh["status"] == StepStatus.FAILED.value:
-            return {"turn_id": turn_id, "blocked": "failed", "step": PipelineStep.REFRESH_STATE.value}
-        if self._is_complete(refresh):
-            return {"turn_id": turn_id, "complete": True, "steps": self.repository.list_steps(turn_id)}
-        return self.run_step(turn_id, PipelineStep.REFRESH_STATE, session_id=session_id)
-
-    def run_step(self, turn_id: str, step: PipelineStep | str, *, session_id: str) -> Dict[str, Any]:
+    def run_step(
+        self,
+        turn_id: str,
+        step: PipelineStep | str,
+        *,
+        session_id: str,
+    ) -> SubmissionResult | Dict[str, Any]:
         step = PipelineStep(step)
-        turn = self._require_turn(turn_id, session_id)
+        if step not in PIPELINE_STEPS:
+            raise ValueError(f"Pipeline step is not executable: {step.value}")
+        self._require_turn(turn_id, session_id)
         existing = self._require_step(turn_id, step)
-        if self._is_complete(existing):
+        if self._is_complete(existing) or existing["status"] in {
+            StepStatus.QUEUED.value,
+            StepStatus.RUNNING.value,
+        }:
             return existing
-        self._require_enabled(turn_id, step)
+        if existing["status"] == StepStatus.FAILED.value:
+            raise ValueError(f"Use retry_step for a failed step: turn={turn_id} step={step.value}")
+        self._require_not_held(existing)
         self._require_prerequisites(turn_id, step)
-
-        token = self.repository.claim_step(turn_id, step, lease_seconds=self.lease_seconds)
-        if token is None:
-            return self._require_step(turn_id, step)
-        return self._run_claimed_step(turn, step, token)
+        if step in MEMORY_STEPS:
+            self.repository.mark_background_submitted(turn_id)
+        return self._submit_step(turn_id, step, session_id)
 
     def retry_step(
         self,
@@ -141,27 +148,55 @@ class DemoPipelineService:
         step: PipelineStep | str,
         *,
         session_id: str,
-    ) -> Dict[str, Any] | SubmissionResult:
+    ) -> SubmissionResult:
         self._require_turn(turn_id, session_id)
         step = PipelineStep(step)
         current = self._require_step(turn_id, step)
         if current["status"] != StepStatus.FAILED.value:
             raise ValueError(f"Only failed steps can be retried: turn={turn_id} step={step.value}")
-        self._require_enabled(turn_id, step)
+        self._require_not_held(current)
         self._require_prerequisites(turn_id, step)
-        if step in BACKGROUND_STEPS and self.coordinator is not None:
-            return self.coordinator.submit(
-                turn_id,
-                step,
-                session_id,
-                self._run_claimed_background_step,
-                retry=True,
-            )
-        return self.run_step(turn_id, step, session_id=session_id)
+        return self._submit_step(turn_id, step, session_id, retry=True)
 
     def retryable_steps(self, turn_id: str, *, session_id: str) -> list[Dict[str, Any]]:
         self._require_turn(turn_id, session_id)
         return [step for step in self.repository.list_steps(turn_id) if step["status"] == StepStatus.FAILED.value]
+
+    def hold_step(
+        self,
+        turn_id: str,
+        step: PipelineStep | str,
+        *,
+        session_id: str,
+    ) -> Dict[str, Any]:
+        """Persistently prevent automatic scheduling while keeping the step pending."""
+        self._require_turn(turn_id, session_id)
+        step = PipelineStep(step)
+        if step not in MEMORY_STEPS:
+            raise ValueError(f"Only pending memory steps can be held: {step.value}")
+        return self.repository.hold_step(turn_id, step)
+
+    def release_step(
+        self,
+        turn_id: str,
+        step: PipelineStep | str,
+        *,
+        session_id: str,
+    ) -> Dict[str, Any]:
+        """Release a held memory step and submit it immediately when dependencies allow."""
+        self._require_turn(turn_id, session_id)
+        step = PipelineStep(step)
+        released = self.repository.release_step(turn_id, step)
+        if not self._prerequisites_complete(turn_id, step):
+            return {
+                "turn_id": turn_id,
+                "released": True,
+                "scheduled": False,
+                "step": released,
+            }
+        self.repository.mark_background_submitted(turn_id)
+        submission = self._submit_step(turn_id, step, session_id)
+        return self._submission_payload(turn_id, {step: submission})
 
     def skip_step(
         self,
@@ -169,36 +204,13 @@ class DemoPipelineService:
         step: PipelineStep | str,
         *,
         session_id: str,
-        reason: str = "Skipped by demo operator",
+        reason: str = "Disabled by turn configuration",
     ) -> Dict[str, Any]:
-        """Compatibility API for old Demo callers; UI configuration never uses it."""
+        """Compatibility alias for the recoverable memory-step hold operation."""
         step = PipelineStep(step)
         if step not in OPTIONAL_PIPELINE_STEPS:
-            raise ValueError(f"Pipeline step is not optional: {step.value}")
-        turn = self._require_turn(turn_id, session_id)
-        current = self._require_step(turn_id, step)
-        if self._is_complete(current):
-            return current
-        self._require_prerequisites(turn_id, step)
-        token = self.repository.claim_step(turn_id, step, lease_seconds=self.lease_seconds)
-        if token is None:
-            return self._require_step(turn_id, step)
-        before = self.state_service.snapshot(user_id=turn["user_id"], run_id=turn["run_id"])
-        before_id = self.repository.create_snapshot(turn_id, step, "before", before)
-        after_id = self.repository.create_snapshot(turn_id, step, "after", before)
-        return self.repository.complete_step(
-            turn_id,
-            step,
-            token,
-            status=StepStatus.SKIPPED,
-            input_data={"reason": reason},
-            output_data={"skipped": True},
-            duration_ms=0,
-            before_snapshot_id=before_id,
-            after_snapshot_id=after_id,
-            diff=self.state_service.compare(before, before),
-            skip_reason=reason,
-        )
+            raise ValueError(f"Pipeline step is not configurable: {step.value}")
+        return self.hold_step(turn_id, step, session_id=session_id)
 
     def run_until(
         self,
@@ -208,36 +220,45 @@ class DemoPipelineService:
         session_id: str,
     ) -> Dict[str, Any]:
         target_step = PipelineStep(target_step)
+        if target_step is not PipelineStep.GENERATE_RESPONSE:
+            raise ValueError("run_until only supports generate_response in the asynchronous pipeline")
+        return self.run_to_answer(turn_id, session_id=session_id)
+
+    def run_to_answer(self, turn_id: str, *, session_id: str) -> Dict[str, Any]:
         self._require_turn(turn_id, session_id)
-        if target_step in FOREGROUND_STEPS:
-            return self._run_foreground_until(turn_id, target_step, session_id)
-        if target_step is PipelineStep.REFRESH_STATE:
-            return self.run_all(turn_id, session_id=session_id)
-        self._run_foreground_until(turn_id, PipelineStep.COMMIT_TURN, session_id)
-        return self.run_step(turn_id, target_step, session_id=session_id)
+        self.repository.set_execution_target(turn_id, TARGET_ANSWER)
+        submissions = self._advance_turn(turn_id, session_id)
+        return self._submission_payload(turn_id, submissions, execution_target=TARGET_ANSWER)
+
+    def run_memory_stage(self, turn_id: str, *, session_id: str) -> Dict[str, Any]:
+        self._require_turn(turn_id, session_id)
+        generation = self._require_step(turn_id, PipelineStep.GENERATE_RESPONSE)
+        if generation["status"] != StepStatus.SUCCEEDED.value:
+            raise RuntimeError("模型回答完成后才能运行记忆阶段")
+        self.repository.set_execution_target(turn_id, TARGET_MEMORY)
+        submissions = self._schedule_memory_batch(turn_id, session_id)
+        return self._submission_payload(turn_id, submissions, execution_target=TARGET_MEMORY)
 
     def run_all(self, turn_id: str, *, session_id: str) -> Dict[str, Any]:
-        self._run_foreground_until(turn_id, PipelineStep.COMMIT_TURN, session_id)
-        submissions = self.submit_background_branches(turn_id, session_id=session_id)
-        return self._submission_payload(turn_id, submissions)
+        self._require_turn(turn_id, session_id)
+        self.repository.set_execution_target(turn_id, TARGET_ALL)
+        submissions = self._advance_turn(turn_id, session_id)
+        return self._submission_payload(turn_id, submissions, execution_target=TARGET_ALL)
+
+    def run_remaining(self, turn_id: str, *, session_id: str) -> Dict[str, Any]:
+        return self.run_all(turn_id, session_id=session_id)
 
     def submit_background_branches(
         self,
         turn_id: str,
         *,
         session_id: str,
-    ) -> dict[PipelineStep, SubmissionResult]:
-        self._require_turn(turn_id, session_id)
-        self._require_prerequisites(turn_id, PipelineStep.RUN_MIDTERM)
-        if self.coordinator is None:
-            raise RuntimeError("Demo background coordinator is not configured")
-        frozen_turn = self.repository.mark_background_submitted(turn_id)
-        config = BackgroundStepConfig.from_mapping(frozen_turn)
-        return self._submit_steps(turn_id, session_id, config.enabled_background_steps())
+    ) -> Dict[str, Any]:
+        return self.run_memory_stage(turn_id, session_id=session_id)
 
     def has_running_background(self, turn_id: str) -> bool:
         return any(
-            step["step"] in {item.value for item in BACKGROUND_STEPS} and step["status"] == StepStatus.RUNNING.value
+            step["status"] in {StepStatus.QUEUED.value, StepStatus.RUNNING.value}
             for step in self.repository.list_steps(turn_id)
         )
 
@@ -246,38 +267,125 @@ class DemoPipelineService:
         self.repository.reset_turn(turn_id)
         return self._require_turn(turn_id, session_id)
 
-    def _submit_steps(
+    def resume_pending_work(self) -> None:
+        self.repository.recover_expired_step_leases()
+        for turn in self.repository.list_scheduled_turns():
+            self._advance_turn(turn["turn_id"], turn["session_id"])
+
+    def _advance_turn(
         self,
         turn_id: str,
         session_id: str,
-        steps: tuple[PipelineStep, ...],
     ) -> dict[PipelineStep, SubmissionResult]:
+        with self._schedule_lock:
+            turn = self._require_turn(turn_id, session_id)
+            target = turn.get("execution_target")
+            if target not in {TARGET_ANSWER, TARGET_MEMORY, TARGET_ALL}:
+                return {}
+            step_runs = self._step_map(turn_id)
+
+            if target in {TARGET_ANSWER, TARGET_ALL}:
+                for step in FOREGROUND_STEPS:
+                    status = step_runs[step]["status"]
+                    if status == StepStatus.FAILED.value or status in {
+                        StepStatus.QUEUED.value,
+                        StepStatus.RUNNING.value,
+                    }:
+                        return {}
+                    if status == StepStatus.PENDING.value:
+                        result = self._submit_step(turn_id, step, session_id)
+                        return {step: result}
+                if target == TARGET_ANSWER:
+                    self.repository.set_execution_target(turn_id, None)
+                    return {}
+
+            if target in {TARGET_MEMORY, TARGET_ALL}:
+                return self._schedule_memory_batch(turn_id, session_id)
+            return {}
+
+    def _schedule_memory_batch(
+        self,
+        turn_id: str,
+        session_id: str,
+    ) -> dict[PipelineStep, SubmissionResult]:
+        """Submit short-term once, then fan out all eligible memory branches."""
+        with self._schedule_lock:
+            turn = self._require_turn(turn_id, session_id)
+            step_runs = self._step_map(turn_id)
+            if step_runs[PipelineStep.GENERATE_RESPONSE]["status"] != StepStatus.SUCCEEDED.value:
+                return {}
+
+            if turn.get("background_submitted_at") is None:
+                self.repository.mark_background_submitted(turn_id)
+
+            # The persisted target remains active while any branch is held.
+            # Re-read step rows after recording the batch intent.
+            step_runs = self._step_map(turn_id)
+            shortterm = step_runs[PipelineStep.RUN_SHORTTERM]
+            if shortterm["status"] == StepStatus.FAILED.value or shortterm["status"] in {
+                StepStatus.QUEUED.value,
+                StepStatus.RUNNING.value,
+            }:
+                return {}
+            if shortterm["status"] == StepStatus.PENDING.value:
+                if shortterm.get("is_held"):
+                    return {}
+                result = self._submit_step(turn_id, PipelineStep.RUN_SHORTTERM, session_id)
+                return {PipelineStep.RUN_SHORTTERM: result}
+
+            eligible = []
+            for step in MEMORY_STEPS[1:]:
+                current = step_runs[step]
+                if current["status"] != StepStatus.PENDING.value:
+                    continue
+                if current.get("is_held"):
+                    continue
+                if self._prerequisites_complete(turn_id, step):
+                    eligible.append(step)
+            submissions = (
+                self.coordinator.submit_enabled_branches(
+                    turn_id,
+                    session_id,
+                    tuple(eligible),
+                    self._run_claimed_step,
+                    on_settled=self._on_step_settled,
+                )
+                if eligible and self.coordinator is not None
+                else {}
+            )
+            if not submissions and all(step_runs[step]["status"] in TERMINAL_STEP_STATUSES for step in MEMORY_STEPS):
+                self.repository.set_execution_target(turn_id, None)
+            return submissions
+
+    def _submit_step(
+        self,
+        turn_id: str,
+        step: PipelineStep,
+        session_id: str,
+        *,
+        retry: bool = False,
+    ) -> SubmissionResult:
         if self.coordinator is None:
             raise RuntimeError("Demo background coordinator is not configured")
-        return self.coordinator.submit_enabled_branches(
+        return self.coordinator.submit(
             turn_id,
+            step,
             session_id,
-            steps,
-            self._run_claimed_background_step,
+            self._run_claimed_step,
+            retry=retry,
+            on_settled=self._on_step_settled,
         )
 
-    def _run_foreground_until(
-        self,
-        turn_id: str,
-        target_step: PipelineStep,
-        session_id: str,
-    ) -> Dict[str, Any]:
-        target_index = FOREGROUND_STEPS.index(target_step)
-        for step in FOREGROUND_STEPS[: target_index + 1]:
-            current = self._require_step(turn_id, step)
-            if self._is_complete(current):
-                continue
-            if current["status"] == StepStatus.FAILED.value:
-                raise RuntimeError(f"Retry the failed step before continuing: {step.value}")
-            self.run_step(turn_id, step, session_id=session_id)
-        return self._require_step(turn_id, target_step)
+    def _on_step_settled(self, turn_id: str, step: PipelineStep, session_id: str) -> None:
+        current = self._require_step(turn_id, step)
+        if current["status"] in {
+            StepStatus.SUCCEEDED.value,
+            StepStatus.SKIPPED.value,
+            StepStatus.FAILED.value,
+        }:
+            self._advance_turn(turn_id, session_id)
 
-    def _run_claimed_background_step(
+    def _run_claimed_step(
         self,
         turn_id: str,
         step: PipelineStep,
@@ -285,31 +393,27 @@ class DemoPipelineService:
         session_id: str,
     ) -> Dict[str, Any]:
         turn = self._require_turn(turn_id, session_id)
-        self._require_enabled(turn_id, step)
         self._require_prerequisites(turn_id, step)
-        return self._run_claimed_step(turn, step, token)
-
-    def _run_claimed_step(
-        self,
-        turn: Dict[str, Any],
-        step: PipelineStep,
-        token: str,
-    ) -> Dict[str, Any]:
-        turn_id = turn["turn_id"]
         started_at = time.perf_counter()
         input_data: Dict[str, Any] = {}
         before = None
         before_id = None
         after_id = None
-        diff = None
+        diff: Dict[str, Any] = {}
+        mutates_memory = step in MEMORY_STEPS
         try:
             input_data = self._step_input(turn, step)
-            before = self.state_service.snapshot(user_id=turn["user_id"], run_id=turn["run_id"])
-            before_id = self.repository.create_snapshot(turn_id, step, "before", before)
+            if mutates_memory:
+                before, before_id, snapshot_error = self._capture_snapshot(turn, step, "before")
+                if snapshot_error:
+                    diff["before_snapshot_error"] = snapshot_error
             output, turn_updates = self._execute(turn, step, input_data)
-            after = self.state_service.snapshot(user_id=turn["user_id"], run_id=turn["run_id"])
-            after_id = self.repository.create_snapshot(turn_id, step, "after", after)
-            diff = self.state_service.compare(before, after)
+            if mutates_memory:
+                after, after_id, snapshot_error = self._capture_snapshot(turn, step, "after")
+                if snapshot_error:
+                    diff["after_snapshot_error"] = snapshot_error
+                if before is not None and after is not None:
+                    diff.update(self.state_service.compare(before, after))
             duration_ms = (time.perf_counter() - started_at) * 1000
             return self.repository.complete_step(
                 turn_id,
@@ -327,12 +431,6 @@ class DemoPipelineService:
             )
         except BackgroundJobDeferred as exc:
             duration_ms = (time.perf_counter() - started_at) * 1000
-            try:
-                after = self.state_service.snapshot(user_id=turn["user_id"], run_id=turn["run_id"])
-                after_id = self.repository.create_snapshot(turn_id, step, "after", after)
-                diff = self.state_service.compare(before, after) if before is not None else {"snapshot_error": "before"}
-            except Exception as snapshot_exc:
-                diff = {"snapshot_error": f"{type(snapshot_exc).__name__}: {snapshot_exc}"}
             return self.repository.defer_step(
                 turn_id,
                 step,
@@ -346,12 +444,6 @@ class DemoPipelineService:
             )
         except Exception as exc:
             duration_ms = (time.perf_counter() - started_at) * 1000
-            try:
-                after = self.state_service.snapshot(user_id=turn["user_id"], run_id=turn["run_id"])
-                after_id = self.repository.create_snapshot(turn_id, step, "after", after)
-                diff = self.state_service.compare(before, after) if before is not None else {"snapshot_error": "before"}
-            except Exception as snapshot_exc:
-                diff = {"snapshot_error": f"{type(snapshot_exc).__name__}: {snapshot_exc}"}
             self.repository.fail_step(
                 turn_id,
                 step,
@@ -368,6 +460,19 @@ class DemoPipelineService:
                 f"step={step.value} user_id={turn['user_id']} session_id={turn['session_id']} "
                 f"run_id={turn['run_id']} turn_id={turn_id}: {exc}"
             ) from exc
+
+    def _capture_snapshot(
+        self,
+        turn: Dict[str, Any],
+        step: PipelineStep,
+        phase: str,
+    ) -> tuple[Dict[str, Any] | None, str | None, str | None]:
+        try:
+            snapshot = self.state_service.snapshot(user_id=turn["user_id"], run_id=turn["run_id"])
+            snapshot_id = self.repository.create_snapshot(turn["turn_id"], step, phase, snapshot)
+            return snapshot, snapshot_id, None
+        except Exception as exc:
+            return None, None, f"{type(exc).__name__}: {exc}"
 
     def _execute(
         self,
@@ -405,7 +510,7 @@ class DemoPipelineService:
             }
             return output, {"assistant_message": assistant_message, "generation": output}
 
-        if step is PipelineStep.COMMIT_TURN:
+        if step is PipelineStep.RUN_SHORTTERM:
             generation = self._step_output(turn_id, PipelineStep.GENERATE_RESPONSE)
             session = self.repository.get_session(turn["session_id"])
             if session is None:
@@ -420,16 +525,13 @@ class DemoPipelineService:
             )
             return result, {"commit": result}
 
-        if step in BACKGROUND_STEPS:
+        if step in MEMORY_STEPS[1:]:
             return self._run_background_job(turn_id, step), {}
-
-        if step is PipelineStep.REFRESH_STATE:
-            return self.state_service.snapshot(user_id=turn["user_id"], run_id=turn["run_id"]), {}
 
         raise ValueError(f"Unsupported pipeline step: {step.value}")
 
     def _run_background_job(self, turn_id: str, step: PipelineStep) -> Dict[str, Any]:
-        commit = self._step_output(turn_id, PipelineStep.COMMIT_TURN)
+        commit = self._step_output(turn_id, PipelineStep.RUN_SHORTTERM)
         background = commit.get("background") or {}
         worker = self.memory.demo_background_worker
         if step is PipelineStep.RUN_PROFILE:
@@ -437,6 +539,7 @@ class DemoPipelineService:
             job_id = background.get("profile_job_id")
             status_field = "status"
             processor = worker.process_profile_job
+            stage = None
         else:
             job_type = "migration"
             job_id = background.get("migration_job_id")
@@ -456,7 +559,7 @@ class DemoPipelineService:
         status = worker.get_job_status(job_id, job_type)
         status_name = (status or {}).get(status_field)
         if status_name not in {"succeeded", "succeeded_degraded"}:
-            if not processed and status_name in {"pending", "running"}:
+            if not processed and status_name in {"pending", "running", "retry"}:
                 raise BackgroundJobDeferred(
                     f"{step.value} is waiting for an earlier core queue item: job_id={job_id} status={status_name}"
                 )
@@ -467,8 +570,7 @@ class DemoPipelineService:
         events = [
             event
             for event in self.memory.demo_events()[event_offset:]
-            if event.get("job_id") == job_id
-            and (step is PipelineStep.RUN_PROFILE or event.get("stage") in {None, stage})
+            if event.get("job_id") == job_id and (stage is None or event.get("stage") in {None, stage})
         ]
         return {
             "job_type": job_type,
@@ -497,7 +599,7 @@ class DemoPipelineService:
         if step is PipelineStep.GENERATE_RESPONSE:
             prompt = self._step_output(turn_id, PipelineStep.BUILD_PROMPT)
             return {"context_hash": prompt["context_hash"], "messages": prompt["messages"]}
-        if step is PipelineStep.COMMIT_TURN:
+        if step is PipelineStep.RUN_SHORTTERM:
             generation = self._step_output(turn_id, PipelineStep.GENERATE_RESPONSE)
             return {
                 "turn_id": turn_id,
@@ -505,8 +607,8 @@ class DemoPipelineService:
                 "user_message": turn["user_message"],
                 "assistant_message": generation["assistant_message"],
             }
-        if step in BACKGROUND_STEPS:
-            commit = self._step_output(turn_id, PipelineStep.COMMIT_TURN)
+        if step in MEMORY_STEPS[1:]:
+            commit = self._step_output(turn_id, PipelineStep.RUN_SHORTTERM)
             background = commit.get("background") or {}
             job_id = (
                 background.get("profile_job_id")
@@ -514,24 +616,29 @@ class DemoPipelineService:
                 else background.get("migration_job_id")
             )
             return {"pipeline_step": step.value, "job_id": job_id}
-        return {"user_id": turn["user_id"], "run_id": turn["run_id"]}
+        raise ValueError(f"Unsupported pipeline step: {step.value}")
 
     def _require_prerequisites(self, turn_id: str, step: PipelineStep) -> None:
-        config = self.repository.background_config(turn_id)
-        step_runs = self._step_map(turn_id)
         incomplete = [
             prerequisite.value
-            for prerequisite in dependencies_for(step, config)
-            if not self._is_complete(step_runs[prerequisite])
+            for prerequisite in dependencies_for(step, self.repository.background_config(turn_id))
+            if not self._is_complete(self._require_step(turn_id, prerequisite))
         ]
         if incomplete:
             raise RuntimeError(
                 f"Pipeline prerequisites are incomplete for turn={turn_id} step={step.value}: {incomplete}"
             )
 
-    def _require_enabled(self, turn_id: str, step: PipelineStep) -> None:
-        if step in BACKGROUND_STEPS and not self.repository.background_config(turn_id).enabled(step):
-            raise RuntimeError(f"Background step is not enabled for this turn: {step.value}")
+    def _prerequisites_complete(self, turn_id: str, step: PipelineStep) -> bool:
+        return all(
+            self._is_complete(self._require_step(turn_id, prerequisite))
+            for prerequisite in dependencies_for(step, self.repository.background_config(turn_id))
+        )
+
+    @staticmethod
+    def _require_not_held(step: Dict[str, Any]) -> None:
+        if step.get("is_held"):
+            raise RuntimeError(f"Pipeline step is held: step={step['step']}")
 
     def _step_output(self, turn_id: str, step: PipelineStep) -> Any:
         step_run = self._require_step(turn_id, step)
@@ -553,16 +660,19 @@ class DemoPipelineService:
 
     @staticmethod
     def _is_complete(step: Dict[str, Any]) -> bool:
-        return step["status"] in {StepStatus.SUCCEEDED.value, StepStatus.SKIPPED.value}
+        return step["status"] in TERMINAL_STEP_STATUSES
 
     @staticmethod
     def _submission_payload(
         turn_id: str,
         submissions: dict[PipelineStep, SubmissionResult],
+        *,
+        execution_target: str | None = None,
     ) -> Dict[str, Any]:
         return {
             "turn_id": turn_id,
-            "background_submitted": True,
+            "scheduled": True,
+            "execution_target": execution_target,
             "submissions": {
                 step.value: {
                     "submitted": result.submitted,
