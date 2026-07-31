@@ -15,7 +15,7 @@ from memory_monitor.models import (
     StepStatus,
 )
 from memory_monitor.runtime import DemoBackgroundCoordinator
-from memory_monitor.services.demo_pipeline_service import DemoPipelineService
+from memory_monitor.services.demo_pipeline_service import DemoPipelineService, STEP_SNAPSHOT_SECTIONS
 from memory_monitor.services.demo_repository import DemoRepository, StepAlreadyRunningError
 from tests.memory_monitor.test_demo_pipeline import _pipeline
 
@@ -454,6 +454,8 @@ def test_shortterm_completion_fans_out_three_worker_branches_concurrently(tmp_pa
 
     assert memory.commit_calls == 1
     assert all(repository.get_step(turn["turn_id"], step)["status"] == "succeeded" for step in MEMORY_STEPS)
+    for step in MEMORY_STEPS:
+        assert set(repository.get_step(turn["turn_id"], step)["diff"]) == set(STEP_SNAPSHOT_SECTIONS[step])
 
 
 @pytest.mark.parametrize("step", MEMORY_STEPS)

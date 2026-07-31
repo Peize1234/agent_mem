@@ -183,18 +183,6 @@ class DemoMemory(Memory):
         with lock:
             return deepcopy(self._demo_events)
 
-    def close(self) -> bool:
-        closed = super().close()
-        if not closed:
-            return False
-        vector_store = getattr(self, "vector_store", None)
-        client = getattr(vector_store, "client", None)
-        close = getattr(client, "close", None)
-        if callable(close) and not getattr(self, "_demo_vector_client_closed", False):
-            close()
-            self._demo_vector_client_closed = True
-        return True
-
     @property
     def demo_background_worker(self) -> DemoBackgroundWorkerManager:
         """Return the manually controlled worker through a demo-only public API."""

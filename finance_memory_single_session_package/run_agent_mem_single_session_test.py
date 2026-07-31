@@ -587,24 +587,6 @@ def normalize_search_results(raw: Any) -> Dict[str, List[Dict[str, Any]]]:
     return grouped
 
 
-def get_midterm_retrieval_stats(memory) -> Dict[str, int]:
-    stats = getattr(getattr(memory, "_midterm_retriever", None), "last_search_stats", None) or {}
-    return {
-        "retrieved_sessions": int(stats.get("retrieved_sessions", 0) or 0),
-        "candidate_pages_before_dedupe": int(stats.get("candidate_pages_before_dedupe", 0) or 0),
-        "candidate_pages_after_dedupe": int(stats.get("candidate_pages_after_dedupe", 0) or 0),
-        "returned_pages": int(stats.get("returned_pages", 0) or 0),
-    }
-
-
-def print_midterm_retrieval_stats(stats: Dict[str, int]) -> None:
-    print_separator("中期检索统计", "-")
-    print(f"召回的主题数量：{stats['retrieved_sessions']}")
-    print(f"去重前候选 Page 数量：{stats['candidate_pages_before_dedupe']}")
-    print(f"去重后数量：{stats['candidate_pages_after_dedupe']}")
-    print(f"最终返回 Page 数量：{stats['returned_pages']}")
-
-
 def format_short_term_for_prompt(rows: Sequence[Dict[str, Any]]) -> str:
     if not rows:
         return "（当前 Session 暂无短期消息）"
@@ -1109,7 +1091,7 @@ class Runner:
             for query in data["evaluation_queries"]
         }
 
-    def search(self, question: str, run_id: str) -> Tuple[Any, Dict[str, List[Dict[str, Any]]], float, Dict[str, int]]:
+    def search(self, question: str, run_id: str) -> Tuple[Any, Dict[str, List[Dict[str, Any]]], float]:
         start = time.perf_counter()
         raw = self.memory.search(
             question,
@@ -1118,8 +1100,7 @@ class Runner:
         )
         latency_ms = (time.perf_counter() - start) * 1000
         grouped = normalize_search_results(raw)
-        midterm_stats = get_midterm_retrieval_stats(self.memory)
-        return raw, grouped, latency_ms, midterm_stats
+        return raw, grouped, latency_ms
 
     def answer(
         self,
@@ -1167,7 +1148,7 @@ class Runner:
         print("【用户原始问题】")
         print(question)
 
-        raw_search, grouped, search_latency, midterm_stats = self.search(question, run_id)
+        raw_search, grouped, search_latency = self.search(question, run_id)
         state_before = snapshot_memory_state(
             self.memory,
             self.args.user_id,
@@ -1189,7 +1170,6 @@ class Runner:
         print_json_section("本轮 Search：长期记忆命中", grouped["long_term"])
         print_json_section("本轮 Search：中期主题 Session 命中", grouped["mid_term_sessions"])
         print_json_section("本轮 Search：中期原始 Page 命中", grouped["mid_term_pages"])
-        print_midterm_retrieval_stats(midterm_stats)
 
         if self.args.state_timing in ("before", "both"):
             print_memory_state("回答前：三层记忆完整状态", state_before)
@@ -1274,7 +1254,6 @@ class Runner:
             "prompt_messages": prompt_messages,
             "search_raw": raw_search,
             "search_results": grouped,
-            "midterm_retrieval_stats": midterm_stats,
             "short_term_before": short_before,
             "state_before": state_before,
             "add_result": add_result,
@@ -1302,7 +1281,7 @@ class Runner:
         print("【用户原始问题】")
         print(question)
 
-        raw_search, grouped, search_latency, midterm_stats = self.search(question, current_run_id)
+        raw_search, grouped, search_latency = self.search(question, current_run_id)
         state_before = snapshot_memory_state(
             self.memory,
             self.args.user_id,
@@ -1322,7 +1301,6 @@ class Runner:
         print_json_section("评测 Search：长期记忆命中", grouped["long_term"])
         print_json_section("评测 Search：中期主题 Session 命中", grouped["mid_term_sessions"])
         print_json_section("评测 Search：中期原始 Page 命中", grouped["mid_term_pages"])
-        print_midterm_retrieval_stats(midterm_stats)
         print_memory_state("评测时：三层记忆完整状态", state_before)
         print_separator("大模型生成回答", "-")
         print(answer)
@@ -1383,7 +1361,6 @@ class Runner:
             "prompt_messages": prompt_messages,
             "search_raw": raw_search,
             "search_results": grouped,
-            "midterm_retrieval_stats": midterm_stats,
             "retrieval_evidence": evidence,
             "session_isolation_violations": isolation_violations,
             "short_term_before": short_before,

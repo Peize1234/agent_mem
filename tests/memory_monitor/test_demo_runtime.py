@@ -154,16 +154,27 @@ def test_demo_memory_is_memory_subclass():
     assert issubclass(DemoMemory, Memory)
 
 
-def test_demo_memory_closes_embedded_vector_client_after_workers_and_db(monkeypatch):
-    close_result = True
-    monkeypatch.setattr(Memory, "close", lambda self: close_result)
+def test_demo_memory_inherits_idempotent_core_vector_client_close():
+    client = MagicMock()
     memory = DemoMemory.__new__(DemoMemory)
-    memory.vector_store = SimpleNamespace(client=MagicMock())
+    memory.config = SimpleNamespace(
+        history_db_path="unused.db",
+        background=BackgroundTaskConfig(enabled=False),
+    )
+    memory.db = MagicMock()
+    memory._background_worker = None
+    memory._process_instance_lock = ProcessInstanceLock("unused.db", enabled=False)
+    memory.vector_store = SimpleNamespace(client=client)
+    memory.embedding_model = MagicMock()
+    memory.llm = MagicMock()
+    memory.reranker = None
+    memory._entity_store = None
+    memory._midterm_memory = None
 
     assert memory.close() is True
-    memory.vector_store.client.close.assert_called_once_with()
+    client.close.assert_called_once_with()
     assert memory.close() is True
-    memory.vector_store.client.close.assert_called_once_with()
+    client.close.assert_called_once_with()
 
 
 def test_demo_retrieval_freezes_grouped_context_without_generation():

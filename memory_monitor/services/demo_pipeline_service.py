@@ -28,6 +28,13 @@ TARGET_ANSWER = "answer"
 TARGET_MEMORY = "memory"
 TARGET_ALL = "all"
 
+STEP_SNAPSHOT_SECTIONS = {
+    PipelineStep.RUN_SHORTTERM: frozenset({"short_term"}),
+    PipelineStep.RUN_MIDTERM: frozenset({"midterm_sessions", "midterm_pages"}),
+    PipelineStep.RUN_LONGTERM: frozenset({"long_term"}),
+    PipelineStep.RUN_PROFILE: frozenset({"profile"}),
+}
+
 
 class PipelineStepError(RuntimeError):
     """Wrap a step failure with the scope needed to diagnose and retry it."""
@@ -455,7 +462,13 @@ class DemoPipelineService:
                 if snapshot_error:
                     diff["after_snapshot_error"] = snapshot_error
                 if before is not None and after is not None:
-                    diff.update(self.state_service.compare(before, after))
+                    diff.update(
+                        self.state_service.compare(
+                            before,
+                            after,
+                            sections=STEP_SNAPSHOT_SECTIONS[step],
+                        )
+                    )
             duration_ms = (time.perf_counter() - started_at) * 1000
             return self.repository.complete_step(
                 turn_id,
@@ -510,7 +523,11 @@ class DemoPipelineService:
         phase: str,
     ) -> tuple[Dict[str, Any] | None, str | None, str | None]:
         try:
-            snapshot = self.state_service.snapshot(user_id=turn["user_id"], run_id=turn["run_id"])
+            snapshot = self.state_service.snapshot(
+                user_id=turn["user_id"],
+                run_id=turn["run_id"],
+                sections=STEP_SNAPSHOT_SECTIONS[step],
+            )
             snapshot_id = self.repository.create_snapshot(turn["turn_id"], step, phase, snapshot)
             return snapshot, snapshot_id, None
         except Exception as exc:

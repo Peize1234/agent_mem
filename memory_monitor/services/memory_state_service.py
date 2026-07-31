@@ -7,6 +7,28 @@ from typing import Any, Dict, Iterable
 
 from mem0.memory.main import _build_session_scope
 
+SNAPSHOT_SECTIONS = (
+    "short_term",
+    "midterm_sessions",
+    "midterm_pages",
+    "long_term",
+    "profile",
+    "migration_jobs",
+    "profile_jobs",
+)
+_SQLITE_SECTIONS = frozenset({"short_term", "profile", "migration_jobs", "profile_jobs"})
+_SESSION_SCOPE_SECTIONS = frozenset({"short_term", "migration_jobs"})
+_MIDTERM_SECTIONS = frozenset({"midterm_sessions", "midterm_pages"})
+_SECTION_RECORD_KEYS = {
+    "short_term": "id",
+    "midterm_sessions": "id",
+    "midterm_pages": "id",
+    "long_term": "id",
+    "profile": "attribute_id",
+    "migration_jobs": "job_id",
+    "profile_jobs": "job_id",
+}
+
 
 class MemoryStateService:
     """Read current core memory state and compute stable record-level diffs."""
@@ -15,36 +37,76 @@ class MemoryStateService:
         self.memory = memory
         self.db_path = Path(memory.config.history_db_path).expanduser().resolve()
 
-    def snapshot(self, *, user_id: str, run_id: str) -> Dict[str, Any]:
-        scope_builder = getattr(self.memory, "session_scope_for_demo", None)
-        session_scope = (
-            scope_builder(user_id=user_id, run_id=run_id)
-            if callable(scope_builder)
-            else _build_session_scope({"user_id": user_id, "run_id": run_id})
+    def snapshot(
+        self,
+        *,
+        user_id: str,
+        run_id: str,
+        sections: Iterable[str] | None = None,
+    ) -> Dict[str, Any]:
+        selected = self._normalize_sections(sections)
+        session_scope = None
+        if selected & _SESSION_SCOPE_SECTIONS:
+            scope_builder = getattr(self.memory, "session_scope_for_demo", None)
+            session_scope = (
+                scope_builder(user_id=user_id, run_id=run_id)
+                if callable(scope_builder)
+                else _build_session_scope({"user_id": user_id, "run_id": run_id})
+            )
+        sqlite_state = self._sqlite_state(
+            user_id=user_id,
+            session_scope=session_scope,
+            sections=selected,
         )
-        sqlite_state = self._sqlite_state(user_id=user_id, session_scope=session_scope)
         filters = {"user_id": user_id, "run_id": run_id}
-        midterm_sessions, midterm_pages = self._midterm_state(filters)
-        return {
-            "short_term": sqlite_state["short_term"],
-            "midterm_sessions": midterm_sessions,
-            "midterm_pages": midterm_pages,
-            "long_term": self._vector_rows(self.memory.vector_store, filters),
-            "profile": sqlite_state["profile"],
-            "jobs": {
-                "migration": sqlite_state["migration_jobs"],
-                "profile": sqlite_state["profile_jobs"],
-            },
-        }
+        midterm_state = self._midterm_state(filters, selected)
+        snapshot: Dict[str, Any] = {}
+        if "short_term" in selected:
+            snapshot["short_term"] = sqlite_state["short_term"]
+        if "midterm_sessions" in selected:
+            snapshot["midterm_sessions"] = midterm_state["midterm_sessions"]
+        if "midterm_pages" in selected:
+            snapshot["midterm_pages"] = midterm_state["midterm_pages"]
+        if "long_term" in selected:
+            snapshot["long_term"] = self._vector_rows(self.memory.vector_store, filters)
+        if "profile" in selected:
+            snapshot["profile"] = sqlite_state["profile"]
+        if selected & {"migration_jobs", "profile_jobs"}:
+            snapshot["jobs"] = {}
+            if "migration_jobs" in selected:
+                snapshot["jobs"]["migration"] = sqlite_state["migration_jobs"]
+            if "profile_jobs" in selected:
+                snapshot["jobs"]["profile"] = sqlite_state["profile_jobs"]
+        return snapshot
 
-    def _sqlite_state(self, *, user_id: str, session_scope: str) -> Dict[str, Any]:
+    @staticmethod
+    def _normalize_sections(sections: Iterable[str] | None) -> frozenset[str]:
+        if sections is None:
+            return frozenset(SNAPSHOT_SECTIONS)
+        selected = frozenset({sections} if isinstance(sections, str) else sections)
+        unknown = selected.difference(SNAPSHOT_SECTIONS)
+        if unknown:
+            raise ValueError(f"Unknown memory snapshot sections: {sorted(unknown)}")
+        return selected
+
+    def _sqlite_state(
+        self,
+        *,
+        user_id: str,
+        session_scope: str | None,
+        sections: frozenset[str],
+    ) -> Dict[str, Any]:
+        selected = sections & _SQLITE_SECTIONS
+        if not selected:
+            return {}
         uri = f"{self.db_path.as_uri()}?mode=ro"
         connection = sqlite3.connect(uri, uri=True, timeout=5)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA query_only = ON")
         try:
-            return {
-                "short_term": self._query(
+            state: Dict[str, Any] = {}
+            if "short_term" in selected:
+                state["short_term"] = self._query(
                     connection,
                     """
                     SELECT * FROM messages
@@ -52,24 +114,27 @@ class MemoryStateService:
                     ORDER BY created_at ASC, rowid ASC
                     """,
                     (session_scope,),
-                ),
-                "migration_jobs": self._query(
+                )
+            if "migration_jobs" in selected:
+                state["migration_jobs"] = self._query(
                     connection,
                     """
                     SELECT * FROM memory_migration_jobs
                     WHERE session_scope = ? ORDER BY created_at ASC, rowid ASC
                     """,
                     (session_scope,),
-                ),
-                "profile_jobs": self._query(
+                )
+            if "profile_jobs" in selected:
+                state["profile_jobs"] = self._query(
                     connection,
                     """
                     SELECT * FROM profile_update_jobs
                     WHERE user_id = ? ORDER BY created_at ASC, rowid ASC
                     """,
                     (user_id,),
-                ),
-                "profile": self._query(
+                )
+            if "profile" in selected:
+                state["profile"] = self._query(
                     connection,
                     """
                     SELECT v.*, a.attribute_key, a.attribute_name, a.attribute_category
@@ -78,8 +143,8 @@ class MemoryStateService:
                     WHERE v.user_id = ? ORDER BY a.attribute_id ASC
                     """,
                     (user_id,),
-                ),
-            }
+                )
+            return state
         finally:
             connection.close()
 
@@ -99,14 +164,27 @@ class MemoryStateService:
                         pass
         return rows
 
-    def _midterm_state(self, filters: Dict[str, Any]) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]]]:
+    def _midterm_state(
+        self,
+        filters: Dict[str, Any],
+        sections: frozenset[str],
+    ) -> Dict[str, list[Dict[str, Any]]]:
+        selected = sections & _MIDTERM_SECTIONS
+        if not selected:
+            return {}
         if not getattr(self.memory.config.midterm, "enabled", False):
-            return [], []
+            return {section: [] for section in selected}
         midterm = self.memory.midterm_memory
-        return (
-            self._serialize_vectors(midterm.list_sessions(filters=filters, top_k=1000)),
-            self._serialize_vectors(midterm.list_pages(filters=filters, top_k=1000)),
-        )
+        state = {}
+        if "midterm_sessions" in selected:
+            state["midterm_sessions"] = self._serialize_vectors(
+                midterm.list_sessions(filters=filters, top_k=1000)
+            )
+        if "midterm_pages" in selected:
+            state["midterm_pages"] = self._serialize_vectors(
+                midterm.list_pages(filters=filters, top_k=1000)
+            )
+        return state
 
     def _vector_rows(self, store, filters: Dict[str, Any]) -> list[Dict[str, Any]]:
         listed = store.list(filters=filters, top_k=1000)
@@ -126,32 +204,41 @@ class MemoryStateService:
         ]
 
     @classmethod
-    def compare(cls, before: Dict[str, Any], after: Dict[str, Any]) -> Dict[str, Any]:
-        sections = {
-            "short_term": ("id", before.get("short_term", []), after.get("short_term", [])),
-            "midterm_sessions": (
-                "id",
-                before.get("midterm_sessions", []),
-                after.get("midterm_sessions", []),
-            ),
-            "midterm_pages": ("id", before.get("midterm_pages", []), after.get("midterm_pages", [])),
-            "long_term": ("id", before.get("long_term", []), after.get("long_term", [])),
-            "profile": ("attribute_id", before.get("profile", []), after.get("profile", [])),
-            "migration_jobs": (
-                "job_id",
-                before.get("jobs", {}).get("migration", []),
-                after.get("jobs", {}).get("migration", []),
-            ),
-            "profile_jobs": (
-                "job_id",
-                before.get("jobs", {}).get("profile", []),
-                after.get("jobs", {}).get("profile", []),
-            ),
-        }
-        return {
-            name: cls._section_diff(key, rows_before, rows_after)
-            for name, (key, rows_before, rows_after) in sections.items()
-        }
+    def compare(
+        cls,
+        before: Dict[str, Any],
+        after: Dict[str, Any],
+        sections: Iterable[str] | None = None,
+    ) -> Dict[str, Any]:
+        selected = cls._normalize_sections(sections)
+        diff = {}
+        for name in SNAPSHOT_SECTIONS:
+            if name not in selected:
+                continue
+            rows_before = cls._section_rows(before, name)
+            rows_after = cls._section_rows(after, name)
+            if rows_before is None and rows_after is None:
+                rows_before = rows_after = []
+            elif rows_before is None:
+                rows_before = rows_after
+            elif rows_after is None:
+                rows_after = rows_before
+            diff[name] = cls._section_diff(
+                _SECTION_RECORD_KEYS[name],
+                rows_before,
+                rows_after,
+            )
+        return diff
+
+    @staticmethod
+    def _section_rows(snapshot: Dict[str, Any], section: str) -> list[Dict[str, Any]] | None:
+        if section == "migration_jobs":
+            jobs = snapshot.get("jobs")
+            return None if not isinstance(jobs, dict) or "migration" not in jobs else jobs["migration"]
+        if section == "profile_jobs":
+            jobs = snapshot.get("jobs")
+            return None if not isinstance(jobs, dict) or "profile" not in jobs else jobs["profile"]
+        return snapshot.get(section) if section in snapshot else None
 
     @staticmethod
     def _section_diff(

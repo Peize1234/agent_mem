@@ -1,5 +1,6 @@
 import json
 import math
+from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
 
 import pytest
@@ -281,12 +282,6 @@ def test_midterm_retriever_applies_global_page_limit_and_score_order():
     assert len(pages) == 4
     assert [page["score"] for page in pages] == [55.0, 54.0, 53.0, 52.0]
     assert [page["id"] for page in pages] == ["s5-p5", "s5-p4", "s5-p3", "s5-p2"]
-    assert retriever.last_search_stats == {
-        "retrieved_sessions": 5,
-        "candidate_pages_before_dedupe": 25,
-        "candidate_pages_after_dedupe": 25,
-        "returned_pages": 4,
-    }
 
 
 def test_midterm_retriever_dedupes_same_page_from_multiple_sessions():
@@ -312,8 +307,6 @@ def test_midterm_retriever_dedupes_same_page_from_multiple_sessions():
     assert [page["id"] for page in pages] == ["shared-page", "s2-p1", "s1-p1"]
     assert pages[0]["score"] == 0.9
     assert pages[0]["session_id"] == "s2"
-    assert retriever.last_search_stats["candidate_pages_before_dedupe"] == 4
-    assert retriever.last_search_stats["candidate_pages_after_dedupe"] == 3
 
 
 def test_midterm_retriever_returns_all_pages_when_candidates_below_limit():
@@ -330,7 +323,6 @@ def test_midterm_retriever_returns_all_pages_when_candidates_below_limit():
     pages = _page_results(retriever.search("risk", {"user_id": "u1", "run_id": "r1"}))
 
     assert [page["id"] for page in pages] == ["p1", "p2"]
-    assert retriever.last_search_stats["returned_pages"] == 2
 
 
 def test_midterm_retriever_max_total_pages_zero_returns_no_pages():
@@ -344,7 +336,6 @@ def test_midterm_retriever_max_total_pages_zero_returns_no_pages():
     assert _page_results(results) == []
     assert [item["source"] for item in results] == ["mid_term_session"]
     assert store.page_filters == []
-    assert retriever.last_search_stats["returned_pages"] == 0
 
 
 def test_midterm_retriever_preserves_run_id_isolation():
@@ -364,6 +355,49 @@ def test_midterm_retriever_preserves_run_id_isolation():
     assert [item["id"] for item in results] == ["s1", "p1"]
     assert store.session_filters == [{"user_id": "u1", "run_id": "r1"}]
     assert all(call["filters"]["run_id"] == "r1" for call in store.page_filters)
+
+
+def test_midterm_retriever_concurrent_search_results_do_not_mix():
+    class QueryScopedStore:
+        def search_sessions(self, query, filters=None, top_k=5):
+            return [
+                _midterm_row(
+                    f"{query}-session",
+                    0.9,
+                    summary=f"{query} session",
+                    user_id=filters["user_id"],
+                    run_id=filters["run_id"],
+                )
+            ]
+
+        def search_pages(self, query, filters=None, top_k=5):
+            return [
+                _midterm_row(
+                    f"{query}-page",
+                    0.8,
+                    session_id=filters["session_id"],
+                    summary=f"{query} page",
+                    user_id=filters["user_id"],
+                    run_id=filters["run_id"],
+                )
+            ]
+
+        def record_session_visit(self, session_id):
+            return None
+
+    retriever = MidTermRetriever(QueryScopedStore(), _retriever_config())
+    queries = ("risk", "allocation", "liquidity")
+
+    with ThreadPoolExecutor(max_workers=len(queries)) as pool:
+        results = list(
+            pool.map(
+                lambda query: retriever.search(query, {"user_id": "u1", "run_id": "r1"}),
+                queries,
+            )
+        )
+
+    for query, query_results in zip(queries, results):
+        assert [item["id"] for item in query_results] == [f"{query}-session", f"{query}-page"]
 
 
 def test_sqlite_save_messages_returns_natural_evictions():

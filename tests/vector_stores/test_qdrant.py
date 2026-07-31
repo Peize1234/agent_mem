@@ -1,7 +1,10 @@
 import os
 import tempfile
+import threading
+import time
 import unittest
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import MagicMock, patch
 
 from qdrant_client import QdrantClient, models
@@ -1055,7 +1058,67 @@ class TestQdrantDatetimeRangeFilters(unittest.TestCase):
         self.assertIs(result, encoder)
         fastembed.SparseTextEmbedding.assert_called_once_with(model_name="Qdrant/bm25", disable_stemmer=True)
 
+    def test_bm25_encoder_is_initialized_once_under_concurrency(self):
+        self.qdrant._bm25_encoder = None
+        encoder = MagicMock()
+        calls = 0
+        calls_lock = threading.Lock()
+        barrier = threading.Barrier(8)
+
+        def create_encoder(**kwargs):
+            nonlocal calls
+            with calls_lock:
+                calls += 1
+            time.sleep(0.05)
+            return encoder
+
+        fastembed = MagicMock()
+        fastembed.SparseTextEmbedding.side_effect = create_encoder
+
+        def get_encoder():
+            barrier.wait(timeout=2)
+            return self.qdrant._get_bm25_encoder()
+
+        with patch.dict("sys.modules", {"fastembed": fastembed}):
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                encoders = list(pool.map(lambda _index: get_encoder(), range(8)))
+
+        self.assertEqual(calls, 1)
+        self.assertTrue(all(item is encoder for item in encoders))
+
+    def test_failed_bm25_encoder_initialization_is_not_retried_under_concurrency(self):
+        self.qdrant._bm25_encoder = None
+        calls = 0
+        calls_lock = threading.Lock()
+        barrier = threading.Barrier(8)
+
+        def create_encoder(**kwargs):
+            nonlocal calls
+            with calls_lock:
+                calls += 1
+            time.sleep(0.05)
+            raise RuntimeError("encoder unavailable")
+
+        fastembed = MagicMock()
+        fastembed.SparseTextEmbedding.side_effect = create_encoder
+
+        def get_encoder():
+            barrier.wait(timeout=2)
+            return self.qdrant._get_bm25_encoder()
+
+        with patch.dict("sys.modules", {"fastembed": fastembed}):
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                encoders = list(pool.map(lambda _index: get_encoder(), range(8)))
+            subsequent = self.qdrant._get_bm25_encoder()
+
+        self.assertEqual(calls, 1)
+        self.assertTrue(all(item is None for item in encoders))
+        self.assertIsNone(subsequent)
+        self.assertIs(self.qdrant._bm25_encoder, False)
+
     def test_chinese_bm25_encoder_skips_fastembed(self):
+        from mem0.utils.bm25_sparse import ChineseBM25SparseEncoder
+
         fastembed = MagicMock()
         chinese_qdrant = Qdrant(
             collection_name="chinese_collection",
@@ -1066,8 +1129,6 @@ class TestQdrantDatetimeRangeFilters(unittest.TestCase):
 
         with patch.dict("sys.modules", {"fastembed": fastembed}):
             encoder = chinese_qdrant._get_bm25_encoder()
-
-        from mem0.utils.bm25_sparse import ChineseBM25SparseEncoder
 
         self.assertIsInstance(encoder, ChineseBM25SparseEncoder)
         fastembed.SparseTextEmbedding.assert_not_called()

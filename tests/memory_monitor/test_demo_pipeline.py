@@ -20,7 +20,7 @@ from memory_monitor.components import chat_panel, common, memory_panel, pipeline
 from memory_monitor.config import DemoLabConfig
 from memory_monitor.models import PIPELINE_STEPS, PipelineStep, StepStatus
 from memory_monitor.runtime import DemoBackgroundCoordinator, DemoMemory
-from memory_monitor.services.demo_pipeline_service import DemoPipelineService
+from memory_monitor.services.demo_pipeline_service import DemoPipelineService, STEP_SNAPSHOT_SECTIONS
 from memory_monitor.services.demo_repository import (
     DemoRepository,
     StepAlreadyRunningError,
@@ -38,10 +38,20 @@ class _FakeStateService:
     def __init__(self, memory):
         self.memory = memory
 
-    def snapshot(self, *, user_id, run_id):
+    def snapshot(self, *, user_id, run_id, sections=None):
         state = deepcopy(self.memory.state)
-        state["scope"] = {"user_id": user_id, "run_id": run_id}
-        return state
+        if sections is None:
+            state["scope"] = {"user_id": user_id, "run_id": run_id}
+            return state
+        selected = set(sections)
+        snapshot = {section: state[section] for section in selected if section in state}
+        if selected & {"migration_jobs", "profile_jobs"}:
+            snapshot["jobs"] = {}
+            if "migration_jobs" in selected:
+                snapshot["jobs"]["migration"] = state["jobs"]["migration"]
+            if "profile_jobs" in selected:
+                snapshot["jobs"]["profile"] = state["jobs"]["profile"]
+        return snapshot
 
     compare = staticmethod(MemoryStateService.compare)
 
@@ -1675,7 +1685,7 @@ def test_held_steps_stay_pending_while_unheld_memory_snapshot_diff_is_persisted(
 
         shortterm = repository.get_step(turn["turn_id"], PipelineStep.RUN_SHORTTERM)
         assert len(shortterm["diff"]["short_term"]["added"]) == 2
-        assert shortterm["diff"]["migration_jobs"]["added"][0]["job_id"] == "migration-1"
+        assert set(shortterm["diff"]) == {"short_term"}
         midterm = repository.get_step(turn["turn_id"], PipelineStep.RUN_MIDTERM)
         longterm = repository.get_step(turn["turn_id"], PipelineStep.RUN_LONGTERM)
         assert (midterm["status"], midterm["is_held"]) == ("pending", True)
@@ -2112,5 +2122,100 @@ def test_memory_state_uses_core_session_scope_and_only_lists_active_messages(tmp
         assert [message["content"] for message in snapshot["short_term"]] == ["persisted question"]
         assert snapshot["short_term"][0]["session_scope"] == scope
         assert snapshot["short_term"][0]["status"] == "active"
+        assert set(snapshot) == {
+            "short_term",
+            "midterm_sessions",
+            "midterm_pages",
+            "long_term",
+            "profile",
+            "jobs",
+        }
+        assert set(snapshot["jobs"]) == {"migration", "profile"}
     finally:
         db.close()
+
+
+def test_memory_state_partial_snapshot_only_reads_requested_backend(tmp_path):
+    class Midterm:
+        def __init__(self):
+            self.page_calls = 0
+
+        def list_sessions(self, **_kwargs):
+            raise AssertionError("session store must not be read")
+
+        def list_pages(self, **_kwargs):
+            self.page_calls += 1
+            return [SimpleNamespace(id="page-1", score=0.8, payload={"data": "page"})]
+
+    class Longterm:
+        def list(self, **_kwargs):
+            raise AssertionError("long-term store must not be read")
+
+    midterm = Midterm()
+    memory = SimpleNamespace(
+        config=SimpleNamespace(
+            history_db_path=str(tmp_path / "missing-history.db"),
+            midterm=SimpleNamespace(enabled=True),
+        ),
+        midterm_memory=midterm,
+        vector_store=Longterm(),
+    )
+
+    snapshot = MemoryStateService(memory).snapshot(
+        user_id="user-1",
+        run_id="run-1",
+        sections={"midterm_pages"},
+    )
+
+    assert snapshot == {
+        "midterm_pages": [{"id": "page-1", "score": 0.8, "payload": {"data": "page"}}]
+    }
+    assert midterm.page_calls == 1
+
+
+def test_memory_state_rejects_unknown_snapshot_section(tmp_path):
+    memory = SimpleNamespace(
+        config=SimpleNamespace(
+            history_db_path=str(tmp_path / "history.db"),
+            midterm=SimpleNamespace(enabled=False),
+        )
+    )
+
+    with pytest.raises(ValueError, match="Unknown memory snapshot sections"):
+        MemoryStateService(memory).snapshot(
+            user_id="user-1",
+            run_id="run-1",
+            sections={"midterm_page"},
+        )
+
+
+def test_memory_state_partial_compare_only_reports_requested_sections():
+    before = {
+        "midterm_pages": [{"id": "mid-1", "payload": {"data": "old"}}],
+        "long_term": [{"id": "long-1", "payload": {"data": "old"}}],
+    }
+    after = {
+        "midterm_pages": [{"id": "mid-1", "payload": {"data": "new"}}],
+        "long_term": [{"id": "long-2", "payload": {"data": "new"}}],
+    }
+
+    diff = MemoryStateService.compare(before, after, sections={"midterm_pages"})
+
+    assert set(diff) == {"midterm_pages"}
+    assert [row["id"] for row in diff["midterm_pages"]["updated"]] == ["mid-1"]
+
+    missing_after = MemoryStateService.compare(
+        before,
+        {},
+        sections={"midterm_pages"},
+    )
+    assert missing_after["midterm_pages"]["deleted"] == []
+
+
+def test_pipeline_snapshot_section_mapping_excludes_shared_job_rows():
+    assert STEP_SNAPSHOT_SECTIONS == {
+        PipelineStep.RUN_SHORTTERM: frozenset({"short_term"}),
+        PipelineStep.RUN_MIDTERM: frozenset({"midterm_sessions", "midterm_pages"}),
+        PipelineStep.RUN_LONGTERM: frozenset({"long_term"}),
+        PipelineStep.RUN_PROFILE: frozenset({"profile"}),
+    }

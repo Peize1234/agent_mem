@@ -1,5 +1,6 @@
 import logging
 import re
+import threading
 from typing import Optional
 
 from qdrant_client import QdrantClient, models
@@ -93,6 +94,7 @@ class Qdrant(VectorStoreBase):
         self.on_disk = on_disk
         self.bm25_language = bm25_language
         self._bm25_encoder = None
+        self._bm25_encoder_init_lock = threading.Lock()
         # Whether this collection has the `bm25` named sparse vector slot.
         # Pre-v3 collections lack it; writing a `bm25` sparse vector into such a
         # collection is rejected by Qdrant ("Not existing vector name error: bm25").
@@ -102,28 +104,30 @@ class Qdrant(VectorStoreBase):
     def _get_bm25_encoder(self):
         """Lazy-load the configured BM25 sparse encoder."""
         if self._bm25_encoder is None:
-            try:
-                if self.bm25_language == "zh":
-                    from mem0.utils.bm25_sparse import ChineseBM25SparseEncoder
+            with self._bm25_encoder_init_lock:
+                if self._bm25_encoder is None:
+                    try:
+                        if self.bm25_language == "zh":
+                            from mem0.utils.bm25_sparse import ChineseBM25SparseEncoder
 
-                    self._bm25_encoder = ChineseBM25SparseEncoder()
-                    logger.info("BM25 encoder loaded (local Chinese encoder)")
-                else:
-                    from fastembed import SparseTextEmbedding
+                            self._bm25_encoder = ChineseBM25SparseEncoder()
+                            logger.info("BM25 encoder loaded (local Chinese encoder)")
+                        else:
+                            from fastembed import SparseTextEmbedding
 
-                    self._bm25_encoder = SparseTextEmbedding(model_name="Qdrant/bm25", disable_stemmer=True)
-                    logger.info("BM25 encoder loaded (fastembed Qdrant/bm25)")
-            except ImportError:
-                dependency = "mmh3" if self.bm25_language == "zh" else "fastembed"
-                logger.warning(
-                    "%s not installed - BM25 keyword search disabled. "
-                    'Install it with: pip install "mem0ai[extras]"',
-                    dependency,
-                )
-                self._bm25_encoder = False  # sentinel: tried and failed
-            except Exception as e:
-                logger.warning(f"Failed to load BM25 encoder: {e}")
-                self._bm25_encoder = False
+                            self._bm25_encoder = SparseTextEmbedding(model_name="Qdrant/bm25", disable_stemmer=True)
+                            logger.info("BM25 encoder loaded (fastembed Qdrant/bm25)")
+                    except ImportError:
+                        dependency = "mmh3" if self.bm25_language == "zh" else "fastembed"
+                        logger.warning(
+                            "%s not installed - BM25 keyword search disabled. "
+                            'Install it with: pip install "mem0ai[extras]"',
+                            dependency,
+                        )
+                        self._bm25_encoder = False  # sentinel: tried and failed
+                    except Exception as e:
+                        logger.warning(f"Failed to load BM25 encoder: {e}")
+                        self._bm25_encoder = False
         return self._bm25_encoder if self._bm25_encoder is not False else None
 
     @staticmethod

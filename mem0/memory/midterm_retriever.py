@@ -1,16 +1,10 @@
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 
 class MidTermRetriever:
     def __init__(self, midterm_memory, config):
         self.midterm_memory = midterm_memory
         self.config = config
-        self.last_search_stats = {
-            "retrieved_sessions": 0,
-            "candidate_pages_before_dedupe": 0,
-            "candidate_pages_after_dedupe": 0,
-            "returned_pages": 0,
-        }
 
     @staticmethod
     def _scope_filters(filters: Dict[str, Any]) -> Dict[str, Any]:
@@ -64,10 +58,13 @@ class MidTermRetriever:
         }
 
     @staticmethod
-    def _dedupe_sort_limit_pages(pages: List[Dict[str, Any]], max_total_pages: int) -> Tuple[List[Dict[str, Any]], int]:
+    def _dedupe_sort_limit_pages(
+        pages: List[Dict[str, Any]],
+        max_total_pages: int,
+    ) -> List[Dict[str, Any]]:
         """Keep the best score per page ID, sort globally, then apply the total page cap."""
         if max_total_pages <= 0:
-            return [], 0
+            return []
 
         best_by_id: Dict[str, Dict[str, Any]] = {}
         for page in pages:
@@ -79,7 +76,7 @@ class MidTermRetriever:
                 best_by_id[page_id] = page
 
         sorted_pages = sorted(best_by_id.values(), key=lambda item: float(item.get("score") or 0.0), reverse=True)
-        return sorted_pages[:max_total_pages], len(sorted_pages)
+        return sorted_pages[:max_total_pages]
 
     def search(
         self,
@@ -90,12 +87,6 @@ class MidTermRetriever:
         candidate_pool_size: int | None = None,
     ) -> List[Dict[str, Any]]:
         scope_filters = self._scope_filters(filters)
-        self.last_search_stats = {
-            "retrieved_sessions": 0,
-            "candidate_pages_before_dedupe": 0,
-            "candidate_pages_after_dedupe": 0,
-            "returned_pages": 0,
-        }
         if not scope_filters:
             return []
 
@@ -115,7 +106,6 @@ class MidTermRetriever:
             filters=scope_filters,
             top_k=top_k_sessions,
         )
-        self.last_search_stats["retrieved_sessions"] = len(sessions)
 
         results: List[Dict[str, Any]] = []
         page_candidates: List[Dict[str, Any]] = []
@@ -154,14 +144,7 @@ class MidTermRetriever:
                 if session_page_count >= top_k_pages:
                     break
 
-        pages, unique_page_count = self._dedupe_sort_limit_pages(page_candidates, max_total_pages)
-        self.last_search_stats.update(
-            {
-                "candidate_pages_before_dedupe": len(page_candidates),
-                "candidate_pages_after_dedupe": unique_page_count,
-                "returned_pages": len(pages),
-            }
-        )
+        pages = self._dedupe_sort_limit_pages(page_candidates, max_total_pages)
         results.extend(pages)
 
         return results
