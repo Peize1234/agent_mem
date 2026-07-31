@@ -9,8 +9,8 @@ import threading
 import time
 import uuid
 import warnings
-from copy import deepcopy
 from contextlib import asynccontextmanager
+from copy import deepcopy
 from datetime import date, datetime
 from typing import Any, Dict, Optional
 
@@ -22,13 +22,15 @@ from mem0.configs.prompts import (
     ADDITIVE_EXTRACTION_PROMPT,
     AGENT_ANSWER_PROMPT,
     AGENT_CONTEXT_SUFFIX,
+    AGENTIC_RETRIEVAL_PROMPT,
     PROCEDURAL_MEMORY_SYSTEM_PROMPT,
     generate_additive_extraction_prompt,
 )
 from mem0.exceptions import LLMError
 from mem0.exceptions import ValidationError as Mem0ValidationError
-from mem0.memory.base import MemoryBase
+from mem0.memory.agentic_retrieval import AgenticMemoryRunner, AsyncAgenticMemoryRunner
 from mem0.memory.background_worker import BackgroundWorkerManager
+from mem0.memory.base import MemoryBase
 from mem0.memory.midterm import MidTermMemory
 from mem0.memory.midterm_retriever import MidTermRetriever
 from mem0.memory.midterm_updater import MidTermUpdater
@@ -55,8 +57,8 @@ from mem0.memory.notices import (
     get_temporal_feature_error_message,
     get_temporal_feature_error_message_async,
 )
-from mem0.memory.profile_manager import ProfileManager
 from mem0.memory.process_lock import ProcessInstanceLock
+from mem0.memory.profile_manager import ProfileManager
 from mem0.memory.profile_schema import ProfileUpdatePlan
 from mem0.memory.profile_updater import ProfileUpdater
 from mem0.memory.profile_validator import (
@@ -64,6 +66,7 @@ from mem0.memory.profile_validator import (
     normalize_profile_user_id,
     select_profile_user_messages,
 )
+from mem0.memory.retrieval_tools import AsyncMemoryToolExecutor, MemoryToolExecutor
 from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import MIGRATION_STAGE_TERMINAL_STATUSES, SQLiteManager
 from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
@@ -74,8 +77,8 @@ from mem0.memory.utils import (
     process_telemetry_filters,
     remove_code_blocks,
 )
-from mem0.utils.entity_extraction import extract_entities, extract_entities_batch
 from mem0.utils.bounded_timeout import BoundedTimeoutExecutor
+from mem0.utils.entity_extraction import extract_entities, extract_entities_batch
 from mem0.utils.factory import (
     EmbedderFactory,
     LlmFactory,
@@ -748,6 +751,23 @@ def _build_answer_prompt_messages(
         reference_information=_serialize_prompt_value(reference_information, []),
     )
     return [{"role": "system", "content": prompt}]
+
+
+def _build_agentic_prompt_messages(
+    base_context: Dict[str, Any],
+    reference_information: Any = None,
+) -> list[Dict[str, str]]:
+    """Build the initial prompt with short-term memory and profile only."""
+    prompt = AGENTIC_RETRIEVAL_PROMPT.format(
+        current_time=beijing_now_iso(),
+        short_term_memory=_serialize_prompt_value(base_context.get("short_term_messages"), []),
+        user_profile=_serialize_prompt_value(base_context.get("profile"), {}),
+        reference_information=_serialize_prompt_value(reference_information, []),
+    )
+    return [
+        {"role": "system", "content": prompt},
+        {"role": "user", "content": base_context["query"]},
+    ]
 
 
 def _entity_collection_name(provider: str, collection_name: str) -> str:
@@ -1855,6 +1875,40 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         include_profile_metadata: bool = False,
     ) -> Dict[str, Any]:
         """Retrieve session memories, short-term messages, and the user's cross-session profile."""
+        context = self._retrieve_base_context(
+            query,
+            user_id=user_id,
+            session_id=session_id,
+            include_profile_metadata=include_profile_metadata,
+        )
+        filters = {
+            "user_id": context["user_id"],
+            "run_id": context["session_id"],
+        }
+        search_result = self.search(
+            context["query"],
+            top_k=top_k,
+            threshold=threshold,
+            rerank=rerank,
+            explain=explain,
+            filters=filters,
+        )
+        context["retrieved_memories"] = (
+            search_result["results"]
+            if isinstance(search_result, dict) and "results" in search_result
+            else search_result
+        )
+        return context
+
+    def _retrieve_base_context(
+        self,
+        query: str,
+        *,
+        user_id: str,
+        session_id: str,
+        include_profile_metadata: bool = False,
+    ) -> Dict[str, Any]:
+        """Retrieve only recent session messages and the cross-session user profile."""
         normalized_query, normalized_user_id, normalized_session_id = _normalize_context_request(
             query,
             user_id,
@@ -1865,15 +1919,6 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             "run_id": normalized_session_id,
         }
         session_scope = _build_session_scope(filters)
-
-        search_result = self.search(
-            normalized_query,
-            top_k=top_k,
-            threshold=threshold,
-            rerank=rerank,
-            explain=explain,
-            filters=filters,
-        )
         profile_result = self.get_profile(
             normalized_user_id,
             include_metadata=include_profile_metadata,
@@ -1888,7 +1933,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             query=normalized_query,
             user_id=normalized_user_id,
             session_id=normalized_session_id,
-            search_result=search_result,
+            search_result=[],
             profile_result=profile_result,
             short_term_messages=short_term_messages,
         )
@@ -1919,6 +1964,57 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         )
 
         return _build_answer_prompt_messages(retrieved_context, reference_information)
+
+    def run_agentic_retrieval(
+        self,
+        query: str,
+        *,
+        user_id: str,
+        session_id: str,
+        include_profile_metadata: bool = False,
+        reference_information: Any = None,
+        generation_kwargs: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Run the optional two-call mid-term retrieval flow without writing messages."""
+        if not self.config.agentic_retrieval.enabled:
+            raise ValueError("Agentic retrieval is disabled; set agentic_retrieval.enabled=True")
+        context = self._retrieve_base_context(
+            query,
+            user_id=user_id,
+            session_id=session_id,
+            include_profile_metadata=include_profile_metadata,
+        )
+        messages = _build_agentic_prompt_messages(context, reference_information)
+        return self._run_agentic_retrieval_messages(
+            messages,
+            user_id=context["user_id"],
+            session_id=context["session_id"],
+            generation_kwargs=generation_kwargs,
+        )
+
+    def _run_agentic_retrieval_messages(
+        self,
+        messages: list[Dict[str, Any]],
+        *,
+        user_id: str,
+        session_id: str,
+        generation_kwargs: Optional[Dict[str, Any]] = None,
+        record_midterm_visits: bool = True,
+    ) -> Dict[str, Any]:
+        executor = MemoryToolExecutor(
+            self,
+            user_id=user_id,
+            run_id=session_id,
+            config=self.config.agentic_retrieval,
+            record_midterm_visits=record_midterm_visits,
+        )
+        runner = AgenticMemoryRunner(
+            self.llm,
+            executor,
+            self.config.agentic_retrieval,
+            generation_kwargs=generation_kwargs,
+        )
+        return runner.run(messages)
 
     def update_profile(self, user_id: str, messages):
         """Explicitly extract and apply profile updates from user messages."""
@@ -4063,6 +4159,43 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             user_id,
             session_id,
         )
+        context, search_result = await asyncio.gather(
+            self._retrieve_base_context(
+                normalized_query,
+                user_id=normalized_user_id,
+                session_id=normalized_session_id,
+                include_profile_metadata=include_profile_metadata,
+            ),
+            self.search(
+                normalized_query,
+                top_k=top_k,
+                threshold=threshold,
+                rerank=rerank,
+                explain=explain,
+                filters={"user_id": normalized_user_id, "run_id": normalized_session_id},
+            ),
+        )
+        context["retrieved_memories"] = (
+            search_result["results"]
+            if isinstance(search_result, dict) and "results" in search_result
+            else search_result
+        )
+        return context
+
+    async def _retrieve_base_context(
+        self,
+        query: str,
+        *,
+        user_id: str,
+        session_id: str,
+        include_profile_metadata: bool = False,
+    ) -> Dict[str, Any]:
+        """Asynchronously retrieve only short-term messages and the user profile."""
+        normalized_query, normalized_user_id, normalized_session_id = _normalize_context_request(
+            query,
+            user_id,
+            session_id,
+        )
         filters = {
             "user_id": normalized_user_id,
             "run_id": normalized_session_id,
@@ -4075,15 +4208,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             else self.db.get_last_messages
         )
 
-        search_result, profile_result, short_term_messages = await asyncio.gather(
-            self.search(
-                normalized_query,
-                top_k=top_k,
-                threshold=threshold,
-                rerank=rerank,
-                explain=explain,
-                filters=filters,
-            ),
+        profile_result, short_term_messages = await asyncio.gather(
             self.get_profile(
                 normalized_user_id,
                 include_metadata=include_profile_metadata,
@@ -4099,7 +4224,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             query=normalized_query,
             user_id=normalized_user_id,
             session_id=normalized_session_id,
-            search_result=search_result,
+            search_result=[],
             profile_result=profile_result,
             short_term_messages=short_term_messages,
         )
@@ -4130,6 +4255,40 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         )
 
         return _build_answer_prompt_messages(retrieved_context, reference_information)
+
+    async def run_agentic_retrieval(
+        self,
+        query: str,
+        *,
+        user_id: str,
+        session_id: str,
+        include_profile_metadata: bool = False,
+        reference_information: Any = None,
+        generation_kwargs: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Run the optional async two-call mid-term flow without writing messages."""
+        if not self.config.agentic_retrieval.enabled:
+            raise ValueError("Agentic retrieval is disabled; set agentic_retrieval.enabled=True")
+        context = await self._retrieve_base_context(
+            query,
+            user_id=user_id,
+            session_id=session_id,
+            include_profile_metadata=include_profile_metadata,
+        )
+        messages = _build_agentic_prompt_messages(context, reference_information)
+        executor = AsyncMemoryToolExecutor(
+            self,
+            user_id=context["user_id"],
+            run_id=context["session_id"],
+            config=self.config.agentic_retrieval,
+        )
+        runner = AsyncAgenticMemoryRunner(
+            self.llm,
+            executor,
+            self.config.agentic_retrieval,
+            generation_kwargs=generation_kwargs,
+        )
+        return await runner.run(messages)
 
     async def update_profile(self, user_id: str, messages):
         """Explicitly extract and apply profile updates for a user."""

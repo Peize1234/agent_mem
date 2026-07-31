@@ -36,5 +36,16 @@
     "enabled": true,
     "max_retries": 3,
     "poll_interval_seconds": 1.0
+  },
+  "agentic_retrieval": {
+    "enabled": false,
+    "max_iterations": 2,
+    "max_tool_calls": 1,
+    "max_queries": 3,
+    "candidate_pool_size": 20,
+    "max_total_results": 6,
+    "max_tool_result_chars": 10000,
+    "default_threshold": 0.1,
+    "force_final_answer": true
   }
 }

@@ -44,24 +44,24 @@ def db():
     manager.close()
 
 
-def _set_risk_plan(value="balanced"):
+def _set_role_plan(value="fp_and_a"):
     return ProfileUpdatePlan.model_validate(
         {
             "operations": [
-                {"operation": "set", "attribute_key": "risk_level", "value": value},
+                {"operation": "set", "attribute_key": "analysis_role", "value": value},
             ]
         }
     )
 
 
-def _append_product_plan(product="ETF"):
+def _append_kpi_plan(kpi="毛利率"):
     return ProfileUpdatePlan.model_validate(
         {
             "operations": [
                 {
                     "operation": "append_unique",
-                    "attribute_key": "preferred_products",
-                    "items": [product],
+                    "attribute_key": "preferred_kpis",
+                    "items": [kpi],
                 }
             ]
         }
@@ -116,12 +116,12 @@ async def test_profile_manager_and_updater_are_lazy(db):
 
 @pytest.mark.asyncio
 async def test_async_get_profile_reads_current_value(db):
-    db.upsert_user_profile_value("user-1", "risk_level", "balanced")
+    db.upsert_user_profile_value("user-1", "analysis_role", "fp_and_a")
     memory = _build_async_memory(db)
 
     profile = await memory.get_profile("user-1")
 
-    assert profile == {"user_id": "user-1", "profile": {"risk_level": "balanced"}}
+    assert profile == {"user_id": "user-1", "profile": {"analysis_role": "fp_and_a"}}
 
 
 @pytest.mark.asyncio
@@ -129,16 +129,16 @@ async def test_async_update_profile_writes_value(db):
     llm = _RecordingSyncLLM(
         {
             "operations": [
-                {"operation": "set", "attribute_key": "risk_level", "value": "balanced"},
+                {"operation": "set", "attribute_key": "analysis_role", "value": "fp_and_a"},
             ],
             "unmapped_facts": [],
         }
     )
     memory = _build_async_memory(db, llm=llm)
 
-    profile = await memory.update_profile("user-1", [{"role": "user", "content": "I prefer balanced risk."}])
+    profile = await memory.update_profile("user-1", [{"role": "user", "content": "我长期负责 FP&A 分析。"}])
 
-    assert profile["profile"]["risk_level"] == "balanced"
+    assert profile["profile"]["analysis_role"] == "fp_and_a"
     assert len(llm.calls) == 1
 
 
@@ -148,7 +148,7 @@ async def test_disabled_async_update_does_not_initialize_updater_or_call_llm(db)
     memory = _build_async_memory(db, config=UserProfileConfig(enabled=False), llm=llm)
 
     with pytest.raises(ValueError, match="profile updates are disabled"):
-        await memory.update_profile("user-1", [{"role": "user", "content": "I prefer ETFs."}])
+        await memory.update_profile("user-1", [{"role": "user", "content": "以后优先看毛利率。"}])
 
     assert memory._profile_updater is None
     assert llm.calls == []
@@ -160,7 +160,7 @@ async def test_assistant_only_async_update_does_not_initialize_updater(db):
 
     profile = await memory.update_profile(
         "user-1",
-        [{"role": "assistant", "content": "The user prefers ETFs."}],
+        [{"role": "assistant", "content": "用户以后优先看毛利率。"}],
     )
 
     assert profile["profile"] == {}
@@ -184,7 +184,7 @@ async def test_cancelled_profile_lock_waiter_does_not_leak(db):
     user_lock = memory._get_profile_user_thread_lock("user-1")
     assert user_lock.acquire(timeout=1)
     waiter = asyncio.create_task(
-        memory.update_profile("user-1", [{"role": "user", "content": "I prefer balanced risk."}])
+        memory.update_profile("user-1", [{"role": "user", "content": "我长期负责 FP&A 分析。"}])
     )
     await asyncio.sleep(0.02)
     waiter.cancel()
@@ -198,7 +198,7 @@ async def test_cancelled_profile_lock_waiter_does_not_leak(db):
 
 @pytest.mark.asyncio
 async def test_cancelled_delete_lock_waiter_does_not_leak(db):
-    db.upsert_user_profile_value("user-1", "risk_level", "balanced")
+    db.upsert_user_profile_value("user-1", "analysis_role", "fp_and_a")
     memory = _build_async_memory(db)
     user_lock = memory._get_profile_user_thread_lock("user-1")
     assert user_lock.acquire(timeout=1)
@@ -238,7 +238,7 @@ async def test_async_automatic_update_respects_update_on_add_switch(db):
 
     await memory._update_profile_after_add(
         "user-1",
-        [{"role": "user", "content": "I prefer ETFs."}],
+        [{"role": "user", "content": "以后优先看毛利率。"}],
     )
 
     assert memory._profile_updater is None
@@ -247,14 +247,14 @@ async def test_async_automatic_update_respects_update_on_add_switch(db):
 @pytest.mark.asyncio
 async def test_async_add_profile_failure_preserves_result(db, monkeypatch, caplog):
     memory = _build_async_memory(db)
-    memory._save_short_term_messages = AsyncMock(return_value=[{"role": "user", "content": "I prefer ETFs"}])
+    memory._save_short_term_messages = AsyncMock(return_value=[{"role": "user", "content": "以后优先看毛利率"}])
     memory._process_evicted_long_term_memories = AsyncMock(return_value=[{"id": "memory-1", "event": "ADD"}])
     memory._process_midterm_evictions = MagicMock()
     memory._profile_updater = MagicMock()
     memory._profile_updater.generate_update_plan_async = AsyncMock(side_effect=RuntimeError("LLM unavailable"))
     _disable_async_add_notices(monkeypatch)
 
-    result = await memory.add("I prefer ETFs", user_id="user-1", run_id="run-1", infer=False)
+    result = await memory.add("以后优先看毛利率", user_id="user-1", run_id="run-1", infer=False)
 
     assert result["results"] == []
     assert result["background"]["profile_job_id"]
@@ -268,11 +268,11 @@ async def test_async_procedural_add_updates_normalized_profile(db, monkeypatch):
     memory = _build_async_memory(db)
     memory._create_procedural_memory = AsyncMock(return_value={"results": [{"id": "procedure-1"}]})
     memory._profile_updater = MagicMock()
-    memory._profile_updater.generate_update_plan_async = AsyncMock(return_value=_append_product_plan())
+    memory._profile_updater.generate_update_plan_async = AsyncMock(return_value=_append_kpi_plan())
     _disable_async_add_notices(monkeypatch)
 
     result = await memory.add(
-        "I prefer ETFs",
+        "以后优先看毛利率",
         user_id=" user-1 ",
         agent_id="agent-1",
         memory_type=MemoryType.PROCEDURAL.value,
@@ -281,7 +281,7 @@ async def test_async_procedural_add_updates_normalized_profile(db, monkeypatch):
     assert result["results"] == [{"id": "procedure-1"}]
     assert result["background"]["profile_job_id"]
     assert await memory.flush_background_tasks(2)
-    assert (await memory.get_profile(" user-1 "))["profile"]["preferred_products"] == ["ETF"]
+    assert (await memory.get_profile(" user-1 "))["profile"]["preferred_kpis"] == ["毛利率"]
     memory.close()
 
 
@@ -291,25 +291,25 @@ async def test_async_add_with_infer_false_still_updates_profile(db, monkeypatch)
     memory._process_evicted_long_term_memories = AsyncMock()
     memory._process_midterm_evictions = MagicMock()
     memory._profile_updater = MagicMock()
-    memory._profile_updater.generate_update_plan_async = AsyncMock(return_value=_append_product_plan())
+    memory._profile_updater.generate_update_plan_async = AsyncMock(return_value=_append_kpi_plan())
     _disable_async_add_notices(monkeypatch)
 
-    result = await memory.add("I prefer ETFs", user_id="user-1", run_id="run-1", infer=False)
+    result = await memory.add("以后优先看毛利率", user_id="user-1", run_id="run-1", infer=False)
 
     assert result["results"] == []
     assert result["background"]["profile_job_id"]
     memory._process_evicted_long_term_memories.assert_not_awaited()
     assert await memory.flush_background_tasks(2)
-    assert (await memory.get_profile("user-1"))["profile"]["preferred_products"] == ["ETF"]
+    assert (await memory.get_profile("user-1"))["profile"]["preferred_kpis"] == ["毛利率"]
     memory.close()
 
 
 @pytest.mark.asyncio
 async def test_async_delete_profile_value(db):
-    db.upsert_user_profile_value("user-1", "risk_level", "balanced")
+    db.upsert_user_profile_value("user-1", "analysis_role", "fp_and_a")
     memory = _build_async_memory(db)
 
-    deleted = await memory.delete_profile_value("user-1", "risk_level")
+    deleted = await memory.delete_profile_value("user-1", "analysis_role")
 
     assert deleted is True
     assert (await memory.get_profile("user-1"))["profile"] == {}
@@ -317,8 +317,8 @@ async def test_async_delete_profile_value(db):
 
 @pytest.mark.asyncio
 async def test_async_delete_profile(db):
-    db.upsert_user_profile_value("user-1", "risk_level", "balanced")
-    db.upsert_user_profile_value("user-1", "investment_horizon", "long_term")
+    db.upsert_user_profile_value("user-1", "analysis_role", "fp_and_a")
+    db.upsert_user_profile_value("user-1", "default_report_audience", "board")
     memory = _build_async_memory(db)
 
     deleted = await memory.delete_profile("user-1")
@@ -353,7 +353,7 @@ async def test_async_dynamic_attribute_switch(db):
 async def test_async_reset_recreates_profile_storage(tmp_path, monkeypatch):
     db_path = str(tmp_path / "async-reset.db")
     db = SQLiteManager(db_path)
-    db.upsert_user_profile_value("user-1", "risk_level", "balanced")
+    db.upsert_user_profile_value("user-1", "analysis_role", "fp_and_a")
     memory = _build_async_memory(db)
     memory.config.history_db_path = db_path
     memory.vector_store = MagicMock()
@@ -370,7 +370,7 @@ async def test_async_reset_recreates_profile_storage(tmp_path, monkeypatch):
     assert memory._profile_manager is None
     assert memory._profile_updater is None
     assert memory._profile_user_locks == {}
-    assert len(memory.db.list_profile_attributes()) == 9
+    assert len(memory.db.list_profile_attributes()) == 19
     assert memory.db.get_user_profile_values("user-1") == []
     assert memory.profile_manager.db is memory.db
     memory.close()
@@ -395,9 +395,9 @@ def test_async_close_releases_profile_references():
 async def test_async_profile_user_id_is_normalized(db):
     memory = _build_async_memory(db)
     memory._profile_updater = MagicMock()
-    memory._profile_updater.generate_update_plan_async = AsyncMock(return_value=_set_risk_plan())
+    memory._profile_updater.generate_update_plan_async = AsyncMock(return_value=_set_role_plan())
 
-    updated = await memory.update_profile(" user-1 ", [{"role": "user", "content": "Balanced risk."}])
+    updated = await memory.update_profile(" user-1 ", [{"role": "user", "content": "我长期负责 FP&A 分析。"}])
 
     assert updated["user_id"] == "user-1"
     assert await memory.get_profile(" user-1 ") == await memory.get_profile("user-1")
@@ -565,7 +565,7 @@ async def test_async_profile_database_calls_use_to_thread(db, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_async_profile_return_structure_matches_sync(db):
-    db.upsert_user_profile_value("user-1", "risk_level", "balanced")
+    db.upsert_user_profile_value("user-1", "analysis_role", "fp_and_a")
     memory = _build_async_memory(db)
     sync_profile = ProfileManager(db).get_profile("user-1", include_metadata=True)
 

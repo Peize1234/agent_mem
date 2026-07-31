@@ -278,7 +278,7 @@ def test_retrieve_context_accepts_list_and_results_dict_without_reordering(searc
 def test_retrieve_context_returns_latest_window_in_order_and_isolates_session():
     db = SQLiteManager(":memory:")
     try:
-        db.upsert_user_profile_value("user-1", "risk_level", "balanced")
+        db.upsert_user_profile_value("user-1", "analysis_role", "fp_and_a")
         db.save_messages(
             [
                 {
@@ -316,7 +316,7 @@ def test_retrieve_context_returns_latest_window_in_order_and_isolates_session():
         session_1 = memory._retrieve_context("question", user_id="user-1", session_id="session-1")
         session_2 = memory._retrieve_context("question", user_id="user-1", session_id="session-2")
 
-        assert session_1["profile"] == session_2["profile"] == {"risk_level": "balanced"}
+        assert session_1["profile"] == session_2["profile"] == {"analysis_role": "fp_and_a"}
         assert [message["content"] for message in session_1["short_term_messages"]] == [
             "message-9",
             "message-10",

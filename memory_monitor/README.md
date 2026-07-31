@@ -69,6 +69,16 @@ export MEMORY_MONITOR_PORT=8502
 If `MEMORY_MONITOR_MEMORY_CONFIG` points to a missing file, the launcher warns
 and falls back to the included configuration.
 
+Agentic memory retrieval is opt-in and remains disabled in `demo_config.json`.
+Set `agentic_retrieval.enabled` to `true` to load only short-term context and
+the user profile before generation, then let the answer model make at most one
+mid-term memory tool call containing one to three complementary queries. The
+queries run concurrently and return complete mid-term pages, capped by
+`agentic_retrieval.max_total_results`. The flow uses one model call when
+context is sufficient and at most two when retrieval is needed. It stays inside
+the existing `generate_response` node; only the original user message and final
+answer continue to `Memory.add()`.
+
 The Conda environment name can be overridden when needed:
 
 ```bash

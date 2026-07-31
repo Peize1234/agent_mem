@@ -134,6 +134,8 @@ def _validate_schema_node(value: Any, schema: Dict[str, Any], path: str = "value
                 _validate_schema_node(item, properties[key], f"{path}.{key}")
             elif schema.get("additionalProperties") is False:
                 raise ValueError(f"{path}.{key} is not allowed")
+            elif isinstance(schema.get("additionalProperties"), dict):
+                _validate_schema_node(item, schema["additionalProperties"], f"{path}.{key}")
 
 
 def validate_attribute_definition(definition: Any) -> ProfileAttributeDefinition:
@@ -182,8 +184,6 @@ def validate_value_against_schema(
         if value_type == "object_list" and not all(isinstance(item, dict) for item in value):
             raise ValueError("object_list values must contain only objects")
     _validate_schema_node(value, schema)
-    if attribute_key == "max_acceptable_loss_ratio" and not 0 <= value <= 1:
-        raise ValueError("max_acceptable_loss_ratio must be between 0 and 1")
     serialize_profile_value(value)
 
 
@@ -191,6 +191,19 @@ def normalize_profile_value(value: Any, definition: Any) -> Any:
     model = validate_attribute_definition(definition)
     validate_value_against_schema(value, model.value_schema, model.value_type, model.attribute_key)
     return json.loads(serialize_profile_value(value))
+
+
+def _validate_object_patch_field(key: str, value: Any, schema: Dict[str, Any]) -> None:
+    properties = schema.get("properties", {})
+    if key in properties:
+        _validate_schema_node(value, properties[key], f"updates.{key}")
+        return
+
+    additional_properties = schema.get("additionalProperties")
+    if additional_properties is False:
+        raise ValueError(f"updates.{key} is not allowed")
+    if isinstance(additional_properties, dict):
+        _validate_schema_node(value, additional_properties, f"updates.{key}")
 
 
 def validate_operation(definition: Any, operation: ProfileOperation) -> None:
@@ -204,6 +217,23 @@ def validate_operation(definition: Any, operation: ProfileOperation) -> None:
         normalize_profile_value(operation.value, model)
         return
     if operation.operation == "delete":
+        return
+    if operation.operation == "patch_object":
+        if model.value_type != "object":
+            raise ValueError(f"Profile attribute '{model.attribute_key}' does not support operation 'patch_object'")
+        overlapping_keys = set(operation.updates) & set(operation.remove_keys)
+        if overlapping_keys:
+            keys = ", ".join(sorted(overlapping_keys))
+            raise ValueError(f"patch_object cannot update and remove the same fields: {keys}")
+
+        schema = model.value_schema
+        properties = schema.get("properties", {})
+        for key, value in operation.updates.items():
+            _validate_object_patch_field(key, value, schema)
+        if schema.get("additionalProperties") is False:
+            for key in operation.remove_keys:
+                if key not in properties:
+                    raise ValueError(f"remove_keys.{key} is not allowed")
         return
     if model.value_type not in _LIST_VALUE_TYPES:
         raise ValueError(
@@ -233,6 +263,17 @@ def merge_profile_value(
             return merged, True
         current = normalize_profile_value(current_value, model)
         return merged, merged != current
+    elif operation.operation == "patch_object":
+        if not operation.updates and not operation.remove_keys:
+            return current_value, False
+        current_object = {} if current_value is None else normalize_profile_value(current_value, model)
+        merged = dict(current_object)
+        for key in operation.remove_keys:
+            merged.pop(key, None)
+        for key, value in operation.updates.items():
+            merged[key] = value
+        normalized = normalize_profile_value(merged, model)
+        return normalized, normalized != current_object
     elif operation.operation == "append_unique":
         current_items = [] if current_value is None else normalize_profile_value(current_value, model)
         merged = list(current_items)

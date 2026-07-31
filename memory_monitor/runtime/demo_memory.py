@@ -6,7 +6,12 @@ import threading
 from copy import deepcopy
 from typing import Any, Dict, Optional
 
-from mem0.memory.main import Memory, _build_answer_prompt_messages, _build_session_scope
+from mem0.memory.main import (
+    Memory,
+    _build_agentic_prompt_messages,
+    _build_answer_prompt_messages,
+    _build_session_scope,
+)
 from memory_monitor.runtime.demo_background_worker import DemoBackgroundWorkerManager
 
 
@@ -49,12 +54,19 @@ class DemoMemory(Memory):
     ) -> Dict[str, Any]:
         """Retrieve and freeze layered context without invoking the answer model."""
         effective_session_id = session_id or user_id
+        agentic_enabled = self.agentic_retrieval_enabled()
+        retrieve = self._retrieve_base_context if agentic_enabled else self._retrieve_context
+        retrieve_kwargs = kwargs
+        if agentic_enabled:
+            retrieve_kwargs = {}
+            if "include_profile_metadata" in kwargs:
+                retrieve_kwargs["include_profile_metadata"] = kwargs["include_profile_metadata"]
         context = deepcopy(
-            self._retrieve_context(
+            retrieve(
                 query,
                 user_id=user_id,
                 session_id=effective_session_id,
-                **kwargs,
+                **retrieve_kwargs,
             )
         )
         memories = context.get("retrieved_memories") or []
@@ -70,6 +82,8 @@ class DemoMemory(Memory):
             if isinstance(item, dict) and not str(item.get("source") or "").startswith("mid_term")
         ]
         context["user_profile"] = deepcopy(context.get("profile") or {})
+        if agentic_enabled:
+            context["agentic_retrieval"] = True
         context["context_hash"] = self.context_hash(context)
         return context
 
@@ -85,6 +99,8 @@ class DemoMemory(Memory):
         actual_hash = self.context_hash(frozen_context)
         if expected_hash is not None and expected_hash != actual_hash:
             raise ValueError("Frozen demo context no longer matches its context_hash")
+        if frozen_context.get("agentic_retrieval"):
+            return deepcopy(_build_agentic_prompt_messages(frozen_context, reference_information))
         return deepcopy(_build_answer_prompt_messages(frozen_context, reference_information))
 
     def generate_response_for_demo(
@@ -94,6 +110,27 @@ class DemoMemory(Memory):
     ) -> Any:
         """Send exactly the displayed prompt messages to the configured model."""
         return self.llm.generate_response(messages=deepcopy(prompt_messages), **kwargs)
+
+    def generate_agentic_response_for_demo(
+        self,
+        prompt_messages: list[Dict[str, Any]],
+        *,
+        user_id: str,
+        session_id: str,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        """Run the one-search, two-model-call flow inside the Demo generation node."""
+        return self._run_agentic_retrieval_messages(
+            deepcopy(prompt_messages),
+            user_id=user_id,
+            session_id=session_id,
+            generation_kwargs=kwargs,
+            record_midterm_visits=False,
+        )
+
+    def agentic_retrieval_enabled(self) -> bool:
+        config = getattr(getattr(self, "config", None), "agentic_retrieval", None)
+        return bool(config and config.enabled)
 
     def commit_demo_turn(
         self,

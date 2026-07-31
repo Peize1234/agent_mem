@@ -87,6 +87,7 @@ class MidTermRetriever:
         filters: Dict[str, Any],
         *,
         record_visits: bool = True,
+        candidate_pool_size: int | None = None,
     ) -> List[Dict[str, Any]]:
         scope_filters = self._scope_filters(filters)
         self.last_search_stats = {
@@ -101,6 +102,11 @@ class MidTermRetriever:
         top_k_sessions = int(self.config.top_k_sessions)
         top_k_pages = int(self.config.top_k_pages)
         max_total_pages = int(self.config.max_total_pages)
+        if candidate_pool_size is not None:
+            candidate_pool_size = max(int(candidate_pool_size), 0)
+            top_k_sessions = min(top_k_sessions, candidate_pool_size)
+            top_k_pages = min(top_k_pages, candidate_pool_size)
+            max_total_pages = candidate_pool_size
         if top_k_sessions <= 0:
             return []
 

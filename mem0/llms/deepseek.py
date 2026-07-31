@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from openai import OpenAI
 
@@ -59,12 +59,24 @@ class DeepSeekLLM(LLMBase):
 
             if response.choices[0].message.tool_calls:
                 for tool_call in response.choices[0].message.tool_calls:
-                    processed_response["tool_calls"].append(
-                        {
-                            "name": tool_call.function.name,
-                            "arguments": json.loads(extract_json(tool_call.function.arguments)),
-                        }
-                    )
+                    raw_arguments = tool_call.function.arguments
+                    try:
+                        arguments = json.loads(extract_json(raw_arguments))
+                        arguments_error = None
+                    except (json.JSONDecodeError, TypeError, ValueError) as exc:
+                        # Keep malformed arguments for the orchestration layer so it can
+                        # return a tool error and let the model repair the call.
+                        arguments = raw_arguments
+                        arguments_error = f"{type(exc).__name__}: invalid tool arguments JSON"
+
+                    parsed_tool_call: Dict[str, Any] = {
+                        "id": getattr(tool_call, "id", None),
+                        "name": tool_call.function.name,
+                        "arguments": arguments,
+                    }
+                    if arguments_error:
+                        parsed_tool_call["arguments_error"] = arguments_error
+                    processed_response["tool_calls"].append(parsed_tool_call)
 
             return processed_response
         else:

@@ -17,7 +17,10 @@ from memory_monitor.models import (
     StepStatus,
     dependencies_for,
 )
-from memory_monitor.runtime.demo_background_coordinator import DemoBackgroundCoordinator, SubmissionResult
+from memory_monitor.runtime.demo_background_coordinator import (
+    DemoBackgroundCoordinator,
+    SubmissionResult,
+)
 from memory_monitor.services.demo_repository import DemoRepository
 from memory_monitor.services.memory_state_service import MemoryStateService
 
@@ -534,19 +537,42 @@ class DemoPipelineService:
         if step is PipelineStep.BUILD_PROMPT:
             context = self._step_output(turn_id, PipelineStep.RETRIEVE_CONTEXT)
             prompt = self.memory.build_prompt_from_context(context)
-            return {"context_hash": self.memory.context_hash(context), "messages": prompt}, {}
+            output = {"context_hash": self.memory.context_hash(context), "messages": prompt}
+            if context.get("agentic_retrieval"):
+                output["agentic_retrieval"] = True
+            return output, {}
 
         if step is PipelineStep.GENERATE_RESPONSE:
             prompt_output = self._step_output(turn_id, PipelineStep.BUILD_PROMPT)
             messages = prompt_output["messages"]
-            raw_response = self.memory.generate_response_for_demo(messages, **self.generation_kwargs)
-            assistant_message = self._assistant_text(raw_response)
+            if prompt_output.get("agentic_retrieval"):
+                raw_response = self.memory.generate_agentic_response_for_demo(
+                    messages,
+                    user_id=turn["user_id"],
+                    session_id=turn["run_id"],
+                    **self.generation_kwargs,
+                )
+                assistant_message = str(raw_response["answer"]).strip()
+                if not assistant_message:
+                    raise ValueError("The answer model returned an empty response")
+            else:
+                raw_response = self.memory.generate_response_for_demo(messages, **self.generation_kwargs)
+                assistant_message = self._assistant_text(raw_response)
             output = {
                 "context_hash": prompt_output["context_hash"],
                 "prompt_messages": messages,
                 "assistant_message": assistant_message,
                 "raw_response": raw_response,
             }
+            if prompt_output.get("agentic_retrieval"):
+                output.update(
+                    {
+                        "iterations": raw_response["iterations"],
+                        "tool_call_count": raw_response["tool_call_count"],
+                        "stop_reason": raw_response["stop_reason"],
+                        "tool_trace": raw_response["tool_trace"],
+                    }
+                )
             return output, {"assistant_message": assistant_message, "generation": output}
 
         if step is PipelineStep.RUN_SHORTTERM:

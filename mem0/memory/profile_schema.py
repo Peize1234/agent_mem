@@ -61,6 +61,15 @@ class RemoveItemsOperation(BaseModel):
     items: List[Any]
 
 
+class PatchObjectOperation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    operation: Literal["patch_object"]
+    attribute_key: str
+    updates: Dict[str, Any] = Field(default_factory=dict)
+    remove_keys: List[str] = Field(default_factory=list)
+
+
 class DeleteValueOperation(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -69,7 +78,13 @@ class DeleteValueOperation(BaseModel):
 
 
 ProfileOperation = Annotated[
-    Union[SetValueOperation, AppendItemsOperation, RemoveItemsOperation, DeleteValueOperation],
+    Union[
+        SetValueOperation,
+        AppendItemsOperation,
+        RemoveItemsOperation,
+        PatchObjectOperation,
+        DeleteValueOperation,
+    ],
     Field(discriminator="operation"),
 ]
 

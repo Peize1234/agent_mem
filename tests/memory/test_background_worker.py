@@ -210,7 +210,7 @@ def test_expired_profile_lease_is_immediately_invalid(db):
 
 def test_profile_plan_and_finish_job_is_atomic_and_fenced(db, monkeypatch):
     plan = ProfileUpdatePlan.model_validate(
-        {"operations": [{"operation": "set", "attribute_key": "risk_level", "value": "balanced"}]}
+        {"operations": [{"operation": "set", "attribute_key": "analysis_role", "value": "fp_and_a"}]}
     )
     job_id = db.create_profile_update_job("atomic-profile", _messages("profile"))
     job = db.claim_profile_job(job_id, lease_timeout_seconds=5)
@@ -222,7 +222,7 @@ def test_profile_plan_and_finish_job_is_atomic_and_fenced(db, monkeypatch):
         plan,
     )
     assert db.get_background_job(job_id, "profile")["status"] == "succeeded"
-    assert db.get_user_profile_values("atomic-profile")[0]["value"] == "balanced"
+    assert db.get_user_profile_values("atomic-profile")[0]["value"] == "fp_and_a"
 
     rollback_job_id = db.create_profile_update_job("rollback-profile", _messages("rollback"))
     rollback_job = db.claim_profile_job(rollback_job_id, lease_timeout_seconds=5)
@@ -246,7 +246,7 @@ def test_profile_plan_and_finish_job_is_atomic_and_fenced(db, monkeypatch):
 
 def test_stale_or_expired_profile_job_cannot_apply_plan(db):
     plan = ProfileUpdatePlan.model_validate(
-        {"operations": [{"operation": "set", "attribute_key": "risk_level", "value": "balanced"}]}
+        {"operations": [{"operation": "set", "attribute_key": "analysis_role", "value": "fp_and_a"}]}
     )
     job_id = db.create_profile_update_job("stale-profile", _messages("profile"))
     first = db.claim_profile_job(job_id, lease_timeout_seconds=1)

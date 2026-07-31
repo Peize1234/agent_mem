@@ -90,6 +90,7 @@ def test_generate_response_with_tools(mock_deepseek_client):
     mock_message.content = "I've added the memory for you."
 
     mock_tool_call = Mock()
+    mock_tool_call.id = "call-deepseek-1"
     mock_tool_call.function.name = "add_memory"
     mock_tool_call.function.arguments = '{"data": "Today is a sunny day."}'
 
@@ -111,8 +112,28 @@ def test_generate_response_with_tools(mock_deepseek_client):
 
     assert response["content"] == "I've added the memory for you."
     assert len(response["tool_calls"]) == 1
+    assert response["tool_calls"][0]["id"] == "call-deepseek-1"
     assert response["tool_calls"][0]["name"] == "add_memory"
     assert response["tool_calls"][0]["arguments"] == {"data": "Today is a sunny day."}
+
+
+def test_malformed_tool_arguments_preserve_call_id_and_do_not_raise(mock_deepseek_client):
+    llm = DeepSeekLLM(BaseLlmConfig(model="deepseek-chat", max_tokens=100))
+    mock_tool_call = Mock()
+    mock_tool_call.id = "call-bad-json"
+    mock_tool_call.function.name = "search_memory"
+    mock_tool_call.function.arguments = '{"query":'
+    mock_message = Mock(content=None, tool_calls=[mock_tool_call])
+    mock_deepseek_client.chat.completions.create.return_value = Mock(choices=[Mock(message=mock_message)])
+
+    response = llm.generate_response(
+        [{"role": "user", "content": "search"}],
+        tools=[{"type": "function", "function": {"name": "search_memory"}}],
+    )
+
+    assert response["tool_calls"][0]["id"] == "call-bad-json"
+    assert response["tool_calls"][0]["arguments"] == '{"query":'
+    assert "invalid tool arguments JSON" in response["tool_calls"][0]["arguments_error"]
 
 
 def test_generate_response_with_response_format(mock_deepseek_client):

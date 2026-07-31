@@ -92,6 +92,25 @@ class BackgroundTaskConfig(BaseModel):
         return self
 
 
+class AgenticRetrievalConfig(BaseModel):
+    """Limits for the optional, low-latency mid-term retrieval flow."""
+
+    enabled: bool = False
+    max_iterations: int = Field(2, ge=1, le=2)
+    max_tool_calls: int = Field(1, ge=1, le=1)
+    max_queries: int = Field(3, ge=1, le=3)
+    candidate_pool_size: int = Field(20, ge=5, le=100)
+    max_total_results: int = Field(
+        6,
+        ge=1,
+        le=20,
+        description="最终返回给模型的完整中期记忆 Page 数量",
+    )
+    max_tool_result_chars: int = Field(10000, ge=1000)
+    default_threshold: float = Field(0.1, ge=0, le=1)
+    force_final_answer: bool = True
+
+
 class MemoryConfig(BaseModel):
     vector_store: VectorStoreConfig = Field(
         description="Configuration for the vector store",
@@ -141,6 +160,10 @@ class MemoryConfig(BaseModel):
     background: BackgroundTaskConfig = Field(
         description="Configuration for persistent background memory and profile jobs",
         default_factory=BackgroundTaskConfig,
+    )
+    agentic_retrieval: AgenticRetrievalConfig = Field(
+        description="Configuration for optional model-directed mid-term retrieval",
+        default_factory=AgenticRetrievalConfig,
     )
 
 
