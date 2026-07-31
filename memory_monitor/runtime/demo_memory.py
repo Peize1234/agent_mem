@@ -55,18 +55,12 @@ class DemoMemory(Memory):
         """Retrieve and freeze layered context without invoking the answer model."""
         effective_session_id = session_id or user_id
         agentic_enabled = self.agentic_retrieval_enabled()
-        retrieve = self._retrieve_base_context if agentic_enabled else self._retrieve_context
-        retrieve_kwargs = kwargs
-        if agentic_enabled:
-            retrieve_kwargs = {}
-            if "include_profile_metadata" in kwargs:
-                retrieve_kwargs["include_profile_metadata"] = kwargs["include_profile_metadata"]
         context = deepcopy(
-            retrieve(
+            self._retrieve_context(
                 query,
                 user_id=user_id,
                 session_id=effective_session_id,
-                **retrieve_kwargs,
+                **kwargs,
             )
         )
         memories = context.get("retrieved_memories") or []
@@ -92,6 +86,7 @@ class DemoMemory(Memory):
         context: Dict[str, Any],
         *,
         reference_information: Any = None,
+        agentic_answer: Optional[str] = None,
     ) -> list[Dict[str, str]]:
         """Build answer-model messages from the supplied frozen context only."""
         frozen_context = deepcopy(context)
@@ -99,9 +94,15 @@ class DemoMemory(Memory):
         actual_hash = self.context_hash(frozen_context)
         if expected_hash is not None and expected_hash != actual_hash:
             raise ValueError("Frozen demo context no longer matches its context_hash")
-        if frozen_context.get("agentic_retrieval"):
+        if frozen_context.get("agentic_retrieval") and agentic_answer is None:
             return deepcopy(_build_agentic_prompt_messages(frozen_context, reference_information))
-        return deepcopy(_build_answer_prompt_messages(frozen_context, reference_information))
+        return deepcopy(
+            _build_answer_prompt_messages(
+                frozen_context,
+                reference_information,
+                agentic_answer=agentic_answer or "",
+            )
+        )
 
     def generate_response_for_demo(
         self,

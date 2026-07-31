@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import threading
 import time
 from copy import deepcopy
@@ -23,6 +24,8 @@ from memory_monitor.runtime.demo_background_coordinator import (
 )
 from memory_monitor.services.demo_repository import DemoRepository
 from memory_monitor.services.memory_state_service import MemoryStateService
+
+logger = logging.getLogger(__name__)
 
 TARGET_ANSWER = "answer"
 TARGET_MEMORY = "memory"
@@ -563,31 +566,50 @@ class DemoPipelineService:
             prompt_output = self._step_output(turn_id, PipelineStep.BUILD_PROMPT)
             messages = prompt_output["messages"]
             if prompt_output.get("agentic_retrieval"):
-                raw_response = self.memory.generate_agentic_response_for_demo(
-                    messages,
-                    user_id=turn["user_id"],
-                    session_id=turn["run_id"],
+                agentic_result: Any = {}
+                agentic_answer = ""
+                try:
+                    agentic_result = self.memory.generate_agentic_response_for_demo(
+                        messages,
+                        user_id=turn["user_id"],
+                        session_id=turn["run_id"],
+                        **self.generation_kwargs,
+                    )
+                    agentic_answer = self.memory._normalize_agentic_answer_result(agentic_result)
+                except Exception:
+                    logger.warning(
+                        "Agentic retrieval failed in demo; using normal answer prompt",
+                        exc_info=True,
+                    )
+                context = self._step_output(turn_id, PipelineStep.RETRIEVE_CONTEXT)
+                final_messages = self.memory.build_prompt_from_context(
+                    context,
+                    agentic_answer=agentic_answer,
+                )
+                raw_response = self.memory.generate_response_for_demo(
+                    final_messages,
                     **self.generation_kwargs,
                 )
-                assistant_message = str(raw_response["answer"]).strip()
-                if not assistant_message:
-                    raise ValueError("The answer model returned an empty response")
+                assistant_message = self._assistant_text(raw_response)
             else:
                 raw_response = self.memory.generate_response_for_demo(messages, **self.generation_kwargs)
                 assistant_message = self._assistant_text(raw_response)
+                final_messages = messages
             output = {
                 "context_hash": prompt_output["context_hash"],
-                "prompt_messages": messages,
+                "prompt_messages": final_messages,
                 "assistant_message": assistant_message,
                 "raw_response": raw_response,
             }
             if prompt_output.get("agentic_retrieval"):
+                agentic_metadata = agentic_result if isinstance(agentic_result, dict) else {}
                 output.update(
                     {
-                        "iterations": raw_response["iterations"],
-                        "tool_call_count": raw_response["tool_call_count"],
-                        "stop_reason": raw_response["stop_reason"],
-                        "tool_trace": raw_response["tool_trace"],
+                        "agentic_prompt_messages": messages,
+                        "iterations": agentic_metadata.get("iterations", 0),
+                        "tool_call_count": agentic_metadata.get("tool_call_count", 0),
+                        "stop_reason": agentic_metadata.get("stop_reason", "agentic_error"),
+                        "tool_trace": agentic_metadata.get("tool_trace", []),
                     }
                 )
             return output, {"assistant_message": assistant_message, "generation": output}

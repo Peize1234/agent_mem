@@ -15,7 +15,7 @@ from mem0.memory.retrieval_tools import MEMORY_TOOLS, serialize_tool_result
 logger = logging.getLogger(__name__)
 
 _FINAL_ANSWER_PROMPT = (
-    "唯一一次中期记忆检索机会已经结束。请仅根据当前对话、用户画像和已经返回的记忆结果直接回答。"
+    "唯一一次中期记忆检索机会已经结束。请仅根据原始上下文和已经返回的记忆结果直接生成完整候选回答。"
     "不得再次请求任何工具；信息不足时明确说明不确定。"
 )
 _FALLBACK_ANSWER = "根据当前对话和已检索到的记忆，仍无法确定足够可靠的答案。"
@@ -95,6 +95,8 @@ def _result_summary(result: dict[str, Any]) -> dict[str, Any]:
     summary = {"ok": bool(result.get("ok"))}
     if isinstance(result.get("items"), list):
         summary["item_count"] = len(result["items"])
+    if isinstance(result.get("errors"), list):
+        summary["error_count"] = len(result["errors"])
     if result.get("error"):
         summary["error"] = result["error"]
     return summary
@@ -195,14 +197,18 @@ class AgenticMemoryRunner:
             return self._result(_FALLBACK_ANSWER, 1, tool_call_count, "max_iterations", tool_trace)
 
         final_messages = deepcopy(messages)
-        prompt = _FINAL_ANSWER_PROMPT if self.config.force_final_answer else "不得请求工具；请直接给出最终回答。"
+        prompt = _FINAL_ANSWER_PROMPT if self.config.force_final_answer else "不得请求工具；请直接给出完整候选回答。"
         final_messages.append({"role": "system", "content": prompt})
         response = self.llm.generate_response(messages=final_messages, **self.generation_kwargs)
         attempted_calls = _tool_calls(response)
-        answer = _response_content(response) or _FALLBACK_ANSWER
+        answer = _response_content(response)
         if attempted_calls:
             stop_reason = "model_tool_call_blocked"
-        return self._result(answer, 2, tool_call_count, stop_reason, tool_trace)
+        elif answer and stop_reason == "empty_response":
+            stop_reason = "model_answered"
+        else:
+            stop_reason = stop_reason if answer else "empty_response"
+        return self._result(answer or _FALLBACK_ANSWER, 2, tool_call_count, stop_reason, tool_trace)
 
     @staticmethod
     def _result(
@@ -288,7 +294,7 @@ class AsyncAgenticMemoryRunner(AgenticMemoryRunner):
             return self._result(_FALLBACK_ANSWER, 1, tool_call_count, "max_iterations", tool_trace)
 
         final_messages = deepcopy(messages)
-        prompt = _FINAL_ANSWER_PROMPT if self.config.force_final_answer else "不得请求工具；请直接给出最终回答。"
+        prompt = _FINAL_ANSWER_PROMPT if self.config.force_final_answer else "不得请求工具；请直接给出完整候选回答。"
         final_messages.append({"role": "system", "content": prompt})
         response = await _run_sync(
             self.llm.generate_response,
@@ -296,7 +302,11 @@ class AsyncAgenticMemoryRunner(AgenticMemoryRunner):
             **self.generation_kwargs,
         )
         attempted_calls = _tool_calls(response)
-        answer = _response_content(response) or _FALLBACK_ANSWER
+        answer = _response_content(response)
         if attempted_calls:
             stop_reason = "model_tool_call_blocked"
-        return self._result(answer, 2, tool_call_count, stop_reason, tool_trace)
+        elif answer and stop_reason == "empty_response":
+            stop_reason = "model_answered"
+        else:
+            stop_reason = stop_reason if answer else "empty_response"
+        return self._result(answer or _FALLBACK_ANSWER, 2, tool_call_count, stop_reason, tool_trace)

@@ -577,11 +577,11 @@ def test_base_context_does_not_search_and_disabled_public_runner_rejects_use():
         memory.run_agentic_retrieval("question", user_id="user-1", session_id="run-1")
 
 
-def test_enabled_public_memory_runner_uses_base_context_and_returns_trace_shape():
+def test_enabled_public_memory_runner_uses_complete_context_and_returns_trace_shape():
     memory = Memory.__new__(Memory)
     memory.config = SimpleNamespace(agentic_retrieval=AgenticRetrievalConfig(enabled=True))
     memory.llm = _ScriptedLLM([{"content": "public answer", "tool_calls": []}])
-    memory._retrieve_base_context = MagicMock(
+    memory._retrieve_context = MagicMock(
         return_value={
             "query": "question",
             "user_id": "user-1",
@@ -601,7 +601,7 @@ def test_enabled_public_memory_runner_uses_base_context_and_returns_trace_shape(
         "stop_reason": "model_answered",
         "tool_trace": [],
     }
-    memory._retrieve_base_context.assert_called_once_with(
+    memory._retrieve_context.assert_called_once_with(
         "question",
         user_id="user-1",
         session_id="run-1",

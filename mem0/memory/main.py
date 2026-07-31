@@ -705,11 +705,10 @@ def _memory_created_at_sort_key(memory: Dict[str, Any]) -> tuple[bool, str]:
     return not bool(created_at), str(created_at or "")
 
 
-def _build_answer_prompt_messages(
+def _project_retrieved_memories(
     retrieved_context: Dict[str, Any],
-    reference_information: Any = None,
-) -> list[Dict[str, str]]:
-    """Project retrieved context to the minimal fields needed by the answer model."""
+) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]]]:
+    """Project retrieved memories to the fields shared by answer and agentic prompts."""
     mid_term_memories = []
     long_term_memories = []
     for memory in retrieved_context.get("retrieved_memories") or []:
@@ -740,6 +739,16 @@ def _build_answer_prompt_messages(
 
     mid_term_memories.sort(key=_memory_created_at_sort_key)
     long_term_memories.sort(key=_memory_created_at_sort_key)
+    return mid_term_memories, long_term_memories
+
+
+def _build_answer_prompt_messages(
+    retrieved_context: Dict[str, Any],
+    reference_information: Any = None,
+    agentic_answer: str = "",
+) -> list[Dict[str, str]]:
+    """Project retrieved context to the minimal fields needed by the answer model."""
+    mid_term_memories, long_term_memories = _project_retrieved_memories(retrieved_context)
 
     prompt = AGENT_ANSWER_PROMPT.format(
         current_time=beijing_now_iso(),
@@ -749,25 +758,74 @@ def _build_answer_prompt_messages(
         long_term_memory=_serialize_prompt_value(long_term_memories, []),
         user_profile=_serialize_prompt_value(retrieved_context.get("profile"), {}),
         reference_information=_serialize_prompt_value(reference_information, []),
+        agentic_answer=agentic_answer,
     )
     return [{"role": "system", "content": prompt}]
 
 
 def _build_agentic_prompt_messages(
-    base_context: Dict[str, Any],
+    retrieved_context: Dict[str, Any],
     reference_information: Any = None,
 ) -> list[Dict[str, str]]:
-    """Build the initial prompt with short-term memory and profile only."""
+    """Build the Agentic prompt from an already retrieved, complete context."""
+    mid_term_memories, long_term_memories = _project_retrieved_memories(retrieved_context)
     prompt = AGENTIC_RETRIEVAL_PROMPT.format(
         current_time=beijing_now_iso(),
-        short_term_memory=_serialize_prompt_value(base_context.get("short_term_messages"), []),
-        user_profile=_serialize_prompt_value(base_context.get("profile"), {}),
+        user_query=retrieved_context["query"],
+        short_term_memory=_serialize_prompt_value(retrieved_context.get("short_term_messages"), []),
+        mid_term_memory=_serialize_prompt_value(mid_term_memories, []),
+        long_term_memory=_serialize_prompt_value(long_term_memories, []),
+        user_profile=_serialize_prompt_value(retrieved_context.get("profile"), {}),
         reference_information=_serialize_prompt_value(reference_information, []),
     )
     return [
         {"role": "system", "content": prompt},
-        {"role": "user", "content": base_context["query"]},
+        {"role": "user", "content": retrieved_context["query"]},
     ]
+
+
+def _agentic_answer_or_empty(result: Any) -> str:
+    """Return a usable candidate answer, or an empty string for a degraded Agentic result."""
+    if not isinstance(result, dict):
+        logger.warning("Agentic retrieval returned an invalid result type: %s", type(result).__name__)
+        return ""
+
+    stop_reason = result.get("stop_reason")
+    if stop_reason != "model_answered":
+        logger.warning("Agentic retrieval did not produce a usable candidate: stop_reason=%s", stop_reason)
+        return ""
+
+    iterations = result.get("iterations")
+    if not isinstance(iterations, int) or iterations not in {1, 2}:
+        logger.warning("Agentic retrieval returned an invalid iteration count")
+        return ""
+
+    tool_call_count = result.get("tool_call_count")
+    if not isinstance(tool_call_count, int) or tool_call_count not in {0, 1}:
+        logger.warning("Agentic retrieval returned an invalid tool call count")
+        return ""
+
+    tool_trace = result.get("tool_trace") or []
+    if not isinstance(tool_trace, list):
+        logger.warning("Agentic retrieval returned an invalid tool trace")
+        return ""
+    if len(tool_trace) != tool_call_count:
+        logger.warning("Agentic retrieval returned an inconsistent tool trace")
+        return ""
+    for trace_item in tool_trace:
+        if not isinstance(trace_item, dict):
+            logger.warning("Agentic retrieval returned an invalid tool trace item")
+            return ""
+        summary = trace_item.get("result_summary")
+        if not isinstance(summary, dict) or summary.get("ok") is not True or int(summary.get("error_count") or 0) > 0:
+            logger.warning("Agentic retrieval tool call failed; candidate answer will be ignored")
+            return ""
+
+    answer = result.get("answer")
+    if not isinstance(answer, str) or not answer.strip():
+        logger.warning("Agentic retrieval returned an empty candidate answer")
+        return ""
+    return answer.strip()
 
 
 def _entity_collection_name(provider: str, collection_name: str) -> str:
@@ -838,6 +896,10 @@ class _AsyncOSSProject:
 
 
 class _BackgroundMemoryMixin:
+    def _normalize_agentic_answer_result(self, result: Any) -> str:
+        """Normalize an Agentic result for use as optional answer context."""
+        return _agentic_answer_or_empty(result)
+
     def _background_config(self) -> BackgroundTaskConfig:
         configured = getattr(getattr(self, "config", None), "background", None)
         if configured is None:
@@ -1950,6 +2012,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         explain: bool = False,
         include_profile_metadata: bool = False,
         reference_information: Any = None,
+        agentic_generation_kwargs: Optional[Dict[str, Any]] = None,
     ) -> list[Dict[str, str]]:
         """Build messages for an external LLM from the query and layered memory context."""
         retrieved_context = self._retrieve_context(
@@ -1963,7 +2026,45 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             include_profile_metadata=include_profile_metadata,
         )
 
-        return _build_answer_prompt_messages(retrieved_context, reference_information)
+        agentic_answer = ""
+        agentic_config = getattr(getattr(self, "config", None), "agentic_retrieval", None)
+        if agentic_config is not None and agentic_config.enabled:
+            try:
+                result = self._run_agentic_retrieval_from_context(
+                    retrieved_context,
+                    reference_information=reference_information,
+                    generation_kwargs=agentic_generation_kwargs,
+                )
+                agentic_answer = self._normalize_agentic_answer_result(result)
+            except Exception:
+                logger.warning(
+                    "Agentic retrieval failed while building answer messages; using the retrieved context only",
+                    exc_info=True,
+                )
+
+        return _build_answer_prompt_messages(
+            retrieved_context,
+            reference_information,
+            agentic_answer=agentic_answer,
+        )
+
+    def _run_agentic_retrieval_from_context(
+        self,
+        retrieved_context: Dict[str, Any],
+        *,
+        reference_information: Any = None,
+        generation_kwargs: Optional[Dict[str, Any]] = None,
+        record_midterm_visits: bool = True,
+    ) -> Dict[str, Any]:
+        """Run Agentic retrieval using an already retrieved complete context."""
+        messages = _build_agentic_prompt_messages(retrieved_context, reference_information)
+        return self._run_agentic_retrieval_messages(
+            messages,
+            user_id=retrieved_context["user_id"],
+            session_id=retrieved_context["session_id"],
+            generation_kwargs=generation_kwargs,
+            record_midterm_visits=record_midterm_visits,
+        )
 
     def run_agentic_retrieval(
         self,
@@ -1978,17 +2079,15 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         """Run the optional two-call mid-term retrieval flow without writing messages."""
         if not self.config.agentic_retrieval.enabled:
             raise ValueError("Agentic retrieval is disabled; set agentic_retrieval.enabled=True")
-        context = self._retrieve_base_context(
+        context = self._retrieve_context(
             query,
             user_id=user_id,
             session_id=session_id,
             include_profile_metadata=include_profile_metadata,
         )
-        messages = _build_agentic_prompt_messages(context, reference_information)
-        return self._run_agentic_retrieval_messages(
-            messages,
-            user_id=context["user_id"],
-            session_id=context["session_id"],
+        return self._run_agentic_retrieval_from_context(
+            context,
+            reference_information=reference_information,
             generation_kwargs=generation_kwargs,
         )
 
@@ -4241,6 +4340,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         explain: bool = False,
         include_profile_metadata: bool = False,
         reference_information: Any = None,
+        agentic_generation_kwargs: Optional[Dict[str, Any]] = None,
     ) -> list[Dict[str, str]]:
         """Asynchronously build messages for an external LLM from layered memory context."""
         retrieved_context = await self._retrieve_context(
@@ -4254,7 +4354,70 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             include_profile_metadata=include_profile_metadata,
         )
 
-        return _build_answer_prompt_messages(retrieved_context, reference_information)
+        agentic_answer = ""
+        agentic_config = getattr(getattr(self, "config", None), "agentic_retrieval", None)
+        if agentic_config is not None and agentic_config.enabled:
+            try:
+                result = await self._run_agentic_retrieval_from_context(
+                    retrieved_context,
+                    reference_information=reference_information,
+                    generation_kwargs=agentic_generation_kwargs,
+                )
+                agentic_answer = self._normalize_agentic_answer_result(result)
+            except Exception:
+                logger.warning(
+                    "Async Agentic retrieval failed while building answer messages; using the retrieved context only",
+                    exc_info=True,
+                )
+
+        return _build_answer_prompt_messages(
+            retrieved_context,
+            reference_information,
+            agentic_answer=agentic_answer,
+        )
+
+    async def _run_agentic_retrieval_from_context(
+        self,
+        retrieved_context: Dict[str, Any],
+        *,
+        reference_information: Any = None,
+        generation_kwargs: Optional[Dict[str, Any]] = None,
+        record_midterm_visits: bool = True,
+    ) -> Dict[str, Any]:
+        """Run async Agentic retrieval using an already retrieved complete context."""
+        messages = _build_agentic_prompt_messages(retrieved_context, reference_information)
+        return await self._run_agentic_retrieval_messages(
+            messages,
+            user_id=retrieved_context["user_id"],
+            session_id=retrieved_context["session_id"],
+            generation_kwargs=generation_kwargs,
+            record_midterm_visits=record_midterm_visits,
+        )
+
+    async def _run_agentic_retrieval_messages(
+        self,
+        messages: list[Dict[str, Any]],
+        *,
+        user_id: str,
+        session_id: str,
+        generation_kwargs: Optional[Dict[str, Any]] = None,
+        record_midterm_visits: bool = True,
+    ) -> Dict[str, Any]:
+        """Run the async Agentic tool loop for prebuilt messages."""
+        executor = AsyncMemoryToolExecutor(
+            self,
+            user_id=user_id,
+            run_id=session_id,
+            config=self.config.agentic_retrieval,
+            record_midterm_visits=record_midterm_visits,
+        )
+        runner = AsyncAgenticMemoryRunner(
+            self.llm,
+            executor,
+            self.config.agentic_retrieval,
+            generation_kwargs=generation_kwargs,
+        )
+        return await runner.run(messages)
 
     async def run_agentic_retrieval(
         self,
@@ -4269,26 +4432,17 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         """Run the optional async two-call mid-term flow without writing messages."""
         if not self.config.agentic_retrieval.enabled:
             raise ValueError("Agentic retrieval is disabled; set agentic_retrieval.enabled=True")
-        context = await self._retrieve_base_context(
+        context = await self._retrieve_context(
             query,
             user_id=user_id,
             session_id=session_id,
             include_profile_metadata=include_profile_metadata,
         )
-        messages = _build_agentic_prompt_messages(context, reference_information)
-        executor = AsyncMemoryToolExecutor(
-            self,
-            user_id=context["user_id"],
-            run_id=context["session_id"],
-            config=self.config.agentic_retrieval,
-        )
-        runner = AsyncAgenticMemoryRunner(
-            self.llm,
-            executor,
-            self.config.agentic_retrieval,
+        return await self._run_agentic_retrieval_from_context(
+            context,
+            reference_information=reference_information,
             generation_kwargs=generation_kwargs,
         )
-        return await runner.run(messages)
 
     async def update_profile(self, user_id: str, messages):
         """Explicitly extract and apply profile updates for a user."""

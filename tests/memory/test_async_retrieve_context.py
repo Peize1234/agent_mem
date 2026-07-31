@@ -206,6 +206,7 @@ async def test_async_build_agent_answer_messages_matches_sync_prompt_flow(monkey
         ),
         user_profile=json.dumps(retrieved_context["profile"], ensure_ascii=False),
         reference_information=json.dumps(reference_information, ensure_ascii=False),
+        agentic_answer="",
     )
     assert result == [{"role": "system", "content": expected_prompt}]
     memory.llm.generate_response.assert_not_called()

@@ -248,6 +248,36 @@ def test_demo_midterm_retrieval_does_not_record_session_visits():
     )
 
 
+def test_demo_agentic_generation_does_not_record_midterm_visits():
+    memory = DemoMemory.__new__(DemoMemory)
+    memory._run_agentic_retrieval_messages = MagicMock(
+        return_value={
+            "answer": "candidate",
+            "iterations": 1,
+            "tool_call_count": 0,
+            "stop_reason": "model_answered",
+            "tool_trace": [],
+        }
+    )
+    prompt = [{"role": "system", "content": "agentic prompt"}]
+
+    result = memory.generate_agentic_response_for_demo(
+        prompt,
+        user_id="user-1",
+        session_id="run-1",
+        temperature=0.2,
+    )
+
+    assert result["answer"] == "candidate"
+    memory._run_agentic_retrieval_messages.assert_called_once_with(
+        prompt,
+        user_id="user-1",
+        session_id="run-1",
+        generation_kwargs={"temperature": 0.2},
+        record_midterm_visits=False,
+    )
+
+
 def test_prompt_build_uses_frozen_context_and_generation_sends_same_messages():
     memory = DemoMemory.__new__(DemoMemory)
     memory.llm = MagicMock()
