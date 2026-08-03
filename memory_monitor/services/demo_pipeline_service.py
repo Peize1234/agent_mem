@@ -22,6 +22,7 @@ from memory_monitor.runtime.demo_background_coordinator import (
     DemoBackgroundCoordinator,
     SubmissionResult,
 )
+from memory_monitor.runtime.llm_trace import LLMTrace, ensure_traced_llm, trace_llm_calls
 from memory_monitor.services.demo_repository import DemoRepository
 from memory_monitor.services.memory_state_service import MemoryStateService
 
@@ -36,6 +37,18 @@ STEP_SNAPSHOT_SECTIONS = {
     PipelineStep.RUN_MIDTERM: frozenset({"midterm_sessions", "midterm_pages"}),
     PipelineStep.RUN_LONGTERM: frozenset({"long_term"}),
     PipelineStep.RUN_PROFILE: frozenset({"profile"}),
+}
+
+STEP_LLM_PURPOSES = {
+    PipelineStep.CAPTURE_INPUT: "捕获输入",
+    PipelineStep.RETRIEVE_CONTEXT: "检索上下文",
+    PipelineStep.AGENTIC_RETRIEVAL: "Agentic 检索",
+    PipelineStep.BUILD_PROMPT: "构建最终 Prompt",
+    PipelineStep.GENERATE_RESPONSE: "生成最终回答",
+    PipelineStep.RUN_SHORTTERM: "提交短期记忆",
+    PipelineStep.RUN_MIDTERM: "生成中期记忆",
+    PipelineStep.RUN_LONGTERM: "抽取长期记忆",
+    PipelineStep.RUN_PROFILE: "抽取用户画像",
 }
 
 
@@ -65,6 +78,7 @@ class DemoPipelineService:
         self.coordinator = coordinator
         self.generation_kwargs = deepcopy(generation_kwargs) if generation_kwargs else {}
         self._schedule_lock = threading.RLock()
+        ensure_traced_llm(self.memory)
 
     def create_turn(
         self,
@@ -453,71 +467,90 @@ class DemoPipelineService:
         after_id = None
         diff: Dict[str, Any] = {}
         mutates_memory = step in MEMORY_STEPS
-        try:
-            input_data = self._step_input(turn, step)
-            if mutates_memory:
-                before, before_id, snapshot_error = self._capture_snapshot(turn, step, "before")
-                if snapshot_error:
-                    diff["before_snapshot_error"] = snapshot_error
-            output, turn_updates = self._execute(turn, step, input_data)
-            if mutates_memory:
-                after, after_id, snapshot_error = self._capture_snapshot(turn, step, "after")
-                if snapshot_error:
-                    diff["after_snapshot_error"] = snapshot_error
-                if before is not None and after is not None:
-                    diff.update(
-                        self.state_service.compare(
-                            before,
-                            after,
-                            sections=STEP_SNAPSHOT_SECTIONS[step],
+        current = self._require_step(turn_id, step)
+        previous_output = current.get("output") if isinstance(current.get("output"), dict) else {}
+        with trace_llm_calls(
+            step.value,
+            STEP_LLM_PURPOSES[step],
+            attempt=int(current.get("attempts") or 0),
+            existing_llm_calls=previous_output.get("llm_calls"),
+            existing_tool_calls=previous_output.get("tool_calls"),
+        ) as trace:
+            try:
+                input_data = self._step_input(turn, step)
+                if mutates_memory:
+                    before, before_id, snapshot_error = self._capture_snapshot(turn, step, "before")
+                    if snapshot_error:
+                        diff["before_snapshot_error"] = snapshot_error
+                output, turn_updates = self._execute(turn, step, input_data)
+                output = self._output_with_trace(step, output, trace)
+                if mutates_memory:
+                    after, after_id, snapshot_error = self._capture_snapshot(turn, step, "after")
+                    if snapshot_error:
+                        diff["after_snapshot_error"] = snapshot_error
+                    if before is not None and after is not None:
+                        diff.update(
+                            self.state_service.compare(
+                                before,
+                                after,
+                                sections=STEP_SNAPSHOT_SECTIONS[step],
+                            )
                         )
-                    )
-            duration_ms = (time.perf_counter() - started_at) * 1000
-            return self.repository.complete_step(
-                turn_id,
-                step,
-                token,
-                input_data=input_data,
-                output_data=output,
-                duration_ms=duration_ms,
-                before_snapshot_id=before_id,
-                after_snapshot_id=after_id,
-                diff=diff,
-                assistant_message=turn_updates.get("assistant_message"),
-                generation=turn_updates.get("generation"),
-                commit=turn_updates.get("commit"),
-            )
-        except BackgroundJobDeferred as exc:
-            duration_ms = (time.perf_counter() - started_at) * 1000
-            return self.repository.defer_step(
-                turn_id,
-                step,
-                token,
-                input_data=input_data,
-                reason=str(exc),
-                duration_ms=duration_ms,
-                before_snapshot_id=before_id,
-                after_snapshot_id=after_id,
-                diff=diff,
-            )
-        except Exception as exc:
-            duration_ms = (time.perf_counter() - started_at) * 1000
-            self.repository.fail_step(
-                turn_id,
-                step,
-                token,
-                input_data=input_data,
-                error=exc,
-                duration_ms=duration_ms,
-                before_snapshot_id=before_id,
-                after_snapshot_id=after_id,
-                diff=diff,
-            )
-            raise PipelineStepError(
-                "Demo pipeline step failed: "
-                f"step={step.value} user_id={turn['user_id']} session_id={turn['session_id']} "
-                f"run_id={turn['run_id']} turn_id={turn_id}: {exc}"
-            ) from exc
+                duration_ms = (time.perf_counter() - started_at) * 1000
+                disabled_agentic = (
+                    step is PipelineStep.AGENTIC_RETRIEVAL
+                    and isinstance(output, dict)
+                    and output.get("agentic_status") == "disabled"
+                )
+                return self.repository.complete_step(
+                    turn_id,
+                    step,
+                    token,
+                    status=StepStatus.SKIPPED if disabled_agentic else StepStatus.SUCCEEDED,
+                    input_data=input_data,
+                    output_data=output,
+                    duration_ms=duration_ms,
+                    before_snapshot_id=before_id,
+                    after_snapshot_id=after_id,
+                    diff=diff,
+                    skip_reason="Agentic retrieval is disabled" if disabled_agentic else None,
+                    assistant_message=turn_updates.get("assistant_message"),
+                    generation=turn_updates.get("generation"),
+                    commit=turn_updates.get("commit"),
+                )
+            except BackgroundJobDeferred as exc:
+                duration_ms = (time.perf_counter() - started_at) * 1000
+                return self.repository.defer_step(
+                    turn_id,
+                    step,
+                    token,
+                    input_data=input_data,
+                    output_data=self._output_with_trace(step, {}, trace),
+                    reason=str(exc),
+                    duration_ms=duration_ms,
+                    before_snapshot_id=before_id,
+                    after_snapshot_id=after_id,
+                    diff=diff,
+                )
+            except Exception as exc:
+                duration_ms = (time.perf_counter() - started_at) * 1000
+                self.repository.fail_step(
+                    turn_id,
+                    step,
+                    token,
+                    input_data=input_data,
+                    output_data=self._failure_output(step, trace),
+                    error=exc,
+                    duration_ms=duration_ms,
+                    before_snapshot_id=before_id,
+                    after_snapshot_id=after_id,
+                    diff=diff,
+                )
+                raise PipelineStepError(
+                    "Demo pipeline step failed: "
+                    f"step={step.value} user_id={turn['user_id']} session_id={turn['session_id']} "
+                    f"run_id={turn['run_id']} turn_id={turn_id}: {exc}"
+                ) from exc
 
     def _capture_snapshot(
         self,
@@ -554,64 +587,75 @@ class DemoPipelineService:
             )
             return context, {}
 
+        if step is PipelineStep.AGENTIC_RETRIEVAL:
+            context = self._step_output(turn_id, PipelineStep.RETRIEVE_CONTEXT)
+            if not context.get("agentic_retrieval"):
+                return {
+                    "agentic_status": "disabled",
+                    "agentic_answer": None,
+                    "iterations": 0,
+                    "tool_call_count": 0,
+                    "stop_reason": "disabled",
+                    "tool_trace": [],
+                }, {}
+            try:
+                result = self.memory.generate_agentic_response_for_demo(
+                    context,
+                    **self.generation_kwargs,
+                )
+                metadata = result if isinstance(result, dict) else {}
+                agentic_answer = self.memory._normalize_agentic_answer_result(result)
+            except Exception as exc:
+                logger.warning(
+                    "Agentic retrieval failed in demo; using the retrieved context only",
+                    exc_info=True,
+                )
+                return {
+                    "agentic_status": "failed_degraded",
+                    "agentic_answer": "",
+                    "iterations": 0,
+                    "tool_call_count": 0,
+                    "stop_reason": "agentic_error",
+                    "tool_trace": [],
+                    "error_type": type(exc).__name__,
+                    "error_message": str(exc),
+                }, {}
+            tool_call_count = int(metadata.get("tool_call_count") or 0)
+            return {
+                "agentic_status": "retrieved" if tool_call_count else "not_needed",
+                "agentic_answer": agentic_answer,
+                "raw_response": result,
+                "iterations": int(metadata.get("iterations") or 0),
+                "tool_call_count": tool_call_count,
+                "stop_reason": metadata.get("stop_reason"),
+                "tool_trace": deepcopy(metadata.get("tool_trace") or []),
+            }, {}
+
         if step is PipelineStep.BUILD_PROMPT:
             context = self._step_output(turn_id, PipelineStep.RETRIEVE_CONTEXT)
-            prompt = self.memory.build_prompt_from_context(context)
-            output = {"context_hash": self.memory.context_hash(context), "messages": prompt}
-            if context.get("agentic_retrieval"):
-                output["agentic_retrieval"] = True
+            agentic = self._completed_step_output(turn_id, PipelineStep.AGENTIC_RETRIEVAL)
+            prompt = self.memory.build_prompt_from_context(
+                context,
+                agentic_answer=agentic.get("agentic_answer") or "",
+            )
+            output = {
+                "context_hash": self.memory.context_hash(context),
+                "agentic_status": agentic.get("agentic_status"),
+                "messages": prompt,
+            }
             return output, {}
 
         if step is PipelineStep.GENERATE_RESPONSE:
             prompt_output = self._step_output(turn_id, PipelineStep.BUILD_PROMPT)
             messages = prompt_output["messages"]
-            if prompt_output.get("agentic_retrieval"):
-                agentic_result: Any = {}
-                agentic_answer = ""
-                try:
-                    agentic_result = self.memory.generate_agentic_response_for_demo(
-                        messages,
-                        user_id=turn["user_id"],
-                        session_id=turn["run_id"],
-                        **self.generation_kwargs,
-                    )
-                    agentic_answer = self.memory._normalize_agentic_answer_result(agentic_result)
-                except Exception:
-                    logger.warning(
-                        "Agentic retrieval failed in demo; using normal answer prompt",
-                        exc_info=True,
-                    )
-                context = self._step_output(turn_id, PipelineStep.RETRIEVE_CONTEXT)
-                final_messages = self.memory.build_prompt_from_context(
-                    context,
-                    agentic_answer=agentic_answer,
-                )
-                raw_response = self.memory.generate_response_for_demo(
-                    final_messages,
-                    **self.generation_kwargs,
-                )
-                assistant_message = self._assistant_text(raw_response)
-            else:
-                raw_response = self.memory.generate_response_for_demo(messages, **self.generation_kwargs)
-                assistant_message = self._assistant_text(raw_response)
-                final_messages = messages
+            raw_response = self.memory.generate_response_for_demo(messages, **self.generation_kwargs)
+            assistant_message = self._assistant_text(raw_response)
             output = {
                 "context_hash": prompt_output["context_hash"],
-                "prompt_messages": final_messages,
+                "prompt_messages": messages,
                 "assistant_message": assistant_message,
                 "raw_response": raw_response,
             }
-            if prompt_output.get("agentic_retrieval"):
-                agentic_metadata = agentic_result if isinstance(agentic_result, dict) else {}
-                output.update(
-                    {
-                        "agentic_prompt_messages": messages,
-                        "iterations": agentic_metadata.get("iterations", 0),
-                        "tool_call_count": agentic_metadata.get("tool_call_count", 0),
-                        "stop_reason": agentic_metadata.get("stop_reason", "agentic_error"),
-                        "tool_trace": agentic_metadata.get("tool_trace", []),
-                    }
-                )
             return output, {"assistant_message": assistant_message, "generation": output}
 
         if step is PipelineStep.RUN_SHORTTERM:
@@ -697,9 +741,20 @@ class DemoPipelineService:
             }
         if step is PipelineStep.RETRIEVE_CONTEXT:
             return {"query": turn["user_message"], "user_id": turn["user_id"], "run_id": turn["run_id"]}
+        if step is PipelineStep.AGENTIC_RETRIEVAL:
+            context = self._step_output(turn_id, PipelineStep.RETRIEVE_CONTEXT)
+            return {
+                "context_hash": self.memory.context_hash(context),
+                "enabled": bool(context.get("agentic_retrieval")),
+            }
         if step is PipelineStep.BUILD_PROMPT:
             context = self._step_output(turn_id, PipelineStep.RETRIEVE_CONTEXT)
-            return {"context_hash": self.memory.context_hash(context)}
+            agentic = self._completed_step_output(turn_id, PipelineStep.AGENTIC_RETRIEVAL)
+            return {
+                "context_hash": self.memory.context_hash(context),
+                "agentic_status": agentic.get("agentic_status"),
+                "agentic_answer": agentic.get("agentic_answer"),
+            }
         if step is PipelineStep.GENERATE_RESPONSE:
             prompt = self._step_output(turn_id, PipelineStep.BUILD_PROMPT)
             return {"context_hash": prompt["context_hash"], "messages": prompt["messages"]}
@@ -749,6 +804,36 @@ class DemoPipelineService:
         if step_run["status"] != StepStatus.SUCCEEDED.value:
             raise RuntimeError(f"Required step has not succeeded: turn={turn_id} step={step.value}")
         return deepcopy(step_run.get("output"))
+
+    def _completed_step_output(self, turn_id: str, step: PipelineStep) -> Any:
+        step_run = self._require_step(turn_id, step)
+        if not self._is_complete(step_run):
+            raise RuntimeError(f"Required step is incomplete: turn={turn_id} step={step.value}")
+        return deepcopy(step_run.get("output") or {})
+
+    @staticmethod
+    def _output_with_trace(step: PipelineStep, output: Any, trace: LLMTrace) -> Any:
+        if not isinstance(output, dict):
+            if not trace.llm_calls and not trace.tool_calls:
+                return output
+            output = {"result": output}
+        else:
+            output = deepcopy(output)
+        if trace.llm_calls or "llm_calls" in output or step is PipelineStep.AGENTIC_RETRIEVAL:
+            output["llm_calls"] = deepcopy(trace.llm_calls)
+        if trace.tool_calls or "tool_calls" in output or step is PipelineStep.AGENTIC_RETRIEVAL:
+            output["tool_calls"] = deepcopy(trace.tool_calls)
+        return output
+
+    @staticmethod
+    def _failure_output(step: PipelineStep, trace: LLMTrace) -> Dict[str, Any]:
+        output = {
+            "llm_calls": deepcopy(trace.llm_calls),
+            "tool_calls": deepcopy(trace.tool_calls),
+        }
+        if step is PipelineStep.AGENTIC_RETRIEVAL:
+            output["agentic_status"] = "failed"
+        return output
 
     def _require_turn(self, turn_id: str, session_id: str) -> Dict[str, Any]:
         return self.repository.assert_turn_belongs_to_session(turn_id, session_id)

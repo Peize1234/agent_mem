@@ -104,6 +104,7 @@ div[class*="st-key-active_turn_"] button p {
     min-width: 0;
     padding: 0.3rem 0.38rem;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    position: relative;
 }
 .demo-foreground-chain .demo-node {
     flex: 0 1 100px;
@@ -148,6 +149,122 @@ div[class*="st-key-active_turn_"] button p {
     font-size: 0.64rem;
     line-height: 1.18;
     margin-top: 0.1rem;
+}
+.demo-node-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.18rem;
+    margin-top: 0.15rem;
+}
+.demo-node-badge {
+    background: color-mix(in srgb, var(--node-color) 12%, white);
+    border: 1px solid color-mix(in srgb, var(--node-color) 28%, transparent);
+    border-radius: 999px;
+    color: #4b5563;
+    font-size: 0.59rem;
+    line-height: 1.1;
+    padding: 0.08rem 0.24rem;
+    white-space: nowrap;
+}
+.demo-node-popover {
+    --demo-popover-body-font-size: 0.9rem;
+    --demo-popover-body-line-height: 1.55;
+    --demo-popover-heading-font-size: 0.8rem;
+    --demo-popover-label-font-size: 0.76rem;
+    --demo-popover-meta-font-size: 0.74rem;
+    --demo-popover-section-font-size: 0.84rem;
+    --demo-popover-title-font-size: 0.875rem;
+    background: #111827;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 0.65rem;
+    box-shadow: 0 16px 42px rgba(15, 23, 42, 0.34);
+    color: #e5e7eb;
+    display: none;
+    max-height: min(72vh, 720px);
+    overscroll-behavior: contain;
+    overflow: auto;
+    padding: 0.85rem 0.9rem;
+    position: fixed;
+    right: 1.25rem;
+    top: 4.75rem;
+    width: min(680px, calc(100vw - 2.5rem));
+    z-index: 100000;
+}
+.demo-node:hover .demo-node-popover,
+.demo-node:focus-within .demo-node-popover {
+    display: block;
+}
+.demo-popover-title {
+    font-size: var(--demo-popover-title-font-size);
+    font-weight: 700;
+    line-height: 1.35;
+    margin-bottom: 0.4rem;
+}
+.demo-popover-call {
+    padding: 0.48rem 0 0.38rem;
+}
+.demo-popover-call + .demo-popover-call {
+    border-top: 2px solid rgba(255, 255, 255, 0.2);
+    margin-top: 0.58rem;
+    padding-top: 0.72rem;
+}
+.demo-popover-call-title {
+    color: #f9fafb;
+    font-size: var(--demo-popover-section-font-size);
+    font-weight: 650;
+    line-height: 1.35;
+}
+.demo-popover-call-meta {
+    color: #9ca3af;
+    font-size: var(--demo-popover-meta-font-size);
+    line-height: 1.4;
+    margin-top: 0.08rem;
+}
+.demo-call-block {
+    margin-top: 0.52rem;
+}
+.demo-call-heading {
+    color: #f9fafb;
+    font-size: var(--demo-popover-heading-font-size);
+    font-weight: 700;
+    line-height: 1.35;
+    margin-bottom: 0.25rem;
+}
+.demo-prompt-message,
+.demo-call-answer .demo-markdown-text {
+    background: #030712;
+    border-radius: 0.35rem;
+    padding: 0.62rem 0.68rem;
+}
+.demo-prompt-message + .demo-prompt-message {
+    margin-top: 0.42rem;
+}
+.demo-prompt-role {
+    color: #93c5fd;
+    font-size: var(--demo-popover-label-font-size);
+    font-weight: 700;
+    line-height: 1.35;
+    margin-bottom: 0.25rem;
+}
+.demo-markdown-text {
+    color: #d1d5db;
+    font-family: inherit;
+    font-size: var(--demo-popover-body-font-size);
+    line-height: var(--demo-popover-body-line-height);
+    overflow-wrap: anywhere;
+    tab-size: 4;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.demo-markdown-text :where(p, ul, ol, li, pre, code) {
+    font-size: inherit;
+    line-height: inherit;
+}
+.demo-markdown-text :where(p, ul, ol, pre) {
+    margin: 0.35rem 0;
+}
+.demo-markdown-text :where(ul, ol) {
+    padding-left: 1.25rem;
 }
 .demo-node-error {
     color: var(--failed);

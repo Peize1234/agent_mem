@@ -60,7 +60,13 @@ def _tool_calls(response: Any) -> list[dict[str, Any]]:
 def _arguments_json(arguments: Any) -> str:
     if isinstance(arguments, str):
         return arguments
-    return json.dumps(arguments, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
+    return json.dumps(
+        arguments,
+        ensure_ascii=False,
+        indent=2,
+        sort_keys=True,
+        default=str,
+    )
 
 
 def _assistant_tool_message(content: str, calls: list[dict[str, Any]]) -> dict[str, Any]:

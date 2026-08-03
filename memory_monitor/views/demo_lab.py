@@ -401,7 +401,7 @@ def _render_right_workspace_content(
     )
     section = dict(_WORKSPACE_SECTIONS).get(selected or labels[0], "pipeline")
     if section == "pipeline":
-        with st.container(height=450, border=False, key=f"{key_scope}:pipeline"):
+        with st.container(border=False, key=f"{key_scope}:pipeline"):
             pipeline_panel.render_steps(st, steps, selected_config)
     elif section == "context":
         with st.container(height=515, border=False, key=f"{key_scope}:context"):

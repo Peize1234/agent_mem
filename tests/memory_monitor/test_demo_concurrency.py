@@ -45,9 +45,17 @@ def _complete(repository, turn_id, step, token):
 
 
 def test_dag_has_four_visible_branches_and_derived_completion_only():
+    assert PIPELINE_STEPS[:5] == (
+        PipelineStep.CAPTURE_INPUT,
+        PipelineStep.RETRIEVE_CONTEXT,
+        PipelineStep.AGENTIC_RETRIEVAL,
+        PipelineStep.BUILD_PROMPT,
+        PipelineStep.GENERATE_RESPONSE,
+    )
     assert STEP_DEPENDENCIES[PipelineStep.CAPTURE_INPUT] == ()
     assert STEP_DEPENDENCIES[PipelineStep.RETRIEVE_CONTEXT] == (PipelineStep.CAPTURE_INPUT,)
-    assert STEP_DEPENDENCIES[PipelineStep.BUILD_PROMPT] == (PipelineStep.RETRIEVE_CONTEXT,)
+    assert STEP_DEPENDENCIES[PipelineStep.AGENTIC_RETRIEVAL] == (PipelineStep.RETRIEVE_CONTEXT,)
+    assert STEP_DEPENDENCIES[PipelineStep.BUILD_PROMPT] == (PipelineStep.AGENTIC_RETRIEVAL,)
     assert STEP_DEPENDENCIES[PipelineStep.GENERATE_RESPONSE] == (PipelineStep.BUILD_PROMPT,)
     assert STEP_DEPENDENCIES[PipelineStep.RUN_SHORTTERM] == (PipelineStep.GENERATE_RESPONSE,)
     for step in MEMORY_STEPS[1:]:
@@ -67,6 +75,8 @@ def test_dag_has_four_visible_branches_and_derived_completion_only():
     for center in ("12.5", "37.5", "62.5", "87.5"):
         assert f'y1="{center}"' in rendered
     assert "完成本轮" in rendered
+    foreground_labels = ("捕获输入", "检索上下文", "Agentic 检索", "构建 Prompt", "模型回答")
+    assert [rendered.index(label) for label in foreground_labels] == sorted(rendered.index(label) for label in foreground_labels)
     ordered_classes = (
         "demo-foreground-chain",
         "demo-parallel-arrow",
@@ -989,7 +999,7 @@ def test_held_core_branch_is_not_called_and_prevents_completion_until_release(tm
         assert pipeline_graph.progress(
             repository.list_steps(turn["turn_id"]),
             repository.background_config(turn["turn_id"]),
-        )[:2] == (9, 9)
+        )[:2] == (10, 10)
     finally:
         coordinator.shutdown(wait=True)
 

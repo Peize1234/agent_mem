@@ -697,7 +697,12 @@ def _assemble_retrieved_context(
 
 
 def _serialize_prompt_value(value: Any, empty_value: Any) -> str:
-    return json.dumps(value if value is not None else empty_value, ensure_ascii=False, default=str)
+    return json.dumps(
+        value if value is not None else empty_value,
+        ensure_ascii=False,
+        indent=2,
+        default=str,
+    )
 
 
 def _memory_created_at_sort_key(memory: Dict[str, Any]) -> tuple[bool, str]:
@@ -761,6 +766,19 @@ def _build_answer_prompt_messages(
         agentic_answer=agentic_answer,
     )
     return [{"role": "system", "content": prompt}]
+
+
+def build_answer_prompt_messages_from_context(
+    retrieved_context: Dict[str, Any],
+    reference_information: Any = None,
+    agentic_answer: str = "",
+) -> list[Dict[str, str]]:
+    """Build final answer messages from a context retrieved by the core memory flow."""
+    return _build_answer_prompt_messages(
+        retrieved_context,
+        reference_information,
+        agentic_answer=agentic_answer,
+    )
 
 
 def _build_agentic_prompt_messages(
@@ -2042,7 +2060,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                     exc_info=True,
                 )
 
-        return _build_answer_prompt_messages(
+        return build_answer_prompt_messages_from_context(
             retrieved_context,
             reference_information,
             agentic_answer=agentic_answer,
@@ -2100,11 +2118,9 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         generation_kwargs: Optional[Dict[str, Any]] = None,
         record_midterm_visits: bool = True,
     ) -> Dict[str, Any]:
-        executor = MemoryToolExecutor(
-            self,
+        executor = self._create_agentic_tool_executor(
             user_id=user_id,
-            run_id=session_id,
-            config=self.config.agentic_retrieval,
+            session_id=session_id,
             record_midterm_visits=record_midterm_visits,
         )
         runner = AgenticMemoryRunner(
@@ -2114,6 +2130,22 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             generation_kwargs=generation_kwargs,
         )
         return runner.run(messages)
+
+    def _create_agentic_tool_executor(
+        self,
+        *,
+        user_id: str,
+        session_id: str,
+        record_midterm_visits: bool,
+    ) -> MemoryToolExecutor:
+        """Create the core Agentic tool executor, allowing scoped runtime decoration."""
+        return MemoryToolExecutor(
+            self,
+            user_id=user_id,
+            run_id=session_id,
+            config=self.config.agentic_retrieval,
+            record_midterm_visits=record_midterm_visits,
+        )
 
     def update_profile(self, user_id: str, messages):
         """Explicitly extract and apply profile updates from user messages."""
@@ -4370,7 +4402,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                     exc_info=True,
                 )
 
-        return _build_answer_prompt_messages(
+        return build_answer_prompt_messages_from_context(
             retrieved_context,
             reference_information,
             agentic_answer=agentic_answer,
@@ -4404,11 +4436,9 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         record_midterm_visits: bool = True,
     ) -> Dict[str, Any]:
         """Run the async Agentic tool loop for prebuilt messages."""
-        executor = AsyncMemoryToolExecutor(
-            self,
+        executor = self._create_agentic_tool_executor(
             user_id=user_id,
-            run_id=session_id,
-            config=self.config.agentic_retrieval,
+            session_id=session_id,
             record_midterm_visits=record_midterm_visits,
         )
         runner = AsyncAgenticMemoryRunner(
@@ -4418,6 +4448,22 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             generation_kwargs=generation_kwargs,
         )
         return await runner.run(messages)
+
+    def _create_agentic_tool_executor(
+        self,
+        *,
+        user_id: str,
+        session_id: str,
+        record_midterm_visits: bool,
+    ) -> AsyncMemoryToolExecutor:
+        """Create the async core Agentic tool executor."""
+        return AsyncMemoryToolExecutor(
+            self,
+            user_id=user_id,
+            run_id=session_id,
+            config=self.config.agentic_retrieval,
+            record_midterm_visits=record_midterm_visits,
+        )
 
     async def run_agentic_retrieval(
         self,

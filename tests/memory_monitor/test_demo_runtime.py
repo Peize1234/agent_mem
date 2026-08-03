@@ -2,12 +2,13 @@ from types import SimpleNamespace
 import threading
 from unittest.mock import MagicMock
 
-from mem0.configs.base import BackgroundTaskConfig, MemoryConfig
+from mem0.configs.base import AgenticRetrievalConfig, BackgroundTaskConfig, MemoryConfig
 from mem0.memory.background_worker import BackgroundWorkerManager
 from mem0.memory.main import Memory
 from mem0.memory.process_lock import ProcessInstanceLock
 from mem0.memory.storage import SQLiteManager
 from memory_monitor.runtime import DemoBackgroundWorkerManager, DemoMemory
+from memory_monitor.runtime.llm_trace import TracedToolExecutor
 
 
 def _messages(label):
@@ -248,9 +249,11 @@ def test_demo_midterm_retrieval_does_not_record_session_visits():
     )
 
 
-def test_demo_agentic_generation_does_not_record_midterm_visits():
+def test_demo_agentic_generation_does_not_record_midterm_visits(monkeypatch):
     memory = DemoMemory.__new__(DemoMemory)
-    memory._run_agentic_retrieval_messages = MagicMock(
+    memory.config = SimpleNamespace(agentic_retrieval=AgenticRetrievalConfig(enabled=True))
+    memory.llm = MagicMock()
+    core_runner = MagicMock(
         return_value={
             "answer": "candidate",
             "iterations": 1,
@@ -259,21 +262,50 @@ def test_demo_agentic_generation_does_not_record_midterm_visits():
             "tool_trace": [],
         }
     )
-    prompt = [{"role": "system", "content": "agentic prompt"}]
+    monkeypatch.setattr(Memory, "_run_agentic_retrieval_from_context", core_runner)
+    context = {
+        "query": "question",
+        "user_id": "user-1",
+        "session_id": "run-1",
+        "profile": {},
+        "short_term_messages": [],
+        "retrieved_memories": [],
+    }
+    context["context_hash"] = memory.context_hash(context)
 
     result = memory.generate_agentic_response_for_demo(
-        prompt,
-        user_id="user-1",
-        session_id="run-1",
+        context,
         temperature=0.2,
     )
 
     assert result["answer"] == "candidate"
-    memory._run_agentic_retrieval_messages.assert_called_once_with(
-        prompt,
+    core_context = core_runner.call_args.args[0]
+    assert "context_hash" not in core_context
+    core_runner.assert_called_once_with(
+        core_context,
+        reference_information=None,
+        generation_kwargs={"temperature": 0.2},
+        record_midterm_visits=False,
+    )
+
+
+def test_demo_agentic_tool_tracing_decorates_the_core_executor(monkeypatch):
+    memory = DemoMemory.__new__(DemoMemory)
+    core_executor = MagicMock()
+    core_factory = MagicMock(return_value=core_executor)
+    monkeypatch.setattr(Memory, "_create_agentic_tool_executor", core_factory)
+
+    executor = memory._create_agentic_tool_executor(
         user_id="user-1",
         session_id="run-1",
-        generation_kwargs={"temperature": 0.2},
+        record_midterm_visits=False,
+    )
+
+    assert isinstance(executor, TracedToolExecutor)
+    assert executor._wrapped is core_executor
+    core_factory.assert_called_once_with(
+        user_id="user-1",
+        session_id="run-1",
         record_midterm_visits=False,
     )
 
@@ -293,10 +325,12 @@ def test_prompt_build_uses_frozen_context_and_generation_sends_same_messages():
     }
     context["context_hash"] = memory.context_hash(context)
 
-    prompt = memory.build_prompt_from_context(context)
+    prompt = memory.build_prompt_from_context(context, agentic_answer="candidate answer")
     result = memory.generate_response_for_demo(prompt)
 
     assert result == "answer"
+    assert "<agentic_answer>\ncandidate answer\n</agentic_answer>" in prompt[0]["content"]
+    assert "外部记忆工具" not in prompt[0]["content"]
     memory._retrieve_context.assert_not_called()
     memory.llm.generate_response.assert_called_once_with(messages=prompt)
 

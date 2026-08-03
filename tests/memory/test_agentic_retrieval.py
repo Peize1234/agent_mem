@@ -223,7 +223,13 @@ def test_one_tool_call_with_multiple_queries_uses_two_llm_calls():
 
     second_messages = llm.calls[1]["messages"]
     assert second_messages[-3]["tool_calls"][0]["id"] == "call-search"
+    assistant_arguments = second_messages[-3]["tool_calls"][0]["function"]["arguments"]
+    assert assistant_arguments == (
+        '{\n  "queries": [\n    "最大可接受亏损比例",\n    "投资期限"\n  ]\n}'
+    )
     assert second_messages[-2]["tool_call_id"] == "call-search"
+    assert second_messages[-2]["content"].startswith('{\n  "ok": true,\n  "items": [')
+    assert "\\u" not in second_messages[-2]["content"]
     assert json.loads(second_messages[-2]["content"])["ok"] is True
     assert second_messages[-1]["role"] == "system"
     assert "tools" not in llm.calls[1]
@@ -750,5 +756,11 @@ async def test_async_runner_matches_sync_bounds_and_only_searches_midterm():
     assert "tools" not in llm.calls[1]
     assert {call[0] for call in memory.midterm_retriever.calls} == {"风险", "亏损"}
     assert memory.longterm_calls == []
-    tool_payload = json.loads(llm.calls[1]["messages"][-2]["content"])
+    second_messages = llm.calls[1]["messages"]
+    assert second_messages[-3]["tool_calls"][0]["function"]["arguments"] == (
+        '{\n  "queries": [\n    "风险",\n    "亏损"\n  ]\n}'
+    )
+    assert second_messages[-2]["content"].startswith('{\n  "ok": true,\n  "items": [')
+    assert "\\u" not in second_messages[-2]["content"]
+    tool_payload = json.loads(second_messages[-2]["content"])
     assert tool_payload["items"][0]["score"] == 0.9

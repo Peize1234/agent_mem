@@ -8,6 +8,7 @@ from typing import Mapping
 class PipelineStep(str, Enum):
     CAPTURE_INPUT = "capture_input"
     RETRIEVE_CONTEXT = "retrieve_context"
+    AGENTIC_RETRIEVAL = "agentic_retrieval"
     BUILD_PROMPT = "build_prompt"
     GENERATE_RESPONSE = "generate_response"
     RUN_SHORTTERM = "run_shortterm"
@@ -29,6 +30,7 @@ class StepStatus(str, Enum):
 FOREGROUND_STEPS = (
     PipelineStep.CAPTURE_INPUT,
     PipelineStep.RETRIEVE_CONTEXT,
+    PipelineStep.AGENTIC_RETRIEVAL,
     PipelineStep.BUILD_PROMPT,
     PipelineStep.GENERATE_RESPONSE,
 )
@@ -48,7 +50,8 @@ INFLIGHT_STEP_STATUSES = frozenset({StepStatus.QUEUED.value, StepStatus.RUNNING.
 STEP_DEPENDENCIES = {
     PipelineStep.CAPTURE_INPUT: (),
     PipelineStep.RETRIEVE_CONTEXT: (PipelineStep.CAPTURE_INPUT,),
-    PipelineStep.BUILD_PROMPT: (PipelineStep.RETRIEVE_CONTEXT,),
+    PipelineStep.AGENTIC_RETRIEVAL: (PipelineStep.RETRIEVE_CONTEXT,),
+    PipelineStep.BUILD_PROMPT: (PipelineStep.AGENTIC_RETRIEVAL,),
     PipelineStep.GENERATE_RESPONSE: (PipelineStep.BUILD_PROMPT,),
     PipelineStep.RUN_SHORTTERM: (PipelineStep.GENERATE_RESPONSE,),
     # Memory.add() in RUN_SHORTTERM creates the real core job IDs consumed by

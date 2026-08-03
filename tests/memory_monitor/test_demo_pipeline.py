@@ -146,7 +146,7 @@ class _FakeDemoMemory:
         context["context_hash"] = self.context_hash(context)
         return context
 
-    def build_prompt_from_context(self, context):
+    def build_prompt_from_context(self, context, *, agentic_answer=None):
         self.build_calls += 1
         return [{"role": "system", "content": f"frozen:{context['query']}"}]
 
@@ -418,7 +418,7 @@ def test_right_controls_and_live_status_share_one_fragment_boundary():
     assert "_render_turn_navigation" in content_source
     assert "st.segmented_control" in content_source
     assert "st.tabs" not in content_source
-    assert "st.container(height=450" in content_source
+    assert 'st.container(border=False, key=f"{key_scope}:pipeline")' in content_source
     assert "repository.list_steps" not in content_source
     assert "_render_live_workspace" not in inspect.getsource(demo_lab)
 
@@ -738,8 +738,8 @@ def test_memory_gate_toggle_holds_only_its_step_and_never_creates_skipped(tmp_pa
     blocked = repository.get_step(turn["turn_id"], PipelineStep.RUN_SHORTTERM)
     assert blocked["status"] == "pending"
     assert blocked["is_held"] is True
-    assert all(step["status"] == "pending" for step in repository.list_steps(turn["turn_id"])[4:])
-    assert all(not step["is_held"] for step in repository.list_steps(turn["turn_id"])[5:])
+    assert all(step["status"] == "pending" for step in repository.list_steps(turn["turn_id"])[5:])
+    assert all(not step["is_held"] for step in repository.list_steps(turn["turn_id"])[6:])
 
     state[f"{prefix}:{PipelineStep.RUN_SHORTTERM.value}"] = True
     pipeline_panel._apply_memory_gate(
@@ -879,7 +879,7 @@ def test_enabling_gate_resumes_started_memory_target(tmp_path):
         assert result["resumed"] is True
         assert list(result["submissions"]) == [PipelineStep.RUN_SHORTTERM]
         assert coordinator.wait_for_idle(3)
-        assert [step["status"] for step in repository.list_steps(turn["turn_id"])[4:]] == ["succeeded"] * 4
+        assert [step["status"] for step in repository.list_steps(turn["turn_id"])[5:]] == ["succeeded"] * 4
         assert memory.commit_calls == 1
     finally:
         coordinator.shutdown(wait=True)
@@ -900,10 +900,10 @@ def test_setting_pending_memory_gate_never_changes_execution_intent_or_other_ste
     assert held["resumed"] is False
     assert held["submissions"] == {}
     after_hold = repository.list_steps(turn["turn_id"])
-    assert after_hold[6]["status"] == "pending"
-    assert after_hold[6]["is_held"] is True
-    assert [(step["step"], step["status"], step["is_held"]) for index, step in enumerate(after_hold) if index != 6] == [
-        (step["step"], step["status"], step["is_held"]) for index, step in enumerate(before) if index != 6
+    assert after_hold[7]["status"] == "pending"
+    assert after_hold[7]["is_held"] is True
+    assert [(step["step"], step["status"], step["is_held"]) for index, step in enumerate(after_hold) if index != 7] == [
+        (step["step"], step["status"], step["is_held"]) for index, step in enumerate(before) if index != 7
     ]
     assert repository.get_turn(turn["turn_id"])["execution_target"] is None
     assert repository.get_turn(turn["turn_id"])["background_submitted_at"] is None
@@ -1496,8 +1496,14 @@ def test_steps_run_in_order_and_prompt_sent_matches_persisted_prompt(tmp_path):
         assert coordinator.wait_for_idle(3)
 
         steps = repository.list_steps(turn["turn_id"])
-        assert [step["status"] for step in steps[:4]] == [StepStatus.SUCCEEDED.value] * 4
-        assert [step["status"] for step in steps[4:]] == [StepStatus.PENDING.value] * 4
+        assert [step["status"] for step in steps[:5]] == [
+            StepStatus.SUCCEEDED.value,
+            StepStatus.SUCCEEDED.value,
+            StepStatus.SKIPPED.value,
+            StepStatus.SUCCEEDED.value,
+            StepStatus.SUCCEEDED.value,
+        ]
+        assert [step["status"] for step in steps[5:]] == [StepStatus.PENDING.value] * 4
         prompt_output = repository.get_step(turn["turn_id"], PipelineStep.BUILD_PROMPT)["output"]
         generation_input = repository.get_step(turn["turn_id"], PipelineStep.GENERATE_RESPONSE)["input"]
         assert prompt_output["messages"] == memory.generated_messages
@@ -1534,11 +1540,11 @@ def test_slow_pipeline_operations_never_execute_on_the_calling_thread(tmp_path):
         coordinator.shutdown(wait=True)
 
 
-def test_next_step_runs_four_foreground_clicks_then_one_memory_batch(tmp_path):
+def test_next_step_runs_five_foreground_clicks_then_one_memory_batch(tmp_path):
     pipeline, repository, memory, session, turn = _pipeline(tmp_path)
     coordinator = _coordinator(pipeline, repository, "next")
     try:
-        for step in PIPELINE_STEPS[:4]:
+        for step in PIPELINE_STEPS[:5]:
             result = pipeline.run_next_step(turn["turn_id"], session_id=session["session_id"])
             assert list(result["submissions"]) == [step.value]
             assert coordinator.wait_for_idle(3)
@@ -1547,7 +1553,7 @@ def test_next_step_runs_four_foreground_clicks_then_one_memory_batch(tmp_path):
         assert list(result["submissions"]) == [PipelineStep.RUN_SHORTTERM.value]
         assert coordinator.wait_for_idle(3)
 
-        memory_steps = repository.list_steps(turn["turn_id"])[4:]
+        memory_steps = repository.list_steps(turn["turn_id"])[5:]
         assert [step["status"] for step in memory_steps] == [StepStatus.SUCCEEDED.value] * 4
         assert [step["attempts"] for step in memory_steps] == [1, 1, 1, 1]
         assert memory.commit_calls == 1
@@ -1580,7 +1586,7 @@ def test_holding_shortterm_waits_without_blocking_other_gate_choices_then_fans_o
             "longterm": [],
             "profile": [],
         }
-        memory_steps = repository.list_steps(turn["turn_id"])[4:]
+        memory_steps = repository.list_steps(turn["turn_id"])[5:]
         assert [step["status"] for step in memory_steps] == ["pending"] * 4
         assert [step["is_held"] for step in memory_steps] == [True, False, False, False]
         assert repository.get_turn(turn["turn_id"])["completed_at"] is None
@@ -1595,7 +1601,7 @@ def test_holding_shortterm_waits_without_blocking_other_gate_choices_then_fans_o
         assert resumed["resumed"] is True
         assert coordinator.wait_for_idle(3)
 
-        assert [step["status"] for step in repository.list_steps(turn["turn_id"])[4:]] == ["succeeded"] * 4
+        assert [step["status"] for step in repository.list_steps(turn["turn_id"])[5:]] == ["succeeded"] * 4
         assert memory.commit_calls == 1
         assert memory.demo_background_worker.calls == {
             "midterm": ["migration-1"],

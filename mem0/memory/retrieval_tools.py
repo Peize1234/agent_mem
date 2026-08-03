@@ -66,8 +66,13 @@ class SearchMemoryArguments(BaseModel):
 
 
 def serialize_tool_result(result: dict[str, Any]) -> str:
-    """Serialize a tool payload in a stable, compact, JSON-safe form."""
-    return json.dumps(result, ensure_ascii=False, separators=(",", ":"), default=str)
+    """Serialize a tool payload in a stable, readable, JSON-safe form."""
+    return json.dumps(
+        result,
+        ensure_ascii=False,
+        indent=2,
+        default=str,
+    )
 
 
 def _tool_error(error: str, message: str) -> dict[str, Any]:

@@ -183,7 +183,9 @@ async def test_async_build_agent_answer_messages_matches_sync_prompt_flow(monkey
     expected_prompt = AGENT_ANSWER_PROMPT.format(
         current_time="2026-07-24T12:00:00+08:00",
         user_query="how should I invest?",
-        short_term_memory=json.dumps(retrieved_context["short_term_messages"], ensure_ascii=False),
+        short_term_memory=json.dumps(
+            retrieved_context["short_term_messages"], ensure_ascii=False, indent=2, default=str
+        ),
         mid_term_memory=json.dumps(
             [
                 {
@@ -193,6 +195,8 @@ async def test_async_build_agent_answer_messages_matches_sync_prompt_flow(monkey
                 }
             ],
             ensure_ascii=False,
+            indent=2,
+            default=str,
         ),
         long_term_memory=json.dumps(
             [
@@ -203,9 +207,11 @@ async def test_async_build_agent_answer_messages_matches_sync_prompt_flow(monkey
                 }
             ],
             ensure_ascii=False,
+            indent=2,
+            default=str,
         ),
-        user_profile=json.dumps(retrieved_context["profile"], ensure_ascii=False),
-        reference_information=json.dumps(reference_information, ensure_ascii=False),
+        user_profile=json.dumps(retrieved_context["profile"], ensure_ascii=False, indent=2, default=str),
+        reference_information=json.dumps(reference_information, ensure_ascii=False, indent=2, default=str),
         agentic_answer="",
     )
     assert result == [{"role": "system", "content": expected_prompt}]

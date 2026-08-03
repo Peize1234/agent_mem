@@ -4,6 +4,7 @@ import html
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+from memory_monitor.components.llm_call_formatter import format_model_answer, format_prompt_messages
 from memory_monitor.models import (
     FOREGROUND_STEPS,
     MEMORY_STEPS,
@@ -18,6 +19,7 @@ from memory_monitor.models import (
 _STEP_LABELS = {
     PipelineStep.CAPTURE_INPUT: "捕获输入",
     PipelineStep.RETRIEVE_CONTEXT: "检索上下文",
+    PipelineStep.AGENTIC_RETRIEVAL: "Agentic 检索",
     PipelineStep.BUILD_PROMPT: "构建 Prompt",
     PipelineStep.GENERATE_RESPONSE: "模型回答",
     PipelineStep.RUN_SHORTTERM: "添加短期记忆",
@@ -48,6 +50,8 @@ class PipelineNode:
     current: bool
     held: bool = False
     detail: str | None = None
+    llm_calls: tuple[dict[str, Any], ...] = ()
+    tool_calls: tuple[dict[str, Any], ...] = ()
 
 
 def build_nodes(
@@ -66,6 +70,11 @@ def build_nodes(
             item = {"status": complete_status, "attempts": 0}
         else:
             item = step_map[step]
+        output = item.get("output") if isinstance(item.get("output"), dict) else {}
+        llm_calls = output.get("llm_calls") if isinstance(output.get("llm_calls"), list) else []
+        tool_calls = output.get("tool_calls") if isinstance(output.get("tool_calls"), list) else []
+        if not tool_calls and isinstance(output.get("tool_trace"), list):
+            tool_calls = output["tool_trace"]
         nodes[step] = PipelineNode(
             step=step,
             label=_STEP_LABELS[step],
@@ -73,10 +82,13 @@ def build_nodes(
             attempts=int(item.get("attempts") or 0),
             duration_ms=item.get("duration_ms"),
             error=item.get("error_message"),
-            enabled=not bool(item.get("is_held")),
+            enabled=not bool(item.get("is_held"))
+            and not (step is PipelineStep.AGENTIC_RETRIEVAL and output.get("agentic_status") == "disabled"),
             current=step is current_step,
             held=bool(item.get("is_held")),
             detail=_node_detail(step, item, step_map),
+            llm_calls=tuple(llm_calls),
+            tool_calls=tuple(tool_calls),
         )
     return nodes
 
@@ -202,12 +214,67 @@ def _node_html(node: PipelineNode) -> str:
         error = f'<div class="demo-node-error" title="{html.escape(node.error)}">{html.escape(short_error)}</div>'
     detail = f'<div class="demo-node-detail">{html.escape(node.detail)}</div>' if node.detail else ""
     attempts = "" if node.step is PipelineStep.COMPLETE_TURN else f"{node.attempts} 次{duration}"
+    badges = []
+    if node.llm_calls or node.step is PipelineStep.AGENTIC_RETRIEVAL:
+        badges.append(f'<span class="demo-node-badge">LLM ×{len(node.llm_calls)}</span>')
+    if node.tool_calls or node.step is PipelineStep.AGENTIC_RETRIEVAL:
+        badges.append(f'<span class="demo-node-badge">工具 ×{len(node.tool_calls)}</span>')
+    badge_html = f'<div class="demo-node-badges">{"".join(badges)}</div>' if badges else ""
+    popover = _trace_popover_html(node)
     return (
         f'<div class="{" ".join(classes)}"{tooltip}>'
         f'<div class="demo-node-title">{html.escape(node.label)}</div>'
         f'<div class="demo-node-status">{html.escape(_node_status_label(node))}</div>'
         f'<div class="demo-node-meta">{attempts}</div>'
-        f"{detail}{error}</div>"
+        f"{badge_html}{detail}{error}{popover}</div>"
+    )
+
+
+def _trace_popover_html(node: PipelineNode) -> str:
+    if not node.llm_calls:
+        return ""
+    sections = [f'<div class="demo-popover-title">{html.escape(node.label)}调用详情</div>']
+    for fallback_sequence, call in enumerate(node.llm_calls, start=1):
+        sequence = int(call.get("sequence") or fallback_sequence)
+        purpose = str(call.get("purpose") or node.label)
+        status = str(call.get("status") or "unknown")
+        duration = call.get("duration_ms")
+        duration_label = f"{float(duration):.0f} ms" if isinstance(duration, (int, float)) else "耗时未知"
+        meta = f"{status} · {duration_label}"
+        if call.get("error_message"):
+            meta += f" · 错误：{call['error_message']}"
+        sections.append(
+            '<section class="demo-popover-call">'
+            f'<div class="demo-popover-call-title">模型调用 {sequence} · {html.escape(purpose)}</div>'
+            f'<div class="demo-popover-call-meta">{html.escape(meta)}</div>'
+            f"{_prompt_html(call.get('messages'))}"
+            f"{_answer_html(format_model_answer(call))}"
+            "</section>"
+        )
+    return '<div class="demo-node-popover" role="tooltip">' + "".join(sections) + "</div>"
+
+
+def _prompt_html(messages: Any) -> str:
+    message_sections = "".join(
+        '<div class="demo-prompt-message">'
+        f'<div class="demo-prompt-role">{html.escape(message.role)}</div>'
+        f'<div class="demo-markdown-text">{html.escape(message.content)}</div>'
+        "</div>"
+        for message in format_prompt_messages(messages)
+    )
+    return (
+        '<div class="demo-call-block demo-call-prompt">'
+        '<div class="demo-call-heading">Prompt</div>'
+        f"{message_sections}</div>"
+    )
+
+
+def _answer_html(answer: str) -> str:
+    return (
+        '<div class="demo-call-block demo-call-answer">'
+        '<div class="demo-call-heading">模型回答</div>'
+        f'<div class="demo-markdown-text">{html.escape(answer)}</div>'
+        "</div>"
     )
 
 
@@ -218,6 +285,21 @@ def _node_detail(
 ) -> str | None:
     if step is PipelineStep.COMPLETE_TURN:
         return None
+    if step is PipelineStep.AGENTIC_RETRIEVAL:
+        output = item.get("output") if isinstance(item.get("output"), dict) else {}
+        agentic_status = output.get("agentic_status")
+        if item["status"] == StepStatus.FAILED.value or agentic_status == "failed":
+            return "执行失败"
+        if agentic_status == "failed_degraded":
+            return "执行失败（已降级）"
+        if agentic_status == "disabled":
+            return "未启用"
+        if agentic_status == "not_needed":
+            return "无需补充检索"
+        if agentic_status == "retrieved":
+            return "已补充检索"
+        if agentic_status == "legacy_compatible":
+            return "历史兼容（原流程无此步骤）"
     if item["status"] == StepStatus.PENDING.value and item.get("is_held"):
         return "重新勾选后继续执行"
     if item["status"] == StepStatus.FAILED.value:
@@ -232,6 +314,14 @@ def _node_detail(
 
 
 def _node_status_label(node: PipelineNode) -> str:
+    if node.step is PipelineStep.AGENTIC_RETRIEVAL and node.detail in {
+        "未启用",
+        "无需补充检索",
+        "已补充检索",
+        "执行失败",
+        "执行失败（已降级）",
+    }:
+        return f"{node.status} · {node.detail}"
     if node.status == StepStatus.PENDING.value and node.held:
         return "pending · 已阻塞"
     if node.status == StepStatus.PENDING.value and node.step in MEMORY_STEPS[1:] and node.detail:

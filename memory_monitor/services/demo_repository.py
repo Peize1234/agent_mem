@@ -165,6 +165,19 @@ class DemoRepository:
 
     @staticmethod
     def _migrate_pipeline_steps(connection: sqlite3.Connection) -> None:
+        missing_agentic_turn_ids = {
+            row["turn_id"]
+            for row in connection.execute(
+                """
+                SELECT turn.turn_id
+                FROM demo_turns AS turn
+                LEFT JOIN demo_step_runs AS step
+                  ON step.turn_id = turn.turn_id AND step.step = ?
+                WHERE step.turn_id IS NULL
+                """,
+                (PipelineStep.AGENTIC_RETRIEVAL.value,),
+            ).fetchall()
+        }
         for position, step in enumerate(PIPELINE_STEPS):
             connection.execute(
                 """
@@ -176,6 +189,35 @@ class DemoRepository:
             connection.execute(
                 "UPDATE demo_step_runs SET position = ? WHERE step = ?",
                 (position, step.value),
+            )
+        if missing_agentic_turn_ids:
+            placeholders = ", ".join("?" for _ in missing_agentic_turn_ids)
+            connection.execute(
+                f"""
+                UPDATE demo_step_runs
+                SET status = ?, output_json = ?, skip_reason = ?,
+                    started_at = NULL, ended_at = NULL, duration_ms = NULL, attempts = 0
+                WHERE step = ?
+                  AND turn_id IN ({placeholders})
+                  AND turn_id IN (
+                      SELECT turn.turn_id
+                      FROM demo_turns AS turn
+                      LEFT JOIN demo_step_runs AS generation
+                        ON generation.turn_id = turn.turn_id AND generation.step = ?
+                      WHERE turn.assistant_message IS NOT NULL
+                         OR turn.completed_at IS NOT NULL
+                         OR generation.status = ?
+                  )
+                """,
+                (
+                    StepStatus.SKIPPED.value,
+                    _json({"agentic_status": "legacy_compatible", "llm_calls": [], "tool_calls": []}),
+                    "Historical turn predates the Agentic retrieval step",
+                    PipelineStep.AGENTIC_RETRIEVAL.value,
+                    *sorted(missing_agentic_turn_ids),
+                    PipelineStep.GENERATE_RESPONSE.value,
+                    StepStatus.SUCCEEDED.value,
+                ),
             )
         # The previous Demo UI represented a disabled branch as ``skipped``.
         # For unfinished turns, recover only those legacy rows as a persisted
@@ -743,10 +785,12 @@ class DemoRepository:
                     raise ValueError(f"Only failed steps can be retried: turn={turn_id} step={step_value}")
                 if row["status"] in INFLIGHT_STEP_STATUSES:
                     raise StepAlreadyRunningError(f"Pipeline step is already running: turn={turn_id} step={step_value}")
+                preserve_output = retry or row["error_type"] == "BackgroundJobDeferred"
                 cursor = connection.execute(
                     """
                     UPDATE demo_step_runs
-                    SET status = ?, input_json = NULL, output_json = NULL,
+                    SET status = ?, input_json = NULL,
+                        output_json = CASE WHEN ? THEN output_json ELSE NULL END,
                         error_type = NULL, error_message = NULL, queued_at = ?,
                         started_at = NULL, ended_at = NULL, duration_ms = NULL,
                         lock_token = ?, lease_expires_at = ?, before_snapshot_id = NULL,
@@ -756,6 +800,7 @@ class DemoRepository:
                     """,
                     (
                         StepStatus.QUEUED.value,
+                        int(preserve_output),
                         now.isoformat(),
                         token,
                         lease_expires_at,
@@ -929,6 +974,7 @@ class DemoRepository:
         token: str,
         *,
         input_data: Any,
+        output_data: Any = None,
         error: BaseException,
         duration_ms: float,
         before_snapshot_id: Optional[str],
@@ -940,7 +986,7 @@ class DemoRepository:
             cursor = connection.execute(
                 """
                 UPDATE demo_step_runs
-                SET status = ?, input_json = ?, error_type = ?, error_message = ?,
+                SET status = ?, input_json = ?, output_json = ?, error_type = ?, error_message = ?,
                     ended_at = ?, duration_ms = ?, queued_at = NULL, lock_token = NULL,
                     lease_expires_at = NULL, before_snapshot_id = ?,
                     after_snapshot_id = ?, diff_json = ?
@@ -949,6 +995,7 @@ class DemoRepository:
                 (
                     StepStatus.FAILED.value,
                     _json(input_data),
+                    _json(output_data),
                     type(error).__name__,
                     str(error),
                     _now(),
@@ -1009,6 +1056,7 @@ class DemoRepository:
         token: str,
         *,
         input_data: Any,
+        output_data: Any = None,
         reason: str,
         duration_ms: float,
         before_snapshot_id: Optional[str],
@@ -1020,7 +1068,7 @@ class DemoRepository:
             cursor = connection.execute(
                 """
                 UPDATE demo_step_runs
-                SET status = ?, input_json = ?, error_type = ?, error_message = ?,
+                SET status = ?, input_json = ?, output_json = ?, error_type = ?, error_message = ?,
                     ended_at = ?, duration_ms = ?, queued_at = NULL, lock_token = NULL,
                     lease_expires_at = NULL, before_snapshot_id = ?,
                     after_snapshot_id = ?, diff_json = ?
@@ -1029,6 +1077,7 @@ class DemoRepository:
                 (
                     StepStatus.PENDING.value,
                     _json(input_data),
+                    _json(output_data),
                     "BackgroundJobDeferred",
                     reason,
                     _now(),

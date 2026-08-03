@@ -8,11 +8,11 @@ from typing import Any, Dict, Optional
 
 from mem0.memory.main import (
     Memory,
-    _build_agentic_prompt_messages,
-    _build_answer_prompt_messages,
     _build_session_scope,
+    build_answer_prompt_messages_from_context,
 )
 from memory_monitor.runtime.demo_background_worker import DemoBackgroundWorkerManager
+from memory_monitor.runtime.llm_trace import TracedToolExecutor, ensure_traced_llm
 
 
 class DemoMemory(Memory):
@@ -22,6 +22,7 @@ class DemoMemory(Memory):
         self._demo_events: list[Dict[str, Any]] = []
         self._demo_events_lock = threading.Lock()
         super().__init__(config)
+        ensure_traced_llm(self)
 
     def _create_background_worker_manager(self) -> DemoBackgroundWorkerManager:
         return DemoBackgroundWorkerManager(
@@ -89,15 +90,9 @@ class DemoMemory(Memory):
         agentic_answer: Optional[str] = None,
     ) -> list[Dict[str, str]]:
         """Build answer-model messages from the supplied frozen context only."""
-        frozen_context = deepcopy(context)
-        expected_hash = frozen_context.pop("context_hash", None)
-        actual_hash = self.context_hash(frozen_context)
-        if expected_hash is not None and expected_hash != actual_hash:
-            raise ValueError("Frozen demo context no longer matches its context_hash")
-        if frozen_context.get("agentic_retrieval") and agentic_answer is None:
-            return deepcopy(_build_agentic_prompt_messages(frozen_context, reference_information))
+        frozen_context = self._validated_frozen_context(context)
         return deepcopy(
-            _build_answer_prompt_messages(
+            build_answer_prompt_messages_from_context(
                 frozen_context,
                 reference_information,
                 agentic_answer=agentic_answer or "",
@@ -114,20 +109,43 @@ class DemoMemory(Memory):
 
     def generate_agentic_response_for_demo(
         self,
-        prompt_messages: list[Dict[str, Any]],
+        context: Dict[str, Any],
         *,
-        user_id: str,
-        session_id: str,
+        reference_information: Any = None,
         **kwargs: Any,
     ) -> Dict[str, Any]:
-        """Run the one-search, two-model-call flow inside the Demo generation node."""
-        return self._run_agentic_retrieval_messages(
-            deepcopy(prompt_messages),
-            user_id=user_id,
-            session_id=session_id,
+        """Run the core Agentic flow from the exact frozen retrieval context."""
+        frozen_context = self._validated_frozen_context(context)
+        return self._run_agentic_retrieval_from_context(
+            frozen_context,
+            reference_information=reference_information,
             generation_kwargs=kwargs,
             record_midterm_visits=False,
         )
+
+    def _create_agentic_tool_executor(
+        self,
+        *,
+        user_id: str,
+        session_id: str,
+        record_midterm_visits: bool,
+    ) -> TracedToolExecutor:
+        """Decorate the core executor only for this Demo instance's active trace."""
+        return TracedToolExecutor(
+            super()._create_agentic_tool_executor(
+                user_id=user_id,
+                session_id=session_id,
+                record_midterm_visits=record_midterm_visits,
+            )
+        )
+
+    def _validated_frozen_context(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        frozen_context = deepcopy(context)
+        expected_hash = frozen_context.pop("context_hash", None)
+        actual_hash = self.context_hash(frozen_context)
+        if expected_hash is not None and expected_hash != actual_hash:
+            raise ValueError("Frozen demo context no longer matches its context_hash")
+        return frozen_context
 
     def agentic_retrieval_enabled(self) -> bool:
         config = getattr(getattr(self, "config", None), "agentic_retrieval", None)
