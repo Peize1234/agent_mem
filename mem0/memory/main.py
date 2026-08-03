@@ -1604,6 +1604,7 @@ class _BackgroundMemoryMixin:
     ) -> tuple[Optional[str], Optional[str]]:
         if not hasattr(self, "_background_lifecycle_lock"):
             self._background_lifecycle_lock = threading.RLock()
+        # 生命周期锁，TODO：这个锁的作用是什么？
         with self._background_lifecycle_lock:
             if getattr(self, "_closed", False):
                 raise RuntimeError("Cannot add memories after Memory.close()")
