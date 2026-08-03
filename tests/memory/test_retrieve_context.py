@@ -7,7 +7,7 @@ import pytest
 
 from mem0.configs.base import UserProfileConfig
 from mem0.configs.prompts import AGENT_ANSWER_PROMPT
-from mem0.memory.main import Memory
+from mem0.memory.main import Memory, build_answer_prompt_messages_from_context
 from mem0.memory.storage import SQLiteManager
 
 TOP_LEVEL_FIELDS = {
@@ -236,6 +236,33 @@ def test_build_agent_answer_messages_uses_agent_prompt_and_layered_context(monke
     assert result == [{"role": "system", "content": expected_prompt}]
     assert "session summary must not enter the prompt" not in result[0]["content"]
     memory.llm.generate_response.assert_not_called()
+
+
+def test_answer_prompt_preserves_empty_values_none_and_json_like_user_text(monkeypatch):
+    monkeypatch.setattr("mem0.memory.main.beijing_now_iso", lambda: "2026-08-03T12:00:00+08:00")
+    query = '{"content":"这是普通用户问题，不应被解析"}'
+
+    messages = build_answer_prompt_messages_from_context(
+        {
+            "user_id": "user-1",
+            "session_id": "session-1",
+            "query": query,
+            "profile": None,
+            "short_term_messages": None,
+            "retrieved_memories": [],
+        },
+        reference_information=None,
+    )
+
+    assert messages[0]["role"] == "system"
+    prompt = messages[0]["content"]
+    assert f"<user_query>\n{query}\n</user_query>" in prompt
+    assert "<short_term_memory>\n[]\n</short_term_memory>" in prompt
+    assert "<mid_term_memory>\n[]\n</mid_term_memory>" in prompt
+    assert "<long_term_memory>\n[]\n</long_term_memory>" in prompt
+    assert "<user_profile>\n{}\n</user_profile>" in prompt
+    assert "<reference_information>\n[]\n</reference_information>" in prompt
+    assert "\\u" not in prompt
 
 
 @pytest.mark.parametrize(

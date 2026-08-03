@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import re
 from dataclasses import dataclass
 from typing import Any, Mapping
 
@@ -36,6 +37,7 @@ _STATUS_LABELS = {
     StepStatus.FAILED.value: "failed · 可重试",
     StepStatus.SKIPPED.value: "skipped · 系统不适用",
 }
+_FENCED_CODE_START = re.compile(r"^ {0,3}(?:(?P<backticks>`{3,})[^`\r\n]*|(?P<tildes>~{3,})[^\r\n]*)(?:\r?\n|$)")
 
 
 @dataclass(frozen=True)
@@ -258,7 +260,7 @@ def _prompt_html(messages: Any) -> str:
     message_sections = "".join(
         '<div class="demo-prompt-message">'
         f'<div class="demo-prompt-role">{html.escape(message.role)}</div>'
-        f'<div class="demo-markdown-text">{html.escape(message.content)}</div>'
+        f"{_markdown_text_html(message.content)}"
         "</div>"
         for message in format_prompt_messages(messages)
     )
@@ -273,9 +275,106 @@ def _answer_html(answer: str) -> str:
     return (
         '<div class="demo-call-block demo-call-answer">'
         '<div class="demo-call-heading">模型回答</div>'
-        f'<div class="demo-markdown-text">{html.escape(answer)}</div>'
+        f"{_markdown_text_html(answer)}"
         "</div>"
     )
+
+
+def _markdown_text_html(content: str) -> str:
+    """Embed untrusted text in the popover while letting Streamlit parse Markdown."""
+    # Blank lines end the surrounding raw-HTML block, so Streamlit parses the
+    # body as Markdown. Raw HTML is escaped only outside Markdown code spans;
+    # escaping fenced code first would make its entities visible after the code
+    # renderer performs its own mandatory escaping.
+    safe_content = _escape_markdown_html(content)
+    return f'<div class="demo-markdown-text">\n\n{safe_content}\n\n</div>'
+
+
+def _escape_markdown_html(content: str) -> str:
+    """Escape raw HTML without double-encoding Markdown code spans."""
+    escaped_parts = []
+    markdown_buffer = []
+    closing_fence = None
+
+    def flush_markdown_buffer() -> None:
+        if markdown_buffer:
+            escaped_parts.append(_escape_html_outside_inline_code("".join(markdown_buffer)))
+            markdown_buffer.clear()
+
+    for line in content.splitlines(keepends=True):
+        if closing_fence is not None:
+            escaped_parts.append(line)
+            if closing_fence.fullmatch(line):
+                closing_fence = None
+            continue
+
+        match = _FENCED_CODE_START.match(line)
+        if match is None:
+            markdown_buffer.append(line)
+            continue
+
+        flush_markdown_buffer()
+        fence = match.group("backticks") or match.group("tildes")
+        closing_fence = re.compile(rf"^ {{0,3}}{re.escape(fence[0])}{{{len(fence)},}}[ \t]*(?:\r?\n|$)")
+        escaped_parts.append(line)
+
+    flush_markdown_buffer()
+    return "".join(escaped_parts)
+
+
+def _escape_html_outside_inline_code(content: str) -> str:
+    escaped_parts = []
+    cursor = 0
+    plain_start = 0
+
+    while cursor < len(content):
+        if content[cursor] != "`":
+            cursor += 1
+            continue
+        if _is_backslash_escaped(content, cursor):
+            cursor += 1
+            continue
+
+        opener_end = cursor + 1
+        while opener_end < len(content) and content[opener_end] == "`":
+            opener_end += 1
+        run_length = opener_end - cursor
+        closer_start = _find_backtick_closer(content, opener_end, run_length)
+        if closer_start is None:
+            cursor = opener_end
+            continue
+
+        escaped_parts.append(html.escape(content[plain_start:cursor], quote=False))
+        closer_end = closer_start + run_length
+        escaped_parts.append(content[cursor:closer_end])
+        cursor = closer_end
+        plain_start = closer_end
+
+    escaped_parts.append(html.escape(content[plain_start:], quote=False))
+    return "".join(escaped_parts)
+
+
+def _find_backtick_closer(content: str, cursor: int, run_length: int) -> int | None:
+    while cursor < len(content):
+        candidate = content.find("`", cursor)
+        if candidate < 0:
+            return None
+        candidate_end = candidate + 1
+        while candidate_end < len(content) and content[candidate_end] == "`":
+            candidate_end += 1
+        if candidate_end - candidate == run_length:
+            return candidate
+        cursor = candidate_end
+    return None
+
+
+def _is_backslash_escaped(content: str, cursor: int) -> bool:
+    backslashes = 0
+    cursor -= 1
+    while cursor >= 0 and content[cursor] == "\\":
+        backslashes += 1
+        cursor -= 1
+    return backslashes % 2 == 1
 
 
 def _node_detail(

@@ -23,6 +23,27 @@ def test_prompt_messages_keep_role_order_markdown_and_original_newlines():
     assert format_prompt_messages({"role": "user", "content": "single"})[0].role == "User"
 
 
+def test_complete_prompt_strings_are_not_reserialized_or_entity_encoded():
+    prompt = '<current_time>\n{\n  "content": "中文"\n}\n</current_time>'
+
+    formatted = format_prompt_messages([{"role": "system", "content": prompt}])
+
+    assert formatted[0].content == prompt
+    assert "&lt;" not in formatted[0].content
+    assert "&quot;" not in formatted[0].content
+    assert "\\u4e2d" not in formatted[0].content
+
+
+def test_structured_prompt_content_uses_readable_multiline_json():
+    formatted = format_prompt_messages(
+        [{"role": "user", "content": {"items": [{"content": "中文"}], "empty": [], "missing": None}}]
+    )
+
+    assert formatted[0].content == (
+        '{\n  "empty": [],\n  "items": [\n    {\n      "content": "中文"\n    }\n  ],\n  "missing": null\n}'
+    )
+
+
 def test_prompt_messages_include_actual_assistant_tool_call_and_tool_result():
     arguments = '{"queries":["中文检索词"]}'
     messages = [

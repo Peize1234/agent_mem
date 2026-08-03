@@ -1,8 +1,8 @@
 import hashlib
-import html
 import json
 import threading
 from copy import deepcopy
+from html.parser import HTMLParser
 from types import SimpleNamespace
 
 from mem0.configs.base import AgenticRetrievalConfig
@@ -13,6 +13,25 @@ from memory_monitor.runtime.llm_trace import TracedToolExecutor
 from memory_monitor.services.demo_pipeline_service import DemoPipelineService
 from memory_monitor.services.demo_repository import DemoRepository
 from tests.memory_monitor.test_demo_pipeline import _FakeDemoMemory, _FakeStateService
+
+
+class _VisibleTextParser(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.tags = []
+        self.text = []
+
+    def handle_starttag(self, tag, attrs):
+        del attrs
+        self.tags.append(tag)
+
+    def handle_data(self, data):
+        self.text.append(data)
+
+
+def _css_rule(css, selector):
+    marker = f"{selector} {{"
+    return css.split(marker, 1)[1].split("}", 1)[0]
 
 
 class _ScriptedLLM:
@@ -307,7 +326,11 @@ def test_pipeline_hover_trace_renders_only_readable_prompt_and_answer():
                     "messages": [
                         {
                             "role": "system",
-                            "content": '规则\n\n<short_term_memory>\n[\n  {"content": "中文"}\n]\n</short_term_memory>',
+                            "content": (
+                                "规则\n\n```text\n<current_time>\n2026-08-03\n</current_time>\n\n"
+                                '<short_term_memory>\n[\n  {\n    "content": "中文"\n  }\n]\n'
+                                "</short_term_memory>\n```"
+                            ),
                         },
                         {"role": "user", "content": dangerous_prompt},
                     ],
@@ -351,11 +374,15 @@ def test_pipeline_hover_trace_renders_only_readable_prompt_and_answer():
     )
 
     rendered = pipeline_graph.render_html(steps, BackgroundStepConfig())
+    safe_user_prompt = pipeline_graph._escape_markdown_html(dangerous_prompt)
+    parser = _VisibleTextParser()
+    parser.feed(safe_user_prompt)
+    visible_text = "".join(parser.text)
 
     assert dangerous_prompt not in rendered
-    assert "&lt;script data-x=&quot;1&quot;&gt;alert(1)&lt;/script&gt;" in rendered
+    assert '<script data-x="1">' not in rendered
+    assert 'data-x="1"' in rendered
     assert tool_only_danger not in rendered
-    assert html.escape(tool_only_danger) not in rendered
     assert "LLM ×2" in rendered
     assert "工具 ×1" in rendered
     assert "已补充检索" in rendered
@@ -364,14 +391,20 @@ def test_pipeline_hover_trace_renders_only_readable_prompt_and_answer():
     assert rendered.count('class="demo-call-heading">Prompt</div>') == 2
     assert rendered.count('class="demo-call-heading">模型回答</div>') == 2
     assert all(role in rendered for role in ("System", "User", "Assistant", "Tool"))
-    assert "规则\n\n&lt;short_term_memory&gt;\n[\n  {&quot;content&quot;: &quot;中文&quot;}" in rendered
-    assert "<short_term_memory>" in html.unescape(rendered)
-    assert "&amp;lt;short_term_memory&amp;gt;" not in rendered
+    assert '<div class="demo-markdown-text">\n\n规则\n\n```text\n<current_time>' in rendered
+    assert "&lt;current_time&gt;" not in rendered
+    assert "<short_term_memory>" in rendered
+    assert "&lt;short_term_memory&gt;" not in rendered
+    assert "&quot;content&quot;" not in rendered
+    assert '"content": "中文"' in rendered
+    assert dangerous_prompt in visible_text
+    assert all(entity not in visible_text for entity in ("&lt;", "&gt;", "&quot;"))
+    assert "script" not in parser.tags
+    assert "img" not in parser.tags
     assert "第一轮回答\n\n- 中文内容" in rendered
     assert "第二轮回答\n\n最终内容" in rendered
     assert "\\n" not in rendered
     assert '"role"' not in rendered
-    assert '"content"' not in rendered
     assert "Prompt / messages" not in rendered
     assert ">Tools<" not in rendered
     assert "调用参数" not in rendered
@@ -379,17 +412,44 @@ def test_pipeline_hover_trace_renders_only_readable_prompt_and_answer():
     assert "temperature" not in rendered
     assert "position: fixed" in styles._DEMO_LAB_CSS
     assert "max-height: min(72vh, 720px)" in styles._DEMO_LAB_CSS
-    assert "white-space: pre-wrap" in styles._DEMO_LAB_CSS
     assert ".demo-popover-call + .demo-popover-call" in styles._DEMO_LAB_CSS
     assert "overflow: auto" in styles._DEMO_LAB_CSS
+    assert "<br" not in rendered
 
 
 def test_hover_panel_uses_a_centralized_readable_type_scale():
     css = styles._DEMO_LAB_CSS
 
-    assert "--demo-popover-body-font-size: 0.9rem" in css
-    assert "--demo-popover-body-line-height: 1.55" in css
-    assert "--demo-popover-title-font-size: 0.875rem" in css
+    assert "--demo-popover-body-font-size: 0.95rem" in css
+    assert "--demo-popover-body-line-height: 1.5" in css
+    assert "--demo-popover-title-font-size: 0.95rem" in css
     assert "font-size: var(--demo-popover-body-font-size)" in css
     assert "line-height: var(--demo-popover-body-line-height)" in css
-    assert ".demo-markdown-text :where(p, ul, ol, li, pre, code)" in css
+    assert ".demo-node-popover .demo-markdown-text :where(h1, h2, h3, h4, h5, h6)" in css
+    assert ".demo-node-popover .demo-markdown-text pre" in css
+    assert "font-family: ui-monospace" in css
+
+
+def test_hover_panel_scopes_compact_markdown_layout_and_readable_code_colors():
+    css = styles._DEMO_LAB_CSS
+    root_selector = ".demo-node-popover .demo-markdown-text"
+    list_selector = ".demo-node-popover .demo-markdown-text :where(ul, ol)"
+    item_selector = ".demo-node-popover .demo-markdown-text li"
+    item_paragraph_selector = ".demo-node-popover .demo-markdown-text li > p"
+    pre_selector = ".demo-node-popover .demo-markdown-text pre"
+    code_selector = ".demo-node-popover .demo-markdown-text :where(pre, code)"
+    nested_code_selector = ".demo-node-popover .demo-markdown-text pre code span"
+
+    assert "white-space: normal" in _css_rule(css, root_selector)
+    assert "pre-wrap" not in _css_rule(css, root_selector)
+    assert "margin: 0.2rem 0" in _css_rule(css, list_selector)
+    assert "white-space: normal" in _css_rule(css, list_selector)
+    assert "margin: 0.06rem 0" in _css_rule(css, item_selector)
+    assert "white-space: normal" in _css_rule(css, item_selector)
+    assert "margin: 0" in _css_rule(css, item_paragraph_selector)
+    assert "color: #e5e7eb !important" in _css_rule(css, pre_selector)
+    assert "white-space: pre" in _css_rule(css, pre_selector)
+    assert "overflow-x: auto" in _css_rule(css, pre_selector)
+    assert "color: #e5e7eb !important" in _css_rule(css, code_selector)
+    assert "color: inherit !important" in _css_rule(css, nested_code_selector)
+    assert "text-shadow: none !important" in _css_rule(css, nested_code_selector)

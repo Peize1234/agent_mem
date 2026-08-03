@@ -167,13 +167,13 @@ div[class*="st-key-active_turn_"] button p {
     white-space: nowrap;
 }
 .demo-node-popover {
-    --demo-popover-body-font-size: 0.9rem;
-    --demo-popover-body-line-height: 1.55;
-    --demo-popover-heading-font-size: 0.8rem;
-    --demo-popover-label-font-size: 0.76rem;
+    --demo-popover-body-font-size: 0.95rem;
+    --demo-popover-body-line-height: 1.5;
+    --demo-popover-heading-font-size: 0.84rem;
+    --demo-popover-label-font-size: 0.8rem;
     --demo-popover-meta-font-size: 0.74rem;
-    --demo-popover-section-font-size: 0.84rem;
-    --demo-popover-title-font-size: 0.875rem;
+    --demo-popover-section-font-size: 0.88rem;
+    --demo-popover-title-font-size: 0.95rem;
     background: #111827;
     border: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: 0.65rem;
@@ -183,7 +183,7 @@ div[class*="st-key-active_turn_"] button p {
     max-height: min(72vh, 720px);
     overscroll-behavior: contain;
     overflow: auto;
-    padding: 0.85rem 0.9rem;
+    padding: 0.72rem 0.78rem;
     position: fixed;
     right: 1.25rem;
     top: 4.75rem;
@@ -198,15 +198,15 @@ div[class*="st-key-active_turn_"] button p {
     font-size: var(--demo-popover-title-font-size);
     font-weight: 700;
     line-height: 1.35;
-    margin-bottom: 0.4rem;
+    margin-bottom: 0.24rem;
 }
 .demo-popover-call {
-    padding: 0.48rem 0 0.38rem;
+    padding: 0.34rem 0 0.26rem;
 }
 .demo-popover-call + .demo-popover-call {
-    border-top: 2px solid rgba(255, 255, 255, 0.2);
-    margin-top: 0.58rem;
-    padding-top: 0.72rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.22);
+    margin-top: 0.42rem;
+    padding-top: 0.52rem;
 }
 .demo-popover-call-title {
     color: #f9fafb;
@@ -221,50 +221,126 @@ div[class*="st-key-active_turn_"] button p {
     margin-top: 0.08rem;
 }
 .demo-call-block {
-    margin-top: 0.52rem;
+    margin-top: 0.38rem;
 }
 .demo-call-heading {
     color: #f9fafb;
     font-size: var(--demo-popover-heading-font-size);
     font-weight: 700;
     line-height: 1.35;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.16rem;
 }
 .demo-prompt-message,
 .demo-call-answer .demo-markdown-text {
     background: #030712;
+    border: 1px solid rgba(148, 163, 184, 0.16);
     border-radius: 0.35rem;
-    padding: 0.62rem 0.68rem;
+    padding: 0.5rem 0.58rem;
 }
 .demo-prompt-message + .demo-prompt-message {
-    margin-top: 0.42rem;
+    margin-top: 0.32rem;
 }
 .demo-prompt-role {
     color: #93c5fd;
     font-size: var(--demo-popover-label-font-size);
     font-weight: 700;
     line-height: 1.35;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.14rem;
 }
-.demo-markdown-text {
+.demo-node-popover .demo-markdown-text {
     color: #d1d5db;
     font-family: inherit;
     font-size: var(--demo-popover-body-font-size);
     line-height: var(--demo-popover-body-line-height);
     overflow-wrap: anywhere;
     tab-size: 4;
-    white-space: pre-wrap;
+    white-space: normal;
     word-break: break-word;
 }
-.demo-markdown-text :where(p, ul, ol, li, pre, code) {
+.demo-node-popover .demo-markdown-text :where(h1, h2, h3, h4, h5, h6, p, ul, ol, li, pre, code, blockquote) {
     font-size: inherit;
     line-height: inherit;
 }
-.demo-markdown-text :where(p, ul, ol, pre) {
-    margin: 0.35rem 0;
+.demo-node-popover .demo-markdown-text :where(h1, h2, h3, h4, h5, h6) {
+    color: #f3f4f6;
+    font-weight: 700;
+    line-height: 1.35;
+    margin: 0.48rem 0 0.18rem;
+    white-space: normal;
 }
-.demo-markdown-text :where(ul, ol) {
-    padding-left: 1.25rem;
+.demo-node-popover .demo-markdown-text h1 { font-size: 1.24em; }
+.demo-node-popover .demo-markdown-text h2 { font-size: 1.16em; }
+.demo-node-popover .demo-markdown-text h3 { font-size: 1.09em; }
+.demo-node-popover .demo-markdown-text :where(h4, h5, h6) { font-size: 1.02em; }
+.demo-node-popover .demo-markdown-text p {
+    margin: 0.18rem 0;
+    white-space: normal;
+}
+.demo-node-popover .demo-markdown-text :where(ul, ol) {
+    margin: 0.2rem 0;
+    padding-left: 1.35rem;
+    white-space: normal;
+}
+.demo-node-popover .demo-markdown-text li {
+    margin: 0.06rem 0;
+    padding: 0;
+    white-space: normal;
+}
+.demo-node-popover .demo-markdown-text li > p {
+    margin: 0;
+}
+.demo-node-popover .demo-markdown-text li > :where(ul, ol) {
+    margin: 0.08rem 0 0;
+}
+.demo-node-popover .demo-markdown-text blockquote {
+    border-left: 2px solid rgba(148, 163, 184, 0.45);
+    margin: 0.24rem 0;
+    padding-left: 0.55rem;
+    white-space: normal;
+}
+.demo-node-popover .demo-markdown-text hr {
+    border: 0;
+    border-top: 1px solid rgba(148, 163, 184, 0.3);
+    margin: 0.42rem 0;
+}
+.demo-node-popover .demo-markdown-text pre {
+    background: #0b1220;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 0.3rem;
+    color: #e5e7eb !important;
+    margin: 0.28rem 0;
+    max-width: 100%;
+    overflow-wrap: normal;
+    overflow-x: auto;
+    padding: 0.5rem 0.6rem;
+    white-space: pre;
+    word-break: normal;
+}
+.demo-node-popover .demo-markdown-text :where(pre, code) {
+    color: #e5e7eb !important;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+.demo-node-popover .demo-markdown-text pre code,
+.demo-node-popover .demo-markdown-text pre code span {
+    background: transparent;
+    border: 0;
+    color: inherit !important;
+    padding: 0;
+    text-shadow: none !important;
+    white-space: inherit;
+}
+.demo-node-popover .demo-markdown-text :not(pre) > code {
+    background: #0b1220;
+    border-radius: 0.22rem;
+    color: #f3f4f6 !important;
+    padding: 0.06rem 0.2rem;
+    white-space: break-spaces;
+}
+.demo-node-popover .demo-markdown-text > :first-child {
+    margin-top: 0;
+}
+.demo-node-popover .demo-markdown-text > :last-child {
+    margin-bottom: 0;
 }
 .demo-node-error {
     color: var(--failed);
