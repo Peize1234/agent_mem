@@ -1,4 +1,5 @@
 import hashlib
+import json
 import threading
 import time
 import uuid
@@ -21,6 +22,7 @@ from mem0.memory.main import (
     _parse_extracted_memories,
 )
 from mem0.memory.storage import SQLiteManager
+from mem0.memory.utils import parse_messages
 
 
 MESSAGES = [
@@ -174,6 +176,47 @@ async def test_valid_empty_longterm_response_is_success(async_mode):
         assert result == []
         memory.embedding_model.embed_batch.assert_not_called()
         assert memory.vector_store.insert_calls == 0
+    finally:
+        db.close()
+
+
+@pytest.mark.parametrize("async_mode", [False, True])
+@pytest.mark.asyncio
+async def test_sync_and_async_longterm_inputs_preserve_roles_newlines_and_pretty_json(async_mode):
+    db = SQLiteManager(":memory:")
+    memory = _memory(db, '{"memory": []}', async_mode=async_mode)
+    messages = [
+        {"role": "user", "content": '用户第一行\n用户第二行，含引号 "、反斜杠 \\ 和 emoji 😀'},
+        {"role": "assistant", "content": "助手第一行\n助手第二行"},
+    ]
+    expected_query = parse_messages(messages)
+    expected_prompt_json = json.dumps(messages, ensure_ascii=False, indent=2)
+    try:
+        if async_mode:
+            result = await memory._process_evicted_long_term_memories(
+                messages,
+                METADATA,
+                FILTERS,
+                source_job_id="job-readable-prompt",
+            )
+        else:
+            result = memory._process_evicted_long_term_memories(
+                messages,
+                METADATA,
+                FILTERS,
+                source_job_id="job-readable-prompt",
+            )
+
+        assert result == []
+        memory.embedding_model.embed.assert_called_once_with(expected_query, "search")
+        assert "user: 用户第一行\n用户第二行" in expected_query
+        assert "\n\nassistant: 助手第一行\n助手第二行\n" in expected_query
+        request = memory.llm.generate_response.call_args.kwargs
+        user_prompt = request["messages"][1]["content"]
+        assert f"## 新消息\n```json\n{expected_prompt_json}\n```" in user_prompt
+        assert '[{"role"' not in user_prompt
+        assert user_prompt.index('"role": "user"') < user_prompt.index('"role": "assistant"')
+        assert "\\u" not in user_prompt
     finally:
         db.close()
 
@@ -467,6 +510,7 @@ def test_invalid_json_exhaustion_uses_longterm_degradation():
         assert fallback_rows[0]["payload"]["output_state"] == "committed"
         assert fallback_rows[0]["payload"]["degraded"] is True
         assert fallback_rows[0]["payload"]["needs_reprocessing"] is True
+        assert fallback_rows[0]["payload"]["data"] == parse_messages(MESSAGES)
     finally:
         worker.stop(timeout=1)
         db.close()

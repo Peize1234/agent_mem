@@ -216,8 +216,12 @@ def test_failed_agentic_call_keeps_trace_and_degrades_to_final_answer(tmp_path):
 class _ParallelLLM:
     def __init__(self):
         self.barrier = threading.Barrier(3)
+        self.requests = []
+        self.lock = threading.Lock()
 
     def generate_response(self, **kwargs):
+        with self.lock:
+            self.requests.append(deepcopy(kwargs))
         self.barrier.wait(timeout=2)
         return {"content": kwargs["messages"][0]["content"]}
 
@@ -255,6 +259,9 @@ def test_parallel_memory_branch_llm_traces_are_isolated_by_step(tmp_path):
     try:
         pipeline.run_all(turn["turn_id"], session_id=session["session_id"])
         assert coordinator.wait_for_idle(4)
+        sent_by_branch = {
+            request["branch"]: request["messages"] for request in memory.llm._wrapped.requests
+        }
         for step, label in (
             (PipelineStep.RUN_MIDTERM, "midterm"),
             (PipelineStep.RUN_LONGTERM, "longterm"),
@@ -263,9 +270,45 @@ def test_parallel_memory_branch_llm_traces_are_isolated_by_step(tmp_path):
             calls = repository.get_step(turn["turn_id"], step)["output"]["llm_calls"]
             assert len(calls) == 1
             assert calls[0]["messages"] == [{"role": "user", "content": label}]
+            assert calls[0]["messages"] == sent_by_branch[label]
             assert calls[0]["parameters"] == {"branch": label}
     finally:
         coordinator.shutdown(wait=True)
+
+
+def test_midterm_longterm_and_profile_answers_share_pretty_json_renderer():
+    steps = [{"step": step.value, "status": StepStatus.PENDING.value, "attempts": 0} for step in PIPELINE_STEPS]
+    branch_steps = (
+        (PipelineStep.RUN_MIDTERM, "midterm", "中期摘要"),
+        (PipelineStep.RUN_LONGTERM, "longterm", "长期事实"),
+        (PipelineStep.RUN_PROFILE, "profile", "用户画像"),
+    )
+    for pipeline_step, branch, value in branch_steps:
+        step = next(item for item in steps if item["step"] == pipeline_step.value)
+        step.update(
+            status=StepStatus.SUCCEEDED.value,
+            attempts=1,
+            output={
+                "llm_calls": [
+                    {
+                        "sequence": 1,
+                        "purpose": branch,
+                        "messages": [{"role": "user", "content": f"{branch} input"}],
+                        "response": json.dumps({"branch": branch, "items": [value]}, ensure_ascii=False),
+                        "status": "succeeded",
+                    }
+                ]
+            },
+        )
+
+    rendered = pipeline_graph.render_html(steps, BackgroundStepConfig())
+
+    assert rendered.count('class="demo-markdown-text demo-json-block"') == 3
+    for _, branch, value in branch_steps:
+        assert f'  "branch": "{branch}"' in rendered
+        assert f'    "{value}"' in rendered
+        assert f'{{"branch": "{branch}"' not in rendered
+    assert "\\u" not in rendered
 
 
 def test_legacy_completed_turn_gets_persisted_compatibility_step_without_timing(tmp_path):
@@ -411,10 +454,39 @@ def test_pipeline_hover_trace_renders_only_readable_prompt_and_answer():
     assert "tool_choice" not in rendered
     assert "temperature" not in rendered
     assert "position: fixed" in styles._DEMO_LAB_CSS
-    assert "max-height: min(72vh, 720px)" in styles._DEMO_LAB_CSS
     assert ".demo-popover-call + .demo-popover-call" in styles._DEMO_LAB_CSS
-    assert "overflow: auto" in styles._DEMO_LAB_CSS
     assert "<br" not in rendered
+
+
+def test_hover_panel_stays_interactive_during_delayed_hide_and_fits_viewport():
+    css = styles._DEMO_LAB_CSS
+    popover_rule = _css_rule(css, ".demo-node-popover")
+    trigger_selector = ".demo-node:hover .demo-node-popover,\n.demo-node:focus-within .demo-node-popover"
+    trigger_rule = _css_rule(css, trigger_selector)
+    popover_hover_rule = _css_rule(css, ".demo-node-popover:hover")
+
+    assert "display: none" not in popover_rule
+    assert "display: block" not in trigger_rule
+    assert "visibility: hidden" in popover_rule
+    assert "opacity: 0" in popover_rule
+    assert "opacity 100ms ease 240ms" in popover_rule
+    assert "visibility 0s linear 340ms" in popover_rule
+    assert "pointer-events" not in popover_rule
+
+    for visible_rule in (trigger_rule, popover_hover_rule):
+        assert "visibility: visible" in visible_rule
+        assert "opacity: 1" in visible_rule
+        assert "transition-delay: 0s" in visible_rule
+
+    assert "position: fixed" in popover_rule
+    assert "right: 1.25rem" in popover_rule
+    assert "top: 6rem" in popover_rule
+    assert "top: 4.75rem" not in popover_rule
+    assert "max-height: min(72vh, 720px, calc(100vh - 7.25rem))" in popover_rule
+    assert "overflow: auto" in popover_rule
+    assert "overscroll-behavior: contain" in popover_rule
+    assert "scrollbar-gutter: stable" in popover_rule
+    assert "z-index: 100000" in popover_rule
 
 
 def test_hover_panel_uses_a_centralized_readable_type_scale():
@@ -436,6 +508,7 @@ def test_hover_panel_scopes_compact_markdown_layout_and_readable_code_colors():
     list_selector = ".demo-node-popover .demo-markdown-text :where(ul, ol)"
     item_selector = ".demo-node-popover .demo-markdown-text li"
     item_paragraph_selector = ".demo-node-popover .demo-markdown-text li > p"
+    paragraph_selector = ".demo-node-popover .demo-markdown-text p"
     pre_selector = ".demo-node-popover .demo-markdown-text pre"
     code_selector = ".demo-node-popover .demo-markdown-text :where(pre, code)"
     nested_code_selector = ".demo-node-popover .demo-markdown-text pre code span"
@@ -446,7 +519,9 @@ def test_hover_panel_scopes_compact_markdown_layout_and_readable_code_colors():
     assert "white-space: normal" in _css_rule(css, list_selector)
     assert "margin: 0.06rem 0" in _css_rule(css, item_selector)
     assert "white-space: normal" in _css_rule(css, item_selector)
+    assert "white-space: pre-wrap" in _css_rule(css, paragraph_selector)
     assert "margin: 0" in _css_rule(css, item_paragraph_selector)
+    assert "white-space: normal" in _css_rule(css, item_paragraph_selector)
     assert "color: #e5e7eb !important" in _css_rule(css, pre_selector)
     assert "white-space: pre" in _css_rule(css, pre_selector)
     assert "overflow-x: auto" in _css_rule(css, pre_selector)

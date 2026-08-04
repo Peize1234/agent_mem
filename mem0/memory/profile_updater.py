@@ -6,10 +6,14 @@ from typing import Any, Dict, List
 
 from mem0.configs.profile_prompts import PROFILE_UPDATE_SYSTEM_PROMPT
 from mem0.memory.profile_schema import ProfileUpdatePlan
-from mem0.memory.profile_validator import serialize_profile_value
 from mem0.memory.utils import extract_json, remove_code_blocks
 
 logger = logging.getLogger(__name__)
+
+
+def _serialize_profile_prompt(payload: Dict[str, Any]) -> str:
+    """Serialize only the LLM request payload without changing canonical storage JSON."""
+    return json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False)
 
 
 class ProfileUpdater:
@@ -51,7 +55,7 @@ class ProfileUpdater:
         return {
             "messages": [
                 {"role": "system", "content": PROFILE_UPDATE_SYSTEM_PROMPT},
-                {"role": "user", "content": serialize_profile_value(payload)},
+                {"role": "user", "content": _serialize_profile_prompt(payload)},
             ],
             "response_format": {"type": "json_object"},
         }

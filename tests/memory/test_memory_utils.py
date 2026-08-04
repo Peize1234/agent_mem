@@ -19,7 +19,7 @@ class TestParseMessages:
             {"role": "assistant", "content": "done"},
         ]
         result = parse_messages(messages)
-        assert result == "user: hi\nassistant: done\n"
+        assert result == "user: hi\n\nassistant: done\n"
 
     def test_skips_explicit_none_content(self):
         messages = [{"role": "assistant", "content": None}, {"role": "user", "content": "ok"}]
@@ -31,7 +31,17 @@ class TestParseMessages:
             {"role": "user", "content": "u"},
             {"role": "assistant", "content": "a"},
         ]
-        assert parse_messages(messages) == "system: sys\nuser: u\nassistant: a\n"
+        assert parse_messages(messages) == "system: sys\n\nuser: u\n\nassistant: a\n"
+
+    def test_preserves_empty_and_multiline_content_with_real_blank_lines(self):
+        messages = [
+            {"role": "user", "content": "第一行\n第二行，含引号 \"、反斜杠 \\ 和 emoji 😀"},
+            {"role": "assistant", "content": ""},
+        ]
+
+        assert parse_messages(messages) == (
+            'user: 第一行\n第二行，含引号 "、反斜杠 \\ 和 emoji 😀\n\nassistant: \n'
+        )
 
 
 class TestParseVisionMessages:

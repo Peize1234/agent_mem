@@ -84,14 +84,42 @@ def test_additive_extraction_prompt_uses_declared_input_names_and_message_schema
         short_term_context=[{"role": "user", "content": "后续消息", "created_at": "2026-07-22"}],
     )
 
-    assert '## 新消息\n[{"role": "user", "content": "被淘汰消息"}]' in result
-    assert '## 当前短期窗口上下文\n[{"role": "user", "content": "后续消息"}]' in result
+    assert (
+        '## 新消息\n```json\n[\n  {\n    "role": "user",\n    "content": "被淘汰消息"\n  }\n]\n```'
+        in result
+    )
+    assert (
+        '## 当前短期窗口上下文\n```json\n[\n  {\n    "role": "user",\n    "content": "后续消息"\n  }\n]\n```'
+        in result
+    )
     assert "## 观察日期\n2026-07-21" in result
+    assert '[{"role"' not in result
     assert "## 摘要" not in result
     assert "## 最近 k 条消息" not in result
     assert "## 最近提取的记忆" not in result
     assert "## 现有记忆" not in result
     assert "## 后续消息" not in result
+
+
+def test_additive_extraction_prompt_pretty_prints_all_structured_sections_without_unicode_escapes():
+    result = prompts.generate_additive_extraction_prompt(
+        new_messages=[
+            {"role": "user", "content": "用户第一行\n用户第二行"},
+            {"role": "assistant", "content": "助手回答 😀"},
+        ],
+        existing_long_term_memories=[{"id": "长期-1", "text": "中文事实"}],
+        existing_related_memories=[{"summary": "嵌套", "items": ["甲", "乙"]}],
+        short_term_context=[],
+    )
+
+    assert result.count("```json") == 4
+    assert '    "role": "user"' in result
+    assert '    "role": "assistant"' in result
+    assert '    "content": "用户第一行\\n用户第二行"' in result
+    assert '    "text": "中文事实"' in result
+    assert '      "甲",' in result
+    assert "## 当前短期窗口上下文\n```json\n[]\n```" in result
+    assert "\\u" not in result
 
 
 def test_additive_extraction_system_prompt_declares_current_short_term_context():

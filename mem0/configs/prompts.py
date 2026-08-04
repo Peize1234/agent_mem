@@ -1733,7 +1733,7 @@ def _format_session_summary(summary):
 
 def _serialize_memories(memories):
     """JSON-serialize a list of memory objects, defaulting to '[]'."""
-    return json.dumps(memories or [], ensure_ascii=False)
+    return json.dumps(memories or [], ensure_ascii=False, indent=2)
 
 
 def _format_prompt_messages(messages):
@@ -1750,7 +1750,18 @@ def _format_prompt_messages(messages):
         if role is None or content is None:
             continue
         normalized_messages.append({"role": role, "content": content})
-    return json.dumps(normalized_messages, ensure_ascii=False)
+    return json.dumps(normalized_messages, ensure_ascii=False, indent=2)
+
+
+def _format_structured_prompt_section(title, content):
+    """Fence complete JSON data so its model-visible indentation is also UI-visible."""
+    try:
+        parsed = json.loads(content)
+    except (TypeError, json.JSONDecodeError):
+        return f"## {title}\n{content}"
+    if not isinstance(parsed, (dict, list)):
+        return f"## {title}\n{content}"
+    return f"## {title}\n```json\n{content}\n```"
 
 
 def _resolve_observation_date(observation_date=None, new_messages=None):
@@ -1796,11 +1807,17 @@ def generate_additive_extraction_prompt(
     observation_date = _resolve_observation_date(observation_date, new_messages)
 
     sections = []
-    sections.append(f"## 新消息\n{_format_prompt_messages(new_messages)}")
+    sections.append(_format_structured_prompt_section("新消息", _format_prompt_messages(new_messages)))
     sections.append(f"## 会话摘要\n{_format_session_summary(session_summary)}")
-    sections.append(f"## 现有长期记忆\n{_serialize_memories(existing_long_term_memories)}")
-    sections.append(f"## 现有相关记忆\n{_serialize_memories(existing_related_memories)}")
-    sections.append(f"## 当前短期窗口上下文\n{_format_prompt_messages(short_term_context)}")
+    sections.append(
+        _format_structured_prompt_section("现有长期记忆", _serialize_memories(existing_long_term_memories))
+    )
+    sections.append(
+        _format_structured_prompt_section("现有相关记忆", _serialize_memories(existing_related_memories))
+    )
+    sections.append(
+        _format_structured_prompt_section("当前短期窗口上下文", _format_prompt_messages(short_term_context))
+    )
     sections.append(f"## 观察日期\n{observation_date}")
 
     if custom_instructions:

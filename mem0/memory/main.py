@@ -914,6 +914,8 @@ class _AsyncOSSProject:
 
 
 class _BackgroundMemoryMixin:
+    db: SQLiteManager
+
     def _normalize_agentic_answer_result(self, result: Any) -> str:
         """Normalize an Agentic result for use as optional answer context."""
         return _agentic_answer_or_empty(result)

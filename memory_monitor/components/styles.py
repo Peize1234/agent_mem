@@ -179,20 +179,30 @@ div[class*="st-key-active_turn_"] button p {
     border-radius: 0.65rem;
     box-shadow: 0 16px 42px rgba(15, 23, 42, 0.34);
     color: #e5e7eb;
-    display: none;
-    max-height: min(72vh, 720px);
+    max-height: min(72vh, 720px, calc(100vh - 7.25rem));
+    opacity: 0;
     overscroll-behavior: contain;
     overflow: auto;
     padding: 0.72rem 0.78rem;
     position: fixed;
     right: 1.25rem;
-    top: 4.75rem;
+    scrollbar-gutter: stable;
+    top: 6rem;
+    transition: opacity 100ms ease 240ms, visibility 0s linear 340ms;
+    visibility: hidden;
     width: min(680px, calc(100vw - 2.5rem));
     z-index: 100000;
 }
 .demo-node:hover .demo-node-popover,
 .demo-node:focus-within .demo-node-popover {
-    display: block;
+    opacity: 1;
+    transition-delay: 0s;
+    visibility: visible;
+}
+.demo-node-popover:hover {
+    opacity: 1;
+    transition-delay: 0s;
+    visibility: visible;
 }
 .demo-popover-title {
     font-size: var(--demo-popover-title-font-size);
@@ -274,7 +284,7 @@ div[class*="st-key-active_turn_"] button p {
 .demo-node-popover .demo-markdown-text :where(h4, h5, h6) { font-size: 1.02em; }
 .demo-node-popover .demo-markdown-text p {
     margin: 0.18rem 0;
-    white-space: normal;
+    white-space: pre-wrap;
 }
 .demo-node-popover .demo-markdown-text :where(ul, ol) {
     margin: 0.2rem 0;
@@ -288,6 +298,7 @@ div[class*="st-key-active_turn_"] button p {
 }
 .demo-node-popover .demo-markdown-text li > p {
     margin: 0;
+    white-space: normal;
 }
 .demo-node-popover .demo-markdown-text li > :where(ul, ol) {
     margin: 0.08rem 0 0;

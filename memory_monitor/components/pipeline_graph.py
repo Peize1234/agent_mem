@@ -5,7 +5,11 @@ import re
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from memory_monitor.components.llm_call_formatter import format_model_answer, format_prompt_messages
+from memory_monitor.components.llm_call_formatter import (
+    format_model_answer,
+    format_prompt_messages,
+    is_json_document,
+)
 from memory_monitor.models import (
     FOREGROUND_STEPS,
     MEMORY_STEPS,
@@ -260,7 +264,7 @@ def _prompt_html(messages: Any) -> str:
     message_sections = "".join(
         '<div class="demo-prompt-message">'
         f'<div class="demo-prompt-role">{html.escape(message.role)}</div>'
-        f"{_markdown_text_html(message.content)}"
+        f"{_render_call_text_html(message.content)}"
         "</div>"
         for message in format_prompt_messages(messages)
     )
@@ -275,9 +279,20 @@ def _answer_html(answer: str) -> str:
     return (
         '<div class="demo-call-block demo-call-answer">'
         '<div class="demo-call-heading">模型回答</div>'
-        f"{_markdown_text_html(answer)}"
+        f"{_render_call_text_html(answer)}"
         "</div>"
     )
+
+
+def _render_call_text_html(content: str) -> str:
+    if is_json_document(content):
+        return _json_text_html(content)
+    return _markdown_text_html(content)
+
+
+def _json_text_html(content: str) -> str:
+    """Render already-formatted JSON as inert code without changing trace data."""
+    return f'<div class="demo-markdown-text demo-json-block">\n\n```json\n{content}\n```\n\n</div>'
 
 
 def _markdown_text_html(content: str) -> str:

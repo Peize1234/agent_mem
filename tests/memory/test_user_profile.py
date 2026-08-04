@@ -17,7 +17,7 @@ from mem0.memory.profile_manager import ProfileManager
 from mem0.memory.profile_schema import ProfileUpdatePlan
 from mem0.memory.profile_updater import ProfileUpdater
 from mem0.memory.storage import SQLiteManager
-from mem0.memory.profile_validator import validate_attribute_definition
+from mem0.memory.profile_validator import serialize_profile_value, validate_attribute_definition
 
 
 @pytest.fixture
@@ -771,6 +771,34 @@ class _RecordingLLM:
     def generate_response(self, **kwargs):
         self.calls.append(kwargs)
         return self.response
+
+
+def test_profile_model_request_uses_pretty_json_without_changing_canonical_serialization():
+    updater = ProfileUpdater(_RecordingLLM(), UserProfileConfig())
+    current_profile = {"user_id": "用户-1", "profile": {"关注": ["现金流", "毛利率"]}}
+    attributes = [{"attribute_key": "focus", "value_schema": {"type": "array"}}]
+    user_messages = ['第一行\n第二行，含引号 "、反斜杠 \\ 和 emoji 😀']
+    payload = {
+        "current_profile": current_profile,
+        "available_attributes": attributes,
+        "user_messages": user_messages,
+    }
+
+    request = updater._build_request(current_profile, attributes, user_messages)
+    content = request["messages"][1]["content"]
+
+    assert content == json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False)
+    assert json.loads(content) == payload
+    assert '\n  "current_profile": {' in content
+    assert '\n  "user_messages": [' in content
+    assert "\\u" not in content
+    assert serialize_profile_value(payload) == json.dumps(
+        payload,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        allow_nan=False,
+    )
+    assert "\n" not in serialize_profile_value(payload)
 
 
 def _profile_prompt_return_plans():

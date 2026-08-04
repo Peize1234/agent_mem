@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
@@ -17,6 +18,10 @@ _NO_CONTENT = "（无文本内容）"
 _NO_ANSWER = "（模型未返回文本回答）"
 _FAILED_ANSWER = "（调用失败，未返回文本回答）"
 _TOOL_BLOCK_TYPES = {"function_call", "tool_call", "tool_use"}
+_JSON_FENCE = re.compile(
+    r"\A```json[ \t]*(?:\r?\n)(?P<body>[\s\S]*?)(?:\r?\n)```[ \t]*\Z",
+    re.IGNORECASE,
+)
 _DEBUG_RESPONSE_FIELDS = {
     "arguments",
     "created",
@@ -101,12 +106,59 @@ def format_model_answer(call: Mapping[str, Any]) -> str:
 
 def extract_response_text(response: Any) -> str:
     """Extract provider-independent answer text, with a safe structured fallback."""
+    if isinstance(response, Sequence) and not isinstance(response, (str, bytes, bytearray)):
+        if not _is_provider_text_parts(response):
+            return _format_json_value(response)
+
     extracted = _extract_text(response)
     if extracted and extracted.strip():
-        return extracted
+        return _format_json_response_text(extracted)
 
     fallback = _safe_structured_fallback(response)
-    return fallback or _NO_ANSWER
+    return _format_json_response_text(fallback) if fallback else _NO_ANSWER
+
+
+def is_json_document(value: str) -> bool:
+    """Return whether *value* is a complete JSON object or array."""
+    return _parse_json_document(value, allow_fence=False) is not None
+
+
+def _format_json_response_text(value: str) -> str:
+    """Pretty-print only complete object/array answers, including JSON fences."""
+    stripped = value.strip()
+    parsed = _parse_json_document(stripped, allow_fence=True)
+    return _format_json_value(parsed) if parsed is not None else stripped
+
+
+def _parse_json_document(value: str, *, allow_fence: bool) -> dict[str, Any] | list[Any] | None:
+    candidate = value.strip()
+    if allow_fence:
+        fence = _JSON_FENCE.fullmatch(candidate)
+        if fence is not None:
+            candidate = fence.group("body").strip()
+    try:
+        parsed = json.loads(candidate)
+    except (TypeError, json.JSONDecodeError):
+        return None
+    return parsed if isinstance(parsed, (dict, list)) else None
+
+
+def _format_json_value(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False, indent=2, default=str)
+
+
+def _is_provider_text_parts(value: Sequence[Any]) -> bool:
+    """Keep provider text-block arrays on the normal text extraction path."""
+    if not value:
+        return False
+    return all(
+        isinstance(item, Mapping)
+        and (
+            str(item.get("type") or "").lower() in _TOOL_BLOCK_TYPES
+            or any(field in item for field in ("text", "content", "output_text"))
+        )
+        for item in value
+    )
 
 
 def _format_content(value: Any) -> str:
@@ -169,7 +221,7 @@ def _safe_structured_fallback(value: Any) -> str | None:
         return None
     if isinstance(sanitized, str):
         return sanitized
-    return json.dumps(sanitized, ensure_ascii=False, indent=2, sort_keys=True, default=str)
+    return _format_json_value(sanitized)
 
 
 def _sanitize_fallback(value: Any) -> Any:

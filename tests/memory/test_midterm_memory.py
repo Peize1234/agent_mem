@@ -78,6 +78,15 @@ class FakeLLM:
         return None
 
 
+class RecordingFakeLLM(FakeLLM):
+    def __init__(self):
+        self.calls = []
+
+    def generate_response(self, messages, response_format=None, **kwargs):
+        self.calls.append({"messages": messages, "response_format": response_format, **kwargs})
+        return super().generate_response(messages, response_format=response_format, **kwargs)
+
+
 def test_midterm_prompts_are_chinese_and_preserve_json_contract():
     assert "只返回一个 JSON 对象" in MIDTERM_PAGE_SUMMARY_PROMPT
     assert "用户的意图、偏好、约束和讨论主题" in MIDTERM_PAGE_SUMMARY_PROMPT
@@ -87,6 +96,42 @@ def test_midterm_prompts_are_chinese_and_preserve_json_contract():
     assert "整个会话" in MIDTERM_SESSION_MERGE_PROMPT
     assert "summary" in MIDTERM_SESSION_MERGE_PROMPT
     assert "keywords" in MIDTERM_SESSION_MERGE_PROMPT
+
+
+def test_midterm_summary_request_and_persisted_dialogue_share_real_blank_line_separator(
+    tmp_path,
+    fake_memory_env,
+):
+    memory = Memory(_memory_config(tmp_path, collection_name="midterm_dialogue_format"))
+    llm = RecordingFakeLLM()
+    memory.midterm_updater.llm = llm
+    messages = [
+        {"role": "user", "content": '用户第一行\n用户第二行，含引号 " 和 emoji 😀'},
+        {"role": "assistant", "content": "助手第一行\n助手第二行，含反斜杠 \\"},
+    ]
+    expected = (
+        'User: 用户第一行\n用户第二行，含引号 " 和 emoji 😀\n\n'
+        "Assistant: 助手第一行\n助手第二行，含反斜杠 \\"
+    )
+
+    try:
+        pages = memory.midterm_updater.process_evicted_messages(
+            messages,
+            {"user_id": "u1", "run_id": "r1"},
+        )
+        summary_call = next(
+            call
+            for call in llm.calls
+            if call["messages"][0]["content"] == MIDTERM_PAGE_SUMMARY_PROMPT
+        )
+
+        assert summary_call["messages"][1]["content"] == expected
+        assert pages[0]["raw_dialogue"] == expected
+        assert "User: " in expected
+        assert "\n\nAssistant: " in expected
+        assert "\\n\\nAssistant" not in expected
+    finally:
+        memory.close()
 
 
 class InMemoryVectorStore:

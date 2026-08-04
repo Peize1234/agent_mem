@@ -59,7 +59,7 @@ def ensure_json_instruction(system_prompt, user_prompt):
 
 
 def parse_messages(messages):
-    response = ""
+    formatted_messages = []
     for msg in messages:
         role = msg.get("role")
         content = msg.get("content")
@@ -67,13 +67,11 @@ def parse_messages(messages):
         # messages that carry `tool_calls` but no `content` key).
         if content is None:
             continue
-        if role == "system":
-            response += f"system: {content}\n"
-        elif role == "user":
-            response += f"user: {content}\n"
-        elif role == "assistant":
-            response += f"assistant: {content}\n"
-    return response
+        if role in {"system", "user", "assistant"}:
+            formatted_messages.append(f"{role}: {content}")
+    if not formatted_messages:
+        return ""
+    return "\n\n".join(formatted_messages) + "\n"
 
 
 def format_entities(entities):
@@ -317,4 +315,3 @@ def remove_spaces_from_entities(
         item["destination"] = item["destination"].lower().replace(" ", "_")
         cleaned.append(item)
     return cleaned
-

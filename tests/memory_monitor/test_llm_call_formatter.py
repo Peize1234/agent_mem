@@ -1,7 +1,12 @@
+import json
+
+import pytest
+
 from memory_monitor.components.llm_call_formatter import (
     extract_response_text,
     format_model_answer,
     format_prompt_messages,
+    is_json_document,
 )
 
 
@@ -111,3 +116,62 @@ def test_unknown_structured_response_uses_safe_unicode_fallback():
     assert "中文" in rendered
     assert '"usage"' not in rendered
     assert "\\u" not in rendered
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        '{"summary":"测试","keywords":["A","B"]}',
+        '{\n  "summary": "测试",\n  "keywords": [\n    "A",\n    "B"\n  ]\n}',
+        '```json\n{"summary":"测试","keywords":["A","B"]}\n```',
+        '```JSON\r\n[{"nested":{"中文":[1,2]}}]\r\n```',
+    ],
+)
+def test_complete_json_model_answers_are_pretty_printed(response):
+    parsed_text = response.strip()
+    if parsed_text.lower().startswith("```json"):
+        parsed_text = parsed_text.splitlines()[1:-1]
+        parsed_text = "\n".join(parsed_text)
+    expected = json.dumps(json.loads(parsed_text), ensure_ascii=False, indent=2)
+
+    rendered = extract_response_text(response)
+
+    assert rendered == expected
+    assert "\n" in rendered
+    assert "\\u" not in rendered
+    assert is_json_document(rendered)
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        "建议保持当前方案，不需要调整。",
+        "普通文本中包含 {少量花括号}，不应解析。",
+        '{"summary":"缺少右括号"',
+        "```json\nnot-json\n```",
+    ],
+)
+def test_non_json_model_answers_remain_text(response):
+    assert extract_response_text(response) == response.strip()
+    assert not is_json_document(response)
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        {"summary": "中文摘要", "keywords": ["甲", "乙"]},
+        [{"summary": "数组回答", "nested": {"values": [1, 2]}}],
+        ["甲", "乙"],
+    ],
+)
+def test_direct_provider_objects_and_arrays_use_the_same_pretty_json_rule(response):
+    assert extract_response_text(response) == json.dumps(response, ensure_ascii=False, indent=2)
+
+
+def test_provider_text_part_arrays_still_extract_plain_text():
+    response = [
+        {"type": "text", "text": "第一段"},
+        {"type": "output_text", "text": "第二段"},
+    ]
+
+    assert extract_response_text(response) == "第一段\n\n第二段"

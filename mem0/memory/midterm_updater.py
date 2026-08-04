@@ -17,6 +17,15 @@ from mem0.utils.timestamps import (
 logger = logging.getLogger(__name__)
 
 
+def _format_page_dialogue(user_input: Any, assistant_response: Any) -> str:
+    """Format one page identically for the summary model and persisted raw dialogue."""
+    user_text = "" if user_input is None else str(user_input)
+    assistant_text = "" if assistant_response is None else str(assistant_response)
+    user_line = f"User:{' ' if user_text else ''}{user_text}"
+    assistant_line = f"Assistant:{' ' if assistant_text else ''}{assistant_text}"
+    return f"{user_line}\n\n{assistant_line}"
+
+
 class MidTermUpdater:
     def __init__(self, midterm_memory, llm, config):
         self.midterm_memory = midterm_memory
@@ -77,7 +86,7 @@ class MidTermUpdater:
         *,
         allow_fallback: bool = True,
     ) -> tuple[str, List[str]]:
-        raw_dialogue = f"User: {user_input}\nAssistant: {assistant_response}".strip()
+        raw_dialogue = _format_page_dialogue(user_input, assistant_response)
         try:
             response = self.llm.generate_response(
                 messages=[
@@ -294,7 +303,10 @@ class MidTermUpdater:
             response = self.llm.generate_response(
                 messages=[
                     {"role": "system", "content": MIDTERM_SESSION_MERGE_PROMPT},
-                    {"role": "user", "content": json.dumps(merge_input, ensure_ascii=False)},
+                    {
+                        "role": "user",
+                        "content": json.dumps(merge_input, ensure_ascii=False, indent=2),
+                    },
                 ],
                 response_format={"type": "json_object"},
             )
@@ -478,10 +490,10 @@ class MidTermUpdater:
                 else str(uuid.uuid4())
             )
             now = beijing_now_iso()
-            raw_dialogue = (
-                f"User: {qa_pair.get('user_input', '')}\n"
-                f"Assistant: {qa_pair.get('assistant_response', '')}"
-            ).strip()
+            raw_dialogue = _format_page_dialogue(
+                qa_pair.get("user_input", ""),
+                qa_pair.get("assistant_response", ""),
+            )
             existing_page = self.midterm_memory.get_page(page_id) if source_job_id else None
             if existing_page:
                 page_payload = dict(getattr(existing_page, "payload", None) or {})
