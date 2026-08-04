@@ -37,13 +37,11 @@ def main() -> None:
         raise RuntimeError("Install the monitor extra and run: hatch run monitor:start") from exc
 
     st.set_page_config(page_title="Agent Memory Demo Lab", page_icon="🧠", layout="wide")
-    loading = st.empty()
-    loading.markdown("### Agent Memory · Demo Lab\n正在初始化隔离环境…")
     try:
         styles.inject(st)
         config = DemoLabConfig.from_env()
 
-        @st.cache_resource
+        @st.cache_resource(show_spinner="正在初始化隔离环境…")
         def simulation_service(
             root: str,
             config_path: str,
@@ -69,7 +67,6 @@ def main() -> None:
             config.branch_workers,
             config.step_lease_seconds,
         )
-        loading.empty()
         demo_lab.render(st, service, config)
     except Exception as exc:
         logger.exception("Memory Monitor page initialization failed")

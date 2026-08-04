@@ -311,6 +311,57 @@ def test_midterm_longterm_and_profile_answers_share_pretty_json_renderer():
     assert "\\u" not in rendered
 
 
+def test_mixed_prompt_json_blocks_render_separately_without_changing_trace_content():
+    prompt = (
+        "说明 <script>alert('plain')</script>\n"
+        "<short_term_memory>\n"
+        '[{"content":"用户问题","nested":{"brackets":"{中文} [内容]"}}]\n'
+        "</short_term_memory>\n"
+        "参考信息：\n"
+        '{"items":[{"text":"</div><script>alert(1)</script>"}]}\n'
+        "结束。"
+    )
+    messages = [{"role": "system", "content": prompt}]
+    original_messages = deepcopy(messages)
+
+    rendered = pipeline_graph._prompt_html(messages)
+
+    assert rendered.count('class="demo-markdown-text demo-json-block"') == 2
+    assert rendered.count("```json") == 2
+    assert '  "content": "用户问题"' in rendered
+    assert '  "items": [' in rendered
+    assert '[{"content":"用户问题"' not in rendered
+    assert '{"items":[{"text"' not in rendered
+    assert "说明 &lt;script&gt;alert('plain')&lt;/script&gt;" in rendered
+    assert "&lt;short_term_memory&gt;" in rendered
+    assert "&lt;/short_term_memory&gt;" in rendered
+    assert rendered.index("说明") < rendered.index("用户问题") < rendered.index("参考信息")
+    assert rendered.index("参考信息") < rendered.index("items") < rendered.index("结束。")
+    assert messages == original_messages
+
+
+def test_existing_fenced_json_prompt_remains_one_markdown_block():
+    prompt = '已有代码块：\n```json\n{"items":[{"nested":true}]}\n```\n结束。'
+
+    rendered = pipeline_graph._render_call_text_html(prompt)
+
+    assert rendered.count('class="demo-markdown-text"') == 1
+    assert 'class="demo-markdown-text demo-json-block"' not in rendered
+    assert rendered.count("```json") == 1
+    assert prompt in rendered
+
+
+def test_complete_compact_json_prompt_uses_existing_pretty_json_block():
+    prompt = '{"answer":{"items":["中文"]}}'
+
+    rendered = pipeline_graph._render_call_text_html(prompt)
+
+    assert rendered.count('class="demo-markdown-text demo-json-block"') == 1
+    assert '  "answer": {' in rendered
+    assert '    "items": [' in rendered
+    assert prompt not in rendered
+
+
 def test_legacy_completed_turn_gets_persisted_compatibility_step_without_timing(tmp_path):
     db_path = tmp_path / "legacy.db"
     repository = DemoRepository(db_path)

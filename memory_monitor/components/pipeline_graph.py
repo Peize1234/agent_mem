@@ -6,9 +6,11 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from memory_monitor.components.llm_call_formatter import (
+    format_json_document,
     format_model_answer,
     format_prompt_messages,
     is_json_document,
+    split_mixed_text_and_json,
 )
 from memory_monitor.models import (
     FOREGROUND_STEPS,
@@ -287,12 +289,17 @@ def _answer_html(answer: str) -> str:
 def _render_call_text_html(content: str) -> str:
     if is_json_document(content):
         return _json_text_html(content)
-    return _markdown_text_html(content)
+    return "".join(
+        _json_text_html(part.content) if part.is_json else _markdown_text_html(part.content)
+        for part in split_mixed_text_and_json(content)
+    )
 
 
 def _json_text_html(content: str) -> str:
     """Render already-formatted JSON as inert code without changing trace data."""
-    return f'<div class="demo-markdown-text demo-json-block">\n\n```json\n{content}\n```\n\n</div>'
+    formatted = format_json_document(content)
+    json_content = formatted if formatted is not None else content
+    return f'<div class="demo-markdown-text demo-json-block">\n\n```json\n{json_content}\n```\n\n</div>'
 
 
 def _markdown_text_html(content: str) -> str:

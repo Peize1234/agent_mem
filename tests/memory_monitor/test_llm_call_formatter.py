@@ -4,9 +4,11 @@ import pytest
 
 from memory_monitor.components.llm_call_formatter import (
     extract_response_text,
+    format_json_document,
     format_model_answer,
     format_prompt_messages,
     is_json_document,
+    split_mixed_text_and_json,
 )
 
 
@@ -175,3 +177,86 @@ def test_provider_text_part_arrays_still_extract_plain_text():
     ]
 
     assert extract_response_text(response) == "第一段\n\n第二段"
+
+
+@pytest.mark.parametrize(
+    ("document", "expected_fragment"),
+    [
+        ('{"summary":"中文","items":[1,2]}', '  "summary": "中文"'),
+        ('[{"nested":{"items":[1,2]}}]', '    "nested": {'),
+    ],
+)
+def test_complete_json_documents_are_formatted_without_mutating_input(document, expected_fragment):
+    original = document[:]
+
+    formatted = format_json_document(document)
+
+    assert formatted is not None
+    assert expected_fragment in formatted
+    assert formatted == json.dumps(json.loads(document), ensure_ascii=False, indent=2)
+    assert document == original
+
+
+def test_mixed_text_and_xml_wrapped_json_are_split_in_original_order():
+    content = (
+        "短期记忆是当前 Session 最近若干轮完整对话。\n\n"
+        "<short_term_memory>\n"
+        '[{"content":"用户问题","created_at":"2026-08-03T09:01:56+08:00","role":"user"}]\n'
+        "</short_term_memory>"
+    )
+
+    parts = split_mixed_text_and_json(content)
+
+    assert [part.is_json for part in parts] == [False, True, False]
+    assert parts[0].content.endswith("<short_term_memory>\n")
+    assert json.loads(parts[1].content)[0]["content"] == "用户问题"
+    assert parts[2].content == "\n</short_term_memory>"
+    assert "".join(part.content for part in parts) == content
+
+
+def test_multiple_nested_json_blocks_keep_text_and_brackets_inside_strings():
+    first = {
+        "profile": {
+            "description": '中文换行\n带有转义引号 "以及 {对象}、[数组] 和 <tag> 文本',
+            "items": [{"values": [1, 2]}],
+        }
+    }
+    second = [{"memory": "长期事实"}, {"memory": "中期摘要"}]
+    first_json = json.dumps(first, ensure_ascii=False, separators=(",", ":"))
+    second_json = json.dumps(second, ensure_ascii=False, separators=(",", ":"))
+    content = f"用户画像：\n{first_json}\n参考信息：\n{second_json}\n结束。"
+
+    parts = split_mixed_text_and_json(content)
+    json_parts = [part.content for part in parts if part.is_json]
+
+    assert json_parts == [first_json, second_json]
+    assert [json.loads(part) for part in json_parts] == [first, second]
+    assert "参考信息：" in parts[2].content
+    assert "".join(part.content for part in parts) == content
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        '说明\n{"outer":{"valid":true}\n后续文字',
+        "普通文本中包含 {少量花括号}，以及版本号[1,2]，都不是独立 JSON 文档。",
+        '相邻普通文本不能被截断：prefix{"valid":true}suffix',
+    ],
+)
+def test_invalid_or_non_document_braces_remain_plain_text(content):
+    parts = split_mixed_text_and_json(content)
+
+    assert len(parts) == 1
+    assert parts[0].content == content
+    assert not parts[0].is_json
+
+
+@pytest.mark.parametrize("fence", ["```json", "```", "~~~json"])
+def test_fenced_code_is_not_split_or_wrapped_again(fence):
+    content = f'说明\n{fence}\n{{"inside":[1,{{"nested":true}}]}}\n{fence[:3]}\n结束'
+
+    parts = split_mixed_text_and_json(content)
+
+    assert len(parts) == 1
+    assert parts[0].content == content
+    assert not parts[0].is_json

@@ -1420,6 +1420,17 @@ def test_monitor_disables_telemetry_before_mem0_import_and_rejects_user_site_dep
     assert completed.returncode == 0, completed.stderr
 
 
+def test_monitor_only_shows_initialization_spinner_on_cache_resource_miss():
+    app_source = (_REPOSITORY_ROOT / "memory_monitor" / "app.py").read_text(encoding="utf-8")
+
+    assert '@st.cache_resource(show_spinner="正在初始化隔离环境…")' in app_source
+    assert "loading = st.empty()" not in app_source
+    assert "loading.markdown" not in app_source
+    assert "loading.empty()" not in app_source
+    assert "SimulationService(" in app_source
+    assert "页面加载失败" in app_source
+
+
 def test_all_pipeline_operations_reject_a_turn_from_another_session(tmp_path):
     pipeline, repository, memory, session_a, turn = _pipeline(tmp_path)
     session_b = repository.create_session("simulation-1", "user-2", "run-2")

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
-from typing import Any, Mapping, Sequence
+from typing import Any, Iterator, Mapping, Sequence
 
 
 _ROLE_LABELS = {
@@ -22,6 +22,13 @@ _JSON_FENCE = re.compile(
     r"\A```json[ \t]*(?:\r?\n)(?P<body>[\s\S]*?)(?:\r?\n)```[ \t]*\Z",
     re.IGNORECASE,
 )
+_FENCED_CODE_START = re.compile(r"^ {0,3}(?:(?P<backticks>`{3,})[^`\r\n]*|(?P<tildes>~{3,})[^\r\n]*)(?:\r?\n|$)")
+_JSON_START_BOUNDARY = frozenset("><:=,;(-+*/|&'\"，。；：！？、（【")
+_JSON_END_BOUNDARY = frozenset("<>.,;:!?)'\"，。；：！？、）】")
+_JSON_CONTAINER_STARTS = {
+    "{": frozenset(('"', "}")),
+    "[": frozenset('[{"-0123456789tfn]'),
+}
 _DEBUG_RESPONSE_FIELDS = {
     "arguments",
     "created",
@@ -47,6 +54,12 @@ _DEBUG_RESPONSE_FIELDS = {
 class PromptMessage:
     role: str
     content: str
+
+
+@dataclass(frozen=True)
+class CallTextPart:
+    content: str
+    is_json: bool = False
 
 
 def format_prompt_messages(messages: Any) -> tuple[PromptMessage, ...]:
@@ -123,6 +136,23 @@ def is_json_document(value: str) -> bool:
     return _parse_json_document(value, allow_fence=False) is not None
 
 
+def format_json_document(value: str) -> str | None:
+    """Pretty-print a complete JSON object or array without changing *value*."""
+    parsed = _parse_json_document(value, allow_fence=False)
+    return _format_json_value(parsed) if parsed is not None else None
+
+
+def split_mixed_text_and_json(content: str) -> tuple[CallTextPart, ...]:
+    """Split Markdown text around complete JSON objects/arrays outside code fences."""
+    parts: list[CallTextPart] = []
+    for region, can_contain_json in _markdown_regions(content):
+        if can_contain_json:
+            _split_json_region(region, parts)
+        else:
+            _append_call_text_part(parts, region, is_json=False)
+    return tuple(parts) or (CallTextPart(content),)
+
+
 def _format_json_response_text(value: str) -> str:
     """Pretty-print only complete object/array answers, including JSON fences."""
     stripped = value.strip()
@@ -145,6 +175,145 @@ def _parse_json_document(value: str, *, allow_fence: bool) -> dict[str, Any] | l
 
 def _format_json_value(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, indent=2, default=str)
+
+
+def _markdown_regions(content: str) -> Iterator[tuple[str, bool]]:
+    """Yield text regions with whether embedded JSON detection is allowed."""
+    lines = content.splitlines(keepends=True)
+    cursor = 0
+    line_index = 0
+    line_start = 0
+
+    while line_index < len(lines):
+        line = lines[line_index]
+        match = _FENCED_CODE_START.match(line)
+        if match is None:
+            line_start += len(line)
+            line_index += 1
+            continue
+
+        if cursor < line_start:
+            yield content[cursor:line_start], True
+
+        fence = match.group("backticks") or match.group("tildes")
+        closing_fence = re.compile(rf"^ {{0,3}}{re.escape(fence[0])}{{{len(fence)},}}[ \t]*(?:\r?\n|$)")
+        block_end = len(content)
+        search_index = line_index + 1
+        search_start = line_start + len(line)
+        while search_index < len(lines):
+            closing_line = lines[search_index]
+            search_start += len(closing_line)
+            if closing_fence.fullmatch(closing_line):
+                block_end = search_start
+                search_index += 1
+                break
+            search_index += 1
+
+        yield content[line_start:block_end], False
+        cursor = block_end
+        line_start = block_end
+        line_index = search_index
+
+    if cursor < len(content):
+        yield content[cursor:], True
+
+
+def _split_json_region(content: str, parts: list[CallTextPart]) -> None:
+    decoder = json.JSONDecoder()
+    cursor = 0
+    plain_start = 0
+
+    while cursor < len(content):
+        if (
+            content[cursor] not in "{["
+            or not _has_json_start_boundary(content, cursor)
+            or not _looks_like_json_container(content, cursor)
+        ):
+            cursor += 1
+            continue
+
+        try:
+            parsed, end = decoder.raw_decode(content, cursor)
+        except json.JSONDecodeError:
+            parsed = None
+            end = None
+
+        if isinstance(parsed, (dict, list)) and end is not None and _has_json_end_boundary(content, end):
+            _append_call_text_part(parts, content[plain_start:cursor], is_json=False)
+            _append_call_text_part(parts, content[cursor:end], is_json=True)
+            cursor = end
+            plain_start = end
+            continue
+
+        container_end = _json_like_container_end(content, cursor)
+        if container_end is not None:
+            cursor = container_end
+        else:
+            # An incomplete outer document must stay plain; do not promote a
+            # valid nested object or array from inside the malformed text.
+            cursor = len(content)
+
+    _append_call_text_part(parts, content[plain_start:], is_json=False)
+
+
+def _append_call_text_part(parts: list[CallTextPart], content: str, *, is_json: bool) -> None:
+    if not content:
+        return
+    if parts and not is_json and not parts[-1].is_json:
+        parts[-1] = CallTextPart(parts[-1].content + content)
+        return
+    parts.append(CallTextPart(content, is_json=is_json))
+
+
+def _has_json_start_boundary(content: str, start: int) -> bool:
+    if start == 0:
+        return True
+    previous = content[start - 1]
+    return previous.isspace() or previous in _JSON_START_BOUNDARY
+
+
+def _has_json_end_boundary(content: str, end: int) -> bool:
+    if end == len(content):
+        return True
+    following = content[end]
+    return following.isspace() or following in _JSON_END_BOUNDARY
+
+
+def _looks_like_json_container(content: str, start: int) -> bool:
+    cursor = start + 1
+    while cursor < len(content) and content[cursor].isspace():
+        cursor += 1
+    return cursor == len(content) or content[cursor] in _JSON_CONTAINER_STARTS[content[start]]
+
+
+def _json_like_container_end(content: str, start: int) -> int | None:
+    """Find a balanced candidate end while respecting JSON string escaping."""
+    closing_for = {"{": "}", "[": "]"}
+    stack = [content[start]]
+    in_string = False
+    escaped = False
+
+    for cursor in range(start + 1, len(content)):
+        character = content[cursor]
+        if in_string:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == '"':
+                in_string = False
+            continue
+        if character == '"':
+            in_string = True
+        elif character in closing_for:
+            stack.append(character)
+        elif character in "}]":
+            if character != closing_for[stack[-1]]:
+                return cursor + 1
+            stack.pop()
+            if not stack:
+                return cursor + 1
+    return None
 
 
 def _is_provider_text_parts(value: Sequence[Any]) -> bool:
