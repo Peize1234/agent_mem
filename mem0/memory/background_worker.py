@@ -156,6 +156,7 @@ class BackgroundWorkerManager:
         while not self._stop_event.wait(float(self.config.watchdog_interval_seconds)):
             if getattr(self.db, "connection", None) is None:
                 return
+            
             try:
                 recovered = self.db.recover_expired_background_leases(self.config.max_stale_recoveries)
                 if any(recovered.values()):
@@ -463,6 +464,7 @@ class BackgroundWorkerManager:
                     cleanup_error=cleanup_error,
                 )
                 return False
+            
             if bool(job.get(f"{stage}_force_degraded")) or int(
                 job.get(f"{stage}_attempts", 0)
             ) > int(self.config.max_retries):
@@ -476,6 +478,7 @@ class BackgroundWorkerManager:
                 self.commit_migration_outputs(job, stage, lease_token, False)
             except Exception as exc:
                 return self._handle_migration_stage_failure(job, stage, handler, messages, exc)
+            
             if not self.db.mark_migration_stage_succeeded(job_id, stage, lease_token):
                 self._discard_outputs(job, stage, lease_token)
                 return False
@@ -499,6 +502,7 @@ class BackgroundWorkerManager:
                         str(job.get("lease_token") or "")[:8],
                     )
                     return
+                
                 if committed is None:
                     finished = self.db.finish_profile_job(job["job_id"], job["lease_token"])
                     if not finished:
@@ -511,6 +515,7 @@ class BackgroundWorkerManager:
                             job.get("recovery_count", 0),
                             str(job.get("lease_token") or "")[:8],
                         )
+
             except Exception as exc:
                 attempt = int(job.get("attempts", 0)) + 1
                 logger.warning(
@@ -524,6 +529,7 @@ class BackgroundWorkerManager:
                     threading.current_thread().name,
                     exc,
                 )
+                
                 self.db.record_profile_failure(
                     job["job_id"],
                     job["lease_token"],

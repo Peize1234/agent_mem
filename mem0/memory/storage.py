@@ -1835,9 +1835,11 @@ class SQLiteManager:
                         now,
                     ),
                 )
+
                 if updated.rowcount:
                     self._refresh_migration_job_locked(job_id, now=now)
                     self._finalize_migration_job_locked(job_id, now=now)
+                    
                 self.connection.execute("COMMIT")
                 return updated.rowcount == 1
             except Exception:

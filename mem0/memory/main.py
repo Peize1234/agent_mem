@@ -1197,14 +1197,17 @@ class _BackgroundMemoryMixin:
     def _background_process_midterm(self, job, messages, degraded: bool) -> None:
         if not self._midterm_enabled():
             return
+        
         def lease_is_current():
             return self.db.migration_stage_lease_is_current(
                 job["job_id"],
                 "midterm",
                 job["midterm_lease_token"],
             )
+        
         if not lease_is_current():
             raise RuntimeError("stale migration stage lease")
+        
         result = self._process_midterm_evictions(
             messages,
             job["filters"],
@@ -1214,6 +1217,7 @@ class _BackgroundMemoryMixin:
             degraded=degraded,
             raise_on_error=True,
         )
+
         if asyncio.iscoroutine(result):
             asyncio.run(result)
 
@@ -1606,7 +1610,7 @@ class _BackgroundMemoryMixin:
     ) -> tuple[Optional[str], Optional[str]]:
         if not hasattr(self, "_background_lifecycle_lock"):
             self._background_lifecycle_lock = threading.RLock()
-        # 生命周期锁，TODO：这个锁的作用是什么？
+
         with self._background_lifecycle_lock:
             if getattr(self, "_closed", False):
                 raise RuntimeError("Cannot add memories after Memory.close()")
@@ -2265,6 +2269,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
     ):
         if not self._midterm_enabled() or not evicted_messages:
             return []
+        
         try:
             return self.midterm_updater.process_evicted_messages(
                 evicted_messages,
