@@ -16,6 +16,7 @@ from memory_monitor.services.demo_repository import DemoRepository
 
 
 class _AgenticDemoMemory:
+    _normalize_agentic_supplement_result = DemoMemory._normalize_agentic_supplement_result
     _normalize_agentic_answer_result = DemoMemory._normalize_agentic_answer_result
 
     def __init__(self):
@@ -26,10 +27,12 @@ class _AgenticDemoMemory:
         self.agentic_error = None
         self.final_generation_error = None
         self.agentic_result = {
-            "answer": "agentic final answer",
+            "status": "supplemented",
+            "supplement": "historical memory supplement",
+            "answer": "historical memory supplement",
             "iterations": 2,
             "tool_call_count": 1,
-            "stop_reason": "model_answered",
+            "stop_reason": "supplemented",
             "tool_trace": [
                 {
                     "iteration": 1,
@@ -58,8 +61,9 @@ class _AgenticDemoMemory:
         context["context_hash"] = self.context_hash(context)
         return context
 
-    def build_prompt_from_context(self, context, *, agentic_answer=None):
-        return [{"role": "system", "content": f"final prompt candidate: {agentic_answer or ''}"}]
+    def build_prompt_from_context(self, context, *, agentic_memory_supplement=None, agentic_answer=None):
+        supplement = agentic_memory_supplement or agentic_answer or ""
+        return [{"role": "system", "content": f"final prompt supplement: {supplement}"}]
 
     def generate_agentic_response_for_demo(self, context, **kwargs):
         self.agentic_calls.append(
@@ -129,11 +133,20 @@ def test_demo_memory_reuses_core_agentic_flow_and_final_prompt_builder():
     memory.llm = MagicMock()
     memory._run_agentic_retrieval_from_context = MagicMock(
         return_value={
-            "answer": "candidate answer",
-            "iterations": 1,
-            "tool_call_count": 0,
-            "stop_reason": "model_answered",
-            "tool_trace": [],
+            "status": "supplemented",
+            "supplement": "historical supplement",
+            "answer": "historical supplement",
+            "iterations": 2,
+            "tool_call_count": 1,
+            "stop_reason": "supplemented",
+            "tool_trace": [
+                {
+                    "iteration": 1,
+                    "name": "search_memory",
+                    "arguments": {"queries": ["historical context"]},
+                    "result_summary": {"ok": True, "item_count": 1},
+                }
+            ],
         }
     )
     memory._retrieve_base_context = MagicMock(side_effect=AssertionError("base-only retrieval must stay disabled"))
@@ -161,12 +174,15 @@ def test_demo_memory_reuses_core_agentic_flow_and_final_prompt_builder():
 
     context = memory.retrieve_context_for_demo("historical question", user_id="user-1", session_id="run-1")
     agentic_result = memory.generate_agentic_response_for_demo(context, temperature=0.2)
-    answer_prompt = memory.build_prompt_from_context(context, agentic_answer="candidate answer")
+    answer_prompt = memory.build_prompt_from_context(context, agentic_memory_supplement="historical supplement")
 
     assert context["agentic_retrieval"] is True
     assert len(context["mid_term"]) == len(context["long_term"]) == 1
-    assert agentic_result["answer"] == "candidate answer"
-    assert "<agentic_answer>\ncandidate answer\n</agentic_answer>" in answer_prompt[0]["content"]
+    assert agentic_result["answer"] == agentic_result["supplement"] == "historical supplement"
+    assert (
+        "<agentic_memory_supplement>\nhistorical supplement\n</agentic_memory_supplement>"
+        in answer_prompt[0]["content"]
+    )
     core_context = memory._run_agentic_retrieval_from_context.call_args.args[0]
     assert "context_hash" not in core_context
     assert core_context["retrieved_memories"] == context["retrieved_memories"]
@@ -235,10 +251,10 @@ def test_frozen_demo_context_builds_exactly_the_core_final_prompt(monkeypatch):
     core_context = deepcopy(context)
     core_context.pop("context_hash")
 
-    demo_messages = memory.build_prompt_from_context(context, agentic_answer="候选回答")
+    demo_messages = memory.build_prompt_from_context(context, agentic_memory_supplement="历史口径补充")
     core_messages = build_answer_prompt_messages_from_context(
         core_context,
-        agentic_answer="候选回答",
+        agentic_memory_supplement="历史口径补充",
     )
 
     assert demo_messages == core_messages
@@ -249,7 +265,7 @@ def test_frozen_demo_context_builds_exactly_the_core_final_prompt(monkeypatch):
     assert '<user_profile>\n{\n  "风险偏好": "稳健"\n}\n</user_profile>' in prompt
     assert "<reference_information>\n[]\n</reference_information>" in prompt
     assert "\\u4e2d" not in prompt
-    assert "<agentic_answer>\n候选回答\n</agentic_answer>" in prompt
+    assert "<agentic_memory_supplement>\n历史口径补充\n</agentic_memory_supplement>" in prompt
 
 
 def test_agentic_loop_runs_in_its_own_node_and_commit_receives_only_final_turn(tmp_path):
@@ -290,12 +306,14 @@ def test_agentic_loop_runs_in_its_own_node_and_commit_receives_only_final_turn(t
     assert agentic["iterations"] == 2
     assert agentic["tool_call_count"] == 1
     assert agentic["tool_trace"][0]["arguments"]["queries"] == ["private search term"]
-    assert agentic["agentic_status"] == "retrieved"
+    assert agentic["agentic_status"] == "supplemented"
+    assert agentic["agentic_memory_supplement"] == "historical memory supplement"
+    assert agentic["agentic_answer"] == agentic["agentic_memory_supplement"]
     assert "iterations" not in generation
     assert "tool_trace" not in generation
     assert updates["assistant_message"] == "externally verified answer"
     assert memory.normal_generation_calls[0][0] == [
-        {"role": "system", "content": "final prompt candidate: agentic final answer"}
+        {"role": "system", "content": "final prompt supplement: historical memory supplement"}
     ]
     assert memory.agentic_calls[0]["context"] == context
 
@@ -317,24 +335,30 @@ def test_agentic_loop_runs_in_its_own_node_and_commit_receives_only_final_turn(t
     "agentic_result",
     [
         {
-            "answer": "must be ignored",
-            "iterations": 1,
-            "tool_call_count": 0,
-            "stop_reason": "max_iterations",
-            "tool_trace": [],
-        },
-        {
+            "status": "degraded",
+            "supplement": "",
             "answer": "",
             "iterations": 1,
             "tool_call_count": 0,
-            "stop_reason": "model_answered",
+            "stop_reason": "degraded",
             "tool_trace": [],
         },
         {
-            "answer": "must be ignored",
-            "iterations": 2,
+            "status": "not_needed",
+            "supplement": "",
+            "answer": "",
+            "iterations": 1,
+            "tool_call_count": 0,
+            "stop_reason": "not_needed",
+            "tool_trace": [],
+        },
+        {
+            "status": "degraded",
+            "supplement": "",
+            "answer": "",
+            "iterations": 1,
             "tool_call_count": 1,
-            "stop_reason": "model_answered",
+            "stop_reason": "degraded",
             "tool_trace": [
                 {
                     "iteration": 1,
@@ -346,16 +370,17 @@ def test_agentic_loop_runs_in_its_own_node_and_commit_receives_only_final_turn(t
         },
     ],
 )
-def test_demo_invalid_agentic_result_uses_empty_candidate_and_continues(tmp_path, agentic_result):
+def test_demo_non_supplemented_agentic_result_uses_empty_supplement_and_continues(tmp_path, agentic_result):
     memory = _AgenticDemoMemory()
     memory.agentic_result = agentic_result
 
     agentic, generation, updates = _execute_demo_generation(tmp_path, memory)
 
-    assert agentic["agentic_status"] in {"not_needed", "retrieved"}
+    assert agentic["agentic_status"] in {"not_needed", "no_relevant_memory", "degraded"}
+    assert agentic["agentic_memory_supplement"] == agentic["agentic_answer"] == ""
     assert generation["assistant_message"] == "externally verified answer"
     assert updates["assistant_message"] == "externally verified answer"
-    assert memory.normal_generation_calls[0][0] == [{"role": "system", "content": "final prompt candidate: "}]
+    assert memory.normal_generation_calls[0][0] == [{"role": "system", "content": "final prompt supplement: "}]
 
 
 def test_demo_agentic_exception_degrades_to_core_non_agentic_prompt(tmp_path):
@@ -364,12 +389,13 @@ def test_demo_agentic_exception_degrades_to_core_non_agentic_prompt(tmp_path):
 
     agentic, generation, updates = _execute_demo_generation(tmp_path, memory)
 
-    assert agentic["agentic_status"] == "failed_degraded"
+    assert agentic["agentic_status"] == "degraded"
+    assert agentic["agentic_memory_supplement"] == ""
     assert agentic["agentic_answer"] == ""
     assert agentic["error_message"] == "agentic unavailable"
     assert generation["assistant_message"] == "externally verified answer"
     assert updates["assistant_message"] == "externally verified answer"
-    assert memory.normal_generation_calls[0][0] == [{"role": "system", "content": "final prompt candidate: "}]
+    assert memory.normal_generation_calls[0][0] == [{"role": "system", "content": "final prompt supplement: "}]
 
 
 def test_demo_final_answer_model_exception_still_fails_generation_step(tmp_path):
@@ -388,7 +414,8 @@ def test_demo_final_answer_model_exception_still_fails_generation_step(tmp_path)
     [
         (False, 0, "skipped", "disabled"),
         (True, 0, "succeeded", "not_needed"),
-        (True, 1, "succeeded", "retrieved"),
+        (True, 1, "succeeded", "supplemented"),
+        (True, 1, "succeeded", "no_relevant_memory"),
     ],
 )
 def test_real_agentic_step_persists_disabled_no_retrieval_and_retrieval_states(
@@ -402,8 +429,25 @@ def test_real_agentic_step_persists_disabled_no_retrieval_and_retrieval_states(
     session = repository.create_session("simulation-1", "user-1", "run-1")
     memory = _AgenticDemoMemory()
     memory.agentic_enabled = enabled
-    memory.agentic_result["tool_call_count"] = tool_call_count
-    memory.agentic_result["tool_trace"] = memory.agentic_result["tool_trace"] if tool_call_count else []
+    if expected_agentic_status == "not_needed":
+        memory.agentic_result.update(
+            status="not_needed",
+            supplement="",
+            answer="",
+            iterations=1,
+            tool_call_count=0,
+            stop_reason="not_needed",
+            tool_trace=[],
+        )
+    elif expected_agentic_status == "no_relevant_memory":
+        memory.agentic_result.update(
+            status="no_relevant_memory",
+            supplement="",
+            answer="",
+            iterations=1,
+            tool_call_count=1,
+            stop_reason="no_relevant_memory",
+        )
     pipeline = DemoPipelineService(memory, repository, state_service=object())
     coordinator = DemoBackgroundCoordinator("agentic-states", repository)
     pipeline.coordinator = coordinator
@@ -451,7 +495,7 @@ def test_agentic_failure_is_persisted_as_degraded_and_downstream_continues(tmp_p
         assert degraded["status"] == "succeeded"
         assert degraded["attempts"] == 1
         assert degraded["error_message"] is None
-        assert degraded["output"]["agentic_status"] == "failed_degraded"
+        assert degraded["output"]["agentic_status"] == "degraded"
         assert degraded["output"]["error_message"] == "agentic unavailable"
         assert repository.get_step(turn["turn_id"], PipelineStep.BUILD_PROMPT)["status"] == "succeeded"
         assert repository.get_step(turn["turn_id"], PipelineStep.GENERATE_RESPONSE)["status"] == "succeeded"

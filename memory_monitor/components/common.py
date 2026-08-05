@@ -35,6 +35,7 @@ def render_table(
             normalize_table_rows(records),
             width="stretch",
             hide_index=True,
+            key=f"memory_table_{key_prefix}",
         )
         return True
     except Exception:

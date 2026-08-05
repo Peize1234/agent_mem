@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import logging
 import re
 import shutil
+import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,6 +18,7 @@ from memory_monitor.services.demo_repository import DemoRepository
 from memory_monitor.services.memory_state_service import MemoryStateService
 
 _SIMULATION_ID = re.compile(r"^[a-zA-Z0-9_-]{1,80}$")
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -68,6 +71,7 @@ class SimulationService:
         coordinator = None
         try:
             memory = self.memory_factory(config)
+            self._warm_up_retrieval(memory, simulation_id)
             repository = DemoRepository(run_root / "demo.db")
             state_service = MemoryStateService(memory)
             coordinator = DemoBackgroundCoordinator(
@@ -106,6 +110,56 @@ class SimulationService:
         )
         self._environments[simulation_id] = environment
         return environment
+
+    @staticmethod
+    def _warm_up_retrieval(memory: Any, simulation_id: str) -> None:
+        started_at = time.perf_counter()
+        try:
+            warm_up = getattr(memory, "warm_up_retrieval_for_demo", None)
+        except Exception as exc:
+            duration_ms = (time.perf_counter() - started_at) * 1000
+            logger.warning(
+                "Demo retrieval warmup simulation_id=%s executed=false skipped=false success=false "
+                "duration_ms=%.2f error_type=%s error=%s",
+                simulation_id,
+                duration_ms,
+                type(exc).__name__,
+                exc,
+                exc_info=True,
+            )
+            return
+        if not callable(warm_up):
+            duration_ms = (time.perf_counter() - started_at) * 1000
+            logger.info(
+                "Demo retrieval warmup simulation_id=%s executed=false skipped=true success=true duration_ms=%.2f",
+                simulation_id,
+                duration_ms,
+            )
+            return
+
+        try:
+            executed = bool(warm_up())
+        except Exception as exc:
+            duration_ms = (time.perf_counter() - started_at) * 1000
+            logger.warning(
+                "Demo retrieval warmup simulation_id=%s executed=true skipped=false success=false "
+                "duration_ms=%.2f error_type=%s error=%s",
+                simulation_id,
+                duration_ms,
+                type(exc).__name__,
+                exc,
+                exc_info=True,
+            )
+            return
+
+        duration_ms = (time.perf_counter() - started_at) * 1000
+        logger.info(
+            "Demo retrieval warmup simulation_id=%s executed=%s skipped=%s success=true duration_ms=%.2f",
+            simulation_id,
+            str(executed).lower(),
+            str(not executed).lower(),
+            duration_ms,
+        )
 
     def environment(self, simulation_id: str) -> SimulationEnvironment:
         self._validate_simulation_id(simulation_id)

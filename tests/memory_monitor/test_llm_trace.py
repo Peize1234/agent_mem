@@ -130,7 +130,7 @@ def test_multiple_llm_calls_and_complete_tool_result_are_persisted_in_order(tmp_
     }
     pipeline, coordinator, repository, session, turn = _agentic_pipeline(
         tmp_path,
-        [first_response, "candidate answer", "final answer"],
+        [first_response, "historical memory supplement", "final answer"],
     )
     try:
         pipeline.run_to_answer(turn["turn_id"], session_id=session["session_id"])
@@ -140,11 +140,12 @@ def test_multiple_llm_calls_and_complete_tool_result_are_persisted_in_order(tmp_
         calls = agentic["output"]["llm_calls"]
         assert [call["sequence"] for call in calls] == [1, 2]
         assert [call["status"] for call in calls] == ["succeeded", "succeeded"]
-        assert calls[0]["messages"][-1]["content"] == "question"
+        assert len(calls[0]["messages"]) == 1
+        assert "<user_query>\nquestion\n</user_query>" in calls[0]["messages"][0]["content"]
         assert calls[0]["tools"][0]["function"]["name"] == "search_memory"
         assert calls[0]["parameters"] == {"temperature": 0.2, "tool_choice": "auto"}
         assert calls[0]["response"] == first_response
-        assert calls[1]["response"] == "candidate answer"
+        assert calls[1]["response"] == "historical memory supplement"
         assert calls[0]["messages"] == pipeline.memory.llm._wrapped.requests[0]["messages"]
         assert calls[1]["messages"] == pipeline.memory.llm._wrapped.requests[1]["messages"]
         second_messages = calls[1]["messages"]
@@ -174,8 +175,38 @@ def test_multiple_llm_calls_and_complete_tool_result_are_persisted_in_order(tmp_
         assert generation["output"]["llm_calls"][0]["messages"] == pipeline.memory.llm._wrapped.requests[2]["messages"]
         assert generation["output"]["llm_calls"][0]["messages"] == build["output"]["messages"]
         final_prompt = build["output"]["messages"][0]["content"]
-        assert "<agentic_answer>\ncandidate answer\n</agentic_answer>" in final_prompt
+        assert "<agentic_memory_supplement>\nhistorical memory supplement\n</agentic_memory_supplement>" in final_prompt
         assert "外部记忆工具判断是否需要补充检索" not in final_prompt
+    finally:
+        coordinator.shutdown(wait=True)
+
+
+def test_not_needed_hides_accidental_agentic_answer_and_keeps_final_generation(tmp_path):
+    accidental_answer = "华辰智能装备的业务结构以机器人控制器为主、智能仓储设备为辅。"
+    pipeline, coordinator, repository, session, turn = _agentic_pipeline(
+        tmp_path,
+        [accidental_answer, "最终模型根据当前问题生成业务结构概括。"],
+    )
+    try:
+        pipeline.run_to_answer(turn["turn_id"], session_id=session["session_id"])
+        assert coordinator.wait_for_idle(3)
+
+        agentic = repository.get_step(turn["turn_id"], PipelineStep.AGENTIC_RETRIEVAL)
+        assert agentic["output"]["agentic_status"] == "not_needed"
+        assert agentic["output"]["agentic_memory_supplement"] == agentic["output"]["agentic_answer"] == ""
+        assert agentic["output"]["tool_call_count"] == 0
+        assert agentic["output"]["llm_calls"][0]["response"] is None
+        assert agentic["output"]["llm_calls"][0]["response_suppressed"] is True
+        assert accidental_answer not in json.dumps(agentic["output"], ensure_ascii=False)
+
+        final_prompt = repository.get_step(turn["turn_id"], PipelineStep.BUILD_PROMPT)["output"]["messages"][0][
+            "content"
+        ]
+        assert accidental_answer not in final_prompt
+        assert "<agentic_memory_supplement>\n\n</agentic_memory_supplement>" in final_prompt
+        assert repository.get_step(turn["turn_id"], PipelineStep.GENERATE_RESPONSE)["output"]["assistant_message"] == (
+            "最终模型根据当前问题生成业务结构概括。"
+        )
     finally:
         coordinator.shutdown(wait=True)
 
@@ -200,8 +231,8 @@ def test_failed_agentic_call_keeps_trace_and_degrades_to_final_answer(tmp_path):
         assert coordinator.wait_for_idle(3)
         degraded = repository.get_step(turn["turn_id"], PipelineStep.AGENTIC_RETRIEVAL)
         assert degraded["status"] == "succeeded"
-        assert degraded["output"]["agentic_status"] == "failed_degraded"
-        assert degraded["output"]["error_message"] == "second call failed"
+        assert degraded["output"]["agentic_status"] == "degraded"
+        assert degraded["output"]["agentic_memory_supplement"] == ""
         assert [call["status"] for call in degraded["output"]["llm_calls"]] == ["succeeded", "failed"]
         assert degraded["output"]["llm_calls"][1]["error_message"] == "second call failed"
         assert len(degraded["output"]["tool_calls"]) == 1
@@ -412,7 +443,7 @@ def test_pipeline_hover_trace_renders_only_readable_prompt_and_answer():
         attempts=1,
         duration_ms=12.4,
         output={
-            "agentic_status": "retrieved",
+            "agentic_status": "supplemented",
             "llm_calls": [
                 {
                     "sequence": 1,
@@ -439,7 +470,7 @@ def test_pipeline_hover_trace_renders_only_readable_prompt_and_answer():
                 },
                 {
                     "sequence": 2,
-                    "purpose": "生成候选回答",
+                    "purpose": "整理记忆补充",
                     "messages": [
                         {"role": "assistant", "content": "已有候选"},
                         {"role": "tool", "content": "检索内容\n```text\n安全代码块\n```"},
@@ -479,7 +510,7 @@ def test_pipeline_hover_trace_renders_only_readable_prompt_and_answer():
     assert tool_only_danger not in rendered
     assert "LLM ×2" in rendered
     assert "工具 ×1" in rendered
-    assert "已补充检索" in rendered
+    assert "已补充" in rendered
     assert 'class="demo-node-popover"' in rendered
     assert rendered.index("模型调用 1") < rendered.index("模型调用 2")
     assert rendered.count('class="demo-call-heading">Prompt</div>') == 2

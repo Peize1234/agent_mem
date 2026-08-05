@@ -28,7 +28,7 @@ class MemoryItem(BaseModel):
 
 
 class MidTermMemoryConfig(BaseModel):
-    enabled: bool = Field(False, description="Enable the mid-term memory layer")
+    enabled: bool = Field(True, description="Enable the mid-term memory layer")
     short_term_capacity: int = Field(10, description="Number of recent SQLite messages to keep per session")
     session_similarity_threshold: float = Field(0.65, description="Minimum score for assigning a page to a session")
     embedding_similarity_weight: float = Field(0.7, description="Weight for embedding similarity during topic routing")
@@ -36,14 +36,15 @@ class MidTermMemoryConfig(BaseModel):
     top_k_sessions: int = Field(5, ge=0, description="Number of mid-term sessions to retrieve")
     top_k_pages: int = Field(5, ge=0, description="Number of candidate mid-term pages to retrieve per session")
     max_total_pages: int = Field(4, ge=0, description="Maximum total mid-term pages to return")
-    heat_alpha: float = Field(1.0, description="Session heat weight for visit count")
-    heat_beta: float = Field(0.5, description="Session heat weight for interaction count")
-    heat_gamma: float = Field(1.0, description="Session heat weight for recency")
-    promotion_heat_threshold: float = Field(5.0, description="Reserved threshold for promoting hot sessions")
+
+    heat_alpha: float = Field(1.0, description="Session heat weight for visit count (暂未启用)")
+    heat_beta: float = Field(0.5, description="Session heat weight for interaction count (暂未启用)")
+    heat_gamma: float = Field(1.0, description="Session heat weight for recency (暂未启用)")
+    promotion_heat_threshold: float = Field(5.0, description="Reserved threshold for promoting hot sessions (暂未启用)")
 
 
 class UserProfileConfig(BaseModel):
-    enabled: bool = False
+    enabled: bool = True
     update_on_add: bool = True
     extraction_mode: Literal["explicit_only", "explicit_and_inferred"] = "explicit_only"
     allow_dynamic_attributes: bool = False
@@ -95,7 +96,7 @@ class BackgroundTaskConfig(BaseModel):
 class AgenticRetrievalConfig(BaseModel):
     """Limits for the optional, low-latency mid-term retrieval flow."""
 
-    enabled: bool = False
+    enabled: bool = True
     max_iterations: int = Field(2, ge=1, le=2)
     max_tool_calls: int = Field(1, ge=1, le=1)
     max_queries: int = Field(3, ge=1, le=3)

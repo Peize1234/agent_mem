@@ -44,6 +44,37 @@ class MemoryStateService:
         run_id: str,
         sections: Iterable[str] | None = None,
     ) -> Dict[str, Any]:
+        """Capture the active memory view used by persisted step snapshots."""
+        return self._read_state(
+            user_id=user_id,
+            run_id=run_id,
+            sections=sections,
+            include_all_messages=False,
+        )
+
+    def current_state(
+        self,
+        *,
+        user_id: str,
+        run_id: str,
+        sections: Iterable[str] | None = None,
+    ) -> Dict[str, Any]:
+        """Read live monitor state, including every message status in the session."""
+        return self._read_state(
+            user_id=user_id,
+            run_id=run_id,
+            sections=sections,
+            include_all_messages=True,
+        )
+
+    def _read_state(
+        self,
+        *,
+        user_id: str,
+        run_id: str,
+        sections: Iterable[str] | None,
+        include_all_messages: bool,
+    ) -> Dict[str, Any]:
         selected = self._normalize_sections(sections)
         session_scope = None
         if selected & _SESSION_SCOPE_SECTIONS:
@@ -57,6 +88,7 @@ class MemoryStateService:
             user_id=user_id,
             session_scope=session_scope,
             sections=selected,
+            include_all_messages=include_all_messages,
         )
         filters = {"user_id": user_id, "run_id": run_id}
         midterm_state = self._midterm_state(filters, selected)
@@ -95,6 +127,7 @@ class MemoryStateService:
         user_id: str,
         session_scope: str | None,
         sections: frozenset[str],
+        include_all_messages: bool,
     ) -> Dict[str, Any]:
         selected = sections & _SQLITE_SECTIONS
         if not selected:
@@ -106,11 +139,12 @@ class MemoryStateService:
         try:
             state: Dict[str, Any] = {}
             if "short_term" in selected:
+                status_filter = "" if include_all_messages else "AND status = 'active'"
                 state["short_term"] = self._query(
                     connection,
-                    """
+                    f"""
                     SELECT * FROM messages
-                    WHERE session_scope = ? AND status = 'active'
+                    WHERE session_scope = ? {status_filter}
                     ORDER BY created_at ASC, rowid ASC
                     """,
                     (session_scope,),
@@ -145,6 +179,45 @@ class MemoryStateService:
                     (user_id,),
                 )
             return state
+        finally:
+            connection.close()
+
+    def has_active_jobs(self, *, user_id: str, run_id: str) -> bool:
+        """Return whether this monitor scope still has pending backend work."""
+        scope_builder = getattr(self.memory, "session_scope_for_demo", None)
+        session_scope = (
+            scope_builder(user_id=user_id, run_id=run_id)
+            if callable(scope_builder)
+            else _build_session_scope({"user_id": user_id, "run_id": run_id})
+        )
+        uri = f"{self.db_path.as_uri()}?mode=ro"
+        connection = sqlite3.connect(uri, uri=True, timeout=5)
+        connection.execute("PRAGMA query_only = ON")
+        try:
+            migration = connection.execute(
+                """
+                SELECT 1 FROM memory_migration_jobs
+                WHERE session_scope = ?
+                  AND (
+                    status IN ('pending', 'running', 'retry')
+                    OR midterm_status IN ('pending', 'running', 'retry')
+                    OR longterm_status IN ('pending', 'running', 'retry')
+                  )
+                LIMIT 1
+                """,
+                (session_scope,),
+            ).fetchone()
+            if migration is not None:
+                return True
+            profile = connection.execute(
+                """
+                SELECT 1 FROM profile_update_jobs
+                WHERE user_id = ? AND status IN ('pending', 'running', 'retry')
+                LIMIT 1
+                """,
+                (user_id,),
+            ).fetchone()
+            return profile is not None
         finally:
             connection.close()
 

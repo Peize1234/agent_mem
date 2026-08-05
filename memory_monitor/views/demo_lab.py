@@ -15,7 +15,7 @@ from memory_monitor.components import (
     prompt_panel,
     trace_panel,
 )
-from memory_monitor.models import BackgroundStepConfig, PipelineStep
+from memory_monitor.models import BackgroundStepConfig, PipelineStep, TERMINAL_STEP_STATUSES
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +42,7 @@ _WORKSPACE_SECTIONS = (
     ("数据库和任务", "database"),
     ("Trace", "trace"),
 )
+_ACTIVE_JOB_STATUSES = frozenset({"pending", "queued", "running", "retry"})
 
 
 def render(st, simulation_service, config) -> None:
@@ -56,7 +57,8 @@ def render(st, simulation_service, config) -> None:
     open_error = None
     if create_clicked:
         try:
-            environment = simulation_service.create_environment(simulation)
+            with st.spinner("正在打开沙盒并预热检索组件…"):
+                environment = simulation_service.create_environment(simulation)
             session = simulation_service.create_session(simulation, user_id=user, run_id=run)
             st.session_state.update(
                 {
@@ -285,8 +287,10 @@ def _render_right_workspace(
     poll_interval_seconds: float,
 ) -> None:
     repository = environment.repository
+    auto_refresh_enabled = _right_workspace_auto_refresh_enabled(environment, session_id)
+    run_every = poll_interval_seconds if auto_refresh_enabled else None
 
-    @st.fragment(run_every=poll_interval_seconds)
+    @st.fragment(run_every=run_every)
     def right_workspace() -> None:
         try:
             turns = repository.list_turns(session_id)
@@ -295,6 +299,14 @@ def _render_right_workspace(
             steps = repository.list_steps(turn_id) if turn_id is not None else []
             active_turns = repository.list_active_turns(session_id)
             completed_turns = [item for item in turns if item.get("completed_at") is not None]
+            backend_jobs_active = False if active_turns else _session_has_active_jobs(environment, session_id)
+            if auto_refresh_enabled and not _right_workspace_needs_polling(
+                turn,
+                steps,
+                active_turns,
+                backend_jobs_active=backend_jobs_active,
+            ):
+                st.rerun()
             with st.container(key=f"right_workspace_{environment.simulation_id}_{session_id}"):
                 _render_right_workspace_content(
                     st,
@@ -424,14 +436,24 @@ def _render_right_workspace_content(
                 key_prefix=f"{key_scope}:generation",
             )
     elif section == "database":
-        with st.container(height=515, border=False, key=f"{key_scope}:database"):
+        with st.container(
+            height=515,
+            border=False,
+            key=f"database_detail_{environment.simulation_id}_{session_id}_{turn_id}",
+        ):
             try:
                 current = pipeline_panel.current_step(steps, selected_config)
                 memory_panel.render(
                     st,
-                    _latest_session_state(st, environment, session_id),
+                    None,
                     _display_step(steps, current),
                     key_prefix=f"{key_scope}:records",
+                    state_loader=lambda sections: _latest_session_state(
+                        st,
+                        environment,
+                        session_id,
+                        sections=sections,
+                    ),
                 )
             except sqlite3.OperationalError as exc:
                 logger.warning(
@@ -449,28 +471,73 @@ def _render_right_workspace_content(
             trace_panel.render(st, steps, key_prefix=f"{key_scope}:trace")
 
 
-def _latest_session_state(st, environment, session_id: str) -> dict:
-    snapshot_row = environment.repository.latest_session_snapshot(session_id)
-    if snapshot_row is not None:
-        return snapshot_row.get("data") or _EMPTY_SNAPSHOT
-
-    cache_key = f"session_snapshot:{environment.simulation_id}:{session_id}"
-    cached = st.session_state.get(cache_key)
-    if cached is not None:
-        return cached
+def _latest_session_state(_st, environment, session_id: str, *, sections=None) -> dict:
+    """Read selected live backend partitions without consulting step snapshots."""
     session = environment.repository.get_session(session_id)
     if session is None:
         return _EMPTY_SNAPSHOT
+    state_reader = getattr(environment.state_service, "current_state", None)
+    if not callable(state_reader):
+        state_reader = environment.state_service.snapshot
+    return state_reader(
+        user_id=session["user_id"],
+        run_id=session["run_id"],
+        sections=sections,
+    )
+
+
+def _right_workspace_auto_refresh_enabled(environment, session_id: str) -> bool:
     try:
-        snapshot = environment.state_service.snapshot(
-            user_id=session["user_id"],
-            run_id=session["run_id"],
+        if environment.repository.list_active_turns(session_id):
+            return True
+        return _session_has_active_jobs(environment, session_id)
+    except Exception:
+        logger.warning(
+            "Could not determine Demo right workspace refresh state session=%s; keeping polling enabled",
+            session_id,
+            exc_info=True,
         )
-    except Exception as exc:
-        logger.exception("Could not capture live Demo snapshot session=%s", session_id)
-        snapshot = {**_EMPTY_SNAPSHOT, "snapshot_error": f"{type(exc).__name__}: {exc}"}
-    st.session_state[cache_key] = snapshot
-    return snapshot
+        return True
+
+
+def _session_has_active_jobs(environment, session_id: str) -> bool:
+    session = environment.repository.get_session(session_id)
+    if session is None:
+        return False
+    checker = getattr(environment.state_service, "has_active_jobs", None)
+    if callable(checker):
+        return bool(checker(user_id=session["user_id"], run_id=session["run_id"]))
+    state_reader = getattr(environment.state_service, "current_state", None)
+    if not callable(state_reader):
+        state_reader = environment.state_service.snapshot
+    state = state_reader(
+        user_id=session["user_id"],
+        run_id=session["run_id"],
+        sections={"migration_jobs", "profile_jobs"},
+    )
+    jobs = state.get("jobs") or {}
+    migration_active = any(
+        _ACTIVE_JOB_STATUSES.intersection({job.get("status"), job.get("midterm_status"), job.get("longterm_status")})
+        for job in jobs.get("migration") or []
+    )
+    profile_active = any(job.get("status") in _ACTIVE_JOB_STATUSES for job in jobs.get("profile") or [])
+    return migration_active or profile_active
+
+
+def _right_workspace_needs_polling(
+    turn: dict | None,
+    steps: list[dict],
+    active_turns: list[dict],
+    *,
+    backend_jobs_active: bool,
+) -> bool:
+    if active_turns or backend_jobs_active:
+        return True
+    if turn is None or turn.get("completed_at") is not None:
+        return False
+    if not steps:
+        return True
+    return any(step.get("status") not in TERMINAL_STEP_STATUSES for step in steps)
 
 
 def _render_turn_navigation(

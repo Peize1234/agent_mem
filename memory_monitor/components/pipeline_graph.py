@@ -208,6 +208,8 @@ def _render_merge_svg() -> str:
 
 def _node_html(node: PipelineNode) -> str:
     classes = ["demo-node", node.status]
+    if node.step is PipelineStep.AGENTIC_RETRIEVAL:
+        classes.append("agentic-retrieval")
     if node.current:
         classes.append("current")
     if not node.enabled:
@@ -220,12 +222,30 @@ def _node_html(node: PipelineNode) -> str:
     if node.error:
         short_error = node.error[:90] + ("…" if len(node.error) > 90 else "")
         error = f'<div class="demo-node-error" title="{html.escape(node.error)}">{html.escape(short_error)}</div>'
-    detail = f'<div class="demo-node-detail">{html.escape(node.detail)}</div>' if node.detail else ""
+    hide_repeated_detail = node.step is PipelineStep.AGENTIC_RETRIEVAL and node.detail == "无需补充"
+    detail = (
+        f'<div class="demo-node-detail">{html.escape(node.detail)}</div>'
+        if node.detail and not hide_repeated_detail
+        else ""
+    )
     attempts = "" if node.step is PipelineStep.COMPLETE_TURN else f"{node.attempts} 次{duration}"
+    show_agentic_call_stats = (
+        node.step is PipelineStep.AGENTIC_RETRIEVAL
+        and node.status in {StepStatus.SUCCEEDED.value, StepStatus.FAILED.value}
+        and node.attempts > 0
+        and node.enabled
+        and node.detail != "历史兼容（原流程无此步骤）"
+    )
+    if node.step is PipelineStep.AGENTIC_RETRIEVAL:
+        show_llm_badge = show_agentic_call_stats
+        show_tool_badge = show_agentic_call_stats
+    else:
+        show_llm_badge = bool(node.llm_calls)
+        show_tool_badge = bool(node.tool_calls)
     badges = []
-    if node.llm_calls or node.step is PipelineStep.AGENTIC_RETRIEVAL:
+    if show_llm_badge:
         badges.append(f'<span class="demo-node-badge">LLM ×{len(node.llm_calls)}</span>')
-    if node.tool_calls or node.step is PipelineStep.AGENTIC_RETRIEVAL:
+    if show_tool_badge:
         badges.append(f'<span class="demo-node-badge">工具 ×{len(node.tool_calls)}</span>')
     badge_html = f'<div class="demo-node-badges">{"".join(badges)}</div>' if badges else ""
     popover = _trace_popover_html(node)
@@ -411,14 +431,16 @@ def _node_detail(
         agentic_status = output.get("agentic_status")
         if item["status"] == StepStatus.FAILED.value or agentic_status == "failed":
             return "执行失败"
-        if agentic_status == "failed_degraded":
-            return "执行失败（已降级）"
+        if agentic_status in {"degraded", "failed_degraded"}:
+            return "降级"
         if agentic_status == "disabled":
             return "未启用"
         if agentic_status == "not_needed":
-            return "无需补充检索"
-        if agentic_status == "retrieved":
-            return "已补充检索"
+            return "无需补充"
+        if agentic_status in {"supplemented", "retrieved"}:
+            return "已补充"
+        if agentic_status == "no_relevant_memory":
+            return "未检索到相关记忆"
         if agentic_status == "legacy_compatible":
             return "历史兼容（原流程无此步骤）"
     if item["status"] == StepStatus.PENDING.value and item.get("is_held"):
@@ -437,10 +459,11 @@ def _node_detail(
 def _node_status_label(node: PipelineNode) -> str:
     if node.step is PipelineStep.AGENTIC_RETRIEVAL and node.detail in {
         "未启用",
-        "无需补充检索",
-        "已补充检索",
+        "无需补充",
+        "已补充",
+        "未检索到相关记忆",
+        "降级",
         "执行失败",
-        "执行失败（已降级）",
     }:
         return f"{node.status} · {node.detail}"
     if node.status == StepStatus.PENDING.value and node.held:

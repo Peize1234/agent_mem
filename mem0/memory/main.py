@@ -750,10 +750,16 @@ def _project_retrieved_memories(
 def _build_answer_prompt_messages(
     retrieved_context: Dict[str, Any],
     reference_information: Any = None,
-    agentic_answer: str = "",
+    agentic_memory_supplement: str = "",
+    *,
+    agentic_answer: Optional[str] = None,
 ) -> list[Dict[str, str]]:
     """Project retrieved context to the minimal fields needed by the answer model."""
     mid_term_memories, long_term_memories = _project_retrieved_memories(retrieved_context)
+    # ``agentic_answer`` is a compatibility alias for callers using the old
+    # parameter name. Its value now has supplement-only semantics.
+    if not agentic_memory_supplement and agentic_answer:
+        agentic_memory_supplement = agentic_answer
 
     prompt = AGENT_ANSWER_PROMPT.format(
         current_time=beijing_now_iso(),
@@ -763,7 +769,7 @@ def _build_answer_prompt_messages(
         long_term_memory=_serialize_prompt_value(long_term_memories, []),
         user_profile=_serialize_prompt_value(retrieved_context.get("profile"), {}),
         reference_information=_serialize_prompt_value(reference_information, []),
-        agentic_answer=agentic_answer,
+        agentic_memory_supplement=agentic_memory_supplement,
     )
     return [{"role": "system", "content": prompt}]
 
@@ -771,12 +777,15 @@ def _build_answer_prompt_messages(
 def build_answer_prompt_messages_from_context(
     retrieved_context: Dict[str, Any],
     reference_information: Any = None,
-    agentic_answer: str = "",
+    agentic_memory_supplement: str = "",
+    *,
+    agentic_answer: Optional[str] = None,
 ) -> list[Dict[str, str]]:
     """Build final answer messages from a context retrieved by the core memory flow."""
     return _build_answer_prompt_messages(
         retrieved_context,
         reference_information,
+        agentic_memory_supplement=agentic_memory_supplement,
         agentic_answer=agentic_answer,
     )
 
@@ -796,21 +805,20 @@ def _build_agentic_prompt_messages(
         user_profile=_serialize_prompt_value(retrieved_context.get("profile"), {}),
         reference_information=_serialize_prompt_value(reference_information, []),
     )
-    return [
-        {"role": "system", "content": prompt},
-        {"role": "user", "content": retrieved_context["query"]},
-    ]
+    # The query is already present in the structured system prompt. Repeating
+    # it as a user message over-emphasizes answering in this non-answer node.
+    return [{"role": "system", "content": prompt}]
 
 
-def _agentic_answer_or_empty(result: Any) -> str:
-    """Return a usable candidate answer, or an empty string for a degraded Agentic result."""
+def _agentic_supplement_or_empty(result: Any) -> str:
+    """Return a validated memory supplement, or an empty string when unavailable."""
     if not isinstance(result, dict):
         logger.warning("Agentic retrieval returned an invalid result type: %s", type(result).__name__)
         return ""
 
-    stop_reason = result.get("stop_reason")
-    if stop_reason != "model_answered":
-        logger.warning("Agentic retrieval did not produce a usable candidate: stop_reason=%s", stop_reason)
+    status = result.get("status")
+    if status not in {"not_needed", "supplemented", "no_relevant_memory", "degraded"}:
+        logger.warning("Agentic retrieval returned an invalid status: %s", status)
         return ""
 
     iterations = result.get("iterations")
@@ -834,16 +842,47 @@ def _agentic_answer_or_empty(result: Any) -> str:
         if not isinstance(trace_item, dict):
             logger.warning("Agentic retrieval returned an invalid tool trace item")
             return ""
+    if status == "not_needed" and tool_call_count != 0:
+        logger.warning("Agentic retrieval returned an inconsistent not_needed result")
+        return ""
+    if status in {"supplemented", "no_relevant_memory"} and tool_call_count != 1:
+        logger.warning("Agentic retrieval returned an inconsistent searched result")
+        return ""
+
+    supplement = result.get("supplement")
+    if not isinstance(supplement, str):
+        logger.warning("Agentic retrieval returned an invalid supplement")
+        return ""
+    answer_alias = result.get("answer")
+    if answer_alias is not None and answer_alias != supplement:
+        logger.warning("Agentic retrieval returned inconsistent supplement compatibility fields")
+        return ""
+
+    if status != "supplemented":
+        if supplement.strip():
+            logger.warning("Agentic retrieval returned text for a non-supplemented status; ignoring it")
+        return ""
+
+    for trace_item in tool_trace:
         summary = trace_item.get("result_summary")
-        if not isinstance(summary, dict) or summary.get("ok") is not True or int(summary.get("error_count") or 0) > 0:
-            logger.warning("Agentic retrieval tool call failed; candidate answer will be ignored")
+        error_count = summary.get("error_count") if isinstance(summary, dict) else None
+        if (
+            not isinstance(summary, dict)
+            or summary.get("ok") is not True
+            or (error_count is not None and (not isinstance(error_count, int) or error_count > 0))
+        ):
+            logger.warning("Agentic retrieval tool call failed; memory supplement will be ignored")
             return ""
 
-    answer = result.get("answer")
-    if not isinstance(answer, str) or not answer.strip():
-        logger.warning("Agentic retrieval returned an empty candidate answer")
+    if not supplement.strip():
+        logger.warning("Agentic retrieval returned an empty supplemented result")
         return ""
-    return answer.strip()
+    return supplement.strip()
+
+
+def _agentic_answer_or_empty(result: Any) -> str:
+    """Compatibility alias for the former candidate-answer normalizer."""
+    return _agentic_supplement_or_empty(result)
 
 
 def _entity_collection_name(provider: str, collection_name: str) -> str:
@@ -916,9 +955,13 @@ class _AsyncOSSProject:
 class _BackgroundMemoryMixin:
     db: SQLiteManager
 
+    def _normalize_agentic_supplement_result(self, result: Any) -> str:
+        """Normalize an Agentic result for use as optional historical context."""
+        return _agentic_supplement_or_empty(result)
+
     def _normalize_agentic_answer_result(self, result: Any) -> str:
-        """Normalize an Agentic result for use as optional answer context."""
-        return _agentic_answer_or_empty(result)
+        """Compatibility alias for integrations using the former method name."""
+        return self._normalize_agentic_supplement_result(result)
 
     def _background_config(self) -> BackgroundTaskConfig:
         configured = getattr(getattr(self, "config", None), "background", None)
@@ -2051,7 +2094,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             include_profile_metadata=include_profile_metadata,
         )
 
-        agentic_answer = ""
+        agentic_memory_supplement = ""
         agentic_config = getattr(getattr(self, "config", None), "agentic_retrieval", None)
         if agentic_config is not None and agentic_config.enabled:
             try:
@@ -2060,7 +2103,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                     reference_information=reference_information,
                     generation_kwargs=agentic_generation_kwargs,
                 )
-                agentic_answer = self._normalize_agentic_answer_result(result)
+                agentic_memory_supplement = self._normalize_agentic_supplement_result(result)
             except Exception:
                 logger.warning(
                     "Agentic retrieval failed while building answer messages; using the retrieved context only",
@@ -2070,7 +2113,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         return build_answer_prompt_messages_from_context(
             retrieved_context,
             reference_information,
-            agentic_answer=agentic_answer,
+            agentic_memory_supplement=agentic_memory_supplement,
         )
 
     def _run_agentic_retrieval_from_context(
@@ -4394,7 +4437,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             include_profile_metadata=include_profile_metadata,
         )
 
-        agentic_answer = ""
+        agentic_memory_supplement = ""
         agentic_config = getattr(getattr(self, "config", None), "agentic_retrieval", None)
         if agentic_config is not None and agentic_config.enabled:
             try:
@@ -4403,7 +4446,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                     reference_information=reference_information,
                     generation_kwargs=agentic_generation_kwargs,
                 )
-                agentic_answer = self._normalize_agentic_answer_result(result)
+                agentic_memory_supplement = self._normalize_agentic_supplement_result(result)
             except Exception:
                 logger.warning(
                     "Async Agentic retrieval failed while building answer messages; using the retrieved context only",
@@ -4413,7 +4456,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         return build_answer_prompt_messages_from_context(
             retrieved_context,
             reference_information,
-            agentic_answer=agentic_answer,
+            agentic_memory_supplement=agentic_memory_supplement,
         )
 
     async def _run_agentic_retrieval_from_context(

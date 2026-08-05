@@ -161,12 +161,14 @@ from running, and the execution target stays persisted until the held work is
 released and all target steps finish.
 
 The Streamlit page keeps the selected-turn gates, action buttons, navigation,
-DAG, snapshots, jobs, and trace inside one right-side `st.fragment`. A separate
-left-side fragment reloads the original transcript from `demo.db` every 400 ms,
-so a generated assistant reply appears without waiting for a full-page rerun or
-the memory stage. The chat input remains outside both polling fragments. The
-expensive live snapshot fallback remains cached. Normal action buttons rerender
-only the right workspace and never call a full-page `st.rerun()`. The keyed
+DAG, snapshots, jobs, and trace inside one right-side `st.fragment`. That
+fragment polls while a turn or backend job is unfinished, then unregisters its
+timer after completion; widget interactions still rerender it immediately. A
+separate left-side fragment reloads the original transcript from `demo.db` every
+400 ms, so a generated assistant reply appears without waiting for the memory
+stage. The chat input remains outside both fragments. The database panel reads
+the selected partition directly from the isolated backend on each render, while
+persisted step snapshots remain the source only for per-step diffs. The keyed
 700 px native chat scroll container uses both simulation and session IDs,
 `autoscroll=False`, contained overscroll, and a stable scrollbar gutter. This
 requires Streamlit 1.56 or newer.

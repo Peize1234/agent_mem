@@ -35,7 +35,10 @@ class _ScriptedLLM:
 
     def generate_response(self, **kwargs):
         self.calls.append(deepcopy(kwargs))
-        return self.responses.pop(0)
+        response = self.responses.pop(0)
+        if isinstance(response, Exception):
+            raise response
+        return response
 
 
 class _FakeMidtermRetriever:
@@ -148,10 +151,10 @@ def _executor(memory=None, *, record_midterm_visits=False, **overrides):
     )
 
 
-def test_agentic_config_defaults_off_and_validates_low_latency_limits():
+def test_agentic_config_defaults_and_validates_low_latency_limits():
     config = AgenticRetrievalConfig()
 
-    assert MemoryConfig().agentic_retrieval.enabled is False
+    assert MemoryConfig().agentic_retrieval.enabled is True
     assert config.max_iterations == 2
     assert config.max_tool_calls == 1
     assert config.max_queries == 3
@@ -180,14 +183,24 @@ def test_only_search_memory_tool_with_queries_is_exposed():
 
 def test_current_context_sufficient_uses_one_llm_call_and_no_retrieval():
     memory = _FakeMemory()
-    llm = _ScriptedLLM([{"content": "直接回答", "tool_calls": []}])
+    accidental_answer = "公司业务以机器人控制器为主，智能仓储设备为辅。"
+    query = (
+        "我们正在评估是否向“华辰智能装备有限公司”提供一笔三年期授信。公司主要生产工业机器人控制器和"
+        "智能仓储设备，2025年收入约60%来自机器人控制器，40%来自智能仓储设备。请先根据这些信息概括"
+        "公司的业务结构。"
+    )
+    llm = _ScriptedLLM([{"content": accidental_answer, "tool_calls": []}])
     result = AgenticMemoryRunner(llm, _executor(memory), AgenticRetrievalConfig()).run(
-        [{"role": "user", "content": "你好"}]
+        [{"role": "system", "content": query}]
     )
 
-    assert result["answer"] == "直接回答"
+    assert result["status"] == "not_needed"
+    assert result["supplement"] == ""
+    assert result["answer"] == result["supplement"]
+    assert accidental_answer not in result.values()
     assert result["iterations"] == 1
     assert result["tool_call_count"] == 0
+    assert result["tool_trace"] == []
     assert memory.midterm_retriever.calls == []
     assert memory.longterm_calls == []
     assert len(llm.calls) == 1
@@ -203,7 +216,7 @@ def test_one_tool_call_with_multiple_queries_uses_two_llm_calls():
     llm = _ScriptedLLM(
         [
             _tool_call("call-search", {"queries": ["最大可接受亏损比例", "投资期限"]}),
-            {"content": "检索后的回答", "tool_calls": []},
+            {"content": "历史口径：最大可接受亏损比例为10%，适用于既定投资方案。", "tool_calls": []},
         ]
     )
 
@@ -211,7 +224,9 @@ def test_one_tool_call_with_multiple_queries_uses_two_llm_calls():
         [{"role": "user", "content": "我的风险约束是什么？"}]
     )
 
-    assert result["answer"] == "检索后的回答"
+    assert result["status"] == "supplemented"
+    assert result["supplement"] == "历史口径：最大可接受亏损比例为10%，适用于既定投资方案。"
+    assert result["answer"] == result["supplement"]
     assert result["iterations"] == 2
     assert result["tool_call_count"] == 1
     assert len(llm.calls) == 2
@@ -224,9 +239,7 @@ def test_one_tool_call_with_multiple_queries_uses_two_llm_calls():
     second_messages = llm.calls[1]["messages"]
     assert second_messages[-3]["tool_calls"][0]["id"] == "call-search"
     assistant_arguments = second_messages[-3]["tool_calls"][0]["function"]["arguments"]
-    assert assistant_arguments == (
-        '{\n  "queries": [\n    "最大可接受亏损比例",\n    "投资期限"\n  ]\n}'
-    )
+    assert assistant_arguments == ('{\n  "queries": [\n    "最大可接受亏损比例",\n    "投资期限"\n  ]\n}')
     assert second_messages[-2]["tool_call_id"] == "call-search"
     assert second_messages[-2]["content"].startswith('{\n  "ok": true,\n  "items": [')
     assert "\\u" not in second_messages[-2]["content"]
@@ -234,6 +247,82 @@ def test_one_tool_call_with_multiple_queries_uses_two_llm_calls():
     assert second_messages[-1]["role"] == "system"
     assert "tools" not in llm.calls[1]
     assert "tool_choice" not in llm.calls[1]
+    supplement_prompt = llm.calls[1]["messages"][-1]["content"]
+    assert "不得添加“中期记忆补充”" in supplement_prompt
+    assert "记忆层级" in supplement_prompt
+
+
+def test_empty_tool_result_stops_without_supplement_model_call():
+    memory = _FakeMemory({"历史口径": []})
+    llm = _ScriptedLLM(
+        [
+            _tool_call("call-search", {"queries": ["华辰智能装备 上次 授信分类口径"]}),
+            {"content": "must not run", "tool_calls": []},
+        ]
+    )
+
+    result = AgenticMemoryRunner(llm, _executor(memory), AgenticRetrievalConfig()).run([])
+
+    assert result["status"] == "no_relevant_memory"
+    assert result["supplement"] == result["answer"] == ""
+    assert result["iterations"] == 1
+    assert result["tool_call_count"] == 1
+    assert len(llm.calls) == 1
+
+
+def test_nonempty_but_irrelevant_tool_result_can_be_rejected_by_supplement_model():
+    memory = _FakeMemory({"华辰历史口径": _default_results()})
+    llm = _ScriptedLLM(
+        [
+            _tool_call("call-search", {"queries": ["华辰历史口径"]}),
+            {"content": "", "tool_calls": []},
+        ]
+    )
+
+    result = AgenticMemoryRunner(llm, _executor(memory), AgenticRetrievalConfig()).run([])
+
+    assert result["status"] == "no_relevant_memory"
+    assert result["supplement"] == result["answer"] == ""
+    assert result["iterations"] == 2
+    assert len(llm.calls) == 2
+
+
+def test_tool_exception_returns_degraded_without_raising_or_second_model_call():
+    executor = SimpleNamespace(execute=MagicMock(side_effect=RuntimeError("tool unavailable")))
+    llm = _ScriptedLLM(
+        [
+            _tool_call("call-search", {"queries": ["华辰历史口径"]}),
+            {"content": "must not run", "tool_calls": []},
+        ]
+    )
+
+    result = AgenticMemoryRunner(llm, executor, AgenticRetrievalConfig()).run([])
+
+    assert result["status"] == "degraded"
+    assert result["supplement"] == result["answer"] == ""
+    assert result["tool_call_count"] == 1
+    assert len(llm.calls) == 1
+
+
+@pytest.mark.parametrize(
+    "second_response",
+    [RuntimeError("model unavailable"), {"content": ["invalid"]}, {}, 123],
+)
+def test_supplement_model_failure_or_non_string_content_degrades(second_response):
+    memory = _FakeMemory({"华辰历史口径": _default_results()})
+    llm = _ScriptedLLM(
+        [
+            _tool_call("call-search", {"queries": ["华辰历史口径"]}),
+            second_response,
+        ]
+    )
+
+    result = AgenticMemoryRunner(llm, _executor(memory), AgenticRetrievalConfig()).run([])
+
+    assert result["status"] == "degraded"
+    assert result["supplement"] == result["answer"] == ""
+    assert result["iterations"] == 2
+    assert len(llm.calls) == 2
 
 
 @pytest.mark.parametrize("query_count", [1, 2, 3])
@@ -483,7 +572,7 @@ def test_no_cursor_pagination_or_result_reading_state_exists():
     assert executor.execute("search_memory", {"queries": ["风险偏好"], "cursor": "x"})["error"] == "InvalidArguments"
 
 
-def test_multiple_tool_calls_execute_only_first_and_return_limit_for_others():
+def test_multiple_tool_calls_execute_only_first_and_degrade_without_second_model_call():
     memory = _FakeMemory({"first": _default_results(), "second": _default_results()})
     first_response = {
         "content": None,
@@ -492,20 +581,17 @@ def test_multiple_tool_calls_execute_only_first_and_return_limit_for_others():
             {"id": "call-2", "name": "search_memory", "arguments": {"queries": ["second"]}},
         ],
     }
-    llm = _ScriptedLLM([first_response, {"content": "最终回答", "tool_calls": []}])
+    llm = _ScriptedLLM([first_response, {"content": "must not run", "tool_calls": []}])
 
     result = AgenticMemoryRunner(llm, _executor(memory), AgenticRetrievalConfig()).run([])
-    tool_messages = [message for message in llm.calls[1]["messages"] if message["role"] == "tool"]
 
     assert [call[0] for call in memory.midterm_retriever.calls] == ["first"]
-    assert len(tool_messages) == 2
-    assert json.loads(tool_messages[0]["content"])["ok"] is True
-    assert json.loads(tool_messages[1]["content"])["error"] == "ToolCallLimitExceeded"
-    assert result["answer"] == "最终回答"
+    assert result["status"] == "degraded"
+    assert result["supplement"] == result["answer"] == ""
     assert result["tool_call_count"] == 1
-    assert result["stop_reason"] == "max_tool_calls"
-    assert len(result["tool_trace"]) == 2
-    assert len(llm.calls) == 2
+    assert result["stop_reason"] == "degraded"
+    assert len(result["tool_trace"]) == 1
+    assert len(llm.calls) == 1
 
 
 def test_second_model_call_cannot_execute_another_tool():
@@ -522,11 +608,12 @@ def test_second_model_call_cannot_execute_another_tool():
     assert [call[0] for call in memory.midterm_retriever.calls] == ["first"]
     assert len(llm.calls) == 2
     assert "tools" not in llm.calls[1]
-    assert result["stop_reason"] == "model_tool_call_blocked"
-    assert result["answer"] == "根据当前对话和已检索到的记忆，仍无法确定足够可靠的答案。"
+    assert result["status"] == "degraded"
+    assert result["stop_reason"] == "degraded"
+    assert result["supplement"] == result["answer"] == ""
 
 
-def test_retrieval_exception_becomes_tool_result_and_second_call_can_answer():
+def test_retrieval_exception_degrades_without_second_model_call():
     memory = _FakeMemory({"timeout": TimeoutError("embedding timeout")})
     llm = _ScriptedLLM(
         [
@@ -536,17 +623,18 @@ def test_retrieval_exception_becomes_tool_result_and_second_call_can_answer():
     )
 
     result = AgenticMemoryRunner(llm, _executor(memory), AgenticRetrievalConfig()).run([])
-    tool_payload = json.loads(llm.calls[1]["messages"][-2]["content"])
+    assert result["status"] == "degraded"
+    assert result["supplement"] == result["answer"] == ""
+    assert result["tool_trace"][0]["result_summary"] == {
+        "ok": False,
+        "item_count": 0,
+        "error_count": 1,
+        "error": "RetrievalUnavailable",
+    }
+    assert len(llm.calls) == 1
 
-    assert tool_payload["ok"] is False
-    assert tool_payload["error"] == "RetrievalUnavailable"
-    assert tool_payload["errors"][0]["error"] == "TimeoutError"
-    assert "embedding timeout" not in tool_payload["errors"][0]["message"]
-    assert result["answer"] == "根据现有信息给出有边界的回答"
-    assert len(llm.calls) == 2
 
-
-def test_malformed_arguments_still_lead_to_bounded_final_answer():
+def test_malformed_arguments_degrade_without_second_model_call():
     llm = _ScriptedLLM(
         [
             {
@@ -558,11 +646,10 @@ def test_malformed_arguments_still_lead_to_bounded_final_answer():
     )
 
     result = AgenticMemoryRunner(llm, _executor(), AgenticRetrievalConfig()).run([])
-    payload = json.loads(llm.calls[1]["messages"][-2]["content"])
-
-    assert payload["error"] == "InvalidArguments"
-    assert result["answer"] == "参数错误后的回答"
-    assert len(llm.calls) == 2
+    assert result["status"] == "degraded"
+    assert result["supplement"] == result["answer"] == ""
+    assert result["tool_trace"][0]["result_summary"]["error"] == "InvalidArguments"
+    assert len(llm.calls) == 1
 
 
 def test_base_context_does_not_search_and_disabled_public_runner_rejects_use():
@@ -601,10 +688,12 @@ def test_enabled_public_memory_runner_uses_complete_context_and_returns_trace_sh
     result = memory.run_agentic_retrieval("question", user_id="user-1", session_id="run-1")
 
     assert result == {
-        "answer": "public answer",
+        "status": "not_needed",
+        "supplement": "",
+        "answer": "",
         "iterations": 1,
         "tool_call_count": 0,
-        "stop_reason": "model_answered",
+        "stop_reason": "not_needed",
         "tool_trace": [],
     }
     memory._retrieve_context.assert_called_once_with(
@@ -743,13 +832,15 @@ async def test_async_runner_matches_sync_bounds_and_only_searches_midterm():
     llm = _ScriptedLLM(
         [
             _tool_call("call-1", {"queries": ["风险", "亏损"]}),
-            {"content": "async answer", "tool_calls": []},
+            {"content": "历史补充：风险限制口径为既定最大亏损比例。", "tool_calls": []},
         ]
     )
 
     result = await AsyncAgenticMemoryRunner(llm, executor, config).run([])
 
-    assert result["answer"] == "async answer"
+    assert result["status"] == "supplemented"
+    assert result["supplement"] == "历史补充：风险限制口径为既定最大亏损比例。"
+    assert result["answer"] == result["supplement"]
     assert result["iterations"] == 2
     assert result["tool_call_count"] == 1
     assert len(llm.calls) == 2
@@ -764,3 +855,31 @@ async def test_async_runner_matches_sync_bounds_and_only_searches_midterm():
     assert "\\u" not in second_messages[-2]["content"]
     tool_payload = json.loads(second_messages[-2]["content"])
     assert tool_payload["items"][0]["score"] == 0.9
+
+
+@pytest.mark.asyncio
+async def test_sync_and_async_runners_match_empty_result_behavior():
+    first_response = _tool_call("call-1", {"queries": ["华辰智能装备 上次 授信分类口径"]})
+    sync_llm = _ScriptedLLM([first_response, {"content": "must not run"}])
+    async_llm = _ScriptedLLM([first_response, {"content": "must not run"}])
+    sync_memory = _FakeMemory()
+    async_memory = _FakeMemory()
+    config = AgenticRetrievalConfig(enabled=True)
+
+    sync_result = AgenticMemoryRunner(sync_llm, _executor(sync_memory), config).run([])
+    async_result = await AsyncAgenticMemoryRunner(
+        async_llm,
+        AsyncMemoryToolExecutor(
+            async_memory,
+            user_id="user-1",
+            run_id="run-1",
+            config=config,
+            record_midterm_visits=False,
+        ),
+        config,
+    ).run([])
+
+    for field in ("status", "supplement", "answer", "iterations", "tool_call_count", "stop_reason"):
+        assert async_result[field] == sync_result[field]
+    assert sync_result["status"] == "no_relevant_memory"
+    assert len(sync_llm.calls) == len(async_llm.calls) == 1

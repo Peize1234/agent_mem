@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
+
 from memory_monitor.components.common import render_records, render_table
 
 _SECTIONS = (
@@ -14,10 +16,11 @@ _SECTIONS = (
 
 def render(
     st,
-    snapshot: dict,
+    snapshot: dict | None,
     step_run: dict | None = None,
     *,
     key_prefix: str,
+    state_loader: Callable[[Iterable[str]], dict] | None = None,
 ) -> None:
     labels = [label for label, _section in _SECTIONS]
     selected = st.segmented_control(
@@ -28,17 +31,19 @@ def render(
         label_visibility="collapsed",
     )
     section = dict(_SECTIONS).get(selected or labels[0], "short_term")
+    requested_sections = {"migration_jobs", "profile_jobs"} if section == "jobs" else {section}
+    current_state = state_loader(requested_sections) if state_loader is not None else snapshot or {}
     if section == "jobs":
         st.markdown("#### Migration")
         render_records(
             st,
-            snapshot.get("jobs", {}).get("migration", []),
+            current_state.get("jobs", {}).get("migration", []),
             key_prefix=f"{key_prefix}:migration_jobs",
         )
         st.markdown("#### Profile")
         render_records(
             st,
-            snapshot.get("jobs", {}).get("profile", []),
+            current_state.get("jobs", {}).get("profile", []),
             key_prefix=f"{key_prefix}:profile_jobs",
         )
         if step_run:
@@ -57,7 +62,7 @@ def render(
             )
         return
 
-    records = snapshot.get(section, [])
+    records = current_state.get(section, [])
     render_records(st, records, key_prefix=f"{key_prefix}:{section}")
     _render_step_changes(
         st,

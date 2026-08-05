@@ -21,6 +21,8 @@ class DemoMemory(Memory):
     def __init__(self, config):
         self._demo_events: list[Dict[str, Any]] = []
         self._demo_events_lock = threading.Lock()
+        self._demo_retrieval_warmup_lock = threading.Lock()
+        self._demo_retrieval_warmed_up = False
         super().__init__(config)
         ensure_traced_llm(self)
 
@@ -82,20 +84,37 @@ class DemoMemory(Memory):
         context["context_hash"] = self.context_hash(context)
         return context
 
+    def warm_up_retrieval_for_demo(self) -> bool:
+        """Warm the Demo's read-only retrieval path once for this memory instance."""
+        with self._demo_retrieval_warmup_lock:
+            if self._demo_retrieval_warmed_up:
+                return False
+            for query in ("金融分析预热", "retrieval warmup"):
+                self.retrieve_context_for_demo(
+                    query,
+                    user_id="__demo_warmup_user__",
+                    session_id="__demo_warmup_session__",
+                )
+            self._demo_retrieval_warmed_up = True
+            return True
+
     def build_prompt_from_context(
         self,
         context: Dict[str, Any],
         *,
         reference_information: Any = None,
+        agentic_memory_supplement: Optional[str] = None,
         agentic_answer: Optional[str] = None,
     ) -> list[Dict[str, str]]:
         """Build answer-model messages from the supplied frozen context only."""
         frozen_context = self._validated_frozen_context(context)
+        if not agentic_memory_supplement and agentic_answer:
+            agentic_memory_supplement = agentic_answer
         return deepcopy(
             build_answer_prompt_messages_from_context(
                 frozen_context,
                 reference_information,
-                agentic_answer=agentic_answer or "",
+                agentic_memory_supplement=agentic_memory_supplement or "",
             )
         )
 

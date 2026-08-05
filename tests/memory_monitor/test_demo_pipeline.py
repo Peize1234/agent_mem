@@ -16,9 +16,9 @@ import pytest
 
 from mem0.configs.base import MemoryConfig
 from mem0.memory.storage import SQLiteManager
-from memory_monitor.components import chat_panel, common, memory_panel, pipeline_panel, styles
+from memory_monitor.components import chat_panel, common, memory_panel, pipeline_graph, pipeline_panel, styles
 from memory_monitor.config import DemoLabConfig
-from memory_monitor.models import PIPELINE_STEPS, PipelineStep, StepStatus
+from memory_monitor.models import PIPELINE_STEPS, BackgroundStepConfig, PipelineStep, StepStatus
 from memory_monitor.runtime import DemoBackgroundCoordinator, DemoMemory
 from memory_monitor.services.demo_pipeline_service import DemoPipelineService, STEP_SNAPSHOT_SECTIONS
 from memory_monitor.services.demo_repository import (
@@ -146,7 +146,7 @@ class _FakeDemoMemory:
         context["context_hash"] = self.context_hash(context)
         return context
 
-    def build_prompt_from_context(self, context, *, agentic_answer=None):
+    def build_prompt_from_context(self, context, *, agentic_memory_supplement=None, agentic_answer=None):
         self.build_calls += 1
         return [{"role": "system", "content": f"frozen:{context['query']}"}]
 
@@ -246,6 +246,137 @@ def _coordinator(pipeline, repository, name="test"):
     return coordinator
 
 
+def _steps_with_agentic_state(
+    status,
+    *,
+    attempts=0,
+    agentic_status=None,
+    llm_calls=None,
+    tool_calls=None,
+    tool_trace=None,
+):
+    steps = [{"step": step.value, "status": StepStatus.PENDING.value, "attempts": 0} for step in PIPELINE_STEPS]
+    agentic = next(step for step in steps if step["step"] == PipelineStep.AGENTIC_RETRIEVAL.value)
+    output = {
+        "llm_calls": deepcopy(llm_calls or []),
+        "tool_calls": deepcopy(tool_calls or []),
+    }
+    if agentic_status is not None:
+        output["agentic_status"] = agentic_status
+    if tool_trace is not None:
+        output["tool_trace"] = deepcopy(tool_trace)
+    agentic.update(status=status, attempts=attempts, output=output)
+    return steps
+
+
+def _render_agentic_badges(**kwargs):
+    return pipeline_graph.render_html(_steps_with_agentic_state(**kwargs), BackgroundStepConfig())
+
+
+@pytest.mark.parametrize("status", [StepStatus.PENDING.value, StepStatus.QUEUED.value, StepStatus.RUNNING.value])
+def test_agentic_badges_are_absent_before_execution_finishes(status):
+    rendered = _render_agentic_badges(
+        status=status,
+        attempts=1 if status != StepStatus.PENDING.value else 0,
+        llm_calls=[{"sequence": 1, "status": "running", "messages": []}],
+        tool_calls=[{"sequence": 1, "name": "search_memory"}],
+    )
+
+    assert "LLM ×1" not in rendered
+    assert "工具 ×1" not in rendered
+    assert '<div class="demo-node-badges">' not in rendered
+
+
+def test_agentic_badges_show_both_persisted_counts_after_success_without_tool_call():
+    rendered = _render_agentic_badges(
+        status=StepStatus.SUCCEEDED.value,
+        attempts=1,
+        agentic_status="not_needed",
+        llm_calls=[{"sequence": 1}],
+    )
+
+    assert "LLM ×1" in rendered
+    assert "工具 ×0" in rendered
+    assert rendered.count('<div class="demo-node-badges">') == 1
+
+
+def test_agentic_badges_use_tool_trace_fallback_after_successful_retrieval():
+    rendered = _render_agentic_badges(
+        status=StepStatus.SUCCEEDED.value,
+        attempts=1,
+        agentic_status="supplemented",
+        llm_calls=[{"sequence": 1}, {"sequence": 2}],
+        tool_trace=[{"iteration": 1, "name": "search_memory"}],
+    )
+
+    assert "LLM ×2" in rendered
+    assert "工具 ×1" in rendered
+    assert rendered.count('<div class="demo-node-badges">') == 1
+
+
+def test_agentic_badges_show_persisted_counts_after_failed_attempt():
+    rendered = _render_agentic_badges(
+        status=StepStatus.FAILED.value,
+        attempts=1,
+        llm_calls=[{"sequence": 1}],
+    )
+
+    assert "LLM ×1" in rendered
+    assert "工具 ×0" in rendered
+    assert rendered.count('<div class="demo-node-badges">') == 1
+
+
+@pytest.mark.parametrize(
+    "status,attempts,agentic_status",
+    [
+        (StepStatus.SKIPPED.value, 0, "disabled"),
+        (StepStatus.SUCCEEDED.value, 1, "disabled"),
+        (StepStatus.SUCCEEDED.value, 0, "legacy_compatible"),
+        (StepStatus.SUCCEEDED.value, 1, "legacy_compatible"),
+    ],
+)
+def test_agentic_badges_are_absent_for_disabled_or_legacy_nodes(status, attempts, agentic_status):
+    rendered = _render_agentic_badges(
+        status=status,
+        attempts=attempts,
+        agentic_status=agentic_status,
+        llm_calls=[{"sequence": 1}],
+        tool_calls=[{"sequence": 1, "name": "search_memory"}],
+    )
+
+    assert "LLM ×1" not in rendered
+    assert "工具 ×1" not in rendered
+    assert '<div class="demo-node-badges">' not in rendered
+
+
+def test_non_agentic_badges_keep_record_driven_behavior_and_popover():
+    steps = _steps_with_agentic_state(StepStatus.PENDING.value)
+    model_answer = next(step for step in steps if step["step"] == PipelineStep.GENERATE_RESPONSE.value)
+    model_answer.update(
+        status=StepStatus.SUCCEEDED.value,
+        attempts=1,
+        output={
+            "llm_calls": [
+                {
+                    "sequence": 1,
+                    "status": "succeeded",
+                    "messages": [{"role": "system", "content": "answer prompt"}],
+                    "response": "model answer",
+                }
+            ],
+            "tool_calls": [],
+        },
+    )
+
+    rendered = pipeline_graph.render_html(steps, BackgroundStepConfig())
+
+    assert "LLM ×1" in rendered
+    assert "工具 ×0" not in rendered
+    assert 'class="demo-node-popover"' in rendered
+    assert "answer prompt" in rendered
+    assert "model answer" in rendered
+
+
 def test_turn_selection_clears_stale_id_for_empty_session_and_uses_latest_for_existing_session():
     turns_a = [{"turn_id": "turn-a"}]
     turns_b = [{"turn_id": "turn-b-1"}, {"turn_id": "turn-b-2"}]
@@ -311,6 +442,18 @@ def test_chat_history_uses_tall_keyed_native_scroll_container():
     chat_style = styles._DEMO_LAB_CSS.split('div[class*="st-key-chat_history_"] {', 1)[1].split("}", 1)[0]
     assert "overscroll-behavior-y: contain" in chat_style
     assert "scrollbar-gutter: stable" in chat_style
+
+    database_style = styles._DEMO_LAB_CSS.split('div[class*="st-key-database_detail_"] {', 1)[1].split("}", 1)[0]
+    assert "box-sizing: border-box" in database_style
+    assert "min-width: 0" in database_style
+    assert "overflow-x: hidden" in database_style
+    assert "overflow-y: scroll" in database_style
+    assert "scrollbar-gutter: stable" in database_style
+
+    table_style = styles._DEMO_LAB_CSS.split('div[class*="st-key-memory_table_"] {', 1)[1].split("}", 1)[0]
+    assert "max-width: 100%" in table_style
+    assert "min-width: 0" in table_style
+    assert "overflow-x: auto" in table_style
 
 
 def test_chat_history_fragment_reloads_messages_and_renders_new_assistant_reply():
@@ -406,7 +549,10 @@ def test_right_controls_and_live_status_share_one_fragment_boundary():
     assert "repository.raw_messages(session_id)" in chat_fragment_source
     assert "chat_panel.render_history" in chat_fragment_source
     assert "session_id=session_id" in chat_fragment_source
-    assert "@st.fragment(run_every=poll_interval_seconds)" in fragment_source
+    assert "@st.fragment(run_every=run_every)" in fragment_source
+    assert "_right_workspace_auto_refresh_enabled" in fragment_source
+    assert "_right_workspace_needs_polling" in fragment_source
+    assert "st.rerun()" in fragment_source
     assert 'st.rerun(scope="app")' not in fragment_source
     assert "logger.exception" in fragment_source
     assert "重新加载右侧区域" in fragment_source
@@ -421,6 +567,91 @@ def test_right_controls_and_live_status_share_one_fragment_boundary():
     assert 'st.container(border=False, key=f"{key_scope}:pipeline")' in content_source
     assert "repository.list_steps" not in content_source
     assert "_render_live_workspace" not in inspect.getsource(demo_lab)
+
+
+@pytest.mark.parametrize("status", ["pending", "queued", "running", "failed"])
+def test_right_workspace_keeps_polling_for_unfinished_turns(status):
+    turn = {"turn_id": "turn-1", "completed_at": None}
+    steps = [{"step": PipelineStep.CAPTURE_INPUT.value, "status": status}]
+
+    assert demo_lab._right_workspace_needs_polling(
+        turn,
+        steps,
+        [],
+        backend_jobs_active=False,
+    )
+
+
+def test_right_workspace_stops_after_completion_and_resumes_for_new_work():
+    completed = {"turn_id": "turn-1", "completed_at": "2026-08-05T12:00:00+00:00"}
+    terminal_steps = [{"step": PipelineStep.CAPTURE_INPUT.value, "status": "succeeded"}]
+
+    assert not demo_lab._right_workspace_needs_polling(
+        completed,
+        terminal_steps,
+        [],
+        backend_jobs_active=False,
+    )
+    assert demo_lab._right_workspace_needs_polling(
+        completed,
+        terminal_steps,
+        [],
+        backend_jobs_active=True,
+    )
+    assert demo_lab._right_workspace_needs_polling(
+        {"turn_id": "turn-2", "completed_at": None},
+        [{"step": PipelineStep.CAPTURE_INPUT.value, "status": "pending"}],
+        [],
+        backend_jobs_active=False,
+    )
+
+
+def test_right_workspace_fragment_registers_timer_only_while_session_is_active():
+    intervals = []
+
+    class _Streamlit:
+        @classmethod
+        def fragment(cls, *, run_every):
+            intervals.append(run_every)
+            return lambda _callback: lambda: None
+
+    class _Repository:
+        active_turns = []
+
+        @classmethod
+        def list_active_turns(cls, session_id):
+            assert session_id == "session-1"
+            return cls.active_turns
+
+        @staticmethod
+        def get_session(session_id):
+            return {"user_id": "user-1", "run_id": "run-1"}
+
+    class _StateService:
+        jobs_active = False
+
+        @classmethod
+        def has_active_jobs(cls, **kwargs):
+            assert kwargs == {"user_id": "user-1", "run_id": "run-1"}
+            return cls.jobs_active
+
+    environment = SimpleNamespace(repository=_Repository(), state_service=_StateService())
+
+    demo_lab._render_right_workspace(
+        _Streamlit(),
+        environment,
+        "session-1",
+        poll_interval_seconds=0.8,
+    )
+    _Repository.active_turns = [{"turn_id": "turn-2", "completed_at": None}]
+    demo_lab._render_right_workspace(
+        _Streamlit(),
+        environment,
+        "session-1",
+        poll_interval_seconds=0.8,
+    )
+
+    assert intervals == [None, 0.8]
 
 
 def test_restore_existing_environment_is_read_only_and_never_creates_session(tmp_path):
@@ -1327,6 +1558,7 @@ def test_table_render_failure_degrades_to_original_json():
 
 def test_memory_panel_renders_only_selected_database_partition():
     tables = []
+    loaded_sections = []
 
     class _Context:
         def __enter__(self):
@@ -1373,9 +1605,11 @@ def test_memory_panel_renders_only_selected_database_partition():
         _Streamlit(),
         snapshot,
         key_prefix="details:simulation:session:turn:records",
+        state_loader=lambda sections: loaded_sections.append(set(sections)) or {"profile": [{"id": "live-profile"}]},
     )
 
-    assert tables == [[{"id": "profile"}]]
+    assert loaded_sections == [{"profile"}]
+    assert tables == [[{"id": "live-profile"}]]
     assert "st.tabs" not in inspect.getsource(memory_panel.render)
 
 
@@ -1429,6 +1663,17 @@ def test_monitor_only_shows_initialization_spinner_on_cache_resource_miss():
     assert "loading.empty()" not in app_source
     assert "SimulationService(" in app_source
     assert "页面加载失败" in app_source
+
+
+def test_open_sandbox_shows_retrieval_warmup_feedback_without_changing_restore():
+    render_source = inspect.getsource(demo_lab.render)
+    restore_source = inspect.getsource(demo_lab._restore_environment)
+
+    assert 'with st.spinner("正在打开沙盒并预热检索组件…")' in render_source
+    assert render_source.index("正在打开沙盒并预热检索组件…") < render_source.index(
+        "simulation_service.create_environment(simulation)"
+    )
+    assert "正在打开沙盒并预热检索组件…" not in restore_source
 
 
 def test_all_pipeline_operations_reject_a_turn_from_another_session(tmp_path):
@@ -1935,6 +2180,77 @@ class _SimulationMemory:
         self.closed = True
 
 
+class _WarmupSimulationMemory(_SimulationMemory):
+    def __init__(self, config, *, warmup_error=None):
+        super().__init__(config)
+        self.warmup_calls = 0
+        self.warmup_error = warmup_error
+
+    def warm_up_retrieval_for_demo(self):
+        self.warmup_calls += 1
+        if self.warmup_error is not None:
+            raise self.warmup_error
+        return True
+
+
+def test_simulation_service_warms_supported_memory_once_for_cached_environment(tmp_path):
+    service = SimulationService(
+        tmp_path / "runs",
+        memory_factory=_WarmupSimulationMemory,
+    )
+
+    first = service.create_environment("warm-sandbox")
+    second = service.create_environment("warm-sandbox")
+
+    assert first is second
+    assert first.memory.warmup_calls == 1
+    service.close()
+
+
+def test_simulation_service_accepts_memory_without_demo_warmup(tmp_path):
+    service = SimulationService(
+        tmp_path / "runs",
+        memory_factory=_SimulationMemory,
+    )
+
+    environment = service.create_environment("no-warmup")
+
+    assert environment.simulation_id == "no-warmup"
+    assert (environment.root / "demo.db").exists()
+    service.close()
+
+
+def test_simulation_service_degrades_warmup_failure_and_finishes_environment(tmp_path, caplog):
+    error = RuntimeError("embedding unavailable")
+
+    def factory(config):
+        return _WarmupSimulationMemory(config, warmup_error=error)
+
+    service = SimulationService(
+        tmp_path / "runs",
+        memory_factory=factory,
+    )
+
+    with caplog.at_level("WARNING", logger="memory_monitor.services.simulation_service"):
+        environment = service.create_environment("degraded-warmup")
+    session = service.create_session("degraded-warmup", user_id="user-1", run_id="run-1")
+    turn = environment.pipeline.create_turn(
+        session["session_id"],
+        user_id="user-1",
+        run_id="run-1",
+        user_message="real query",
+    )
+
+    assert environment.memory.warmup_calls == 1
+    assert turn["user_message"] == "real query"
+    assert "simulation_id=degraded-warmup" in caplog.text
+    assert "success=false" in caplog.text
+    assert "error_type=RuntimeError" in caplog.text
+    assert "error=embedding unavailable" in caplog.text
+    assert "duration_ms=" in caplog.text
+    service.close()
+
+
 def test_simulation_service_reopens_existing_sandbox_without_monkey_patch(tmp_path):
     service = SimulationService(
         tmp_path / "runs",
@@ -2022,41 +2338,78 @@ def test_memory_state_diff_reports_added_updated_and_deleted_records():
     assert [row["id"] for row in diff["deleted"]] == ["deleted"]
 
 
-def test_latest_session_snapshot_survives_selecting_a_new_turn_without_snapshots(tmp_path):
+def test_live_session_state_does_not_use_the_latest_partial_step_snapshot(tmp_path):
     repository = DemoRepository(tmp_path / "session-snapshot.db")
     session = repository.create_session("snapshot-session", "user-1", "run-1")
-    first = repository.create_turn(
+    turn = repository.create_turn(
         session["session_id"],
         user_id="user-1",
         run_id="run-1",
         user_message="first",
     )
-    expected = {**deepcopy(_FakeDemoMemory().state), "short_term": [{"id": "message-1", "status": "active"}]}
-    repository.create_snapshot(first["turn_id"], PipelineStep.RUN_SHORTTERM, "after", expected)
-    repository.create_turn(
-        session["session_id"],
-        user_id="user-1",
-        run_id="run-1",
-        user_message="second without snapshot",
+    repository.create_snapshot(
+        turn["turn_id"],
+        PipelineStep.RUN_SHORTTERM,
+        "after",
+        {"short_term": [{"id": "stale-message", "status": "active"}]},
+    )
+    repository.create_snapshot(
+        turn["turn_id"],
+        PipelineStep.RUN_PROFILE,
+        "after",
+        {"profile": [{"attribute_key": "stale-profile"}]},
     )
 
-    latest = repository.latest_session_snapshot(session["session_id"])
-    environment = SimpleNamespace(
-        simulation_id="snapshot-session",
-        repository=repository,
-        state_service=SimpleNamespace(
-            snapshot=lambda **_kwargs: (_ for _ in ()).throw(AssertionError("persisted snapshot must win"))
-        ),
-    )
-    displayed = demo_lab._latest_session_state(
-        SimpleNamespace(session_state={}),
-        environment,
-        session["session_id"],
-    )
+    history_path = tmp_path / "history.db"
+    db = SQLiteManager(str(history_path))
+    scope = DemoMemory.session_scope_for_demo(user_id="user-1", run_id="run-1")
+    try:
+        db.save_messages(
+            [
+                {"role": "user", "content": "persisted question"},
+                {"role": "assistant", "content": "persisted answer"},
+            ],
+            scope,
+            max_messages=10,
+        )
+        db.upsert_user_profile_value("user-1", "analysis_role", "financial_analyst")
+        memory = SimpleNamespace(
+            config=SimpleNamespace(
+                history_db_path=str(history_path),
+                midterm=SimpleNamespace(enabled=False),
+            ),
+            vector_store=SimpleNamespace(list=lambda **_kwargs: []),
+            session_scope_for_demo=DemoMemory.session_scope_for_demo,
+        )
+        environment = SimpleNamespace(
+            simulation_id="snapshot-session",
+            repository=repository,
+            state_service=MemoryStateService(memory),
+        )
 
-    assert latest["turn_id"] == first["turn_id"]
-    assert latest["data"]["short_term"] == [{"id": "message-1", "status": "active"}]
-    assert displayed["short_term"] == [{"id": "message-1", "status": "active"}]
+        short_term = demo_lab._latest_session_state(
+            SimpleNamespace(session_state={}),
+            environment,
+            session["session_id"],
+            sections={"short_term"},
+        )
+        profile = demo_lab._latest_session_state(
+            SimpleNamespace(session_state={}),
+            environment,
+            session["session_id"],
+            sections={"profile"},
+        )
+        latest = repository.latest_session_snapshot(session["session_id"])
+
+        assert latest["data"] == {"profile": [{"attribute_key": "stale-profile"}]}
+        assert [message["content"] for message in short_term["short_term"]] == [
+            "persisted question",
+            "persisted answer",
+        ]
+        assert profile["profile"][0]["attribute_key"] == "analysis_role"
+        assert profile["profile"][0]["value"] == "financial_analyst"
+    finally:
+        db.close()
 
 
 def test_repository_reads_messages_steps_and_latest_snapshot_after_multiple_turns(tmp_path):
@@ -2099,7 +2452,7 @@ def test_repository_reads_messages_steps_and_latest_snapshot_after_multiple_turn
     assert repository.latest_session_snapshot(session["session_id"])["data"]["round"] == 4
 
 
-def test_memory_state_uses_core_session_scope_and_only_lists_active_messages(tmp_path):
+def test_memory_state_live_monitor_lists_all_message_statuses_without_changing_snapshots(tmp_path):
     history_path = tmp_path / "history.db"
     db = SQLiteManager(str(history_path))
     scope = DemoMemory.session_scope_for_demo(user_id="user-1", run_id="run-1")
@@ -2111,10 +2464,17 @@ def test_memory_state_uses_core_session_scope_and_only_lists_active_messages(tmp
         )
         db.connection.execute(
             """
-            INSERT INTO messages (id, session_scope, role, content, status)
-            VALUES ('pending-message', ?, 'assistant', 'migrating answer', 'pending')
+            INSERT INTO messages (id, session_scope, role, content, status, created_at)
+            VALUES
+                ('pending-message', ?, 'assistant', 'migrating answer', 'pending', '2026-08-05T12:00:01'),
+                ('discarded-message', ?, 'user', 'discarded source', 'discarded', '2026-08-05T12:00:02'),
+                ('other-session-message', ?, 'user', 'other session', 'active', '2026-08-05T12:00:03')
             """,
-            (scope,),
+            (
+                scope,
+                scope,
+                DemoMemory.session_scope_for_demo(user_id="user-1", run_id="run-2"),
+            ),
         )
         db.connection.commit()
         memory = SimpleNamespace(
@@ -2127,6 +2487,11 @@ def test_memory_state_uses_core_session_scope_and_only_lists_active_messages(tmp
         )
 
         snapshot = MemoryStateService(memory).snapshot(user_id="user-1", run_id="run-1")
+        current = MemoryStateService(memory).current_state(
+            user_id="user-1",
+            run_id="run-1",
+            sections={"short_term"},
+        )
         rows = db.connection.execute(
             """
             SELECT id, session_scope, role, content, status, created_at
@@ -2134,11 +2499,18 @@ def test_memory_state_uses_core_session_scope_and_only_lists_active_messages(tmp
             """
         ).fetchall()
 
-        assert len(rows) == 2
-        assert {row[1] for row in rows} == {scope}
+        assert len(rows) == 4
         assert [message["content"] for message in snapshot["short_term"]] == ["persisted question"]
         assert snapshot["short_term"][0]["session_scope"] == scope
         assert snapshot["short_term"][0]["status"] == "active"
+        assert {message["id"] for message in current["short_term"]} == {
+            snapshot["short_term"][0]["id"],
+            "pending-message",
+            "discarded-message",
+        }
+        assert {message["status"] for message in current["short_term"]} == {"active", "pending", "discarded"}
+        assert all(message["session_scope"] == scope for message in current["short_term"])
+        assert [message["content"] for message in db.get_messages(scope)] == ["persisted question"]
         assert set(snapshot) == {
             "short_term",
             "midterm_sessions",
@@ -2148,6 +2520,66 @@ def test_memory_state_uses_core_session_scope_and_only_lists_active_messages(tmp
             "jobs",
         }
         assert set(snapshot["jobs"]) == {"migration", "profile"}
+    finally:
+        db.close()
+
+
+def test_memory_state_active_job_check_respects_session_scope_and_retry_status(tmp_path):
+    history_path = tmp_path / "jobs-history.db"
+    db = SQLiteManager(str(history_path))
+    selected_scope = DemoMemory.session_scope_for_demo(user_id="user-1", run_id="run-1")
+    other_scope = DemoMemory.session_scope_for_demo(user_id="user-1", run_id="run-2")
+    memory = SimpleNamespace(
+        config=SimpleNamespace(history_db_path=str(history_path)),
+        session_scope_for_demo=DemoMemory.session_scope_for_demo,
+    )
+    state_service = MemoryStateService(memory)
+    try:
+        other_job = db.save_messages_and_create_migration_job(
+            [{"role": "user", "content": "other session"}],
+            other_scope,
+            max_messages=0,
+            filters={"user_id": "user-1", "run_id": "run-2"},
+            metadata={},
+            infer=False,
+            prompt=None,
+        )
+        assert other_job
+        assert not state_service.has_active_jobs(user_id="user-1", run_id="run-1")
+
+        selected_job = db.save_messages_and_create_migration_job(
+            [{"role": "user", "content": "selected session"}],
+            selected_scope,
+            max_messages=0,
+            filters={"user_id": "user-1", "run_id": "run-1"},
+            metadata={},
+            infer=False,
+            prompt=None,
+        )
+        assert selected_job
+        db.connection.execute(
+            """
+            UPDATE memory_migration_jobs
+            SET status = 'retry', midterm_status = 'retry', longterm_status = 'succeeded'
+            WHERE job_id = ?
+            """,
+            (selected_job,),
+        )
+        db.connection.commit()
+
+        assert state_service.has_active_jobs(user_id="user-1", run_id="run-1")
+
+        db.connection.execute(
+            """
+            UPDATE memory_migration_jobs
+            SET status = 'succeeded', midterm_status = 'succeeded', longterm_status = 'succeeded'
+            WHERE job_id = ?
+            """,
+            (selected_job,),
+        )
+        db.connection.commit()
+
+        assert not state_service.has_active_jobs(user_id="user-1", run_id="run-1")
     finally:
         db.close()
 

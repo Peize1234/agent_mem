@@ -41,6 +41,27 @@ div[class*="st-key-chat_history_"] {
 div[class*="st-key-right_workspace_"] {
     min-height: 690px;
 }
+div[class*="st-key-database_detail_"] {
+    box-sizing: border-box;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden !important;
+    overflow-y: scroll !important;
+    scrollbar-gutter: stable;
+}
+div[class*="st-key-database_detail_"] > div {
+    box-sizing: border-box;
+    max-width: 100%;
+    min-width: 0;
+}
+div[class*="st-key-memory_table_"] {
+    box-sizing: border-box;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+}
 div[class*="st-key-active_turn_"] button {
     border: 1px solid rgba(124, 135, 152, 0.34);
     border-left-width: 4px;
@@ -110,6 +131,12 @@ div[class*="st-key-active_turn_"] button p {
     flex: 0 1 100px;
     width: clamp(92px, 7vw, 108px);
     max-width: 108px;
+}
+.demo-foreground-chain .demo-node.agentic-retrieval {
+    flex: 0 0 136px;
+    width: 136px;
+    min-width: 136px;
+    max-width: 136px;
 }
 .demo-node.current {
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--node-color) 32%, transparent);
@@ -448,14 +475,14 @@ div[class*="st-key-active_turn_"] button p {
         justify-content: flex-start;
     }
 }
-@container (max-width: 700px) {
+@container (max-width: 780px) {
     .demo-pipeline-scroll {
         overflow-x: auto;
         scrollbar-gutter: stable;
     }
     .demo-flow-row {
-        width: 740px;
-        min-width: 740px;
+        width: 768px;
+        min-width: 768px;
     }
 }
 </style>

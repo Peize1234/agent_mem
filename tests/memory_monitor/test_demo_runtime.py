@@ -1,6 +1,8 @@
-from types import SimpleNamespace
 import threading
-from unittest.mock import MagicMock
+from types import SimpleNamespace
+from unittest.mock import MagicMock, call
+
+import pytest
 
 from mem0.configs.base import AgenticRetrievalConfig, BackgroundTaskConfig, MemoryConfig
 from mem0.memory.background_worker import BackgroundWorkerManager
@@ -155,6 +157,57 @@ def test_demo_memory_is_memory_subclass():
     assert issubclass(DemoMemory, Memory)
 
 
+def _demo_memory_for_warmup(retrieve=None):
+    memory = DemoMemory.__new__(DemoMemory)
+    memory._demo_retrieval_warmup_lock = threading.Lock()
+    memory._demo_retrieval_warmed_up = False
+    memory.retrieve_context_for_demo = retrieve or MagicMock(return_value={})
+    return memory
+
+
+def test_demo_retrieval_warmup_runs_bilingual_read_only_queries_once():
+    memory = _demo_memory_for_warmup()
+    memory.add = MagicMock()
+    memory.commit_demo_turn = MagicMock()
+    memory.generate_response_for_demo = MagicMock()
+    memory.generate_agentic_response_for_demo = MagicMock()
+    memory._ensure_background_workers = MagicMock()
+
+    assert memory.warm_up_retrieval_for_demo() is True
+    assert memory.warm_up_retrieval_for_demo() is False
+
+    assert memory.retrieve_context_for_demo.call_args_list == [
+        call(
+            "金融分析预热",
+            user_id="__demo_warmup_user__",
+            session_id="__demo_warmup_session__",
+        ),
+        call(
+            "retrieval warmup",
+            user_id="__demo_warmup_user__",
+            session_id="__demo_warmup_session__",
+        ),
+    ]
+    memory.add.assert_not_called()
+    memory.commit_demo_turn.assert_not_called()
+    memory.generate_response_for_demo.assert_not_called()
+    memory.generate_agentic_response_for_demo.assert_not_called()
+    memory._ensure_background_workers.assert_not_called()
+
+
+def test_demo_retrieval_warmup_failure_allows_retry():
+    retrieve = MagicMock(side_effect=[RuntimeError("cold start failed"), {}, {}])
+    memory = _demo_memory_for_warmup(retrieve)
+
+    with pytest.raises(RuntimeError, match="cold start failed"):
+        memory.warm_up_retrieval_for_demo()
+
+    assert memory._demo_retrieval_warmed_up is False
+    assert memory.warm_up_retrieval_for_demo() is True
+    assert memory.warm_up_retrieval_for_demo() is False
+    assert retrieve.call_count == 3
+
+
 def test_demo_memory_inherits_idempotent_core_vector_client_close():
     client = MagicMock()
     memory = DemoMemory.__new__(DemoMemory)
@@ -255,10 +308,12 @@ def test_demo_agentic_generation_does_not_record_midterm_visits(monkeypatch):
     memory.llm = MagicMock()
     core_runner = MagicMock(
         return_value={
-            "answer": "candidate",
+            "status": "not_needed",
+            "supplement": "",
+            "answer": "",
             "iterations": 1,
             "tool_call_count": 0,
-            "stop_reason": "model_answered",
+            "stop_reason": "not_needed",
             "tool_trace": [],
         }
     )
@@ -278,7 +333,8 @@ def test_demo_agentic_generation_does_not_record_midterm_visits(monkeypatch):
         temperature=0.2,
     )
 
-    assert result["answer"] == "candidate"
+    assert result["status"] == "not_needed"
+    assert result["supplement"] == result["answer"] == ""
     core_context = core_runner.call_args.args[0]
     assert "context_hash" not in core_context
     core_runner.assert_called_once_with(
@@ -325,11 +381,11 @@ def test_prompt_build_uses_frozen_context_and_generation_sends_same_messages():
     }
     context["context_hash"] = memory.context_hash(context)
 
-    prompt = memory.build_prompt_from_context(context, agentic_answer="candidate answer")
+    prompt = memory.build_prompt_from_context(context, agentic_memory_supplement="historical supplement")
     result = memory.generate_response_for_demo(prompt)
 
     assert result == "answer"
-    assert "<agentic_answer>\ncandidate answer\n</agentic_answer>" in prompt[0]["content"]
+    assert "<agentic_memory_supplement>\nhistorical supplement\n</agentic_memory_supplement>" in prompt[0]["content"]
     assert "外部记忆工具" not in prompt[0]["content"]
     memory._retrieve_context.assert_not_called()
     memory.llm.generate_response.assert_called_once_with(messages=prompt)

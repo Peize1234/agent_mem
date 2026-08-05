@@ -14,7 +14,7 @@ from memory_monitor.models import (
     PipelineStep,
     StepStatus,
 )
-from memory_monitor.runtime import DemoBackgroundCoordinator
+from memory_monitor.runtime import DemoBackgroundCoordinator, DemoMemory
 from memory_monitor.services.demo_pipeline_service import DemoPipelineService, STEP_SNAPSHOT_SECTIONS
 from memory_monitor.services.demo_repository import DemoRepository, StepAlreadyRunningError
 from tests.memory_monitor.test_demo_pipeline import _pipeline
@@ -42,6 +42,45 @@ def _complete(repository, turn_id, step, token):
         after_snapshot_id=None,
         diff={},
     )
+
+
+def test_demo_retrieval_warmup_is_once_under_concurrent_calls():
+    memory = DemoMemory.__new__(DemoMemory)
+    memory._demo_retrieval_warmup_lock = threading.Lock()
+    memory._demo_retrieval_warmed_up = False
+    calls = []
+    entered = threading.Event()
+    release = threading.Event()
+    start = threading.Barrier(3)
+    results = []
+
+    def retrieve(query, *, user_id, session_id):
+        calls.append((query, user_id, session_id))
+        if len(calls) == 1:
+            entered.set()
+            assert release.wait(2)
+        return {}
+
+    def run_warmup():
+        start.wait()
+        results.append(memory.warm_up_retrieval_for_demo())
+
+    memory.retrieve_context_for_demo = retrieve
+    threads = [threading.Thread(target=run_warmup) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    start.wait()
+    assert entered.wait(1)
+    release.set()
+    for thread in threads:
+        thread.join(2)
+
+    assert not any(thread.is_alive() for thread in threads)
+    assert sorted(results) == [False, True]
+    assert calls == [
+        ("金融分析预热", "__demo_warmup_user__", "__demo_warmup_session__"),
+        ("retrieval warmup", "__demo_warmup_user__", "__demo_warmup_session__"),
+    ]
 
 
 def test_dag_has_four_visible_branches_and_derived_completion_only():
@@ -124,6 +163,48 @@ def test_dag_has_four_visible_branches_and_derived_completion_only():
     assert "flex: 0 1 auto" in foreground
     assert "flex: 1 1 auto" not in foreground
     assert "justify-content: center" in flow_row
+    agentic = next(step for step in steps if step["step"] == PipelineStep.AGENTIC_RETRIEVAL.value)
+    agentic.update(
+        status=StepStatus.SUCCEEDED.value,
+        attempts=1,
+        duration_ms=6575,
+        output={
+            "agentic_status": "not_needed",
+            "llm_calls": [{"sequence": 1}],
+            "tool_calls": [],
+        },
+    )
+    rendered = pipeline_graph.render_html(steps, BackgroundStepConfig())
+    assert 'class="demo-node succeeded agentic-retrieval"' in rendered
+    assert "succeeded · 无需补充" in rendered
+    assert "1 次 · 6575 ms" in rendered
+    assert "LLM ×1" in rendered
+    assert "工具 ×0" in rendered
+    assert rendered.count("无需补充") == 1
+    assert '<div class="demo-node-detail">无需补充</div>' not in rendered
+    agentic_node = styles._DEMO_LAB_CSS.split(
+        ".demo-foreground-chain .demo-node.agentic-retrieval {",
+        1,
+    )[1].split("}", 1)[0]
+    assert "flex: 0 0 136px" in agentic_node
+    assert "width: 136px" in agentic_node
+    assert "min-width: 136px" in agentic_node
+    assert "max-width: 136px" in agentic_node
+    assert "height:" not in agentic_node
+    assert "padding:" not in agentic_node
+    assert "width: clamp(92px, 7vw, 108px)" in styles._DEMO_LAB_CSS
+    assert "@container (max-width: 780px)" in styles._DEMO_LAB_CSS
+    assert "width: 768px" in styles._DEMO_LAB_CSS
+    assert "min-width: 768px" in styles._DEMO_LAB_CSS
+    for agentic_status, detail in (
+        ("supplemented", "已补充"),
+        ("no_relevant_memory", "未检索到相关记忆"),
+        ("degraded", "降级"),
+    ):
+        agentic["output"]["agentic_status"] = agentic_status
+        state_rendered = pipeline_graph.render_html(steps, BackgroundStepConfig())
+        assert f"succeeded · {detail}" in state_rendered
+        assert f'<div class="demo-node-detail">{detail}</div>' in state_rendered
     assert 'marker-end="url(#demo-fork-arrow)"' in rendered
     assert 'marker-end="url(#demo-merge-arrow)"' in rendered
 

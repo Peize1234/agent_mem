@@ -38,7 +38,7 @@
     "poll_interval_seconds": 1.0
   },
   "agentic_retrieval": {
-    "enabled": false,
+    "enabled": true,
     "max_iterations": 2,
     "max_tool_calls": 1,
     "max_queries": 3,

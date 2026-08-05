@@ -592,6 +592,7 @@ class DemoPipelineService:
             if not context.get("agentic_retrieval"):
                 return {
                     "agentic_status": "disabled",
+                    "agentic_memory_supplement": None,
                     "agentic_answer": None,
                     "iterations": 0,
                     "tool_call_count": 0,
@@ -604,30 +605,38 @@ class DemoPipelineService:
                     **self.generation_kwargs,
                 )
                 metadata = result if isinstance(result, dict) else {}
-                agentic_answer = self.memory._normalize_agentic_answer_result(result)
+                agentic_memory_supplement = self.memory._normalize_agentic_supplement_result(result)
             except Exception as exc:
                 logger.warning(
                     "Agentic retrieval failed in demo; using the retrieved context only",
                     exc_info=True,
                 )
                 return {
-                    "agentic_status": "failed_degraded",
+                    "agentic_status": "degraded",
+                    "agentic_memory_supplement": "",
                     "agentic_answer": "",
                     "iterations": 0,
                     "tool_call_count": 0,
-                    "stop_reason": "agentic_error",
+                    "stop_reason": "degraded",
                     "tool_trace": [],
                     "error_type": type(exc).__name__,
                     "error_message": str(exc),
                 }, {}
             tool_call_count = int(metadata.get("tool_call_count") or 0)
+            agentic_status = metadata.get("status")
+            if agentic_status not in {"not_needed", "supplemented", "no_relevant_memory", "degraded"}:
+                agentic_status = "degraded"
+            if agentic_status == "supplemented" and not agentic_memory_supplement:
+                agentic_status = "degraded"
             return {
-                "agentic_status": "retrieved" if tool_call_count else "not_needed",
-                "agentic_answer": agentic_answer,
+                "agentic_status": agentic_status,
+                "agentic_memory_supplement": agentic_memory_supplement,
+                # Compatibility alias for persisted Demo consumers.
+                "agentic_answer": agentic_memory_supplement,
                 "raw_response": result,
                 "iterations": int(metadata.get("iterations") or 0),
                 "tool_call_count": tool_call_count,
-                "stop_reason": metadata.get("stop_reason"),
+                "stop_reason": agentic_status,
                 "tool_trace": deepcopy(metadata.get("tool_trace") or []),
             }, {}
 
@@ -636,7 +645,7 @@ class DemoPipelineService:
             agentic = self._completed_step_output(turn_id, PipelineStep.AGENTIC_RETRIEVAL)
             prompt = self.memory.build_prompt_from_context(
                 context,
-                agentic_answer=agentic.get("agentic_answer") or "",
+                agentic_memory_supplement=agentic.get("agentic_memory_supplement") or "",
             )
             output = {
                 "context_hash": self.memory.context_hash(context),
@@ -753,6 +762,7 @@ class DemoPipelineService:
             return {
                 "context_hash": self.memory.context_hash(context),
                 "agentic_status": agentic.get("agentic_status"),
+                "agentic_memory_supplement": agentic.get("agentic_memory_supplement"),
                 "agentic_answer": agentic.get("agentic_answer"),
             }
         if step is PipelineStep.GENERATE_RESPONSE:
@@ -820,7 +830,14 @@ class DemoPipelineService:
         else:
             output = deepcopy(output)
         if trace.llm_calls or "llm_calls" in output or step is PipelineStep.AGENTIC_RETRIEVAL:
-            output["llm_calls"] = deepcopy(trace.llm_calls)
+            llm_calls = deepcopy(trace.llm_calls)
+            if step is PipelineStep.AGENTIC_RETRIEVAL and output.get("agentic_status") == "not_needed":
+                # The decision model's accidental prose is not a memory
+                # supplement and must not be shown as Agentic result content.
+                for call in llm_calls:
+                    call["response"] = None
+                    call["response_suppressed"] = True
+            output["llm_calls"] = llm_calls
         if trace.tool_calls or "tool_calls" in output or step is PipelineStep.AGENTIC_RETRIEVAL:
             output["tool_calls"] = deepcopy(trace.tool_calls)
         return output
