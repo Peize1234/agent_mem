@@ -1,10 +1,12 @@
 import os
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import pytest
 
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.llms.deepseek import DeepSeekConfig
+from mem0.llms.base import LLMResponse
 from mem0.llms.deepseek import DeepSeekLLM
 
 
@@ -178,3 +180,48 @@ def test_generate_response_without_response_format(mock_deepseek_client):
     call_kwargs = mock_deepseek_client.chat.completions.create.call_args[1]
     assert "response_format" not in call_kwargs
     assert response == "Why did the chicken cross the road?"
+
+
+def test_profile_response_forwards_enabled_thinking_and_returns_safe_metadata(mock_deepseek_client):
+    config = BaseLlmConfig(model="deepseek-v4-flash", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = DeepSeekLLM(config)
+    messages = [{"role": "user", "content": "Extract a profile update."}]
+    message = SimpleNamespace(
+        content='{"operations":[],"unmapped_facts":[]}',
+        reasoning_content="private chain of thought " * 1000,
+        tool_calls=None,
+    )
+    response = SimpleNamespace(
+        choices=[SimpleNamespace(message=message, finish_reason="stop")],
+        usage=SimpleNamespace(
+            prompt_tokens=321,
+            completion_tokens=456,
+            completion_tokens_details=SimpleNamespace(reasoning_tokens=400),
+        ),
+        model="deepseek-v4-flash",
+    )
+    mock_deepseek_client.chat.completions.create.return_value = response
+
+    result = llm.generate_response(
+        messages,
+        response_format={"type": "json_object"},
+        max_tokens=4096,
+        extra_body={"thinking": {"type": "enabled"}},
+        _return_metadata=True,
+    )
+
+    assert result == LLMResponse(
+        content='{"operations":[],"unmapped_facts":[]}',
+        finish_reason="stop",
+        prompt_tokens=321,
+        completion_tokens=456,
+        reasoning_tokens=400,
+        model="deepseek-v4-flash",
+    )
+    call_kwargs = mock_deepseek_client.chat.completions.create.call_args.kwargs
+    assert call_kwargs["model"] == "deepseek-v4-flash"
+    assert call_kwargs["max_tokens"] == 4096
+    assert call_kwargs["response_format"] == {"type": "json_object"}
+    assert call_kwargs["extra_body"] == {"thinking": {"type": "enabled"}}
+    assert "_return_metadata" not in call_kwargs
+    assert "private chain of thought" not in repr(result)

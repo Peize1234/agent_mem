@@ -1,7 +1,20 @@
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Union
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Union
 
 from mem0.configs.llms.base import BaseLlmConfig
+
+
+@dataclass(frozen=True)
+class LLMResponse:
+    """LLM text plus non-sensitive completion metadata for callers that opt in."""
+
+    content: Any
+    finish_reason: Optional[str] = None
+    prompt_tokens: Optional[int] = None
+    completion_tokens: Optional[int] = None
+    reasoning_tokens: Optional[int] = None
+    model: Optional[str] = None
 
 
 class LLMBase(ABC):

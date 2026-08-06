@@ -51,6 +51,8 @@ class FakeLLM:
                 if keyword not in keywords:
                     keywords.append(keyword)
             return json.dumps({"summary": summary[:1000], "keywords": keywords[:12]}, ensure_ascii=False)
+        if "用户画像描述用户本人" in system:
+            return json.dumps({"operations": [], "unmapped_facts": []}, ensure_ascii=False)
 
         memory = self._fact_memory(user_prompt)
         return json.dumps({"memory": [{"text": memory}]} if memory else {"memory": []}, ensure_ascii=False)

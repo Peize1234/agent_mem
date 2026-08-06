@@ -6,11 +6,13 @@ from openai import OpenAI
 
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.llms.deepseek import DeepSeekConfig
-from mem0.llms.base import LLMBase
+from mem0.llms.base import LLMBase, LLMResponse
 from mem0.memory.utils import extract_json
 
 
 class DeepSeekLLM(LLMBase):
+    supports_response_metadata = True
+
     def __init__(self, config: Optional[Union[BaseLlmConfig, DeepSeekConfig, Dict]] = None):
         # Convert to DeepSeekConfig if needed
         if config is None:
@@ -40,7 +42,36 @@ class DeepSeekLLM(LLMBase):
         base_url = self.config.deepseek_base_url or os.getenv("DEEPSEEK_API_BASE") or "https://api.deepseek.com"
         self.client = OpenAI(api_key=api_key, base_url=base_url)
 
-    def _parse_response(self, response, tools):
+    @staticmethod
+    def _metadata_value(value, name):
+        if value is None:
+            return None
+        if isinstance(value, dict):
+            return value.get(name)
+        return getattr(value, name, None)
+
+    def _response_metadata(self, response) -> Dict[str, Any]:
+        choice = response.choices[0]
+        usage = getattr(response, "usage", None)
+        completion_details = self._metadata_value(usage, "completion_tokens_details")
+        reasoning_tokens = self._metadata_value(completion_details, "reasoning_tokens")
+        if not isinstance(reasoning_tokens, int):
+            reasoning_tokens = self._metadata_value(usage, "reasoning_tokens")
+
+        def optional_int(value):
+            return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+        finish_reason = getattr(choice, "finish_reason", None)
+        model = getattr(response, "model", None)
+        return {
+            "finish_reason": finish_reason if isinstance(finish_reason, str) else None,
+            "prompt_tokens": optional_int(self._metadata_value(usage, "prompt_tokens")),
+            "completion_tokens": optional_int(self._metadata_value(usage, "completion_tokens")),
+            "reasoning_tokens": optional_int(reasoning_tokens),
+            "model": model if isinstance(model, str) else str(self.config.model or "") or None,
+        }
+
+    def _parse_response(self, response, tools, *, return_metadata: bool = False):
         """
         Process the response based on whether tools are used or not.
 
@@ -78,9 +109,13 @@ class DeepSeekLLM(LLMBase):
                         parsed_tool_call["arguments_error"] = arguments_error
                     processed_response["tool_calls"].append(parsed_tool_call)
 
-            return processed_response
+            content = processed_response
         else:
-            return response.choices[0].message.content
+            content = response.choices[0].message.content
+
+        if return_metadata:
+            return LLMResponse(content=content, **self._response_metadata(response))
+        return content
 
     def generate_response(
         self,
@@ -103,6 +138,7 @@ class DeepSeekLLM(LLMBase):
         Returns:
             str: The generated response.
         """
+        return_metadata = kwargs.pop("_return_metadata", False) is True
         params = self._get_supported_params(messages=messages, **kwargs)
         params.update(
             {
@@ -118,4 +154,4 @@ class DeepSeekLLM(LLMBase):
             params["tool_choice"] = tool_choice
 
         response = self.client.chat.completions.create(**params)
-        return self._parse_response(response, tools)
+        return self._parse_response(response, tools, return_metadata=return_metadata)

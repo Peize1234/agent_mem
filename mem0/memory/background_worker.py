@@ -540,7 +540,7 @@ class BackgroundWorkerManager:
                         str(job.get("lease_token") or "")[:8],
                     )
                     return
-                
+
                 if committed is None:
                     finished = self.db.finish_profile_job(job["job_id"], job["lease_token"])
                     if not finished:
@@ -556,23 +556,37 @@ class BackgroundWorkerManager:
 
             except Exception as exc:
                 attempt = int(job.get("attempts", 0)) + 1
+                retryable = getattr(exc, "retryable", None)
+                if retryable is None:
+                    retryable = not isinstance(exc, (TypeError, ValueError))
+                finish_reason = getattr(exc, "finish_reason", None)
+                prompt_tokens = getattr(exc, "prompt_tokens", None)
+                completion_tokens = getattr(exc, "completion_tokens", None)
+                reasoning_tokens = getattr(exc, "reasoning_tokens", None)
                 logger.warning(
-                    "Background profile update failed job_id=%s job_type=profile user_id=%s attempts=%s "
-                    "recovery_count=%s lease_token=%s worker=%s last_error=%s",
+                    "Background profile update failed job_id=%s job_type=profile user_id=%s error_type=%s "
+                    "finish_reason=%s prompt_tokens=%s completion_tokens=%s reasoning_tokens=%s attempts=%s "
+                    "recovery_count=%s lease_token=%s worker=%s retryable=%s last_error=%s",
                     job["job_id"],
                     job.get("user_id"),
+                    type(exc).__name__,
+                    finish_reason,
+                    prompt_tokens,
+                    completion_tokens,
+                    reasoning_tokens,
                     attempt,
                     job.get("recovery_count", 0),
                     str(job.get("lease_token") or "")[:8],
                     threading.current_thread().name,
+                    retryable,
                     exc,
                 )
-                
+
                 self.db.record_profile_failure(
                     job["job_id"],
                     job["lease_token"],
-                    str(exc),
-                    max_retries=int(self.config.max_retries),
+                    f"{type(exc).__name__}: {exc}",
+                    max_retries=int(self.config.max_retries) if retryable else 0,
                     retry_delay_seconds=self._retry_delay(attempt),
                 )
         finally:

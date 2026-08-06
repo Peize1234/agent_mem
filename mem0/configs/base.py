@@ -46,13 +46,24 @@ class MidTermMemoryConfig(BaseModel):
 class UserProfileConfig(BaseModel):
     enabled: bool = True
     update_on_add: bool = True
-    extraction_mode: Literal["explicit_only", "explicit_and_inferred"] = "explicit_only"
+    extraction_mode: Literal["explicit_only", "explicit_and_inferred"] = "explicit_and_inferred"
     allow_dynamic_attributes: bool = False
     max_dynamic_attributes: int = Field(100, ge=0)
     max_input_user_messages: int = Field(4, ge=1)
     max_operations_per_update: int = Field(8, ge=1)
     max_value_json_bytes: int = Field(16384, ge=1)
     include_metadata_by_default: bool = False
+    llm_max_tokens: int = Field(4096, ge=1, le=65536)
+    llm_request_options: Dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("llm_request_options")
+    @classmethod
+    def validate_llm_request_options(cls, options: Dict[str, Any]) -> Dict[str, Any]:
+        reserved = {"messages", "response_format", "tools", "tool_choice", "max_tokens", "_return_metadata"}
+        conflicts = sorted(reserved & set(options))
+        if conflicts:
+            raise ValueError(f"llm_request_options cannot override reserved profile request fields: {', '.join(conflicts)}")
+        return options
 
 
 class BackgroundTaskConfig(BaseModel):

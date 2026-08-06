@@ -415,7 +415,7 @@ class SQLiteManager:
                         FOREIGN KEY (attribute_id)
                             REFERENCES profile_attributes(attribute_id)
                             ON DELETE CASCADE,
-                        CHECK (source_type IN ('explicit', 'inferred', 'imported')),
+                        CHECK (source_type IN ('explicit', 'inferred', 'repeated', 'correction', 'imported')),
                         CHECK (confidence >= 0 AND confidence <= 1),
                         CHECK (value_version >= 1),
                         CHECK (json_valid(value_json))
@@ -2324,8 +2324,8 @@ class SQLiteManager:
 
     @staticmethod
     def _validate_value_metadata(source_type: str, confidence: float) -> None:
-        if source_type not in {"explicit", "inferred", "imported"}:
-            raise ValueError("source_type must be explicit, inferred, or imported")
+        if source_type not in {"explicit", "inferred", "repeated", "correction", "imported"}:
+            raise ValueError("source_type must be explicit, inferred, repeated, correction, or imported")
         if isinstance(confidence, bool) or not isinstance(confidence, (int, float)) or not 0 <= confidence <= 1:
             raise ValueError("confidence must be a number between 0 and 1")
 
@@ -2450,8 +2450,8 @@ class SQLiteManager:
                 user_id,
                 attribute_id,
                 value_json,
-                "explicit",
-                1.0,
+                operation.source_type,
+                operation.confidence,
             )
         return self._get_user_profile_values_locked(user_id)
 

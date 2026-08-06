@@ -49,20 +49,28 @@ def _set_role_plan(value="fp_and_a"):
     return ProfileUpdatePlan.model_validate(
         {
             "operations": [
-                {"operation": "set", "attribute_key": "analysis_role", "value": value},
+                {
+                    "operation": "set",
+                    "attribute_key": "analysis_role",
+                    "value": value,
+                    "source_type": "explicit",
+                    "confidence": 1.0,
+                },
             ]
         }
     )
 
 
-def _append_kpi_plan(kpi="毛利率"):
+def _append_responsibility_plan(responsibility="月度经营分析"):
     return ProfileUpdatePlan.model_validate(
         {
             "operations": [
                 {
                     "operation": "append_unique",
-                    "attribute_key": "preferred_kpis",
-                    "items": [kpi],
+                    "attribute_key": "recurring_responsibilities",
+                    "items": [responsibility],
+                    "source_type": "explicit",
+                    "confidence": 1.0,
                 }
             ]
         }
@@ -130,7 +138,13 @@ async def test_async_update_profile_writes_value(db):
     llm = _RecordingSyncLLM(
         {
             "operations": [
-                {"operation": "set", "attribute_key": "analysis_role", "value": "fp_and_a"},
+                {
+                    "operation": "set",
+                    "attribute_key": "analysis_role",
+                    "value": "fp_and_a",
+                    "source_type": "explicit",
+                    "confidence": 1.0,
+                },
             ],
             "unmapped_facts": [],
         }
@@ -269,7 +283,7 @@ async def test_async_procedural_add_updates_normalized_profile(db, monkeypatch):
     memory = _build_async_memory(db)
     memory._create_procedural_memory = AsyncMock(return_value={"results": [{"id": "procedure-1"}]})
     memory._profile_updater = MagicMock()
-    memory._profile_updater.generate_update_plan.return_value = _append_kpi_plan()
+    memory._profile_updater.generate_update_plan.return_value = _append_responsibility_plan()
     _disable_async_add_notices(monkeypatch)
 
     result = await memory.add(
@@ -282,7 +296,7 @@ async def test_async_procedural_add_updates_normalized_profile(db, monkeypatch):
     assert result["results"] == [{"id": "procedure-1"}]
     assert result["background"]["profile_job_id"]
     assert await memory.flush_background_tasks(2)
-    assert (await memory.get_profile(" user-1 "))["profile"]["preferred_kpis"] == ["毛利率"]
+    assert (await memory.get_profile(" user-1 "))["profile"]["recurring_responsibilities"] == ["月度经营分析"]
     memory.close()
 
 
@@ -292,7 +306,7 @@ async def test_async_add_with_infer_false_still_updates_profile(db, monkeypatch)
     memory._process_evicted_long_term_memories = AsyncMock()
     memory._process_midterm_evictions = MagicMock()
     memory._profile_updater = MagicMock()
-    memory._profile_updater.generate_update_plan.return_value = _append_kpi_plan()
+    memory._profile_updater.generate_update_plan.return_value = _append_responsibility_plan()
     _disable_async_add_notices(monkeypatch)
 
     result = await memory.add("以后优先看毛利率", user_id="user-1", run_id="run-1", infer=False)
@@ -301,7 +315,7 @@ async def test_async_add_with_infer_false_still_updates_profile(db, monkeypatch)
     assert result["background"]["profile_job_id"]
     memory._process_evicted_long_term_memories.assert_not_awaited()
     assert await memory.flush_background_tasks(2)
-    assert (await memory.get_profile("user-1"))["profile"]["preferred_kpis"] == ["毛利率"]
+    assert (await memory.get_profile("user-1"))["profile"]["recurring_responsibilities"] == ["月度经营分析"]
     memory.close()
 
 
@@ -371,7 +385,7 @@ async def test_async_reset_recreates_profile_storage(tmp_path, monkeypatch):
     assert memory._profile_manager is None
     assert memory._profile_updater is None
     assert memory._profile_user_locks == {}
-    assert len(memory.db.list_profile_attributes()) == 19
+    assert len(memory.db.list_profile_attributes()) == 8
     assert memory.db.get_user_profile_values("user-1") == []
     assert memory.profile_manager.db is memory.db
     memory.close()

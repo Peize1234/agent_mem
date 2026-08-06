@@ -13,7 +13,9 @@ from mem0.memory.background_worker import BackgroundWorkerManager, LeaseHeartbea
 from mem0.memory.main import AsyncMemory, Memory
 from mem0.memory.profile_manager import ProfileManager
 from mem0.memory.profile_schema import ProfileUpdatePlan
+from mem0.memory.profile_updater import ProfileLLMEmptyResponseError, ProfileLLMOutputTruncatedError
 from mem0.memory.storage import SQLiteManager
+from mem0.llms.base import LLMResponse
 from mem0.utils.timestamps import beijing_now
 
 
@@ -306,7 +308,17 @@ def test_expired_profile_lease_is_immediately_invalid(db):
 
 def test_profile_plan_and_finish_job_is_atomic_and_fenced(db, monkeypatch):
     plan = ProfileUpdatePlan.model_validate(
-        {"operations": [{"operation": "set", "attribute_key": "analysis_role", "value": "fp_and_a"}]}
+        {
+            "operations": [
+                {
+                    "operation": "set",
+                    "attribute_key": "analysis_role",
+                    "value": "fp_and_a",
+                    "source_type": "explicit",
+                    "confidence": 1.0,
+                }
+            ]
+        }
     )
     job_id = db.create_profile_update_job("atomic-profile", _messages("profile"))
     job = db.claim_profile_job(job_id, lease_timeout_seconds=5)
@@ -342,7 +354,17 @@ def test_profile_plan_and_finish_job_is_atomic_and_fenced(db, monkeypatch):
 
 def test_stale_or_expired_profile_job_cannot_apply_plan(db):
     plan = ProfileUpdatePlan.model_validate(
-        {"operations": [{"operation": "set", "attribute_key": "analysis_role", "value": "fp_and_a"}]}
+        {
+            "operations": [
+                {
+                    "operation": "set",
+                    "attribute_key": "analysis_role",
+                    "value": "fp_and_a",
+                    "source_type": "explicit",
+                    "confidence": 1.0,
+                }
+            ]
+        }
     )
     job_id = db.create_profile_update_job("stale-profile", _messages("profile"))
     first = db.claim_profile_job(job_id, lease_timeout_seconds=1)
@@ -1185,9 +1207,100 @@ def test_profile_exhaustion_marks_discarded(db):
         job = db.get_background_job(job_id, "profile")
         assert job["status"] == "discarded"
         assert job["attempts"] == 1
-        assert job["last_error"] == "profile failed"
+        assert job["last_error"] == "RuntimeError: profile failed"
     finally:
         assert manager.stop(timeout=1)
+
+
+def test_profile_empty_response_is_retried_and_can_succeed(db):
+    job_id = db.create_profile_update_job("profile-empty", _messages("profile-empty"))
+    calls = 0
+
+    def profile(job):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise ProfileLLMEmptyResponseError(
+                "profile LLM returned an empty response",
+                LLMResponse(content="", finish_reason="stop", model="deepseek-v4-flash"),
+            )
+
+    manager = _manager(
+        db,
+        config=BackgroundTaskConfig(max_retries=2, retry_delays_seconds=(), poll_interval_seconds=0.01),
+        profile=profile,
+    )
+    try:
+        manager.start()
+        manager.wake_profile()
+        assert manager.flush(2)
+        job = db.get_background_job(job_id, "profile")
+        assert calls == 2
+        assert job["status"] == "succeeded"
+        assert job["attempts"] == 1
+    finally:
+        assert manager.stop(timeout=1)
+
+
+def test_profile_truncation_is_recorded_once_without_identical_retry(db, caplog):
+    caplog.set_level("WARNING")
+    job_id = db.create_profile_update_job("profile-truncated", _messages("profile-truncated"))
+    response = LLMResponse(
+        content="",
+        finish_reason="length",
+        prompt_tokens=900,
+        completion_tokens=4096,
+        reasoning_tokens=3900,
+        model="deepseek-v4-flash",
+    )
+
+    def profile(job):
+        raise ProfileLLMOutputTruncatedError("profile LLM output was truncated", response)
+
+    manager = _manager(
+        db,
+        config=BackgroundTaskConfig(max_retries=3, retry_delays_seconds=(), poll_interval_seconds=0.01),
+        profile=profile,
+    )
+    claimed = db.claim_profile_job(job_id)
+
+    manager._run_profile_job(claimed)
+
+    job = db.get_background_job(job_id, "profile")
+    assert job["status"] == "discarded"
+    assert job["attempts"] == 1
+    assert "ProfileLLMOutputTruncatedError" in job["last_error"]
+    assert "finish_reason=length" in caplog.text
+    assert "prompt_tokens=900" in caplog.text
+    assert "completion_tokens=4096" in caplog.text
+    assert "reasoning_tokens=3900" in caplog.text
+
+
+def test_profile_fixed_validation_error_is_not_retried(db):
+    job_id = db.create_profile_update_job("profile-invalid", _messages("profile-invalid"))
+    manager = _manager(
+        db,
+        config=BackgroundTaskConfig(max_retries=3, retry_delays_seconds=(), poll_interval_seconds=0.01),
+        profile=lambda job: (_ for _ in ()).throw(ValueError("Unknown profile attribute")),
+    )
+    claimed = db.claim_profile_job(job_id)
+
+    manager._run_profile_job(claimed)
+
+    job = db.get_background_job(job_id, "profile")
+    assert job["status"] == "discarded"
+    assert job["attempts"] == 1
+    assert job["last_error"] == "ValueError: Unknown profile attribute"
+
+
+def test_empty_profile_plan_is_a_success(db):
+    job_id = db.create_profile_update_job("profile-no-op", _messages("profile-no-op"))
+    manager = _manager(db, profile=lambda job: None)
+    claimed = db.claim_profile_job(job_id)
+
+    manager._run_profile_job(claimed)
+
+    assert db.get_background_job(job_id, "profile")["status"] == "succeeded"
 
 
 def _finalize_with_stage_statuses(db, midterm_status, longterm_status):

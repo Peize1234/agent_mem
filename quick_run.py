@@ -38,6 +38,15 @@ config = {
     },
     "profile": {
         "enabled": True,
+        "extraction_mode": "explicit_and_inferred",
+        "llm_max_tokens": 4096,
+        "llm_request_options": {
+            "extra_body": {
+                "thinking": {
+                    "type": "enabled",
+                },
+            },
+        },
     },
 }
 

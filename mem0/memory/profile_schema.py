@@ -37,42 +37,39 @@ class FinancialUserProfile(BaseModel):
     profile: Dict[str, Any] = Field(default_factory=dict)
 
 
-class SetValueOperation(BaseModel):
+class ProfileOperationMetadata(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    source_type: Literal["explicit", "inferred", "repeated", "correction"]
+    confidence: float = Field(ge=0, le=1)
+
+
+class SetValueOperation(ProfileOperationMetadata):
     operation: Literal["set"]
     attribute_key: str
     value: Any
 
 
-class AppendItemsOperation(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class AppendItemsOperation(ProfileOperationMetadata):
     operation: Literal["append_unique"]
     attribute_key: str
     items: List[Any]
 
 
-class RemoveItemsOperation(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class RemoveItemsOperation(ProfileOperationMetadata):
     operation: Literal["remove_items"]
     attribute_key: str
     items: List[Any]
 
 
-class PatchObjectOperation(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class PatchObjectOperation(ProfileOperationMetadata):
     operation: Literal["patch_object"]
     attribute_key: str
     updates: Dict[str, Any] = Field(default_factory=dict)
     remove_keys: List[str] = Field(default_factory=list)
 
 
-class DeleteValueOperation(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class DeleteValueOperation(ProfileOperationMetadata):
     operation: Literal["delete"]
     attribute_key: str
 
