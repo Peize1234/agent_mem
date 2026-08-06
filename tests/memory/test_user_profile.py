@@ -1269,9 +1269,11 @@ def test_different_user_profile_updates_can_overlap(db):
     assert not second.is_alive()
 
 
-def test_background_profile_plan_and_job_finish_commit_together(db):
+def test_background_profile_plan_and_job_finish_commit_together(db, monkeypatch):
     memory = _memory_with_profile_storage(db)
-    memory._profile_updater.generate_update_plan_async = MagicMock(
+    asyncio_run = MagicMock(side_effect=AssertionError("background profile processing must stay synchronous"))
+    monkeypatch.setattr("mem0.memory.main.asyncio.run", asyncio_run)
+    memory._profile_updater.generate_update_plan = MagicMock(
         return_value=ProfileUpdatePlan.model_validate(
             {
                 "operations": [
@@ -1288,6 +1290,9 @@ def test_background_profile_plan_and_job_finish_commit_together(db):
     job = db.claim_profile_job(job_id, lease_timeout_seconds=5)
 
     assert memory._background_process_profile(job) is True
+    memory._profile_updater.generate_update_plan.assert_called_once()
+    memory._profile_updater.generate_update_plan_async.assert_not_called()
+    asyncio_run.assert_not_called()
     assert db.get_background_job(job_id, "profile")["status"] == "succeeded"
     assert memory.get_profile("user-1")["profile"]["analysis_role"] == "fp_and_a"
 
@@ -1523,7 +1528,7 @@ def test_profile_failure_preserves_memory_add_result(db, monkeypatch):
     memory = _memory_with_profile_storage(db)
     memory._process_evicted_long_term_memories = MagicMock(return_value=[])
     memory._process_midterm_evictions = MagicMock()
-    memory._profile_updater.generate_update_plan_async = AsyncMock(side_effect=RuntimeError("LLM unavailable"))
+    memory._profile_updater.generate_update_plan.side_effect = RuntimeError("LLM unavailable")
     monkeypatch.setattr("mem0.memory.main.detect_scale_threshold_from_add_result", lambda *args: None)
     monkeypatch.setattr("mem0.memory.main.display_first_run_notice", lambda *args: None)
 

@@ -61,8 +61,13 @@ def test_background_config_defaults():
     config = MemoryConfig().background
 
     assert config.enabled is True
+    assert config.midterm_worker_count == 1
+    assert config.longterm_worker_count == 1
+    assert config.profile_worker_count == 1
+    assert config.entity_extraction_worker_count == 2
+    assert config.entity_extraction_pending_capacity == 8
     assert config.max_retries == 3
-    assert config.retry_delays_seconds == (2.0, 10.0, 30.0)
+    assert config.retry_delays_seconds == (1.0, 2.0, 3.0)
     assert config.poll_interval_seconds == 1.0
     assert config.lease_timeout_seconds == 120.0
     assert config.heartbeat_interval_seconds == 20.0
@@ -91,6 +96,97 @@ def test_start_creates_three_named_workers_and_is_idempotent(db):
     finally:
         assert manager.stop(timeout=1)
         assert manager.stop(timeout=1)
+
+
+def test_configured_worker_pools_start_once_and_stop_all_workers(db):
+    config = BackgroundTaskConfig(
+        midterm_worker_count=2,
+        longterm_worker_count=3,
+        profile_worker_count=4,
+        poll_interval_seconds=0.01,
+    )
+    manager = _manager(db, config=config)
+    try:
+        manager.start()
+        first_threads = list(manager._threads)
+        first_watchdog = manager._watchdog_thread
+        manager.start()
+
+        assert manager._threads == first_threads
+        assert manager._watchdog_thread is first_watchdog
+        assert len(first_threads) == 9
+        assert {thread.name for thread in first_threads} == {
+            "mem0-midterm-memory-worker-1",
+            "mem0-midterm-memory-worker-2",
+            "mem0-longterm-memory-worker-1",
+            "mem0-longterm-memory-worker-2",
+            "mem0-longterm-memory-worker-3",
+            "mem0-user-profile-worker-1",
+            "mem0-user-profile-worker-2",
+            "mem0-user-profile-worker-3",
+            "mem0-user-profile-worker-4",
+        }
+        assert all(thread.is_alive() for thread in first_threads)
+        assert first_watchdog is not None and first_watchdog.is_alive()
+    finally:
+        assert manager.stop(timeout=1)
+    assert all(not thread.is_alive() for thread in first_threads)
+    assert first_watchdog is not None and not first_watchdog.is_alive()
+    assert manager.threads_alive() is False
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("midterm_worker_count", 0),
+        ("midterm_worker_count", -1),
+        ("midterm_worker_count", 17),
+        ("longterm_worker_count", 0),
+        ("longterm_worker_count", -1),
+        ("longterm_worker_count", 17),
+        ("profile_worker_count", 0),
+        ("profile_worker_count", -1),
+        ("profile_worker_count", 17),
+        ("entity_extraction_worker_count", 0),
+        ("entity_extraction_worker_count", 17),
+        ("entity_extraction_pending_capacity", 0),
+        ("entity_extraction_pending_capacity", 129),
+    ],
+)
+def test_background_worker_and_entity_executor_counts_are_validated(field, value):
+    with pytest.raises(ValueError):
+        BackgroundTaskConfig(**{field: value})
+
+
+def test_memory_config_accepts_independent_background_worker_counts():
+    config = MemoryConfig(
+        background={
+            "enabled": True,
+            "midterm_worker_count": 2,
+            "longterm_worker_count": 3,
+            "profile_worker_count": 4,
+        }
+    )
+
+    assert config.background.midterm_worker_count == 2
+    assert config.background.longterm_worker_count == 3
+    assert config.background.profile_worker_count == 4
+
+
+def test_stopped_manager_does_not_claim_new_jobs(db):
+    manager = _manager(db)
+    manager.start()
+    assert manager.stop(timeout=1)
+
+    migration_job_id = _reserve(db, "after-stop", scope="user_id=u1&run_id=after-stop")
+    profile_job_id = db.create_profile_update_job("after-stop", _messages("after-stop"))
+    manager.wake_all()
+    time.sleep(0.05)
+
+    migration_job = db.get_background_job(migration_job_id)
+    assert migration_job["midterm_status"] == "pending"
+    assert migration_job["longterm_status"] == "pending"
+    assert db.get_background_job(profile_job_id, "profile")["status"] == "pending"
 
 
 def test_claim_assigns_unique_lease_token_and_stale_attempt_is_fenced(db):
@@ -501,6 +597,154 @@ def test_different_sessions_can_run_in_parallel(db):
         assert manager.flush(2)
     finally:
         release.set()
+        assert manager.stop(timeout=1)
+
+
+@pytest.mark.parametrize("stage", ["midterm", "longterm"])
+def test_same_stage_workers_process_different_sessions_concurrently(db, stage):
+    job_ids = [
+        _reserve(db, f"{stage}-parallel-{index}", scope=f"user_id=u1&run_id={stage}-{index}")
+        for index in range(2)
+    ]
+    other_stage = "longterm" if stage == "midterm" else "midterm"
+    db.connection.executemany(
+        f"UPDATE memory_migration_jobs SET {other_stage}_status = 'succeeded' WHERE job_id = ?",
+        [(job_id,) for job_id in job_ids],
+    )
+    db.connection.commit()
+    entered = []
+    entered_guard = threading.Lock()
+    both_entered = threading.Event()
+    release = threading.Event()
+
+    def handler(job, messages, degraded):
+        with entered_guard:
+            entered.append(job["job_id"])
+            if len(entered) == 2:
+                both_entered.set()
+        assert release.wait(2)
+
+    config = BackgroundTaskConfig(
+        **{f"{stage}_worker_count": 2},
+        poll_interval_seconds=0.005,
+    )
+    manager = _manager(db, config=config, **{stage: handler})
+    try:
+        manager.start()
+        manager.wake_migration()
+        assert both_entered.wait(1)
+        assert set(entered) == set(job_ids)
+        assert all(db.get_background_job(job_id)[f"{stage}_status"] == "running" for job_id in job_ids)
+        release.set()
+        assert manager.flush(2)
+    finally:
+        release.set()
+        assert manager.stop(timeout=1)
+
+
+@pytest.mark.parametrize("stage", ["midterm", "longterm"])
+def test_same_stage_workers_preserve_same_session_sequence(db, stage):
+    job_ids = [_reserve(db, f"{stage}-ordered-{index}") for index in range(2)]
+    other_stage = "longterm" if stage == "midterm" else "midterm"
+    db.connection.executemany(
+        f"UPDATE memory_migration_jobs SET {other_stage}_status = 'succeeded' WHERE job_id = ?",
+        [(job_id,) for job_id in job_ids],
+    )
+    db.connection.commit()
+    first_entered = threading.Event()
+    second_entered = threading.Event()
+    release_first = threading.Event()
+
+    def handler(job, messages, degraded):
+        if job["job_id"] == job_ids[0]:
+            first_entered.set()
+            assert release_first.wait(2)
+        else:
+            second_entered.set()
+
+    config = BackgroundTaskConfig(
+        **{f"{stage}_worker_count": 2},
+        poll_interval_seconds=0.005,
+    )
+    manager = _manager(db, config=config, **{stage: handler})
+    try:
+        manager.start()
+        manager.wake_migration()
+        assert first_entered.wait(1)
+        assert not second_entered.wait(0.1)
+        assert db.get_background_job(job_ids[1])[f"{stage}_status"] == "pending"
+        release_first.set()
+        assert second_entered.wait(1)
+        assert manager.flush(2)
+    finally:
+        release_first.set()
+        assert manager.stop(timeout=1)
+
+
+def test_profile_workers_process_different_users_concurrently(db):
+    job_ids = [
+        db.create_profile_update_job(user_id, _messages(user_id))
+        for user_id in ("profile-user-a", "profile-user-b")
+    ]
+    entered = []
+    entered_guard = threading.Lock()
+    both_entered = threading.Event()
+    release = threading.Event()
+
+    def profile(job):
+        with entered_guard:
+            entered.append(job["job_id"])
+            if len(entered) == 2:
+                both_entered.set()
+        assert release.wait(2)
+
+    manager = _manager(
+        db,
+        config=BackgroundTaskConfig(profile_worker_count=2, poll_interval_seconds=0.005),
+        profile=profile,
+    )
+    try:
+        manager.start()
+        manager.wake_profile()
+        assert both_entered.wait(1)
+        assert set(entered) == set(job_ids)
+        assert all(db.get_background_job(job_id, "profile")["status"] == "running" for job_id in job_ids)
+        release.set()
+        assert manager.flush(2)
+    finally:
+        release.set()
+        assert manager.stop(timeout=1)
+
+
+def test_profile_workers_preserve_same_user_sequence(db):
+    job_ids = [db.create_profile_update_job("ordered-user", _messages(index)) for index in range(2)]
+    first_entered = threading.Event()
+    second_entered = threading.Event()
+    release_first = threading.Event()
+
+    def profile(job):
+        if job["job_id"] == job_ids[0]:
+            first_entered.set()
+            assert release_first.wait(2)
+        else:
+            second_entered.set()
+
+    manager = _manager(
+        db,
+        config=BackgroundTaskConfig(profile_worker_count=2, poll_interval_seconds=0.005),
+        profile=profile,
+    )
+    try:
+        manager.start()
+        manager.wake_profile()
+        assert first_entered.wait(1)
+        assert not second_entered.wait(0.1)
+        assert db.get_background_job(job_ids[1], "profile")["status"] == "pending"
+        release_first.set()
+        assert second_entered.wait(1)
+        assert manager.flush(2)
+    finally:
+        release_first.set()
         assert manager.stop(timeout=1)
 
 
@@ -1634,7 +1878,7 @@ def test_add_returns_without_waiting_for_migration_or_profile_llms(db, monkeypat
         return []
 
     class BlockingProfileUpdater:
-        async def generate_update_plan_async(self, **kwargs):
+        def generate_update_plan(self, **kwargs):
             profile_started.set()
             release.wait(2)
             return ProfileUpdatePlan()
@@ -1697,7 +1941,7 @@ async def test_async_add_returns_without_waiting_for_migration_or_profile_llms(d
         return []
 
     class BlockingProfileUpdater:
-        async def generate_update_plan_async(self, **kwargs):
+        def generate_update_plan(self, **kwargs):
             profile_started.set()
             release.wait(2)
             return ProfileUpdatePlan()

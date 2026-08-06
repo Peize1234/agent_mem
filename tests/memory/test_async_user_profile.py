@@ -1,6 +1,7 @@
 import asyncio
 import json
 import threading
+import time
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -251,7 +252,7 @@ async def test_async_add_profile_failure_preserves_result(db, monkeypatch, caplo
     memory._process_evicted_long_term_memories = AsyncMock(return_value=[{"id": "memory-1", "event": "ADD"}])
     memory._process_midterm_evictions = MagicMock()
     memory._profile_updater = MagicMock()
-    memory._profile_updater.generate_update_plan_async = AsyncMock(side_effect=RuntimeError("LLM unavailable"))
+    memory._profile_updater.generate_update_plan.side_effect = RuntimeError("LLM unavailable")
     _disable_async_add_notices(monkeypatch)
 
     result = await memory.add("以后优先看毛利率", user_id="user-1", run_id="run-1", infer=False)
@@ -268,7 +269,7 @@ async def test_async_procedural_add_updates_normalized_profile(db, monkeypatch):
     memory = _build_async_memory(db)
     memory._create_procedural_memory = AsyncMock(return_value={"results": [{"id": "procedure-1"}]})
     memory._profile_updater = MagicMock()
-    memory._profile_updater.generate_update_plan_async = AsyncMock(return_value=_append_kpi_plan())
+    memory._profile_updater.generate_update_plan.return_value = _append_kpi_plan()
     _disable_async_add_notices(monkeypatch)
 
     result = await memory.add(
@@ -291,7 +292,7 @@ async def test_async_add_with_infer_false_still_updates_profile(db, monkeypatch)
     memory._process_evicted_long_term_memories = AsyncMock()
     memory._process_midterm_evictions = MagicMock()
     memory._profile_updater = MagicMock()
-    memory._profile_updater.generate_update_plan_async = AsyncMock(return_value=_append_kpi_plan())
+    memory._profile_updater.generate_update_plan.return_value = _append_kpi_plan()
     _disable_async_add_notices(monkeypatch)
 
     result = await memory.add("以后优先看毛利率", user_id="user-1", run_id="run-1", infer=False)
@@ -471,11 +472,27 @@ async def test_async_and_background_profile_updates_are_serialized(db):
     memory = _build_async_memory(db)
     active = 0
     max_active = 0
+    sync_calls = 0
+    async_calls = 0
     active_guard = threading.Lock()
+    background_entered = threading.Event()
+
+    def generate_update_plan(**kwargs):
+        nonlocal active, max_active, sync_calls
+        with active_guard:
+            sync_calls += 1
+            active += 1
+            max_active = max(max_active, active)
+        background_entered.set()
+        time.sleep(0.04)
+        with active_guard:
+            active -= 1
+        return ProfileUpdatePlan()
 
     async def generate_update_plan_async(**kwargs):
-        nonlocal active, max_active
+        nonlocal active, max_active, async_calls
         with active_guard:
+            async_calls += 1
             active += 1
             max_active = max(max_active, active)
         await asyncio.sleep(0.04)
@@ -483,12 +500,15 @@ async def test_async_and_background_profile_updates_are_serialized(db):
             active -= 1
         return ProfileUpdatePlan()
 
-    memory._profile_updater = SimpleNamespace(generate_update_plan_async=generate_update_plan_async)
+    memory._profile_updater = SimpleNamespace(
+        generate_update_plan=generate_update_plan,
+        generate_update_plan_async=generate_update_plan_async,
+    )
     profile_job_id = db.create_profile_update_job("user-1", [{"role": "user", "content": "background"}])
     profile_job = db.claim_profile_job(profile_job_id)
     background = threading.Thread(target=memory._background_process_profile, args=(profile_job,))
     background.start()
-    await asyncio.sleep(0.005)
+    assert await asyncio.to_thread(background_entered.wait, 1)
 
     await asyncio.wait_for(
         memory.update_profile("user-1", [{"role": "user", "content": "async"}]),
@@ -498,6 +518,8 @@ async def test_async_and_background_profile_updates_are_serialized(db):
 
     assert not background.is_alive()
     assert max_active == 1
+    assert sync_calls == 1
+    assert async_calls == 1
 
 
 @pytest.mark.asyncio

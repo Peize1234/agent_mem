@@ -106,12 +106,6 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigva
 # Initialize logger early for util functions
 logger = logging.getLogger(__name__)
 
-_ENTITY_EXTRACTION_EXECUTOR = BoundedTimeoutExecutor(
-    max_workers=2,
-    max_pending=4,
-    thread_name_prefix="mem0-entity-extraction",
-)
-
 
 @asynccontextmanager
 async def _acquire_thread_lock_async(lock: threading.Lock):
@@ -971,14 +965,30 @@ class _BackgroundMemoryMixin:
             return BackgroundTaskConfig(enabled=False)
         return configured
 
+    def _initialize_entity_extraction_executor(self) -> None:
+        if getattr(self, "_entity_extraction_executor", None) is not None:
+            return
+        config = self._background_config()
+        self._entity_extraction_executor = BoundedTimeoutExecutor(
+            max_workers=config.entity_extraction_worker_count,
+            max_pending=config.entity_extraction_pending_capacity,
+            thread_name_prefix="mem0-entity-extraction",
+        )
+
     def _run_entity_extraction(self, function, *args):
+        self._initialize_entity_extraction_executor()
         config = getattr(self, "config", None)
-        return _ENTITY_EXTRACTION_EXECUTOR.run(
+        return self._entity_extraction_executor.run(
             function,
             *args,
             timeout_seconds=getattr(config, "entity_extraction_timeout_seconds", 60.0),
             operation_name="Entity extraction",
         )
+
+    def _shutdown_entity_extraction_executor(self) -> None:
+        executor = getattr(self, "_entity_extraction_executor", None)
+        if executor is not None:
+            executor.shutdown(wait=True)
 
     def _create_background_worker_manager(self) -> BackgroundWorkerManager:
         """Create the worker manager used by this memory runtime.
@@ -1226,6 +1236,7 @@ class _BackgroundMemoryMixin:
     def _initialize_background_workers(self) -> None:
         if not hasattr(self, "_background_lifecycle_lock"):
             self._background_lifecycle_lock = threading.RLock()
+        self._initialize_entity_extraction_executor()
         self._closed = False
         self._background_worker = self._create_background_worker_manager()
         self._background_worker.start()
@@ -1592,13 +1603,11 @@ class _BackgroundMemoryMixin:
             if user_messages:
                 current_profile = self.profile_manager.get_profile(job["user_id"])
                 attribute_catalog = self.profile_manager.list_attributes()
-                plan = self.profile_updater.generate_update_plan_async(
+                plan = self.profile_updater.generate_update_plan(
                     current_profile=current_profile,
                     attribute_catalog=attribute_catalog,
                     messages=user_messages,
                 )
-                if asyncio.iscoroutine(plan):
-                    plan = asyncio.run(plan)
             validated_plan = self.profile_manager.validate_update_plan(
                 plan or ProfileUpdatePlan(operations=[]),
             )
@@ -1724,6 +1733,7 @@ class _BackgroundMemoryMixin:
             worker = getattr(self, "_background_worker", None)
             db = getattr(self, "db", None)
         if db is None:
+            self._shutdown_entity_extraction_executor()
             self._release_process_instance_lock()
             return True
         logger.info("worker shutdown started timeout_seconds=%s", timeout)
@@ -1734,6 +1744,8 @@ class _BackgroundMemoryMixin:
             )
             return False
         logger.info("all workers stopped")
+        self._shutdown_entity_extraction_executor()
+        logger.info("entity extraction executor stopped")
         db.close()
         with self._background_lifecycle_lock:
             self.db = None
@@ -1741,7 +1753,7 @@ class _BackgroundMemoryMixin:
                 self._background_worker = None
         logger.info(
             "database closed history_db_path=%s",
-            getattr(self.config, "history_db_path", getattr(db, "db_path", None)),
+            getattr(getattr(self, "config", None), "history_db_path", getattr(db, "db_path", None)),
         )
         self._close_external_resources()
         self._release_process_instance_lock()

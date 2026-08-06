@@ -96,6 +96,57 @@ class BackgroundWorkerManager:
     def enabled(self) -> bool:
         return bool(self.config.enabled)
 
+    @staticmethod
+    def _worker_name(single_name: str, numbered_prefix: str, index: int, count: int) -> str:
+        if count == 1:
+            return single_name
+        return f"{numbered_prefix}-{index}"
+
+    def _build_worker_threads(self) -> List[threading.Thread]:
+        threads = []
+        for index in range(1, int(self.config.midterm_worker_count) + 1):
+            threads.append(
+                threading.Thread(
+                    target=self._migration_stage_loop,
+                    args=("midterm", self._midterm_wakeup, self.process_midterm),
+                    name=self._worker_name(
+                        "mem0-midterm-memory-worker",
+                        "mem0-midterm-memory-worker",
+                        index,
+                        int(self.config.midterm_worker_count),
+                    ),
+                    daemon=True,
+                )
+            )
+        for index in range(1, int(self.config.longterm_worker_count) + 1):
+            threads.append(
+                threading.Thread(
+                    target=self._migration_stage_loop,
+                    args=("longterm", self._longterm_wakeup, self.process_longterm),
+                    name=self._worker_name(
+                        "mem0-longterm-memory-worker",
+                        "mem0-longterm-memory-worker",
+                        index,
+                        int(self.config.longterm_worker_count),
+                    ),
+                    daemon=True,
+                )
+            )
+        for index in range(1, int(self.config.profile_worker_count) + 1):
+            threads.append(
+                threading.Thread(
+                    target=self._profile_loop,
+                    name=self._worker_name(
+                        "mem0-profile-update-worker",
+                        "mem0-user-profile-worker",
+                        index,
+                        int(self.config.profile_worker_count),
+                    ),
+                    daemon=True,
+                )
+            )
+        return threads
+
     def start(self) -> None:
         if not self.enabled:
             return
@@ -122,25 +173,7 @@ class BackgroundWorkerManager:
                 except Exception:
                     logger.exception("Failed to clean orphan staging outputs during startup")
             self._stop_event.clear()
-            self._threads = [
-                threading.Thread(
-                    target=self._migration_stage_loop,
-                    args=("midterm", self._midterm_wakeup, self.process_midterm),
-                    name="mem0-midterm-memory-worker",
-                    daemon=True,
-                ),
-                threading.Thread(
-                    target=self._migration_stage_loop,
-                    args=("longterm", self._longterm_wakeup, self.process_longterm),
-                    name="mem0-longterm-memory-worker",
-                    daemon=True,
-                ),
-                threading.Thread(
-                    target=self._profile_loop,
-                    name="mem0-profile-update-worker",
-                    daemon=True,
-                ),
-            ]
+            self._threads = self._build_worker_threads()
             self._started = True
             for thread in self._threads:
                 thread.start()
@@ -150,7 +183,12 @@ class BackgroundWorkerManager:
                 daemon=True,
             )
             self._watchdog_thread.start()
-            logger.info("background workers started")
+            logger.info(
+                "background workers started midterm=%s longterm=%s profile=%s",
+                self.config.midterm_worker_count,
+                self.config.longterm_worker_count,
+                self.config.profile_worker_count,
+            )
 
     def _watchdog_loop(self) -> None:
         while not self._stop_event.wait(float(self.config.watchdog_interval_seconds)):

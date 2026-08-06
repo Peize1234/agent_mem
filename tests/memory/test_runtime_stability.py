@@ -12,6 +12,7 @@ from mem0.memory.background_worker import BackgroundWorkerManager
 from mem0.memory.main import AsyncMemory, Memory
 from mem0.memory.process_lock import ProcessInstanceLock
 from mem0.memory.storage import SQLiteManager
+from mem0.utils.bounded_timeout import BoundedTimeoutExecutor
 
 
 class _Row:
@@ -51,12 +52,119 @@ def test_entity_extraction_timeout_uses_bounded_workers():
         for _ in range(8):
             with pytest.raises(TimeoutError, match="Entity extraction timed out"):
                 memory._run_entity_extraction(blocked_extraction)
-        timeout_threads = [
-            thread for thread in threading.enumerate() if thread.name.startswith("mem0-entity-extraction-")
-        ]
+        timeout_threads = list(memory._entity_extraction_executor._executor._threads)
         assert len(timeout_threads) <= 2
+        assert all(thread.name.startswith("mem0-entity-extraction") for thread in timeout_threads)
     finally:
         release.set()
+        memory._entity_extraction_executor.shutdown()
+
+
+def test_bounded_timeout_executor_capacity_timeout_and_shutdown():
+    executor = BoundedTimeoutExecutor(
+        max_workers=1,
+        max_pending=1,
+        thread_name_prefix="mem0-test-bounded-timeout",
+    )
+    release = threading.Event()
+    finished = threading.Event()
+
+    def blocked_extraction():
+        release.wait(1)
+        finished.set()
+
+    try:
+        with pytest.raises(TimeoutError, match="timed out after"):
+            executor.run(
+                blocked_extraction,
+                timeout_seconds=0.01,
+                operation_name="Test extraction",
+            )
+        assert not finished.is_set()
+        with pytest.raises(TimeoutError, match="timed out after"):
+            executor.run(
+                blocked_extraction,
+                timeout_seconds=0.01,
+                operation_name="Test extraction",
+            )
+        with pytest.raises(TimeoutError, match="capacity is exhausted"):
+            executor.run(
+                blocked_extraction,
+                timeout_seconds=0.01,
+                operation_name="Test extraction",
+            )
+    finally:
+        release.set()
+        executor.shutdown()
+        executor.shutdown()
+
+    assert finished.is_set()
+    with pytest.raises(RuntimeError, match="after shutdown"):
+        executor.run(lambda: None, timeout_seconds=1, operation_name="Test extraction")
+
+
+def test_memory_instances_own_independent_entity_extraction_executors():
+    config = SimpleNamespace(
+        background=BackgroundTaskConfig(
+            enabled=False,
+            entity_extraction_worker_count=3,
+            entity_extraction_pending_capacity=5,
+        ),
+        entity_extraction_timeout_seconds=1,
+    )
+    first = Memory.__new__(Memory)
+    second = Memory.__new__(Memory)
+    first.config = config
+    second.config = config
+    first._initialize_entity_extraction_executor()
+    second._initialize_entity_extraction_executor()
+
+    assert first._entity_extraction_executor is not second._entity_extraction_executor
+    first_executor = first._entity_extraction_executor
+    first._initialize_entity_extraction_executor()
+    assert first._entity_extraction_executor is first_executor
+    assert first._entity_extraction_executor._max_workers == 3
+    assert first._entity_extraction_executor._max_pending == 5
+    assert not first._entity_extraction_executor._executor._threads
+    assert not second._entity_extraction_executor._executor._threads
+
+    first._entity_extraction_executor.shutdown()
+    with pytest.raises(RuntimeError, match="after shutdown"):
+        first._run_entity_extraction(lambda: "closed")
+    assert second._run_entity_extraction(lambda: "open") == "open"
+    second._entity_extraction_executor.shutdown()
+
+
+def test_closing_one_memory_does_not_shutdown_another_entity_executor():
+    def memory_instance():
+        memory = Memory.__new__(Memory)
+        memory.config = SimpleNamespace(
+            background=BackgroundTaskConfig(enabled=False),
+            entity_extraction_timeout_seconds=1,
+            history_db_path=":memory:",
+        )
+        memory.db = SQLiteManager(":memory:")
+        memory._background_worker = None
+        memory.vector_store = MagicMock()
+        memory.embedding_model = MagicMock()
+        memory.llm = MagicMock()
+        memory.reranker = None
+        memory._entity_store = None
+        memory._midterm_memory = None
+        memory._initialize_entity_extraction_executor()
+        return memory
+
+    first = memory_instance()
+    second = memory_instance()
+    try:
+        assert first._run_entity_extraction(lambda: "first") == "first"
+        assert second._run_entity_extraction(lambda: "second") == "second"
+        assert first.close() is True
+        with pytest.raises(RuntimeError, match="after shutdown"):
+            first._run_entity_extraction(lambda: "closed")
+        assert second._run_entity_extraction(lambda: "still-open") == "still-open"
+    finally:
+        second.close()
 
 
 def test_memory_forwards_external_timeouts_to_factories(monkeypatch):
@@ -69,19 +177,31 @@ def test_memory_forwards_external_timeouts_to_factories(monkeypatch):
     monkeypatch.setattr("mem0.memory.main.LlmFactory.create", llm_create)
     config = MemoryConfig(
         history_db_path=":memory:",
-        background=BackgroundTaskConfig(enabled=False),
+        background=BackgroundTaskConfig(
+            enabled=False,
+            entity_extraction_worker_count=3,
+            entity_extraction_pending_capacity=7,
+        ),
         llm_timeout_seconds=11,
         embedding_timeout_seconds=12,
         vector_store_timeout_seconds=13,
     )
 
     memory = Memory(config)
+    executor_threads = []
     try:
         assert embedder_create.call_args.kwargs["timeout_seconds"] == 12
         assert vector_create.call_args.kwargs["timeout_seconds"] == 13
         assert llm_create.call_args.kwargs["timeout_seconds"] == 11
+        assert memory._entity_extraction_executor._max_workers == 3
+        assert memory._entity_extraction_executor._max_pending == 7
+        assert not memory._entity_extraction_executor._executor._threads
+        assert memory._run_entity_extraction(lambda: "ok") == "ok"
+        executor_threads = list(memory._entity_extraction_executor._executor._threads)
+        assert executor_threads
     finally:
         memory.close()
+    assert all(not thread.is_alive() for thread in executor_threads)
 
 
 def _run_process_lock_probe(db_path: str) -> subprocess.CompletedProcess:
@@ -213,14 +333,17 @@ def test_close_failure_keeps_database_resources_and_process_lock(tmp_path, memor
     memory.reranker = None
     memory._entity_store = None
     memory._midterm_memory = None
+    memory._entity_extraction_executor = MagicMock()
 
     assert memory.close() is False
     assert memory.db is not None
     assert memory.db.connection is not None
     assert memory._process_instance_lock.acquired
     memory.vector_store.close.assert_not_called()
+    memory._entity_extraction_executor.shutdown.assert_not_called()
 
     assert memory.close() is True
+    memory._entity_extraction_executor.shutdown.assert_called_once_with(wait=True)
     assert memory.db is None
     assert not memory._process_instance_lock.acquired
     memory.vector_store.close.assert_called_once()

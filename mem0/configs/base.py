@@ -57,6 +57,11 @@ class UserProfileConfig(BaseModel):
 
 class BackgroundTaskConfig(BaseModel):
     enabled: bool = True
+    midterm_worker_count: int = Field(1, ge=1, le=16)
+    longterm_worker_count: int = Field(1, ge=1, le=16)
+    profile_worker_count: int = Field(1, ge=1, le=16)
+    entity_extraction_worker_count: int = Field(2, ge=1, le=16)
+    entity_extraction_pending_capacity: int = Field(8, ge=1, le=128)
     max_retries: int = Field(3, ge=0)
     retry_delays_seconds: tuple[float, ...] = (1.0, 2.0, 3.0)
     poll_interval_seconds: float = Field(1.0, gt=0)

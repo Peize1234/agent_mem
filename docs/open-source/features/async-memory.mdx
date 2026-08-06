@@ -76,7 +76,7 @@ memory = AsyncMemory(config=custom_config)
 
 When layered memory or automatic profiles are enabled, `await memory.add(...)` waits only for the
 short-term SQLite write and durable job creation. Mid-term extraction, long-term extraction, and
-profile updates run in two persistent background workers. The response includes the queued job IDs:
+profile updates run in three independent persistent worker pools. The response includes the queued job IDs:
 
 ```python
 result = await memory.add(messages, user_id="alice", run_id="session-1")
@@ -96,9 +96,13 @@ from mem0.configs.base import BackgroundTaskConfig, MemoryConfig
 config = MemoryConfig(
     background=BackgroundTaskConfig(
         enabled=True,
+        midterm_worker_count=2,
+        longterm_worker_count=2,
+        profile_worker_count=2,
+        entity_extraction_worker_count=2,
+        entity_extraction_pending_capacity=8,
         max_retries=3,
         poll_interval_seconds=1.0,
-        stale_running_timeout_seconds=300,
         shutdown_timeout_seconds=30.0,
         include_pending_in_context=True,
         max_pending_context_messages=20,
@@ -107,6 +111,10 @@ config = MemoryConfig(
 )
 memory = AsyncMemory(config=config)
 ```
+
+Each pool claims work directly from the persistent SQLite job tables. Increasing a pool's worker count lets
+different sessions or users run concurrently, while jobs for the same session stage or user remain ordered by
+`sequence_no`. All three worker counts default to `1`.
 
 Set `background.enabled=False` to use the legacy synchronous path. In that mode `add()` writes
 short-term messages, processes any evicted mid-term and long-term memories, and updates the user
