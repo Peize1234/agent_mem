@@ -39,8 +39,8 @@
     "session_similarity_threshold": 0.6,
     "embedding_similarity_weight": 0.7,
     "keyword_overlap_weight": 0.3,
-    "top_k_sessions": 5,
-    "top_k_pages": 5,
+    "top_k_sessions": 3,
+    "top_k_pages": 4,
     "max_total_pages": 5
   },
   "profile": {

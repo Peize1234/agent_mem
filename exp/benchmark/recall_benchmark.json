@@ -8,7 +8,7 @@
   "dataset": {
     "path": "exp/enterprise_finance_memory_sessions_100_v3_realistic_2023_2025.xlsx",
     "include_sheets": [],
-    "max_sessions": 4,
+    "max_sessions": 1,
     "max_turns_per_session": null
   },
   "storage": {
@@ -31,7 +31,7 @@
     "profile_update_on_add": false
   },
   "retrieval": {
-    "top_k": 20,
+    "top_k": 5,
     "threshold": 0.1,
     "rerank": false
   },
