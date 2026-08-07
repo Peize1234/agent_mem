@@ -1,0 +1,307 @@
+{
+  "sheet": "S001_贵州茅台_投研",
+  "source_dir": "/home/peize/Code/htzq/mem0/exp/results/recall_full_100_sessions",
+  "temporal_snapshot_method": "For query turn i, only pages mapped to dataset turns <= i-4 are candidates. The original before_evaluation job completion timestamps are checked against the current turn add-job creation time, an upper bound after retrieval.",
+  "temporal_replay_validation": {
+    "evaluated_turns": 14,
+    "matched_turns": 14,
+    "future_pages_excluded": true
+  },
+  "corrected_metrics": {
+    "short": {
+      "evaluated_turns": 14,
+      "macro_recall": 0.42857142857142855,
+      "micro_recall": 0.4166666666666667,
+      "macro_precision": 0.35714285714285715,
+      "micro_precision": 0.35714285714285715,
+      "hit_rate": 1.0,
+      "full_dependency_recall": 0.0,
+      "mrr": 0.38095238095238093,
+      "matched_gold": 15,
+      "gold_count": 36,
+      "retrieved_count": 42
+    },
+    "mid_page": {
+      "evaluated_turns": 14,
+      "macro_recall": 0.16666666666666666,
+      "micro_recall": 0.16666666666666666,
+      "macro_precision": 0.09523809523809525,
+      "micro_precision": 0.08823529411764706,
+      "hit_rate": 0.35714285714285715,
+      "full_dependency_recall": 0.0,
+      "mrr": 0.16666666666666666,
+      "matched_gold": 6,
+      "gold_count": 36,
+      "retrieved_count": 68
+    },
+    "long": {
+      "evaluated_turns": 14,
+      "macro_recall": 0.19047619047619047,
+      "micro_recall": 0.19444444444444445,
+      "macro_precision": 0.13095238095238096,
+      "micro_precision": 0.11666666666666667,
+      "hit_rate": 0.35714285714285715,
+      "full_dependency_recall": 0.0,
+      "mrr": 0.20833333333333331,
+      "matched_gold": 7,
+      "gold_count": 36,
+      "retrieved_count": 60
+    },
+    "short_mid_page": {
+      "evaluated_turns": 14,
+      "macro_recall": 0.5952380952380952,
+      "micro_recall": 0.5833333333333334,
+      "macro_precision": 0.19345238095238096,
+      "micro_precision": 0.19090909090909092,
+      "hit_rate": 1.0,
+      "full_dependency_recall": 0.21428571428571427,
+      "mrr": 0.38095238095238093,
+      "matched_gold": 21,
+      "gold_count": 36,
+      "retrieved_count": 110
+    },
+    "mid_page_long": {
+      "evaluated_turns": 14,
+      "macro_recall": 0.21428571428571427,
+      "micro_recall": 0.2222222222222222,
+      "macro_precision": 0.1062358276643991,
+      "micro_precision": 0.08,
+      "hit_rate": 0.42857142857142855,
+      "full_dependency_recall": 0.0,
+      "mrr": 0.17857142857142858,
+      "matched_gold": 8,
+      "gold_count": 36,
+      "retrieved_count": 100
+    },
+    "short_mid_page_long": {
+      "evaluated_turns": 14,
+      "macro_recall": 0.6428571428571429,
+      "micro_recall": 0.6388888888888888,
+      "macro_precision": 0.17537878787878786,
+      "micro_precision": 0.1619718309859155,
+      "hit_rate": 1.0,
+      "full_dependency_recall": 0.2857142857142857,
+      "mrr": 0.38095238095238093,
+      "matched_gold": 23,
+      "gold_count": 36,
+      "retrieved_count": 142
+    },
+    "mid_page_long_range": {
+      "evaluated_turns": 14,
+      "macro_recall": 0.2857142857142857,
+      "micro_recall": 0.2857142857142857,
+      "macro_precision": 0.09523809523809525,
+      "micro_precision": 0.08823529411764706,
+      "hit_rate": 0.35714285714285715,
+      "full_dependency_recall": 0.21428571428571427,
+      "mrr": 0.16666666666666666,
+      "matched_gold": 6,
+      "gold_count": 21,
+      "retrieved_count": 68
+    },
+    "long_long_range": {
+      "evaluated_turns": 14,
+      "macro_recall": 0.32142857142857145,
+      "micro_recall": 0.3333333333333333,
+      "macro_precision": 0.13095238095238096,
+      "micro_precision": 0.11666666666666667,
+      "hit_rate": 0.35714285714285715,
+      "full_dependency_recall": 0.2857142857142857,
+      "mrr": 0.20833333333333331,
+      "matched_gold": 7,
+      "gold_count": 21,
+      "retrieved_count": 60
+    },
+    "mid_page_long_long_range": {
+      "evaluated_turns": 14,
+      "macro_recall": 0.35714285714285715,
+      "micro_recall": 0.38095238095238093,
+      "macro_precision": 0.1062358276643991,
+      "micro_precision": 0.08,
+      "hit_rate": 0.42857142857142855,
+      "full_dependency_recall": 0.2857142857142857,
+      "mrr": 0.17857142857142858,
+      "matched_gold": 8,
+      "gold_count": 21,
+      "retrieved_count": 100
+    },
+    "short_mid_page_long_long_range": {
+      "evaluated_turns": 14,
+      "macro_recall": 0.35714285714285715,
+      "micro_recall": 0.38095238095238093,
+      "macro_precision": 0.06666666666666667,
+      "micro_precision": 0.056338028169014086,
+      "hit_rate": 0.42857142857142855,
+      "full_dependency_recall": 0.2857142857142857,
+      "mrr": 0.0734126984126984,
+      "matched_gold": 8,
+      "gold_count": 21,
+      "retrieved_count": 142
+    }
+  },
+  "availability": {
+    "page_exists": 21,
+    "page_available": 21,
+    "qdrant_visible": 21,
+    "lineage_ok": 21
+  },
+  "session_count": 1,
+  "page_count": 47,
+  "session_routing_misses": 0,
+  "oracle_experiments": {
+    "baseline": {
+      "recall_at_5": 0.2857142857142857,
+      "recall_at_10": 0.7619047619047619,
+      "gold_mrr": 0.20079785502717834,
+      "gold_mean_rank": 8.857142857142858
+    },
+    "oracle_session": {
+      "recall_at_5": 0.2857142857142857,
+      "recall_at_10": 0.7619047619047619,
+      "gold_mrr": 0.20079785502717834,
+      "gold_mean_rank": 8.857142857142858
+    },
+    "global_page": {
+      "recall_at_5": 0.2857142857142857,
+      "recall_at_10": 0.7619047619047619,
+      "gold_mrr": 0.20079785502717834,
+      "gold_mean_rank": 8.857142857142858
+    },
+    "context_query_recent_3": {
+      "variant": "recent_3_qa_query",
+      "recall_at_5": 0.38095238095238093,
+      "recall_at_10": 0.6666666666666666,
+      "query_macro_recall_at_5": 0.35714285714285715,
+      "full_recall_at_5": 0.2857142857142857,
+      "gold_mrr": 0.25623257694686263,
+      "gold_mean_rank": 8.142857142857142
+    },
+    "raw_dialogue_embedding": {
+      "variant": "raw_dialogue",
+      "recall_at_5": 0.23809523809523808,
+      "recall_at_10": 0.47619047619047616,
+      "query_macro_recall_at_5": 0.2857142857142857,
+      "full_recall_at_5": 0.21428571428571427,
+      "gold_mrr": 0.15536438283082707,
+      "gold_mean_rank": 11.095238095238095
+    },
+    "required_context_oracle": {
+      "variant": "required_context_oracle",
+      "recall_at_5": 0.8571428571428571,
+      "recall_at_10": 0.9523809523809523,
+      "query_macro_recall_at_5": 0.8928571428571429,
+      "full_recall_at_5": 0.8571428571428571,
+      "gold_mrr": 0.6373582766439909,
+      "gold_mean_rank": 2.9047619047619047
+    }
+  },
+  "hybrid_search": {
+    "current_midterm_implementation": "dense_only; BM25 sparse vectors are stored but keyword_search is not called",
+    "dense": {
+      "long_range_gold_count": 21,
+      "matched_gold": 6,
+      "recall_at_k": 0.2857142857142857,
+      "micro_recall_at_k": 0.2857142857142857,
+      "hit_rate_at_k": 0.35714285714285715,
+      "full_recall_at_k": 0.21428571428571427,
+      "query_mrr_at_k": 0.16666666666666666,
+      "gold_mrr": 0.20079785502717834,
+      "gold_mean_rank": 8.857142857142858,
+      "unranked_gold": 0,
+      "cutoff": 5
+    },
+    "bm25": {
+      "long_range_gold_count": 21,
+      "matched_gold": 0,
+      "recall_at_k": 0.0,
+      "micro_recall_at_k": 0.0,
+      "hit_rate_at_k": 0.0,
+      "full_recall_at_k": 0.0,
+      "query_mrr_at_k": 0.0,
+      "gold_mrr": 0.0,
+      "gold_mean_rank": null,
+      "unranked_gold": 21,
+      "cutoff": 5
+    },
+    "diagnostic_rrf": {
+      "long_range_gold_count": 21,
+      "matched_gold": 6,
+      "recall_at_k": 0.2857142857142857,
+      "micro_recall_at_k": 0.2857142857142857,
+      "hit_rate_at_k": 0.35714285714285715,
+      "full_recall_at_k": 0.21428571428571427,
+      "query_mrr_at_k": 0.16666666666666666,
+      "gold_mrr": 0.20079785502717834,
+      "gold_mean_rank": 8.857142857142858,
+      "unranked_gold": 0,
+      "cutoff": 5
+    }
+  },
+  "ranking_distribution": {
+    "missed_median_rank": 9,
+    "rank_6_10": 10,
+    "rank_11_20": 4,
+    "rank_gt_20": 1
+  },
+  "summary_quality": {
+    "missed_count": 15,
+    "raw_better_count": 15,
+    "mean_raw_minus_summary": 0.0709459763252946,
+    "raw_rescued_at_5": 1
+  },
+  "semantic_equivalence": {
+    "exact_recall": 0.2857142857142857,
+    "semantic_equivalent_recall": 0.38095238095238093,
+    "exact_hits": 6,
+    "semantic_rescued_misses": 2,
+    "gold_count": 21
+  },
+  "dataset_audit": {
+    "gold_count": 36,
+    "verdict_counts": {
+      "CORRECT": 34,
+      "WRONG_TURN": 1,
+      "REDUNDANT": 1
+    },
+    "ambiguous_without_context": 2,
+    "strict_equivalent_long_range_misses": 2
+  },
+  "missed_long_range_gold": 15,
+  "root_cause_counts": {
+    "TOP_K_CUTOFF": 9,
+    "DATASET_WRONG_GOLD": 1,
+    "QUERY_FORMULATION": 2,
+    "PAGE_REPRESENTATION": 1,
+    "EQUIVALENT_ALTERNATIVE_PAGE": 2
+  },
+  "root_cause_shares": {
+    "TOP_K_CUTOFF": 0.6,
+    "DATASET_WRONG_GOLD": 0.06666666666666667,
+    "QUERY_FORMULATION": 0.13333333333333333,
+    "PAGE_REPRESENTATION": 0.06666666666666667,
+    "EQUIVALENT_ALTERNATIVE_PAGE": 0.13333333333333333
+  },
+  "ownership_counts": {
+    "algorithm": 12,
+    "data": 3,
+    "joint": 0,
+    "unresolved": 0
+  },
+  "ownership_shares": {
+    "algorithm": 0.8,
+    "data": 0.2,
+    "joint": 0.0,
+    "unresolved": 0.0
+  },
+  "final_conclusion": "当前低 Recall 主要是算法检索信号问题：Session 与 Page 均正常存在，Session Router 没有损失，但指代化 Query、Page 表示和 dense-only Page 排序使 Gold 排名落到 cutoff 之后；数据集 exact-ID 口径也造成次要 false negative。",
+  "recommendations": [
+    "P0：修正 benchmark 核心口径，永久移除 mid_session 对最终上下文 Recall 的贡献，并保留 exact-ID 与 semantic-equivalent 两套指标。",
+    "P1：优先验证 Page candidate/output budget 从 5 提到 10；这是最大实测增益（Recall +47.62%），但需同时评估 Prompt token 与 Precision 成本，不能把它当成排名质量修复。",
+    "P2：实现并验证 context-aware retrieval query；recent-3 QA 的 Recall@5 实测增益为 +9.52%，required_context Oracle 上界则为 +57.14%。",
+    "P3：保留当前 Page 表示作为基线，不要直接换成 raw dialogue（实测 -4.76%）；后续应抽取 Assistant Answer 中的特定结论/数字，而非无差别拼接模板化全文。",
+    "P4：先修复中文 BM25 分词并补齐 Mid-term hybrid trace，再决定是否启用融合；当前不可用 sparse 链路的诊断 RRF 增益为 +0.00%。",
+    "P5：修正 dataset audit 确认的 1 条错标并复核 1 条冗余；为 2 条严格等价 Page 增加独立 semantic-equivalent 指标，同时保留 exact-ID 指标。"
+  ],
+  "judge_status": "completed",
+  "judge_model": "deepseek-chat"
+}
