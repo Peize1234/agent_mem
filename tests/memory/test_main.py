@@ -1,13 +1,20 @@
+import asyncio
+import builtins
 import logging
+import os
+import sys
+import threading
 import time
 from datetime import datetime
-from types import SimpleNamespace
-from unittest.mock import MagicMock, Mock
+from types import ModuleType, SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 
+from mem0.configs.base import BackgroundTaskConfig, MemoryConfig
 from mem0.exceptions import LLMError
-from mem0.memory.main import AsyncMemory, Memory
+from mem0.exceptions import ValidationError as Mem0ValidationError
+from mem0.memory.main import AsyncMemory, Memory, _build_telemetry_vector_store_config
 from mem0.utils.timestamps import BEIJING_TIMEZONE
 
 
@@ -26,7 +33,8 @@ def _setup_mocks(mocker):
     mock_llm = mocker.MagicMock()
     mocker.patch("mem0.utils.factory.LlmFactory.create", mock_llm)
 
-    mocker.patch("mem0.memory.storage.SQLiteManager", mocker.MagicMock())
+    mocker.patch("mem0.memory.main.SQLiteManager", mocker.MagicMock())
+    mocker.patch("mem0.memory.main.BackgroundWorkerManager.start")
 
     return mock_llm, mock_vector_store
 
@@ -1169,3 +1177,480 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         assert any("padding/truncating" in r.message for r in caplog.records), (
             "expected count-mismatch warning was not emitted"
         )
+
+
+def _build_add_contract_memory(memory_cls):
+    memory = memory_cls.__new__(memory_cls)
+    memory.config = SimpleNamespace(
+        llm=SimpleNamespace(config={}),
+        midterm=SimpleNamespace(enabled=False, short_term_capacity=10),
+        profile=SimpleNamespace(enabled=False, update_on_add=False),
+        background=SimpleNamespace(enabled=True),
+    )
+    memory.db = MagicMock()
+    memory.vector_store = MagicMock()
+    memory.api_version = "v1.1"
+    memory.custom_instructions = None
+    memory._background_worker = MagicMock()
+    memory._entity_store = None
+    return memory
+
+
+@pytest.mark.asyncio
+async def test_sync_async_invalid_memory_type_have_same_error_contract():
+    sync_memory = _build_add_contract_memory(Memory)
+    async_memory = _build_add_contract_memory(AsyncMemory)
+
+    with pytest.raises(Mem0ValidationError) as sync_error:
+        sync_memory.add("hello", user_id="user-1", memory_type="invalid-memory-type")
+    with pytest.raises(Mem0ValidationError) as async_error:
+        await async_memory.add("hello", user_id="user-1", memory_type="invalid-memory-type")
+
+    assert type(async_error.value) is type(sync_error.value)
+    assert async_error.value.message == sync_error.value.message
+    assert async_error.value.error_code == sync_error.value.error_code == "VALIDATION_002"
+    assert async_error.value.details == sync_error.value.details
+    assert async_error.value.suggestion == sync_error.value.suggestion
+    assert sync_error.value.details == {
+        "provided_type": "invalid-memory-type",
+        "valid_type": "procedural_memory",
+    }
+    sync_memory.db.save_messages_and_create_background_jobs.assert_not_called()
+    async_memory.db.save_messages_and_create_background_jobs.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("idempotency_key", ["", "   ", 123])
+async def test_sync_async_invalid_idempotency_key_have_same_error_contract(idempotency_key):
+    sync_memory = _build_add_contract_memory(Memory)
+    async_memory = _build_add_contract_memory(AsyncMemory)
+
+    with pytest.raises(ValueError) as sync_error:
+        sync_memory.add("hello", user_id="user-1", idempotency_key=idempotency_key)
+    with pytest.raises(ValueError) as async_error:
+        await async_memory.add("hello", user_id="user-1", idempotency_key=idempotency_key)
+
+    assert type(async_error.value) is type(sync_error.value)
+    assert str(async_error.value) == str(sync_error.value) == "idempotency_key must be a non-empty string"
+    sync_memory.db.save_messages_and_create_background_jobs.assert_not_called()
+    async_memory.db.save_messages_and_create_background_jobs.assert_not_called()
+
+
+def _build_async_procedural_memory(llm):
+    memory = AsyncMemory.__new__(AsyncMemory)
+    memory.llm = llm
+    memory.embedding_model = MagicMock()
+    memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+    memory.vector_store = MagicMock()
+    memory.db = MagicMock()
+    memory.api_version = "v1.1"
+    memory._bm25_language = None
+    return memory
+
+
+@pytest.mark.asyncio
+async def test_async_procedural_memory_without_langchain_uses_internal_llm(monkeypatch):
+    calls = []
+
+    class SlowInternalLLM:
+        def generate_response(self, **kwargs):
+            calls.append(kwargs)
+            time.sleep(0.08)
+            return "procedural summary"
+
+    real_import = builtins.__import__
+
+    def reject_langchain_import(name, *args, **kwargs):
+        if name.startswith("langchain_core"):
+            raise AssertionError("internal LLM path must not import langchain_core")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", reject_langchain_import)
+    memory = _build_async_procedural_memory(SlowInternalLLM())
+    heartbeat_ticks = 0
+    stop_heartbeat = False
+
+    async def heartbeat():
+        nonlocal heartbeat_ticks
+        while not stop_heartbeat:
+            heartbeat_ticks += 1
+            await asyncio.sleep(0.005)
+
+    heartbeat_task = asyncio.create_task(heartbeat())
+    try:
+        result = await memory._create_procedural_memory(
+            [{"role": "user", "content": "test"}],
+            metadata={"user_id": "user-1"},
+        )
+    finally:
+        stop_heartbeat = True
+        await heartbeat_task
+
+    assert result["results"][0]["memory"] == "procedural summary"
+    assert calls[0]["messages"][0]["role"] == "system"
+    assert heartbeat_ticks >= 3
+
+
+@pytest.mark.asyncio
+async def test_async_procedural_memory_with_custom_llm_keeps_existing_behavior(monkeypatch):
+    converted_inputs = []
+    utils_module = ModuleType("langchain_core.messages.utils")
+
+    def convert_to_messages(messages):
+        converted_inputs.append(messages)
+        return ["converted-message"]
+
+    utils_module.convert_to_messages = convert_to_messages
+    messages_module = ModuleType("langchain_core.messages")
+    messages_module.utils = utils_module
+    langchain_module = ModuleType("langchain_core")
+    langchain_module.messages = messages_module
+    monkeypatch.setitem(sys.modules, "langchain_core", langchain_module)
+    monkeypatch.setitem(sys.modules, "langchain_core.messages", messages_module)
+    monkeypatch.setitem(sys.modules, "langchain_core.messages.utils", utils_module)
+
+    class CustomLLM:
+        def __init__(self):
+            self.inputs = []
+
+        async def ainvoke(self, *, input):
+            self.inputs.append(input)
+            await asyncio.sleep(0)
+            return SimpleNamespace(content="```text\ncustom procedural summary\n```")
+
+    custom_llm = CustomLLM()
+    internal_llm = MagicMock()
+    memory = _build_async_procedural_memory(internal_llm)
+
+    result = await memory._create_procedural_memory(
+        [{"role": "user", "content": "test"}],
+        metadata={"agent_id": "agent-1"},
+        llm=custom_llm,
+    )
+
+    assert result["results"][0]["memory"] == "custom procedural summary"
+    assert custom_llm.inputs == [["converted-message"]]
+    assert converted_inputs
+    internal_llm.generate_response.assert_not_called()
+
+
+def _build_delete_memory(memory_cls, *, failing_memory_ids=(), entity_failure=None):
+    memory = memory_cls.__new__(memory_cls)
+    vector_rows = {
+        memory_id: SimpleNamespace(
+            id=memory_id,
+            payload={
+                "data": f"memory {memory_id}",
+                "user_id": "user-1",
+                "created_at": "2026-01-01T00:00:00+08:00",
+            },
+        )
+        for memory_id in ("memory-1", "memory-2", "memory-3", "memory-other")
+    }
+    vector_rows["memory-other"].payload["user_id"] = "user-2"
+    vector_lock = threading.Lock()
+    vector_store = MagicMock()
+    delete_order = []
+
+    def list_memories(*, filters, top_k=None):
+        with vector_lock:
+            return ([row for row in vector_rows.values() if row.payload.get("user_id") == filters["user_id"]], None)
+
+    def get_memory(*, vector_id):
+        with vector_lock:
+            return vector_rows.get(vector_id)
+
+    def delete_memory(*, vector_id):
+        delete_order.append(vector_id)
+        if vector_id in failing_memory_ids:
+            raise RuntimeError(f"delete failed for {vector_id}")
+        with vector_lock:
+            vector_rows.pop(vector_id, None)
+
+    vector_store.list.side_effect = list_memories
+    vector_store.get.side_effect = get_memory
+    vector_store.delete.side_effect = delete_memory
+    memory.vector_store = vector_store
+    memory.embedding_model = MagicMock()
+    memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+    if entity_failure == "embedding":
+        memory.embedding_model.embed.side_effect = RuntimeError("entity embedding failed")
+    memory.db = MagicMock()
+
+    entity_rows = {
+        "shared": {
+            "data": "shared entity",
+            "user_id": "user-1",
+            "linked_memory_ids": ["memory-1", "memory-2", "memory-3"],
+        },
+        "success-only": {
+            "data": "success entity",
+            "user_id": "user-1",
+            "linked_memory_ids": ["memory-1"],
+        },
+        "failure-only": {
+            "data": "failure entity",
+            "user_id": "user-1",
+            "linked_memory_ids": ["memory-2"],
+        },
+        "other-user": {
+            "data": "other entity",
+            "user_id": "user-2",
+            "linked_memory_ids": ["memory-other"],
+        },
+    }
+    entity_store = MagicMock()
+
+    def list_entities(*, filters, top_k):
+        if entity_failure == "list":
+            raise RuntimeError("entity list failed")
+        rows = [
+            SimpleNamespace(id=entity_id, payload=dict(payload))
+            for entity_id, payload in entity_rows.items()
+            if payload.get("user_id") == filters.get("user_id")
+        ]
+        return (rows, None)
+
+    def update_entity(*, vector_id, vector, payload):
+        if entity_failure == "update":
+            raise RuntimeError("entity update failed")
+        entity_rows[vector_id] = dict(payload)
+
+    def delete_entity(*, vector_id):
+        if entity_failure == "delete":
+            raise RuntimeError("entity delete failed")
+        entity_rows.pop(vector_id, None)
+
+    entity_store.list.side_effect = list_entities
+    entity_store.update.side_effect = update_entity
+    entity_store.delete.side_effect = delete_entity
+    memory._entity_store = entity_store
+    return memory, vector_rows, entity_rows, delete_order
+
+
+@pytest.mark.asyncio
+async def test_sync_async_delete_all_success_contract_and_order(monkeypatch):
+    sync_memory, sync_rows, sync_entities, sync_order = _build_delete_memory(Memory)
+    async_memory, async_rows, async_entities, async_order = _build_delete_memory(AsyncMemory)
+    capture = MagicMock()
+    sync_notice = MagicMock()
+    async_notice = AsyncMock()
+    monkeypatch.setattr("mem0.memory.main.capture_event", capture)
+    monkeypatch.setattr("mem0.memory.main.detect_decay_usage_from_delete_all", lambda *args: None)
+    monkeypatch.setattr("mem0.memory.main.display_first_run_notice", sync_notice)
+    monkeypatch.setattr("mem0.memory.main.display_first_run_notice_async", async_notice)
+
+    sync_result = sync_memory.delete_all(user_id="user-1")
+    async_result = await async_memory.delete_all(user_id="user-1")
+
+    assert sync_result == async_result == {"message": "Memories deleted successfully!"}
+    assert sync_order == async_order == ["memory-1", "memory-2", "memory-3"]
+    assert set(sync_rows) == set(async_rows) == {"memory-other"}
+    assert set(sync_entities) == set(async_entities) == {"other-user"}
+    assert sync_memory.db.add_history.call_count == async_memory.db.add_history.call_count == 3
+    sync_notice.assert_called_once_with(sync_memory, "sync", "delete_all")
+    async_notice.assert_awaited_once_with(async_memory, "async", "delete_all")
+    assert [call.args[2]["sync_type"] for call in capture.call_args_list] == ["sync", "async"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("failed_memory_id", "expected_order", "expected_remaining", "expected_history_count"),
+    [
+        ("memory-1", ["memory-1"], {"memory-1", "memory-2", "memory-3", "memory-other"}, 0),
+        ("memory-2", ["memory-1", "memory-2"], {"memory-2", "memory-3", "memory-other"}, 1),
+    ],
+)
+async def test_sync_async_delete_all_stops_on_primary_failure(
+    monkeypatch,
+    failed_memory_id,
+    expected_order,
+    expected_remaining,
+    expected_history_count,
+):
+    sync_memory, sync_rows, _, sync_order = _build_delete_memory(
+        Memory,
+        failing_memory_ids={failed_memory_id},
+    )
+    async_memory, async_rows, _, async_order = _build_delete_memory(
+        AsyncMemory,
+        failing_memory_ids={failed_memory_id},
+    )
+    monkeypatch.setattr("mem0.memory.main.capture_event", MagicMock())
+
+    with pytest.raises(RuntimeError, match=f"delete failed for {failed_memory_id}") as sync_error:
+        sync_memory.delete_all(user_id="user-1")
+    with pytest.raises(RuntimeError, match=f"delete failed for {failed_memory_id}") as async_error:
+        await async_memory.delete_all(user_id="user-1")
+
+    assert type(async_error.value) is type(sync_error.value)
+    assert str(async_error.value) == str(sync_error.value)
+    assert sync_order == async_order == expected_order
+    assert set(sync_rows) == set(async_rows) == expected_remaining
+    assert sync_memory.db.add_history.call_count == async_memory.db.add_history.call_count == expected_history_count
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("entity_failure", ["list", "delete", "embedding", "update"])
+async def test_sync_async_delete_all_entity_cleanup_failure_is_non_fatal(monkeypatch, caplog, entity_failure):
+    sync_memory, sync_rows, _, sync_order = _build_delete_memory(Memory, entity_failure=entity_failure)
+    async_memory, async_rows, _, async_order = _build_delete_memory(AsyncMemory, entity_failure=entity_failure)
+    monkeypatch.setattr("mem0.memory.main.capture_event", MagicMock())
+    monkeypatch.setattr("mem0.memory.main.detect_decay_usage_from_delete_all", lambda *args: None)
+    monkeypatch.setattr("mem0.memory.main.display_first_run_notice", MagicMock())
+    monkeypatch.setattr("mem0.memory.main.display_first_run_notice_async", AsyncMock())
+
+    with caplog.at_level(logging.DEBUG):
+        sync_result = sync_memory.delete_all(user_id="user-1")
+        async_result = await async_memory.delete_all(user_id="user-1")
+
+    assert sync_result == async_result == {"message": "Memories deleted successfully!"}
+    assert sync_order == async_order == ["memory-1", "memory-2", "memory-3"]
+    assert set(sync_rows) == set(async_rows) == {"memory-other"}
+    assert any("entity" in record.message.lower() and "failed" in record.message.lower() for record in caplog.records)
+
+
+class _FrozenTelemetryConfig:
+    __slots__ = ("collection_name", "path", "host", "port", "api_key", "http_auth")
+
+    def __init__(
+        self,
+        *,
+        collection_name="business-memory",
+        path="/business/vector-store",
+        host="localhost",
+        port=6333,
+        api_key="secret-key",
+        http_auth=None,
+    ):
+        object.__setattr__(self, "collection_name", collection_name)
+        object.__setattr__(self, "path", path)
+        object.__setattr__(self, "host", host)
+        object.__setattr__(self, "port", port)
+        object.__setattr__(self, "api_key", api_key)
+        object.__setattr__(self, "http_auth", http_auth)
+
+    def __setattr__(self, name, value):
+        raise TypeError("telemetry source config is frozen")
+
+    def __deepcopy__(self, memo):
+        raise TypeError("telemetry source config cannot be deep-copied")
+
+    def model_dump(self):
+        return {name: getattr(self, name) for name in self.__slots__}
+
+
+class _PlainTelemetryConfig:
+    def __init__(
+        self,
+        *,
+        collection_name="business-memory",
+        host="localhost",
+        port=9200,
+        path=None,
+        api_key=None,
+        http_auth=None,
+    ):
+        self.collection_name = collection_name
+        self.host = host
+        self.port = port
+        self.path = path
+        self.api_key = api_key
+        self.http_auth = http_auth
+
+
+def _telemetry_memory_config(provider, source_config):
+    config = MemoryConfig(
+        history_db_path=":memory:",
+        enforce_single_process=False,
+        background=BackgroundTaskConfig(enabled=False),
+    )
+    config.vector_store.provider = provider
+    config.vector_store.config = source_config
+    return config
+
+
+@pytest.mark.parametrize("provider", ["faiss", "qdrant"])
+def test_sync_async_telemetry_vector_store_configs_match(monkeypatch, tmp_path, provider):
+    runtime_auth = object()
+    source_config = _FrozenTelemetryConfig(http_auth=runtime_auth)
+    config = _telemetry_memory_config(provider, source_config)
+    vector_stores = [MagicMock(name=name) for name in ("sync-business", "sync-telemetry", "async-business", "async-telemetry")]
+    vector_create = MagicMock(side_effect=vector_stores)
+    monkeypatch.setattr("mem0.memory.main.mem0_dir", str(tmp_path))
+    monkeypatch.setattr("mem0.memory.main.MEM0_TELEMETRY", True)
+    monkeypatch.setattr("mem0.memory.main.VectorStoreFactory.create", vector_create)
+    monkeypatch.setattr("mem0.memory.main.EmbedderFactory.create", MagicMock(return_value=MagicMock()))
+    monkeypatch.setattr("mem0.memory.main.LlmFactory.create", MagicMock(return_value=MagicMock()))
+    monkeypatch.setattr("mem0.memory.main.capture_event", MagicMock())
+
+    sync_memory = Memory(config)
+    async_memory = AsyncMemory(config)
+    try:
+        assert vector_create.call_count == 4
+        sync_business_call, sync_telemetry_call, async_business_call, async_telemetry_call = vector_create.call_args_list
+        assert sync_business_call.args[1] is async_business_call.args[1] is source_config
+
+        sync_telemetry_config = sync_telemetry_call.args[1]
+        async_telemetry_config = async_telemetry_call.args[1]
+        expected_path = str(tmp_path / f"migrations_{provider}")
+        assert type(sync_telemetry_config) is type(async_telemetry_config) is type(source_config)
+        assert sync_telemetry_config is not async_telemetry_config
+        assert sync_telemetry_config.collection_name == async_telemetry_config.collection_name == "mem0migrations"
+        assert sync_telemetry_config.path == async_telemetry_config.path == expected_path
+        assert sync_telemetry_config.http_auth is async_telemetry_config.http_auth is runtime_auth
+        assert sync_telemetry_call.args[0] == async_telemetry_call.args[0] == provider
+        assert sync_telemetry_call.kwargs["timeout_seconds"] == async_telemetry_call.kwargs["timeout_seconds"] == 15.0
+
+        assert source_config.collection_name == "business-memory"
+        assert source_config.path == "/business/vector-store"
+        assert os.path.isdir(expected_path)
+    finally:
+        sync_memory.close()
+        async_memory.close()
+
+
+def test_telemetry_config_builder_supports_plain_runtime_config(monkeypatch, tmp_path):
+    runtime_auth = object()
+    source_config = _PlainTelemetryConfig(api_key="secret-key", http_auth=runtime_auth)
+    config = _telemetry_memory_config("opensearch", source_config)
+    monkeypatch.setattr("mem0.memory.main.mem0_dir", str(tmp_path))
+
+    telemetry_config = _build_telemetry_vector_store_config(config)
+
+    assert type(telemetry_config) is type(source_config)
+    assert telemetry_config.collection_name == "mem0migrations"
+    assert telemetry_config.host == source_config.host
+    assert telemetry_config.port == source_config.port
+    assert telemetry_config.api_key == source_config.api_key
+    assert telemetry_config.http_auth is runtime_auth
+    assert source_config.collection_name == "business-memory"
+
+
+def test_sync_async_telemetry_disabled_has_no_extra_vector_store(monkeypatch):
+    config = MemoryConfig(
+        history_db_path=":memory:",
+        enforce_single_process=False,
+        background=BackgroundTaskConfig(enabled=False),
+    )
+    vector_create = MagicMock(side_effect=[MagicMock(name="sync-business"), MagicMock(name="async-business")])
+    telemetry_config_builder = MagicMock()
+    monkeypatch.setattr("mem0.memory.main.MEM0_TELEMETRY", False)
+    monkeypatch.setattr("mem0.memory.main._build_telemetry_vector_store_config", telemetry_config_builder)
+    monkeypatch.setattr("mem0.memory.main.VectorStoreFactory.create", vector_create)
+    monkeypatch.setattr("mem0.memory.main.EmbedderFactory.create", MagicMock(return_value=MagicMock()))
+    monkeypatch.setattr("mem0.memory.main.LlmFactory.create", MagicMock(return_value=MagicMock()))
+    monkeypatch.setattr("mem0.memory.main.capture_event", MagicMock())
+
+    sync_memory = Memory(config)
+    async_memory = AsyncMemory(config)
+    try:
+        assert vector_create.call_count == 2
+        assert vector_create.call_args_list[0].args[1] is config.vector_store.config
+        assert vector_create.call_args_list[1].args[1] is config.vector_store.config
+        assert getattr(sync_memory, "_telemetry_vector_store", None) is None
+        assert getattr(async_memory, "_telemetry_vector_store", None) is None
+        telemetry_config_builder.assert_not_called()
+    finally:
+        sync_memory.close()
+        async_memory.close()

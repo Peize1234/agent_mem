@@ -2144,3 +2144,126 @@ def test_reset_waits_for_worker_before_clearing_storage(db, monkeypatch):
     assert memory.db.background_jobs_pending() is False
     memory.close()
     assert memory.db is None
+
+
+def _lifecycle_memory(memory_cls, db):
+    memory = memory_cls.__new__(memory_cls)
+    profile_config = UserProfileConfig(enabled=False, update_on_add=False)
+    memory.config = SimpleNamespace(
+        llm=SimpleNamespace(config={}),
+        midterm=SimpleNamespace(enabled=False, short_term_capacity=10),
+        profile=profile_config,
+        background=BackgroundTaskConfig(enabled=True, shutdown_timeout_seconds=2),
+        history_db_path=db.db_path,
+    )
+    memory.db = db
+    memory.api_version = "v1.1"
+    memory.custom_instructions = None
+    memory.vector_store = MagicMock()
+    memory.embedding_model = MagicMock()
+    memory.llm = MagicMock()
+    memory.reranker = None
+    memory._entity_store = None
+    memory._midterm_memory = None
+    memory._midterm_updater = None
+    memory._midterm_retriever = None
+    memory._profile_manager = ProfileManager(db, profile_config)
+    memory._profile_updater = MagicMock()
+    memory._profile_user_locks = {"user-1": threading.Lock()}
+    memory._profile_user_locks_guard = threading.Lock()
+    memory._component_init_lock = threading.RLock()
+    memory._background_worker = MagicMock()
+    memory._background_worker.stop.return_value = True
+    return memory
+
+
+@pytest.mark.asyncio
+async def test_sync_async_reset_have_equivalent_runtime_state(tmp_path, monkeypatch):
+    sync_memory = _lifecycle_memory(Memory, SQLiteManager(str(tmp_path / "sync-reset.db")))
+    async_memory = _lifecycle_memory(AsyncMemory, SQLiteManager(str(tmp_path / "async-reset.db")))
+    sync_old_worker = sync_memory._background_worker
+    async_old_worker = async_memory._background_worker
+    sync_new_worker = MagicMock()
+    async_new_worker = MagicMock()
+    sync_new_worker.stop.return_value = True
+    async_new_worker.stop.return_value = True
+
+    def reinitialize(memory, worker):
+        memory._closed = False
+        memory._background_worker = worker
+
+    sync_memory._reset_midterm_state = MagicMock()
+    async_memory._reset_midterm_state = MagicMock()
+    sync_memory._initialize_background_workers = MagicMock(
+        side_effect=lambda: reinitialize(sync_memory, sync_new_worker)
+    )
+    async_memory._initialize_background_workers = MagicMock(
+        side_effect=lambda: reinitialize(async_memory, async_new_worker)
+    )
+    monkeypatch.setattr(memory_main.VectorStoreFactory, "reset", lambda store: store)
+    monkeypatch.setattr(memory_main, "capture_event", lambda *args, **kwargs: None)
+    monkeypatch.setattr(memory_main, "detect_scale_threshold_from_add_result", lambda *args: None)
+    monkeypatch.setattr(memory_main, "display_first_run_notice", lambda *args: None)
+    monkeypatch.setattr(memory_main, "display_first_run_notice_async", AsyncMock())
+
+    sync_memory.reset()
+    await async_memory.reset()
+
+    for memory, old_worker, new_worker in (
+        (sync_memory, sync_old_worker, sync_new_worker),
+        (async_memory, async_old_worker, async_new_worker),
+    ):
+        old_worker.stop.assert_called_once_with(wait=True, timeout=None)
+        assert memory._background_worker is new_worker
+        assert memory._closed is False
+        assert memory.db.connection is not None
+        assert memory._profile_manager is None
+        assert memory._profile_updater is None
+        assert memory._profile_user_locks == {}
+
+    sync_result = sync_memory.add("sync reusable", user_id="user-1")
+    async_result = await async_memory.add("async reusable", user_id="user-1")
+    assert sync_result["background"] == {"migration_job_id": None, "profile_job_id": None}
+    assert async_result["background"] == {"migration_job_id": None, "profile_job_id": None}
+    assert sync_memory.db.connection.execute("SELECT COUNT(*) FROM messages").fetchone()[0] == 1
+    assert async_memory.db.connection.execute("SELECT COUNT(*) FROM messages").fetchone()[0] == 1
+    assert sync_memory.close() is True
+    assert async_memory.close() is True
+
+
+@pytest.mark.asyncio
+async def test_sync_async_close_have_equivalent_runtime_state(tmp_path):
+    sync_memory = _lifecycle_memory(Memory, SQLiteManager(str(tmp_path / "sync-close.db")))
+    async_memory = _lifecycle_memory(AsyncMemory, SQLiteManager(str(tmp_path / "async-close.db")))
+    sync_worker = sync_memory._background_worker
+    async_worker = async_memory._background_worker
+
+    assert sync_memory.close() is True
+    assert async_memory.close() is True
+
+    for memory, worker in ((sync_memory, sync_worker), (async_memory, async_worker)):
+        worker.stop.assert_called_once_with(wait=True, timeout=2)
+        assert memory.db is None
+        assert memory._background_worker is None
+        assert memory._profile_manager is None
+        assert memory._profile_updater is None
+        assert memory._profile_user_locks == {}
+        memory.vector_store.close.assert_called_once_with()
+
+    with pytest.raises(RuntimeError, match="Cannot add memories after Memory.close") as sync_error:
+        sync_memory.add("closed", user_id="user-1")
+    with pytest.raises(RuntimeError, match="Cannot add memories after Memory.close") as async_error:
+        await async_memory.add("closed", user_id="user-1")
+    assert type(async_error.value) is type(sync_error.value)
+    assert str(async_error.value) == str(sync_error.value)
+
+
+def test_sync_async_close_is_idempotent(tmp_path):
+    sync_memory = _lifecycle_memory(Memory, SQLiteManager(str(tmp_path / "sync-idempotent-close.db")))
+    async_memory = _lifecycle_memory(AsyncMemory, SQLiteManager(str(tmp_path / "async-idempotent-close.db")))
+
+    for memory in (sync_memory, async_memory):
+        assert memory.close() is True
+        assert memory.close() is True
+        assert memory.db is None
+        assert memory._profile_user_locks == {}

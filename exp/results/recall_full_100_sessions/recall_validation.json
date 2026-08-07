@@ -1,0 +1,33 @@
+{
+  "run_valid": false,
+  "failed_turns": 0,
+  "cross_session_leaks": 0,
+  "future_turn_leaks": 0,
+  "migration_job_statuses": {
+    "succeeded": 277,
+    "succeeded_degraded": 1
+  },
+  "stage_statuses": {
+    "midterm_status": {
+      "succeeded": 277,
+      "succeeded_degraded": 1
+    },
+    "longterm_status": {
+      "succeeded": 278
+    }
+  },
+  "invalid_final_jobs": 1,
+  "critical_log_counts": {
+    "qdrant_index_error": 0,
+    "qdrant_shape_error": 0,
+    "degradation_failed": 0,
+    "degraded_storage": 1,
+    "cleanup_failed": 0,
+    "llm_empty_response": 27
+  },
+  "transient_log_counts": {
+    "migration_stage_failed": 52,
+    "llm_extraction_failed": 0,
+    "deepseek_retry": 0
+  }
+}

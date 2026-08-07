@@ -1,0 +1,41 @@
+{
+  "benchmark": {
+    "run_name": "recall_smoke",
+    "reset_storage": true,
+    "output_dir": "exp/results/recall_smoke",
+    "random_seed": 42
+  },
+  "dataset": {
+    "path": "exp/enterprise_finance_memory_sessions_100_v3_realistic_2023_2025.xlsx",
+    "include_sheets": [],
+    "max_sessions": 2,
+    "max_turns_per_session": 15
+  },
+  "storage": {
+    "runtime_dir": "exp/runtime/recall_smoke",
+    "collection_name": "recall_smoke"
+  },
+  "execution": {
+    "session_concurrency": 2,
+    "retrieval_timeout_seconds": 180,
+    "add_timeout_seconds": 180,
+    "background_job_timeout_seconds": 900,
+    "background_poll_interval_seconds": 0.2,
+    "wait_strategy": "before_evaluation"
+  },
+  "memory": {
+    "config_path": "exp/benchmark/memory_config.json",
+    "llm_mode": "real",
+    "infer": true,
+    "profile_enabled": false,
+    "profile_update_on_add": false
+  },
+  "retrieval": {
+    "top_k": 20,
+    "threshold": 0.1,
+    "rerank": false
+  },
+  "evaluation": {
+    "evaluate_only_long_range": true
+  }
+}

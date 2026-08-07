@@ -1,3 +1,4 @@
+import asyncio
 import threading
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -6,7 +7,7 @@ import pytest
 
 from mem0.configs.base import BackgroundTaskConfig
 from mem0.memory import main as memory_main
-from mem0.memory.main import Memory
+from mem0.memory.main import AsyncMemory, Memory
 from mem0.memory.storage import IdempotencyConflictError, SQLiteManager
 from memory_monitor.runtime import DemoMemory
 
@@ -14,6 +15,28 @@ from memory_monitor.runtime import DemoMemory
 def _memory(db, *, demo=False, capacity=0, profile_enabled=True):
     memory_class = DemoMemory if demo else Memory
     memory = memory_class.__new__(memory_class)
+    memory.config = SimpleNamespace(
+        llm=SimpleNamespace(config={}),
+        midterm=SimpleNamespace(enabled=False, short_term_capacity=capacity),
+        profile=SimpleNamespace(enabled=profile_enabled, update_on_add=profile_enabled),
+        background=BackgroundTaskConfig(enabled=True),
+        history_db_path=db.db_path,
+    )
+    memory.db = db
+    memory.api_version = "v1.1"
+    memory.custom_instructions = None
+    memory._background_worker = MagicMock()
+    memory._background_worker.stop.return_value = True
+    memory._midterm_memory = None
+    memory._midterm_updater = None
+    memory._midterm_retriever = None
+    memory._entity_store = None
+    memory.vector_store = MagicMock()
+    return memory
+
+
+def _async_memory(db, *, capacity=0, profile_enabled=True):
+    memory = AsyncMemory.__new__(AsyncMemory)
     memory.config = SimpleNamespace(
         llm=SimpleNamespace(config={}),
         midterm=SimpleNamespace(enabled=False, short_term_capacity=capacity),
@@ -52,8 +75,12 @@ def _counts(db):
 
 @pytest.fixture(autouse=True)
 def disable_add_notices(monkeypatch):
+    async def noop_async(*args, **kwargs):
+        return None
+
     monkeypatch.setattr(memory_main, "detect_scale_threshold_from_add_result", lambda *args: None)
     monkeypatch.setattr(memory_main, "display_first_run_notice", lambda *args: None)
+    monkeypatch.setattr(memory_main, "display_first_run_notice_async", noop_async)
 
 
 def test_persisted_idempotency_reuses_messages_and_both_jobs(tmp_path):
@@ -364,6 +391,159 @@ def test_add_without_idempotency_key_preserves_existing_behavior(tmp_path):
         assert _counts(db) == {"messages": 4, "migration": 2, "profile": 2, "operations": 0}
     finally:
         db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_idempotent_add_reuses_existing_result(tmp_path):
+    db = SQLiteManager(str(tmp_path / "async-history.db"))
+    memory = _async_memory(db)
+    try:
+        first = await memory.add(
+            _messages(),
+            user_id="user-1",
+            run_id="run-1",
+            idempotency_key="operation-1",
+        )
+        second = await memory.add(
+            _messages(),
+            user_id="user-1",
+            run_id="run-1",
+            idempotency_key="operation-1",
+        )
+
+        assert second == first
+        assert _counts(db) == {"messages": 2, "migration": 1, "profile": 1, "operations": 1}
+        assert db.get_idempotency_operation("operation-1")["result"] == first
+    finally:
+        db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_idempotency_conflict_rejects_changed_request(tmp_path):
+    db = SQLiteManager(str(tmp_path / "async-history.db"))
+    memory = _async_memory(db)
+    try:
+        await memory.add(
+            _messages(),
+            user_id="user-1",
+            run_id="run-1",
+            metadata={"source": "first"},
+            idempotency_key="operation-1",
+        )
+
+        with pytest.raises(IdempotencyConflictError, match="conflicts with a different request"):
+            await memory.add(
+                _messages(user="changed question"),
+                user_id="user-1",
+                run_id="run-1",
+                metadata={"source": "second"},
+                idempotency_key="operation-1",
+            )
+
+        assert _counts(db) == {"messages": 2, "migration": 1, "profile": 1, "operations": 1}
+    finally:
+        db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_concurrent_idempotent_add_has_single_database_winner(tmp_path):
+    db_path = tmp_path / "async-history.db"
+    first_db = SQLiteManager(str(db_path))
+    second_db = SQLiteManager(str(db_path))
+    first_memory = _async_memory(first_db)
+    second_memory = _async_memory(second_db)
+    try:
+        first, second = await asyncio.gather(
+            first_memory.add(
+                _messages(),
+                user_id="user-1",
+                run_id="run-1",
+                idempotency_key="operation-1",
+            ),
+            second_memory.add(
+                _messages(),
+                user_id="user-1",
+                run_id="run-1",
+                idempotency_key="operation-1",
+            ),
+        )
+
+        assert second == first
+        assert _counts(first_db) == {"messages": 2, "migration": 1, "profile": 1, "operations": 1}
+    finally:
+        first_db.close()
+        second_db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_add_without_idempotency_key_keeps_existing_behavior(tmp_path):
+    db = SQLiteManager(str(tmp_path / "async-history.db"))
+    memory = _async_memory(db)
+    try:
+        first = await memory.add(_messages(), user_id="user-1", run_id="run-1")
+        second = await memory.add(_messages(), user_id="user-1", run_id="run-1")
+
+        assert first["background"]["migration_job_id"] != second["background"]["migration_job_id"]
+        assert first["background"]["profile_job_id"] != second["background"]["profile_job_id"]
+        assert _counts(db) == {"messages": 4, "migration": 2, "profile": 2, "operations": 0}
+    finally:
+        db.close()
+
+
+@pytest.mark.asyncio
+async def test_sync_async_background_add_contract_matches(tmp_path):
+    sync_db = SQLiteManager(str(tmp_path / "sync-contract.db"))
+    async_db = SQLiteManager(str(tmp_path / "async-contract.db"))
+    sync_memory = _memory(sync_db)
+    async_memory = _async_memory(async_db)
+    messages = _messages(user="contract question", assistant="contract answer")
+    request = {
+        "user_id": "user-1",
+        "run_id": "run-1",
+        "metadata": {"source": "contract-test"},
+        "infer": False,
+        "prompt": "contract prompt",
+        "idempotency_key": "contract-operation",
+    }
+    try:
+        sync_result = sync_memory.add(messages, **request)
+        async_result = await async_memory.add(messages, **request)
+
+        assert sync_result.keys() == async_result.keys() == {"results", "background"}
+        assert sync_result["results"] == async_result["results"] == []
+        assert all(sync_result["background"].values())
+        assert all(async_result["background"].values())
+        assert (
+            _counts(sync_db)
+            == _counts(async_db)
+            == {
+                "messages": 2,
+                "migration": 1,
+                "profile": 1,
+                "operations": 1,
+            }
+        )
+
+        sync_operation = sync_db.get_idempotency_operation("contract-operation")
+        async_operation = async_db.get_idempotency_operation("contract-operation")
+        assert sync_operation["request_hash"] == async_operation["request_hash"]
+        assert sync_operation["status"] == async_operation["status"] == "succeeded"
+
+        sync_migration = sync_db.get_background_job(sync_result["background"]["migration_job_id"])
+        async_migration = async_db.get_background_job(async_result["background"]["migration_job_id"])
+        for field in ("session_scope", "status", "filters", "metadata", "infer", "prompt", "sequence_no"):
+            assert sync_migration[field] == async_migration[field]
+
+        sync_profile = sync_db.get_background_job(sync_result["background"]["profile_job_id"], "profile")
+        async_profile = async_db.get_background_job(async_result["background"]["profile_job_id"], "profile")
+        for field in ("user_id", "messages", "status", "sequence_no"):
+            assert sync_profile[field] == async_profile[field]
+
+        assert sync_db.connection.execute("SELECT COUNT(*) FROM history").fetchone()[0] == 0
+        assert async_db.connection.execute("SELECT COUNT(*) FROM history").fetchone()[0] == 0
+    finally:
+        sync_db.close()
+        async_db.close()
 
 
 def test_reset_removes_idempotency_table(tmp_path):

@@ -980,12 +980,13 @@ async def test_async_delete_memory_history_has_timestamps(mock_sqlite, mock_llm_
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
 @patch('mem0.memory.main.SQLiteManager')
-async def test_async_delete_all_continues_on_partial_failure(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
-    """async delete_all must not abort when a single memory fails to delete.
-
-    Without return_exceptions=True, asyncio.gather raises on the first error
-    and cancels remaining tasks, leaving a partial deletion.
-    """
+async def test_async_delete_all_stops_at_first_primary_failure(
+    mock_sqlite,
+    mock_llm_factory,
+    mock_vector_factory,
+    mock_embedder_factory,
+):
+    """async delete_all must match sync ordering and stop at the first primary failure."""
     mock_embedder_factory.return_value = MagicMock()
     mock_vector_store = MagicMock()
     mock_vector_factory.return_value = mock_vector_store
@@ -1018,10 +1019,12 @@ async def test_async_delete_all_continues_on_partial_failure(mock_sqlite, mock_l
 
     mock_vector_store.get.side_effect = _get_side_effect
 
-    result = await memory.delete_all(user_id="test-user")
+    with pytest.raises(RuntimeError, match="simulated store failure"):
+        await memory.delete_all(user_id="test-user")
 
-    assert result == {"message": "Memories deleted successfully!"}
-    assert mock_vector_store.delete.call_count == 2
+    mock_vector_store.delete.assert_called_once_with(vector_id="mem-1")
+    assert [call.kwargs["vector_id"] for call in mock_vector_store.get.call_args_list] == ["mem-1", "mem-2"]
+    memory.close()
 
 
 @patch('mem0.utils.factory.EmbedderFactory.create')
@@ -1479,11 +1482,16 @@ class TestAsyncDeleteAllEntityRace:
     @patch('mem0.utils.factory.VectorStoreFactory.create')
     @patch('mem0.utils.factory.LlmFactory.create')
     @patch('mem0.memory.storage.SQLiteManager')
-    async def test_async_delete_all_bulk_clears_entity_store(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    async def test_async_delete_all_clears_only_deleted_memory_entity_links(
+        self,
+        mock_sqlite,
+        mock_llm_factory,
+        mock_vector_factory,
+        mock_embedder_factory,
+    ):
         """
-        Verify that async delete_all bulk-clears entity records after
-        concurrent memory deletes complete, preventing both the
-        read-modify-write race and entity orphaning on partial failures.
+        Verify that async delete_all serializes entity link cleanup after
+        each primary delete, preventing entity link read-modify-write races.
         """
         mock_embedder_factory.return_value = MagicMock()
         mock_llm_factory.return_value = MagicMock()
@@ -1501,25 +1509,41 @@ class TestAsyncDeleteAllEntityRace:
         mock_vector_factory.return_value = mock_vector_store
 
         mock_entity_store = MagicMock()
-        entity_row = MagicMock()
-        entity_row.id = "entity-alice"
-        entity_row.payload = {
+        entity_payload = {
             "data": "alice",
             "user_id": "alice",
             "linked_memory_ids": ["mem-a", "mem-b"],
         }
-        mock_entity_store.list.return_value = ([entity_row],)
+
+        def list_entities(*, filters, top_k):
+            if not entity_payload:
+                return ([],)
+            return ([MagicMock(id="entity-alice", payload=dict(entity_payload))],)
+
+        def update_entity(*, vector_id, vector, payload):
+            entity_payload.clear()
+            entity_payload.update(payload)
+
+        def delete_entity(*, vector_id):
+            entity_payload.clear()
+
+        mock_entity_store.list.side_effect = list_entities
+        mock_entity_store.update.side_effect = update_entity
+        mock_entity_store.delete.side_effect = delete_entity
 
         from mem0.memory.main import AsyncMemory
         config = MemoryConfig()
         memory = AsyncMemory(config)
         memory._entity_store = mock_entity_store
 
-        await memory.delete_all(user_id="alice")
+        try:
+            await memory.delete_all(user_id="alice")
 
-        mock_entity_store.delete.assert_called_once_with(vector_id="entity-alice")
-
-        assert mock_vector_store.delete.call_count == 2
+            mock_entity_store.delete.assert_called_once_with(vector_id="entity-alice")
+            assert mock_entity_store.update.call_count == 1
+            assert mock_vector_store.delete.call_count == 2
+        finally:
+            memory.close()
 
 
 @pytest.mark.asyncio

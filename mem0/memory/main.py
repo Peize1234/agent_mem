@@ -1,7 +1,7 @@
 import asyncio
 import concurrent.futures
-import gc
 import hashlib
+import inspect
 import json
 import logging
 import os
@@ -520,6 +520,28 @@ def _safe_deepcopy_config(config):
             return type("Config", (), clone_dict)()
 
 
+def _build_telemetry_vector_store_config(config: MemoryConfig):
+    """Build an isolated telemetry vector-store config using the source config type."""
+    source_config = config.vector_store.config
+    if hasattr(source_config, "model_dump"):
+        telemetry_config_dict = source_config.model_dump()
+    else:
+        telemetry_config_dict = {}
+        common_attributes = ("host", "port", "path", "api_key", "index_name", "dimension", "metric")
+        for attribute in (*common_attributes, *_RUNTIME_FIELDS):
+            if hasattr(source_config, attribute):
+                telemetry_config_dict[attribute] = getattr(source_config, attribute)
+
+    telemetry_config_dict["collection_name"] = "mem0migrations"
+    provider = config.vector_store.provider
+    if provider in {"faiss", "qdrant"}:
+        telemetry_path = os.path.join(mem0_dir, f"migrations_{provider}")
+        os.makedirs(telemetry_path, exist_ok=True)
+        telemetry_config_dict["path"] = telemetry_path
+
+    return type(source_config)(**telemetry_config_dict)
+
+
 def _build_filters_and_metadata(
     *,  # Enforce keyword-only arguments
     user_id: Optional[str] = None,
@@ -643,6 +665,35 @@ def _memory_add_request_hash(
         default=str,
     )
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _validate_and_trim_idempotency_key(idempotency_key: Optional[str]) -> Optional[str]:
+    """Apply the persisted add idempotency-key contract shared by both APIs."""
+    if idempotency_key is not None and (not isinstance(idempotency_key, str) or not idempotency_key.strip()):
+        raise ValueError("idempotency_key must be a non-empty string")
+    return idempotency_key.strip() if idempotency_key is not None else None
+
+
+def _validate_memory_type(memory_type: Optional[str]) -> None:
+    """Validate the OSS memory type without letting sync and async errors drift."""
+    if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
+        raise Mem0ValidationError(
+            message=(
+                f"Invalid 'memory_type'. Please pass {MemoryType.PROCEDURAL.value} to create procedural memories."
+            ),
+            error_code="VALIDATION_002",
+            details={"provided_type": memory_type, "valid_type": MemoryType.PROCEDURAL.value},
+            suggestion=f"Use '{MemoryType.PROCEDURAL.value}' to create procedural memories.",
+        )
+
+
+def _build_procedural_memory_messages(messages: list, prompt: Optional[str]) -> list:
+    """Build the procedural-memory prompt identically for sync and async callers."""
+    return [
+        {"role": "system", "content": prompt or PROCEDURAL_MEMORY_SYSTEM_PROMPT},
+        *messages,
+        {"role": "user", "content": "Create procedural memory of the above conversation."},
+    ]
 
 
 def _normalize_context_request(query: str, user_id: str, session_id: str) -> tuple[str, str, str]:
@@ -1233,6 +1284,12 @@ class _BackgroundMemoryMixin:
         with guard:
             self._profile_user_locks.clear()
 
+    def _clear_profile_runtime_state(self) -> None:
+        """Drop profile objects and per-user locks tied to the current database runtime."""
+        self._profile_manager = None
+        self._profile_updater = None
+        self._clear_profile_user_thread_locks()
+
     def _initialize_background_workers(self) -> None:
         if not hasattr(self, "_background_lifecycle_lock"):
             self._background_lifecycle_lock = threading.RLock()
@@ -1734,6 +1791,7 @@ class _BackgroundMemoryMixin:
             db = getattr(self, "db", None)
         if db is None:
             self._shutdown_entity_extraction_executor()
+            self._clear_profile_runtime_state()
             self._release_process_instance_lock()
             return True
         logger.info("worker shutdown started timeout_seconds=%s", timeout)
@@ -1751,6 +1809,7 @@ class _BackgroundMemoryMixin:
             self.db = None
             if getattr(self, "_background_worker", None) is worker:
                 self._background_worker = None
+        self._clear_profile_runtime_state()
         logger.info(
             "database closed history_db_path=%s",
             getattr(getattr(self, "config", None), "history_db_path", getattr(db, "db_path", None)),
@@ -1866,29 +1925,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         self._profile_user_locks_guard = threading.Lock()
 
         if MEM0_TELEMETRY:
-            # Create telemetry config manually to avoid deepcopy issues with thread locks
-            telemetry_config_dict = {}
-            if hasattr(self.config.vector_store.config, 'model_dump'):
-                # For pydantic models
-                telemetry_config_dict = self.config.vector_store.config.model_dump()
-            else:
-                # For other objects, manually copy common attributes
-                for attr in ['host', 'port', 'path', 'api_key', 'index_name', 'dimension', 'metric']:
-                    if hasattr(self.config.vector_store.config, attr):
-                        telemetry_config_dict[attr] = getattr(self.config.vector_store.config, attr)
-
-            # Override collection name for telemetry
-            telemetry_config_dict['collection_name'] = "mem0migrations"
-
-            # Set path for file-based vector stores
-            telemetry_config = _safe_deepcopy_config(self.config.vector_store.config)
-            if self.config.vector_store.provider in ["faiss", "qdrant"]:
-                provider_path = f"migrations_{self.config.vector_store.provider}"
-                telemetry_config_dict['path'] = os.path.join(mem0_dir, provider_path)
-                os.makedirs(telemetry_config_dict['path'], exist_ok=True)
-
-            # Create the config object using the same class as the original
-            telemetry_config = self.config.vector_store.config.__class__(**telemetry_config_dict)
+            telemetry_config = _build_telemetry_vector_store_config(self.config)
             self._telemetry_vector_store = VectorStoreFactory.create(
                 self.config.vector_store.provider,
                 telemetry_config,
@@ -2595,10 +2632,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         """
         if timestamp is not None:
             raise ValueError(get_temporal_feature_error_message("sync", "add", "timestamp"))
-        if idempotency_key is not None and (not isinstance(idempotency_key, str) or not idempotency_key.strip()):
-            raise ValueError("idempotency_key must be a non-empty string")
-        if idempotency_key is not None:
-            idempotency_key = idempotency_key.strip()
+        idempotency_key = _validate_and_trim_idempotency_key(idempotency_key)
 
         normalized_expiration_date = _normalize_expiration_date(expiration_date)
         temporal_usage_notice = detect_temporal_usage_from_metadata(metadata)
@@ -2612,13 +2646,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         if normalized_expiration_date is not None:
             processed_metadata["expiration_date"] = normalized_expiration_date
 
-        if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
-            raise Mem0ValidationError(
-                message=f"Invalid 'memory_type'. Please pass {MemoryType.PROCEDURAL.value} to create procedural memories.",
-                error_code="VALIDATION_002",
-                details={"provided_type": memory_type, "valid_type": MemoryType.PROCEDURAL.value},
-                suggestion=f"Use '{MemoryType.PROCEDURAL.value}' to create procedural memories."
-            )
+        _validate_memory_type(memory_type)
 
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
@@ -3989,14 +4017,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         """
         logger.info("Creating procedural memory")
 
-        parsed_messages = [
-            {"role": "system", "content": prompt or PROCEDURAL_MEMORY_SYSTEM_PROMPT},
-            *messages,
-            {
-                "role": "user",
-                "content": "Create procedural memory of the above conversation.",
-            },
-        ]
+        parsed_messages = _build_procedural_memory_messages(messages, prompt)
 
         try:
             procedural_memory = self.llm.generate_response(messages=parsed_messages)
@@ -4129,8 +4150,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         self.db.reset()
         self.db.close()
         self.db = SQLiteManager(self.config.history_db_path)
-        self._profile_manager = None
-        self._profile_updater = None
+        self._clear_profile_runtime_state()
 
         if hasattr(self.vector_store, "reset"):
             self.vector_store = VectorStoreFactory.reset(self.vector_store)
@@ -4210,12 +4230,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             )
 
         if MEM0_TELEMETRY:
-            telemetry_config = _safe_deepcopy_config(self.config.vector_store.config)
-            telemetry_config.collection_name = "mem0migrations"
-            if self.config.vector_store.provider in ["faiss", "qdrant"]:
-                provider_path = f"migrations_{self.config.vector_store.provider}"
-                telemetry_config.path = os.path.join(mem0_dir, provider_path)
-                os.makedirs(telemetry_config.path, exist_ok=True)
+            telemetry_config = _build_telemetry_vector_store_config(self.config)
             self._telemetry_vector_store = VectorStoreFactory.create(
                 self.config.vector_store.provider,
                 telemetry_config,
@@ -4906,6 +4921,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         infer: bool = True,
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
+        idempotency_key: Optional[str] = None,
         llm=None,
     ):
         """
@@ -4925,6 +4941,8 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             memory_type (str, optional): Type of memory to create. Defaults to None.
                                          Pass "procedural_memory" to create procedural memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
+            idempotency_key (str, optional): Persisted key that makes a background add
+                safe to retry with the same business inputs. Defaults to None.
             llm (BaseChatModel, optional): LLM class to use for generating procedural memories. Defaults to None. Useful when user is using LangChain ChatModel.
         Returns:
             dict: The same submission result as :meth:`Memory.add`; background job IDs indicate
@@ -4932,6 +4950,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         """
         if timestamp is not None:
             raise ValueError(await get_temporal_feature_error_message_async("async", "add", "timestamp"))
+        idempotency_key = _validate_and_trim_idempotency_key(idempotency_key)
 
         normalized_expiration_date = _normalize_expiration_date(expiration_date)
         temporal_usage_notice = detect_temporal_usage_from_metadata(metadata)
@@ -4942,10 +4961,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         if normalized_expiration_date is not None:
             processed_metadata["expiration_date"] = normalized_expiration_date
 
-        if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
-            raise ValueError(
-                f"Invalid 'memory_type'. Please pass {MemoryType.PROCEDURAL.value} to create procedural memories."
-            )
+        _validate_memory_type(memory_type)
 
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
@@ -4962,6 +4978,8 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             )
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
+            if idempotency_key is not None:
+                raise ValueError("idempotency_key is not supported for procedural memory adds")
             results = await self._create_procedural_memory(
                 messages, metadata=processed_metadata, prompt=prompt, llm=llm
             )
@@ -4991,13 +5009,20 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             return results
 
         if self.config.llm.config.get("enable_vision"):
-            messages = parse_vision_messages(messages, self.llm, self.config.llm.config.get("vision_details"))
+            messages = await asyncio.to_thread(
+                parse_vision_messages,
+                messages,
+                self.llm,
+                self.config.llm.config.get("vision_details"),
+            )
         else:
-            messages = parse_vision_messages(messages)
+            messages = await asyncio.to_thread(parse_vision_messages, messages)
 
         # Persist short-term state before returning; extraction remains in durable workers.
         session_scope = _build_session_scope(effective_filters)
         if not self._background_config().enabled:
+            if idempotency_key is not None:
+                raise ValueError("idempotency_key requires background task persistence")
             evicted_messages = await self._save_short_term_messages(messages, session_scope)
             vector_store_result = []
             if evicted_messages:
@@ -5027,6 +5052,18 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                 },
             }
 
+        request_hash = (
+            _memory_add_request_hash(
+                messages=messages,
+                filters=effective_filters,
+                metadata=processed_metadata,
+                infer=infer,
+                memory_type=memory_type,
+                prompt=prompt,
+            )
+            if idempotency_key is not None
+            else None
+        )
         migration_job_id, profile_job_id = await asyncio.to_thread(
             self._save_and_enqueue_background_jobs,
             messages,
@@ -5036,6 +5073,8 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             normalized_user_id=normalized_user_id,
             infer=infer,
             prompt=prompt,
+            idempotency_key=idempotency_key,
+            request_hash=request_hash,
         )
         vector_store_result = []
 
@@ -6251,22 +6290,10 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"})
         memories = await asyncio.to_thread(self.vector_store.list, filters=filters)
 
-        delete_tasks = []
         for memory in memories[0]:
-            delete_tasks.append(self._delete_memory(memory.id, skip_entity_cleanup=True))
+            await self._delete_memory(memory.id)
 
-        results = await asyncio.gather(*delete_tasks, return_exceptions=True)
-
-        if self._entity_store is not None:
-            await self._bulk_clear_entity_store(filters)
-
-        errors = [r for r in results if isinstance(r, BaseException)]
-        if errors:
-            logger.warning("Failed to delete %d out of %d memories", len(errors), len(results))
-            for err in errors:
-                logger.warning("Delete error: %s", err)
-
-        logger.info(f"Deleted {len(results) - len(errors)} memories")
+        logger.info("Deleted %d memories", len(memories[0]))
 
         decay_usage_notice = detect_decay_usage_from_delete_all(len(memories[0]))
         if decay_usage_notice:
@@ -6347,33 +6374,43 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             llm (llm, optional): LLM to use for the procedural memory creation. Defaults to None.
             prompt (str, optional): Prompt to use for the procedural memory creation. Defaults to None.
         """
-        try:
-            from langchain_core.messages.utils import (
-                convert_to_messages,  # type: ignore
-            )
-        except Exception:
-            logger.error(
-                "Import error while loading langchain-core. Please install 'langchain-core' to use procedural memory."
-            )
-            raise
-
         logger.info("Creating procedural memory")
 
-        parsed_messages = [
-            {"role": "system", "content": prompt or PROCEDURAL_MEMORY_SYSTEM_PROMPT},
-            *messages,
-            {"role": "user", "content": "Create procedural memory of the above conversation."},
-        ]
+        parsed_messages = _build_procedural_memory_messages(messages, prompt)
 
         try:
             if llm is not None:
+                try:
+                    from langchain_core.messages.utils import convert_to_messages  # type: ignore
+                except Exception:
+                    logger.error(
+                        "Import error while loading langchain-core. "
+                        "Please install 'langchain-core' to use a custom LangChain procedural-memory model."
+                    )
+                    raise
                 parsed_messages = convert_to_messages(parsed_messages)
-                response = await asyncio.to_thread(llm.invoke, input=parsed_messages)
+                async_invoke = getattr(llm, "ainvoke", None)
+                if inspect.iscoroutinefunction(async_invoke):
+                    response = await async_invoke(input=parsed_messages)
+                else:
+                    response = await asyncio.to_thread(llm.invoke, input=parsed_messages)
                 procedural_memory = remove_code_blocks(response.content)
             else:
-                procedural_memory = await asyncio.to_thread(self.llm.generate_response, messages=parsed_messages)
+                async_generate = None
+                for method_name in ("generate_response_async", "agenerate_response"):
+                    candidate = getattr(self.llm, method_name, None)
+                    if inspect.iscoroutinefunction(candidate):
+                        async_generate = candidate
+                        break
+                if async_generate is None:
+                    procedural_memory = await asyncio.to_thread(
+                        self.llm.generate_response,
+                        messages=parsed_messages,
+                    )
+                else:
+                    procedural_memory = await async_generate(messages=parsed_messages)
                 procedural_memory = remove_code_blocks(procedural_memory)
-        
+
         except Exception as e:
             logger.error(f"Error generating procedural memory summary: {e}")
             raise
@@ -6502,25 +6539,22 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
 
         await asyncio.to_thread(self._pause_background_workers_for_reset)
         await asyncio.to_thread(self._reset_midterm_state)
-        self._profile_manager = None
-        self._profile_updater = None
-        self._clear_profile_user_thread_locks()
         await asyncio.to_thread(self.db.reset)
         await asyncio.to_thread(self.db.close)
         self.db = await asyncio.to_thread(SQLiteManager, self.config.history_db_path)
+        self._clear_profile_runtime_state()
 
         if hasattr(self.vector_store, "reset"):
             self.vector_store = await asyncio.to_thread(VectorStoreFactory.reset, self.vector_store)
         else:
             logger.warning("Vector store does not support reset. Skipping.")
             await asyncio.to_thread(self.vector_store.delete_col)
-            self.vector_store = VectorStoreFactory.create(
+            self.vector_store = await asyncio.to_thread(
+                VectorStoreFactory.create,
                 self.config.vector_store.provider,
                 self.config.vector_store.config,
                 timeout_seconds=self.config.vector_store_timeout_seconds,
             )
-
-        gc.collect()
 
         if self._entity_store is not None:
             try:
@@ -6529,7 +6563,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                 logger.warning(f"Failed to reset entity store: {e}")
             self._entity_store = None
 
-        self._initialize_background_workers()
+        await asyncio.to_thread(self._initialize_background_workers)
         capture_event("mem0.reset", self, {"sync_type": "async"})
         await display_first_run_notice_async(self, "async", "reset")
 
@@ -6538,12 +6572,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
 
     def close(self) -> bool:
         """Release resources held by this AsyncMemory instance."""
-        closed = self._close_background_workers_and_db()
-        if closed:
-            self._profile_manager = None
-            self._profile_updater = None
-            self._clear_profile_user_thread_locks()
-        return closed
+        return self._close_background_workers_and_db()
 
     async def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")

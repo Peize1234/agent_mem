@@ -1,0 +1,54 @@
+{
+  "benchmark": {
+    "run_name": "concurrency_50rps_real_llm",
+    "reset_storage": true,
+    "output_dir": "exp/results/concurrency_50rps_real_llm",
+    "random_seed": 42
+  },
+  "dataset": {
+    "path": "exp/enterprise_finance_memory_sessions_100_v3_realistic_2023_2025.xlsx",
+    "include_sheets": [],
+    "max_sessions": null,
+    "max_turns_per_session": null
+  },
+  "storage": {
+    "runtime_dir": "exp/runtime/concurrency_50rps_real_llm",
+    "collection_name": "concurrency_50rps_real_llm"
+  },
+  "memory": {
+    "config_path": "exp/benchmark/memory_config.json",
+    "llm_mode": "real",
+    "infer": true,
+    "profile_enabled": true,
+    "profile_update_on_add": true
+  },
+  "load": {
+    "workload": "mixed",
+    "target_rps": 50,
+    "max_in_flight": 100,
+    "traffic_model": "uniform",
+    "warmup_requests": 50,
+    "duration_seconds": null,
+    "max_requests": 300,
+    "request_timeout_seconds": 300,
+    "background_drain_timeout_seconds": 3600,
+    "system_sample_interval_seconds": 1.0
+  },
+  "prefill": {
+    "enabled": true,
+    "turns_per_session": 6,
+    "session_concurrency": 25,
+    "wait_for_background": true
+  },
+  "retrieval": {
+    "top_k": 20,
+    "threshold": 0.1,
+    "rerank": false
+  },
+  "output": {
+    "save_request_records": true,
+    "save_background_job_records": true,
+    "save_system_metrics": true,
+    "save_queue_samples": true
+  }
+}
