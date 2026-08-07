@@ -1,0 +1,201 @@
+{
+  "sheet": "S001_贵州茅台_投研",
+  "page_count": 47,
+  "long_range_gold_count": 21,
+  "baseline_miss_count": 15,
+  "qdrant": {
+    "base_collection": "recall_full_100_sessions",
+    "page_collection": "recall_full_100_sessions_midterm_pages",
+    "actual_embedding_text_formula": "summary + Keywords + User",
+    "payload_matches_code": 47
+  },
+  "generation_config": {
+    "model": "deepseek-chat",
+    "temperature": 0.0,
+    "top_p": 0.1,
+    "top_k": 1,
+    "max_tokens": 2500
+  },
+  "ablation": {
+    "current_production": {
+      "variant": "current_production",
+      "gold_count": 21,
+      "recall_at_1": 0.047619047619047616,
+      "recall_at_3": 0.2857142857142857,
+      "recall_at_5": 0.2857142857142857,
+      "recall_at_10": 0.7619047619047619,
+      "mrr": 0.20079785502717834,
+      "mean_gold_rank": 8.857142857142858,
+      "median_gold_rank": 8
+    },
+    "current_prompt_regenerated": {
+      "variant": "current_prompt_regenerated",
+      "gold_count": 21,
+      "recall_at_1": 0.047619047619047616,
+      "recall_at_3": 0.38095238095238093,
+      "recall_at_5": 0.47619047619047616,
+      "recall_at_10": 0.5714285714285714,
+      "mrr": 0.23697175840032983,
+      "mean_gold_rank": 10.904761904761905,
+      "median_gold_rank": 7
+    },
+    "retrieval_focused": {
+      "variant": "retrieval_focused",
+      "gold_count": 21,
+      "recall_at_1": 0.0,
+      "recall_at_3": 0.14285714285714285,
+      "recall_at_5": 0.2857142857142857,
+      "recall_at_10": 0.47619047619047616,
+      "mrr": 0.14884150009463293,
+      "mean_gold_rank": 12.095238095238095,
+      "median_gold_rank": 11
+    },
+    "minimal": {
+      "variant": "minimal",
+      "gold_count": 21,
+      "recall_at_1": 0.0,
+      "recall_at_3": 0.09523809523809523,
+      "recall_at_5": 0.23809523809523808,
+      "recall_at_10": 0.47619047619047616,
+      "mrr": 0.12822761720703507,
+      "mean_gold_rank": 12.333333333333334,
+      "median_gold_rank": 11
+    },
+    "user_input": {
+      "variant": "user_input",
+      "gold_count": 21,
+      "recall_at_1": 0.0,
+      "recall_at_3": 0.09523809523809523,
+      "recall_at_5": 0.19047619047619047,
+      "recall_at_10": 0.47619047619047616,
+      "mrr": 0.12747512137531303,
+      "mean_gold_rank": 11.619047619047619,
+      "median_gold_rank": 11
+    },
+    "summary": {
+      "variant": "summary",
+      "gold_count": 21,
+      "recall_at_1": 0.0,
+      "recall_at_3": 0.2857142857142857,
+      "recall_at_5": 0.3333333333333333,
+      "recall_at_10": 0.7142857142857143,
+      "mrr": 0.19606257707761468,
+      "mean_gold_rank": 8.904761904761905,
+      "median_gold_rank": 7
+    }
+  },
+  "similarity": {
+    "user_input": {
+      "representation": "user_input",
+      "pair_count": 1081,
+      "mean": 0.5817446820601516,
+      "median": 0.5809772092920947,
+      "p75": 0.6360415546016962,
+      "p90": 0.6746663429890005,
+      "p95": 0.698044004550325,
+      "max": 0.8311422139298642
+    },
+    "summary": {
+      "representation": "summary",
+      "pair_count": 1081,
+      "mean": 0.8614127483272295,
+      "median": 0.8635247578483765,
+      "p75": 0.8913983211645548,
+      "p90": 0.9132987179441548,
+      "p95": 0.9223397386709973,
+      "max": 0.9558289873469401
+    },
+    "raw_dialogue": {
+      "representation": "raw_dialogue",
+      "pair_count": 1081,
+      "mean": 0.8281849196995239,
+      "median": 0.8347993232891358,
+      "p75": 0.863648244410185,
+      "p90": 0.8828985286640986,
+      "p95": 0.8954800942453579,
+      "max": 0.9461226144943664
+    },
+    "current": {
+      "representation": "current",
+      "pair_count": 1081,
+      "mean": 0.8579516799982256,
+      "median": 0.8601288089818427,
+      "p75": 0.8898509759698018,
+      "p90": 0.9105393133439553,
+      "p95": 0.9188854666483822,
+      "max": 0.9514265037785569
+    },
+    "current_regenerated": {
+      "representation": "current_regenerated",
+      "pair_count": 1081,
+      "mean": 0.9056413606543382,
+      "median": 0.9114283999101245,
+      "p75": 0.9300617408758786,
+      "p90": 0.9419473965129842,
+      "p95": 0.9488766962130957,
+      "max": 0.9650246421602918
+    },
+    "retrieval_focused": {
+      "representation": "retrieval_focused",
+      "pair_count": 1081,
+      "mean": 0.7686659572199868,
+      "median": 0.7706171145256661,
+      "p75": 0.8087679783666417,
+      "p90": 0.8384662042702005,
+      "p95": 0.8600483484059367,
+      "max": 0.9333205162182424
+    },
+    "minimal": {
+      "representation": "minimal",
+      "pair_count": 1081,
+      "mean": 0.7905965706699383,
+      "median": 0.7890734923785505,
+      "p75": 0.8357144108330048,
+      "p90": 0.8723931565509623,
+      "p95": 0.8929639976947792,
+      "max": 0.9424604525357622
+    }
+  },
+  "root_cause_counts": {
+    "QUERY_PRIMARY": 7,
+    "DATASET": 3,
+    "BOTH": 3,
+    "PAGE_PROMPT_PRIMARY": 1,
+    "OTHER": 1
+  },
+  "retrieval_focused_recall_at_5_gain": 0.0,
+  "same_model_retrieval_vs_current_regenerated_recall_at_5_gain": -0.19047619047619047,
+  "preservation": {
+    "hit": {
+      "topic": 1.0,
+      "key_fact": 1.0,
+      "key_number": 1.0,
+      "conclusion": 1.0,
+      "relation": 1.0
+    },
+    "miss": {
+      "topic": 1.0,
+      "key_fact": 1.0,
+      "key_number": 1.0,
+      "conclusion": 1.0,
+      "relation": 1.0
+    }
+  },
+  "cashflow_relation": {
+    "matched_pages": 23,
+    "current_explicit": 13,
+    "retrieval_focused_explicit": 12
+  },
+  "stability": {
+    "sample_count": 12,
+    "exact_match_rate": 0.08333333333333333,
+    "embedding_cosine_mean": 0.963923904298321,
+    "embedding_cosine_min": 0.8834733818758678,
+    "rank_abs_change_mean": 0.5,
+    "rank_abs_change_max": 5,
+    "rank_same_rate": 0.8333333333333334,
+    "top5_status_same_rate": 1.0
+  },
+  "headline_conclusion": "当前 Page Recall 低：主要是 Query 问题；Page Prompt 同质化存在但不是主要问题",
+  "conclusion_detail": "Retrieval-focused Prompt 的 R@5 相对生产表示变化 +0.00%；15 条 baseline miss 的 2×2 分类为 BOTH=3、DATASET=3、OTHER=1、PAGE_PROMPT_PRIMARY=1、QUERY_PRIMARY=7。因此结论来自相同 Query/embedding/Top-5 下的 rank 变化，而不是摘要文字观感。"
+}
