@@ -1,17 +1,22 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import time
+from copy import deepcopy
 from contextvars import ContextVar
 from typing import Any
 from unittest.mock import patch
 
 from mem0 import AsyncMemory
+from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT, MIDTERM_SESSION_MERGE_PROMPT
+from mem0.configs.prompts import ADDITIVE_EXTRACTION_PROMPT
 from mem0.utils.factory import VectorStoreFactory, _configure_native_timeout
 
 
 _ORIGINAL_VECTOR_STORE_CREATE = VectorStoreFactory.create
+LOGGER = logging.getLogger("benchmark_memory")
 
 
 def _config_to_dict(config: Any) -> dict[str, Any]:
@@ -67,6 +72,128 @@ def _create_vector_store_for_benchmark(
     )
 
 
+def _value_char_count(value: Any) -> int:
+    if value is None:
+        return 0
+    if isinstance(value, str):
+        return len(value)
+    content = getattr(value, "content", None)
+    if content is not None and content is not value:
+        return _value_char_count(content)
+    try:
+        return len(json.dumps(value, ensure_ascii=False, default=str))
+    except (TypeError, ValueError):
+        return len(str(value))
+
+
+class BenchmarkObservedLLM:
+    """实验专用 LLM 包装器：记录耗时，并可关闭 DeepSeek 记忆提取思考。"""
+
+    def __init__(
+        self,
+        delegate: Any,
+        *,
+        call_context: ContextVar[dict[str, Any] | None],
+        observability_enabled: bool,
+        deepseek_midterm_non_thinking: bool,
+        deepseek_longterm_non_thinking: bool,
+    ):
+        self._delegate = delegate
+        self._call_context = call_context
+        self._observability_enabled = observability_enabled
+        self._deepseek_midterm_non_thinking = deepseek_midterm_non_thinking
+        self._deepseek_longterm_non_thinking = deepseek_longterm_non_thinking
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._delegate, name)
+
+    @staticmethod
+    def _operation(messages: list[dict[str, Any]]) -> str | None:
+        system = str(messages[0].get("content", "")) if messages else ""
+        if system.strip() == MIDTERM_PAGE_SUMMARY_PROMPT.strip():
+            return "midterm_page_summary"
+        if system.strip() == MIDTERM_SESSION_MERGE_PROMPT.strip():
+            return "midterm_session_merge"
+        if system.startswith(ADDITIVE_EXTRACTION_PROMPT):
+            return "longterm_extraction"
+        return None
+
+    @staticmethod
+    def _disable_thinking(kwargs: dict[str, Any]) -> dict[str, Any]:
+        updated = dict(kwargs)
+        extra_body = deepcopy(updated.get("extra_body") or {})
+        thinking = deepcopy(extra_body.get("thinking") or {})
+        thinking["type"] = "disabled"
+        extra_body["thinking"] = thinking
+        updated["extra_body"] = extra_body
+        return updated
+
+    def generate_response(self, messages, response_format=None, **kwargs):
+        messages = messages or []
+        operation = self._operation(messages)
+        request_kwargs = dict(kwargs)
+        if self._deepseek_midterm_non_thinking and operation in {
+            "midterm_page_summary",
+            "midterm_session_merge",
+        }:
+            request_kwargs = self._disable_thinking(request_kwargs)
+        if self._deepseek_longterm_non_thinking and operation == "longterm_extraction":
+            request_kwargs = self._disable_thinking(request_kwargs)
+
+        if operation is None or not self._observability_enabled:
+            return self._delegate.generate_response(
+                messages,
+                response_format=response_format,
+                **request_kwargs,
+            )
+
+        context = self._call_context.get() or {}
+        source_job_id = str(context.get("source_job_id") or "-")
+        stage = str(context.get("stage") or "-")
+        model = getattr(getattr(self._delegate, "config", None), "model", None) or type(self._delegate).__name__
+        prompt_chars = sum(_value_char_count(message.get("content")) for message in messages)
+        thinking = (
+            ((request_kwargs.get("extra_body") or {}).get("thinking") or {}).get("type")
+            if isinstance(request_kwargs.get("extra_body"), dict)
+            else None
+        )
+        started = time.perf_counter()
+        try:
+            response = self._delegate.generate_response(
+                messages,
+                response_format=response_format,
+                **request_kwargs,
+            )
+        except Exception as exc:
+            LOGGER.warning(
+                "Benchmark LLM call failed operation=%s source_job_id=%s stage=%s model=%s thinking=%s "
+                "prompt_chars=%s elapsed_ms=%.1f error_type=%s",
+                operation,
+                source_job_id,
+                stage,
+                model,
+                thinking or "default",
+                prompt_chars,
+                (time.perf_counter() - started) * 1000.0,
+                type(exc).__name__,
+            )
+            raise
+
+        LOGGER.info(
+            "Benchmark LLM call completed operation=%s source_job_id=%s stage=%s model=%s thinking=%s "
+            "prompt_chars=%s response_chars=%s elapsed_ms=%.1f",
+            operation,
+            source_job_id,
+            stage,
+            model,
+            thinking or "default",
+            prompt_chars,
+            _value_char_count(response),
+            (time.perf_counter() - started) * 1000.0,
+        )
+        return response
+
+
 class BenchmarkAsyncMemory(AsyncMemory):
     """实验专用 AsyncMemory 子类，只捕获原始召回上下文，不改变正式逻辑。"""
 
@@ -75,7 +202,41 @@ class BenchmarkAsyncMemory(AsyncMemory):
             f"benchmark_trace_{id(self)}",
             default=None,
         )
+        self._benchmark_llm_context: ContextVar[dict[str, Any] | None] = ContextVar(
+            f"benchmark_llm_context_{id(self)}",
+            default=None,
+        )
         super().__init__(config)
+
+    def _run_background_stage_with_context(self, stage: str, job: dict[str, Any], callback, *args) -> Any:
+        token = self._benchmark_llm_context.set(
+            {
+                "source_job_id": job.get("job_id"),
+                "stage": stage,
+            }
+        )
+        try:
+            return callback(job, *args)
+        finally:
+            self._benchmark_llm_context.reset(token)
+
+    def _background_process_midterm(self, job, messages, degraded: bool) -> None:
+        return self._run_background_stage_with_context(
+            "midterm",
+            job,
+            super()._background_process_midterm,
+            messages,
+            degraded,
+        )
+
+    def _background_process_longterm(self, job, messages, degraded: bool) -> None:
+        return self._run_background_stage_with_context(
+            "longterm",
+            job,
+            super()._background_process_longterm,
+            messages,
+            degraded,
+        )
 
     async def _retrieve_context(self, *args, **kwargs):
         started = time.perf_counter()
@@ -193,6 +354,15 @@ def create_benchmark_memory(config: dict[str, Any], *, llm_mode: str) -> Benchma
     if mode not in {"real", "mock"}:
         raise ValueError("llm_mode 只能是 real 或 mock")
 
+    runtime_config = deepcopy(config)
+    benchmark_runtime = runtime_config.pop("benchmark_runtime", {}) or {}
+    observability_enabled = bool(benchmark_runtime.get("llm_observability", False))
+    deepseek_midterm_non_thinking = bool(benchmark_runtime.get("deepseek_midterm_non_thinking", False))
+    deepseek_longterm_non_thinking = bool(benchmark_runtime.get("deepseek_longterm_non_thinking", False))
+    llm_provider = str((runtime_config.get("llm") or {}).get("provider") or "").strip().lower()
+    if (deepseek_midterm_non_thinking or deepseek_longterm_non_thinking) and llm_provider != "deepseek":
+        raise ValueError("DeepSeek 非思考模式仅支持 llm.provider=deepseek")
+
     patchers = [
         patch("mem0.memory.main.MEM0_TELEMETRY", False),
         patch(
@@ -210,10 +380,22 @@ def create_benchmark_memory(config: dict[str, Any], *, llm_mode: str) -> Benchma
     for patcher in patchers:
         patcher.start()
     try:
-        memory = BenchmarkAsyncMemory.from_config(config)
+        memory = BenchmarkAsyncMemory.from_config(runtime_config)
     except Exception:
         for patcher in reversed(patchers):
             patcher.stop()
         raise
+    observed_llm = BenchmarkObservedLLM(
+        memory.llm,
+        call_context=memory._benchmark_llm_context,
+        observability_enabled=observability_enabled,
+        deepseek_midterm_non_thinking=deepseek_midterm_non_thinking,
+        deepseek_longterm_non_thinking=deepseek_longterm_non_thinking,
+    )
+    memory.llm = observed_llm
+    if getattr(memory, "_midterm_updater", None) is not None:
+        memory._midterm_updater.llm = observed_llm
+    if getattr(memory, "_profile_updater", None) is not None:
+        memory._profile_updater.llm = observed_llm
     memory._benchmark_patchers = patchers
     return memory

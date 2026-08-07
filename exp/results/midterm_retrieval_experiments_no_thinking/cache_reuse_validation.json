@@ -1,0 +1,29 @@
+{
+  "validation": "PASS",
+  "description": "A consecutive full experiment rerun reused the snapshot and every expensive cache without mutation.",
+  "before_and_after_identical": true,
+  "snapshot_manifest": {
+    "sha256": "8e1e858b587f46443443a56d37a728048680541b0eda7e73a5dbe901eb2b8abf",
+    "mtime_ns": 1786096364414577952
+  },
+  "query_rewrites": {
+    "sha256": "3535513f9f17ee7e884bdb267f05f33dcc09edc10341a59356bd0fe88d9d4e8d",
+    "line_count": 35,
+    "mtime_ns": 1786096419474943741
+  },
+  "llm_rerank": {
+    "sha256": "d97b74dbd8b2d9b15eb6966986ac5890801dbf7a1af284d2659bd84e425d7771",
+    "line_count": 28,
+    "mtime_ns": 1786105696405174477
+  },
+  "local_rerank": {
+    "sha256": "26e12c4502bde6b1901a46c22d2709fe024847ce30a753f474540fb4dbde8887",
+    "line_count": 70,
+    "mtime_ns": 1786105709998973106
+  },
+  "embeddings": {
+    "sha256": "3659978e23b31bfaafb9b0cce7ad8814ae94f95330a4295c9a3e59c5a4fd00ae",
+    "file_count": 45,
+    "latest_mtime_ns": 1786105644901493370
+  }
+}

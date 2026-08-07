@@ -1,0 +1,403 @@
+{
+  "snapshot": {
+    "snapshot_version": 1,
+    "created_at_epoch": 1786096364.3632593,
+    "sheet": "S001_贵州茅台_投研",
+    "session_id": "S001_贵州茅台_投研",
+    "source_dir": "/home/peize/Code/htzq/mem0/exp/results/recall_full_100_sessions_no_thinking",
+    "dataset_path": "/home/peize/Code/htzq/mem0/exp/enterprise_finance_memory_sessions_100_v3_realistic_2023_2025.xlsx",
+    "history_db_path": "/home/peize/Code/htzq/mem0/exp/runtime/recall_full_100_sessions/history.db",
+    "qdrant_collection": "recall_full_100_sessions_midterm_pages",
+    "source_git_commit": "55e2d5f5cb3f804832f090ad42c26be0dd661566",
+    "evaluated_query_count": 14,
+    "page_count": 47,
+    "gold_mapping_count": 36,
+    "eligible_gold_page_count": 21,
+    "gold_status_counts": {
+      "AVAILABLE": 21,
+      "GOLD_NOT_AVAILABLE_AT_QUERY_TIME": 14,
+      "PAGE_NOT_CREATED_WITHIN_STAGE0_RUN": 1
+    },
+    "visible_page_count_distribution": [
+      3,
+      7,
+      9,
+      10,
+      17,
+      18,
+      22,
+      24,
+      29,
+      31,
+      35,
+      38,
+      40,
+      45
+    ],
+    "gold_available_before_query_count": 21,
+    "future_page_leak_count": 0,
+    "production_page_representation": "summary + 'Keywords: ' + keywords + 'User: ' + user_input",
+    "production_embedding_model": "BAAI/bge-small-zh-v1.5",
+    "snapshot_hash": "be5421e5e290dfcd19357a5f49c16cf79a822c78b8e7b20d67e4972bc92c4ee1"
+  },
+  "baseline": {
+    "evaluated_query_count": 14,
+    "eligible_gold_count": 21,
+    "mrr": 0.3321719286005,
+    "ndcg_at_5": 0.2643979623233413,
+    "mean_gold_rank": 10.238095238095237,
+    "median_gold_rank": 7,
+    "max_gold_rank": 29,
+    "recall_at_1": 0.09523809523809523,
+    "macro_recall_at_1": 0.10714285714285714,
+    "recall_at_3": 0.2857142857142857,
+    "macro_recall_at_3": 0.32142857142857145,
+    "recall_at_5": 0.3333333333333333,
+    "macro_recall_at_5": 0.35714285714285715,
+    "recall_at_10": 0.5714285714285714,
+    "macro_recall_at_10": 0.6071428571428571,
+    "recall_at_15": 0.7619047619047619,
+    "macro_recall_at_15": 0.7857142857142857,
+    "recall_at_20": 0.8571428571428571,
+    "macro_recall_at_20": 0.8571428571428571,
+    "recall_at_30": 1.0,
+    "macro_recall_at_30": 1.0
+  },
+  "candidate_depth": [
+    {
+      "candidate_k": 5,
+      "candidate_recall": 0.3333333333333333,
+      "recall_at_1": 0.09523809523809523,
+      "recall_at_3": 0.2857142857142857,
+      "recall_at_5": 0.3333333333333333,
+      "recall_at_10": 0.5714285714285714,
+      "recall_at_15": 0.7619047619047619,
+      "recall_at_20": 0.8571428571428571,
+      "recall_at_30": 1.0,
+      "mrr": 0.3321719286005,
+      "ndcg_at_5": 0.2643979623233413,
+      "mean_gold_rank": 10.238095238095237,
+      "median_gold_rank": 7,
+      "eligible_gold_count": 21,
+      "gold_rank_buckets": {
+        "1-5": 7,
+        "6-10": 5,
+        "11-20": 6,
+        "21-30": 3,
+        ">30 / not found": 0
+      }
+    },
+    {
+      "candidate_k": 10,
+      "candidate_recall": 0.5714285714285714,
+      "recall_at_1": 0.09523809523809523,
+      "recall_at_3": 0.2857142857142857,
+      "recall_at_5": 0.3333333333333333,
+      "recall_at_10": 0.5714285714285714,
+      "recall_at_15": 0.7619047619047619,
+      "recall_at_20": 0.8571428571428571,
+      "recall_at_30": 1.0,
+      "mrr": 0.3321719286005,
+      "ndcg_at_5": 0.2643979623233413,
+      "mean_gold_rank": 10.238095238095237,
+      "median_gold_rank": 7,
+      "eligible_gold_count": 21,
+      "gold_rank_buckets": {
+        "1-5": 7,
+        "6-10": 5,
+        "11-20": 6,
+        "21-30": 3,
+        ">30 / not found": 0
+      }
+    },
+    {
+      "candidate_k": 15,
+      "candidate_recall": 0.7619047619047619,
+      "recall_at_1": 0.09523809523809523,
+      "recall_at_3": 0.2857142857142857,
+      "recall_at_5": 0.3333333333333333,
+      "recall_at_10": 0.5714285714285714,
+      "recall_at_15": 0.7619047619047619,
+      "recall_at_20": 0.8571428571428571,
+      "recall_at_30": 1.0,
+      "mrr": 0.3321719286005,
+      "ndcg_at_5": 0.2643979623233413,
+      "mean_gold_rank": 10.238095238095237,
+      "median_gold_rank": 7,
+      "eligible_gold_count": 21,
+      "gold_rank_buckets": {
+        "1-5": 7,
+        "6-10": 5,
+        "11-20": 6,
+        "21-30": 3,
+        ">30 / not found": 0
+      }
+    },
+    {
+      "candidate_k": 20,
+      "candidate_recall": 0.8571428571428571,
+      "recall_at_1": 0.09523809523809523,
+      "recall_at_3": 0.2857142857142857,
+      "recall_at_5": 0.3333333333333333,
+      "recall_at_10": 0.5714285714285714,
+      "recall_at_15": 0.7619047619047619,
+      "recall_at_20": 0.8571428571428571,
+      "recall_at_30": 1.0,
+      "mrr": 0.3321719286005,
+      "ndcg_at_5": 0.2643979623233413,
+      "mean_gold_rank": 10.238095238095237,
+      "median_gold_rank": 7,
+      "eligible_gold_count": 21,
+      "gold_rank_buckets": {
+        "1-5": 7,
+        "6-10": 5,
+        "11-20": 6,
+        "21-30": 3,
+        ">30 / not found": 0
+      }
+    },
+    {
+      "candidate_k": 30,
+      "candidate_recall": 1.0,
+      "recall_at_1": 0.09523809523809523,
+      "recall_at_3": 0.2857142857142857,
+      "recall_at_5": 0.3333333333333333,
+      "recall_at_10": 0.5714285714285714,
+      "recall_at_15": 0.7619047619047619,
+      "recall_at_20": 0.8571428571428571,
+      "recall_at_30": 1.0,
+      "mrr": 0.3321719286005,
+      "ndcg_at_5": 0.2643979623233413,
+      "mean_gold_rank": 10.238095238095237,
+      "median_gold_rank": 7,
+      "eligible_gold_count": 21,
+      "gold_rank_buckets": {
+        "1-5": 7,
+        "6-10": 5,
+        "11-20": 6,
+        "21-30": 3,
+        ">30 / not found": 0
+      }
+    },
+    {
+      "candidate_k": "all_available",
+      "candidate_recall": 1.0,
+      "recall_at_1": 0.09523809523809523,
+      "recall_at_3": 0.2857142857142857,
+      "recall_at_5": 0.3333333333333333,
+      "recall_at_10": 0.5714285714285714,
+      "recall_at_15": 0.7619047619047619,
+      "recall_at_20": 0.8571428571428571,
+      "recall_at_30": 1.0,
+      "mrr": 0.3321719286005,
+      "ndcg_at_5": 0.2643979623233413,
+      "mean_gold_rank": 10.238095238095237,
+      "median_gold_rank": 7,
+      "eligible_gold_count": 21,
+      "recall_at_all_available": 1.0,
+      "gold_rank_buckets": {
+        "1-5": 7,
+        "6-10": 5,
+        "11-20": 6,
+        "21-30": 3,
+        ">30 / not found": 0
+      }
+    }
+  ],
+  "selections": {
+    "top_2_query_variants": [
+      "Q5",
+      "Q0"
+    ],
+    "top_2_page_variants": [
+      "P8",
+      "P0"
+    ],
+    "top_2_embeddings": [
+      "E1",
+      "E0"
+    ],
+    "best_query": "Q5",
+    "best_page": "P8",
+    "best_embedding_front": "E1",
+    "best_hybrid": "H1_bm25",
+    "best_reranker": "R2_llm_no_thinking",
+    "best_quality_candidate_strategy": "H1_bm25",
+    "best_quality_reranker": "R2_llm_no_thinking",
+    "candidate_k": 20,
+    "output_k": 5,
+    "front_configuration": {
+      "query_variant": "Q0",
+      "page_variant": "P8",
+      "embedding": "E1"
+    },
+    "best_no_llm_configuration": {
+      "query_variant": "Q0",
+      "page_variant": "P8",
+      "embedding": "E1",
+      "candidate_strategy": "H1_bm25",
+      "reranker": "local_cross_encoder"
+    },
+    "pareto_source_scheme": "C2_best_representation_embedding_only",
+    "practical_latency_budget_ms": 217.4424387517318
+  },
+  "best_quality": {
+    "scheme": "C5_best_quality",
+    "details": "Q0 + P8 + E1 + H1_bm25 + R2_llm_no_thinking",
+    "status": "AVAILABLE",
+    "candidate_recall_at_20": 0.9047619047619048,
+    "recall_at_1": 0.09523809523809523,
+    "recall_at_3": 0.23809523809523808,
+    "recall_at_5": 0.47619047619047616,
+    "recall_at_10": 0.5238095238095238,
+    "recall_at_15": 0.7142857142857143,
+    "recall_at_20": 0.9047619047619048,
+    "recall_at_30": 1.0,
+    "mrr": 0.29930723301466333,
+    "ndcg_at_5": 0.27690779648726466,
+    "mean_gold_rank": 10.142857142857142,
+    "median_gold_rank": 8,
+    "eligible_gold_count": 21,
+    "retrieval_mean_ms": 1263.9268443589183,
+    "retrieval_p95_ms": 1709.0480191051026,
+    "online_llm_calls_per_query": 1.0,
+    "mean_prompt_tokens": 4758.857142857143,
+    "mean_completion_tokens": 53.0,
+    "absolute_delta_recall_at_5": 0.14285714285714285,
+    "relative_delta_recall_at_5": 0.42857142857142855,
+    "delta_mrr": -0.032864695585836656,
+    "delta_mean_gold_rank": -0.0952380952380949,
+    "delta_retrieval_mean_ms": 1217.9027332167607
+  },
+  "best_no_online_llm": {
+    "scheme": "C4_best_no_online_llm",
+    "details": "Q0 + P8 + E1 + H1_bm25 + local_cross_encoder",
+    "status": "AVAILABLE",
+    "candidate_recall_at_20": 0.9047619047619048,
+    "recall_at_1": 0.047619047619047616,
+    "recall_at_3": 0.3333333333333333,
+    "recall_at_5": 0.42857142857142855,
+    "recall_at_10": 0.5238095238095238,
+    "recall_at_15": 0.8095238095238095,
+    "recall_at_20": 0.9047619047619048,
+    "recall_at_30": 1.0,
+    "mrr": 0.3061712723366859,
+    "ndcg_at_5": 0.28069152402134134,
+    "mean_gold_rank": 9.571428571428571,
+    "median_gold_rank": 8,
+    "eligible_gold_count": 21,
+    "retrieval_mean_ms": 1028.838413858466,
+    "retrieval_p95_ms": 1409.4366886005446,
+    "online_llm_calls_per_query": 0.0,
+    "mean_prompt_tokens": 0.0,
+    "mean_completion_tokens": 0.0,
+    "absolute_delta_recall_at_5": 0.09523809523809523,
+    "relative_delta_recall_at_5": 0.2857142857142857,
+    "delta_mrr": -0.026000656263814093,
+    "delta_mean_gold_rank": -0.6666666666666661,
+    "delta_retrieval_mean_ms": 982.8143027163086
+  },
+  "best_practical": {
+    "scheme": "C6_best_practical",
+    "details": "Low-latency Pareto selection of C2_best_representation_embedding_only under p95<=217.4 ms: Q0 + P8 + E1 + dense top5",
+    "status": "AVAILABLE",
+    "candidate_recall_at_20": 0.8571428571428571,
+    "recall_at_1": 0.047619047619047616,
+    "recall_at_3": 0.23809523809523808,
+    "recall_at_5": 0.38095238095238093,
+    "recall_at_10": 0.5714285714285714,
+    "recall_at_15": 0.6666666666666666,
+    "recall_at_20": 0.8571428571428571,
+    "recall_at_30": 1.0,
+    "mrr": 0.2791420515574651,
+    "ndcg_at_5": 0.2607127249799531,
+    "mean_gold_rank": 10.857142857142858,
+    "median_gold_rank": 8,
+    "eligible_gold_count": 21,
+    "retrieval_mean_ms": 37.66488735709572,
+    "retrieval_p95_ms": 51.27559384964115,
+    "online_llm_calls_per_query": 0.0,
+    "mean_prompt_tokens": 0.0,
+    "mean_completion_tokens": 0.0,
+    "absolute_delta_recall_at_5": 0.047619047619047616,
+    "relative_delta_recall_at_5": 0.14285714285714285,
+    "delta_mrr": -0.05302987704303491,
+    "delta_mean_gold_rank": 0.6190476190476204,
+    "delta_retrieval_mean_ms": -8.359223785061786
+  },
+  "prompt_decision": {
+    "decision": "暂时不需要继续修改 Page Prompt",
+    "reason": "理想 Query 下 Candidate Recall@20 已达到阈值，且 rerank 能把候选中的 Gold 推入 Top-5；现有 Page 信息基本可用，应先优化 retrieval pipeline。",
+    "oracle_candidate_recall_at_20": 1.0,
+    "best_candidate_recall_at_20": 0.9523809523809523,
+    "page_generation_experiment_executed": false
+  },
+  "root_cause_counts": {
+    "MULTI_FACTOR": 7,
+    "CANDIDATE_DEPTH": 5,
+    "UNRESOLVED": 2
+  },
+  "bm25_sanity": [
+    {
+      "case_id": 1,
+      "query": "经营现金流是否支持盈利质量",
+      "positive_score": 2.410946714991114,
+      "negative_score": 0.0,
+      "passed": true
+    },
+    {
+      "case_id": 2,
+      "query": "贵州茅台营业收入同比变化",
+      "positive_score": 3.0136833937388925,
+      "negative_score": 0.0,
+      "passed": true
+    },
+    {
+      "case_id": 3,
+      "query": "扣非净利润和归母净利润差异",
+      "positive_score": 2.874224808628547,
+      "negative_score": 0.0,
+      "passed": true
+    }
+  ],
+  "query_status": {
+    "Q0": "AVAILABLE",
+    "Q1": "AVAILABLE",
+    "Q2": "AVAILABLE",
+    "Q3": "AVAILABLE",
+    "Q4": "AVAILABLE",
+    "Q5": "AVAILABLE",
+    "Q6": "AVAILABLE",
+    "QO": "AVAILABLE"
+  },
+  "embedding_model_status": {
+    "BAAI/bge-small-zh-v1.5": {
+      "status": "AVAILABLE",
+      "load_ms": 8935.733019003237,
+      "dimension": 512
+    },
+    "BAAI/bge-base-zh-v1.5": {
+      "status": "AVAILABLE",
+      "load_ms": 8466.929557005642,
+      "dimension": 768
+    },
+    "BAAI/bge-large-zh-v1.5": {
+      "status": "AVAILABLE",
+      "load_ms": 27661.23688299558,
+      "dimension": 1024
+    },
+    "BAAI/bge-m3": {
+      "status": "AVAILABLE",
+      "load_ms": 57262.18721299665,
+      "dimension": 1024
+    }
+  },
+  "local_reranker_status": {
+    "status": "AVAILABLE",
+    "model": "BAAI/bge-reranker-base",
+    "load_ms": 29007.943247001094,
+    "device": "cuda"
+  },
+  "llm_rerank_status": "AVAILABLE",
+  "cache_contract": "Snapshot, successful LLM calls, embedding batches, and rerank results are content-addressed and reused."
+}

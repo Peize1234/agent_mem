@@ -1,0 +1,82 @@
+[
+  {
+    "query_id": "S001-Q039",
+    "original_query": "如果要向管理层追问，前面的资产和权益变化应当转化成哪些可核实的问题；请从当前岗位最关心的证据开始回答。",
+    "standalone_rewrite": "如果要向管理层追问，前面的资产和权益变化应当转化成哪些可核实的问题；请从当前岗位最关心的证据开始回答。",
+    "multi_queries": [
+      "资产和权益变化转化为可核实的管理层追问问题",
+      "贵州茅台2023-2025年总资产和归母股东权益变化及同比数据"
+    ],
+    "non_empty": true,
+    "does_not_copy_required_context": true,
+    "does_not_expose_gold_ids": true,
+    "manual_review_status": "FAIL_DISAMBIGUATION",
+    "no_unsupported_new_fact": true,
+    "resolves_obvious_reference": false,
+    "review_note": "Standalone rewrite原样保留了“前面的”和“当前岗位”，未完成主体/指代消解；Multi-query补出了贵州茅台、2023-2025、总资产和归母权益，且这些信息可由短期上下文支持。"
+  },
+  {
+    "query_id": "S001-Q011",
+    "original_query": "前面的整体画像已经有了，接下来沿着营业收入把三年盈利路径拆开；请区分最新一年的边际变化和完整三年路径。",
+    "standalone_rewrite": "贵州茅台2023-2025年营业收入和归母净利润的三年路径及2025年边际变化是什么？",
+    "multi_queries": [
+      "贵州茅台2023-2025年营业收入与归母净利润三年路径及2025年边际变化",
+      "贵州茅台2025年营业收入同比-1.21%归母净利润同比-4.53%三年先升后降"
+    ],
+    "non_empty": true,
+    "does_not_copy_required_context": true,
+    "does_not_expose_gold_ids": true,
+    "manual_review_status": "PASS",
+    "no_unsupported_new_fact": true,
+    "resolves_obvious_reference": true,
+    "review_note": "主体、期间、指标和最新年度均由最近短期上下文补全；未发现Gold ID、required_context照抄或上下文外事实。"
+  },
+  {
+    "query_id": "S001-Q007",
+    "original_query": "既然利润口径已经拆开，经营现金流是否支持刚才的盈利质量判断；请明确哪些是年报原数、哪些是计算结果。",
+    "standalone_rewrite": "贵州茅台2023年至2025年经营现金流是否支持归母净利润和扣非净利润的盈利质量判断，哪些是年报原数，哪些是计算结果？",
+    "multi_queries": [
+      "经营现金流与归母净利润、扣非净利润的匹配关系及盈利质量判断",
+      "贵州茅台2023-2025年经营现金流原数及与归母净利润、扣非净利润的对比"
+    ],
+    "non_empty": true,
+    "does_not_copy_required_context": true,
+    "does_not_expose_gold_ids": true,
+    "manual_review_status": "PASS",
+    "no_unsupported_new_fact": true,
+    "resolves_obvious_reference": true,
+    "review_note": "补全贵州茅台、2023-2025、归母/扣非利润与经营现金流关系，均有短期上下文依据；未发现Gold信息泄漏。"
+  },
+  {
+    "query_id": "S001-Q021",
+    "original_query": "沿着上一轮的盈利结论，接下来重点看经营现金流是否跟得上；请从当前岗位最关心的证据开始回答。",
+    "standalone_rewrite": "贵州茅台2023-2025年经营现金流是否跟得上盈利，从权益研究员最关心的证据开始分析",
+    "multi_queries": [
+      "贵州茅台经营现金流与归母净利润匹配关系 2023-2025 完整财年",
+      "贵州茅台2025年经营现金流净额 同比 2024 2023 年报"
+    ],
+    "non_empty": true,
+    "does_not_copy_required_context": true,
+    "does_not_expose_gold_ids": true,
+    "manual_review_status": "PASS",
+    "no_unsupported_new_fact": true,
+    "resolves_obvious_reference": true,
+    "review_note": "补全主体、期间、盈利/现金流关系和权益研究员角色，均可从最近上下文恢复；未发现Gold信息泄漏。"
+  },
+  {
+    "query_id": "S001-Q014",
+    "original_query": "接着加入扣非净利润，刚才看到的利润变化有多少属于持续经营口径；请先给结论，再说明三年依据。",
+    "standalone_rewrite": "贵州茅台2023-2025年扣非归母净利润的三年数据及同比变化，以及扣非净利润与归母净利润的差异，用于判断利润变化中有多少属于持续经营口径。",
+    "multi_queries": [
+      "贵州茅台2023-2025年扣非净利润与归母净利润差异及持续经营口径三年变化",
+      "贵州茅台2023-2025年扣非净利润三年数据及同比变化"
+    ],
+    "non_empty": true,
+    "does_not_copy_required_context": true,
+    "does_not_expose_gold_ids": true,
+    "manual_review_status": "PASS",
+    "no_unsupported_new_fact": true,
+    "resolves_obvious_reference": true,
+    "review_note": "补全贵州茅台、2023-2025、扣非与归母净利润比较对象，均由最近上下文支持；未发现Gold信息泄漏。"
+  }
+]

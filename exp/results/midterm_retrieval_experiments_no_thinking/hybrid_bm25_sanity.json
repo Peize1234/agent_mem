@@ -1,0 +1,23 @@
+[
+  {
+    "case_id": 1,
+    "query": "经营现金流是否支持盈利质量",
+    "positive_score": 2.410946714991114,
+    "negative_score": 0.0,
+    "passed": true
+  },
+  {
+    "case_id": 2,
+    "query": "贵州茅台营业收入同比变化",
+    "positive_score": 3.0136833937388925,
+    "negative_score": 0.0,
+    "passed": true
+  },
+  {
+    "case_id": 3,
+    "query": "扣非净利润和归母净利润差异",
+    "positive_score": 2.874224808628547,
+    "negative_score": 0.0,
+    "passed": true
+  }
+]

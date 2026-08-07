@@ -10,6 +10,11 @@
       "top_k": 1
     }
   },
+  "benchmark_runtime": {
+    "llm_observability": true,
+    "deepseek_midterm_non_thinking": true,
+    "deepseek_longterm_non_thinking": true
+  },
   "embedder": {
     "provider": "huggingface",
     "config": {

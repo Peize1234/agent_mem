@@ -3,12 +3,18 @@ set -Eeuo pipefail
 
 # 一键运行 agent_mem 召回率测试（Qdrant Server 模式）。
 #
-# 默认运行完整召回测试：
-#   ./exp/benchmark/run_recall_qdrant_server.sh
+# 默认运行完整召回测试（自动生成独立 run ID）：
+#   ./exp/benchmark/run_recall_qdrant_server_fixed.sh
 #
 # 先运行 smoke test：
-#   ./exp/benchmark/run_recall_qdrant_server.sh \
+#   ./exp/benchmark/run_recall_qdrant_server_fixed.sh \
 #     exp/benchmark/recall_benchmark_smoke.json
+#
+# 同时运行多组实验时，建议用第二个参数指定便于辨认的 run ID：
+#   ./exp/benchmark/run_recall_qdrant_server_fixed.sh \
+#     exp/benchmark/recall_benchmark.json full
+#   ./exp/benchmark/run_recall_qdrant_server_fixed.sh \
+#     exp/benchmark/recall_benchmark_smoke.json smoke
 #
 # 常用环境变量：
 #   PYTHON_BIN=python
@@ -29,23 +35,26 @@ set -Eeuo pipefail
 #   MIDTERM_WORKERS= \
 #   LONGTERM_WORKERS= \
 #   PROFILE_WORKERS= \
-#   ./exp/benchmark/run_recall_qdrant_server.sh
+#   ./exp/benchmark/run_recall_qdrant_server_fixed.sh
 #
 # 其他开关：
-#   STOP_QDRANT_AFTER=1       测试结束后停止本脚本启动的 Qdrant
+#   RECALL_RUN_ID=name        第二个位置参数的环境变量写法
+#   RECALL_ISOLATE_RUNS=0     关闭自动隔离，恢复直接使用 JSON 路径（不建议并行）
+#   STOP_QDRANT_AFTER=1       没有其他实验运行时，停止本脚本启动的 Qdrant
 #   STRICT_VALIDATION=1       发现严重异常时以非 0 状态退出（默认开启）
 #   KEEP_EXISTING_DATA=1      不清理本次测试数据；通常不建议
 #
 # 说明：
 # - 不修改 benchmark_common.py、benchmark_memory.py 或 mem0 原有代码。
 # - 仅在当前 Python 进程内将 Qdrant Local 配置替换为 Qdrant Server。
-# - SQLite、结果目录和 Qdrant Collection 仍按 Recall 配置独立管理。
+# - 默认在配置路径下按 run ID 隔离 SQLite、结果目录和 Qdrant Collection。
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
 
 PYTHON_BIN="${PYTHON_BIN:-python}"
 CONFIG_ARG="${1:-${SCRIPT_DIR}/recall_benchmark.json}"
+RUN_ID_ARG="${2:-${RECALL_RUN_ID:-}}"
 
 QDRANT_PORT="${QDRANT_PORT:-6333}"
 QDRANT_GRPC_PORT="${QDRANT_GRPC_PORT:-6334}"
@@ -62,6 +71,7 @@ PROFILE_WORKERS="${PROFILE_WORKERS-1}"
 STOP_QDRANT_AFTER="${STOP_QDRANT_AFTER:-0}"
 STRICT_VALIDATION="${STRICT_VALIDATION:-1}"
 KEEP_EXISTING_DATA="${KEEP_EXISTING_DATA:-0}"
+RECALL_ISOLATE_RUNS="${RECALL_ISOLATE_RUNS:-1}"
 
 export PYTHONUNBUFFERED=1
 export POSTHOG_DISABLED="${POSTHOG_DISABLED:-true}"
@@ -70,6 +80,14 @@ export MEM0_TELEMETRY="${MEM0_TELEMETRY:-false}"
 STARTED_QDRANT_CONTAINER=0
 TEMP_CONFIG=""
 TEMP_LOG=""
+RUN_ID=""
+RUN_NAMESPACE=""
+RUN_LOCK_FD=""
+ACTIVE_RUN_MARKER=""
+QDRANT_COORDINATION_KEY=""
+QDRANT_LOCK_FILE=""
+QDRANT_ACTIVE_RUN_DIR=""
+QDRANT_START_LOCK_FD=""
 
 log() {
   printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"
@@ -80,16 +98,61 @@ die() {
   exit 1
 }
 
+release_qdrant_start_lock() {
+  if [[ -n "${QDRANT_START_LOCK_FD}" ]]; then
+    flock -u "${QDRANT_START_LOCK_FD}" 2>/dev/null || true
+    exec {QDRANT_START_LOCK_FD}>&-
+    QDRANT_START_LOCK_FD=""
+  fi
+}
+
 cleanup() {
+  # start_qdrant 中任何命令异常退出时，也必须先释放启动锁；否则下面的
+  # STOP_QDRANT_AFTER 清理会再次申请同一把锁并把自己锁死。
+  release_qdrant_start_lock
+
   [[ -n "${TEMP_CONFIG}" && -f "${TEMP_CONFIG}" ]] && rm -f "${TEMP_CONFIG}" || true
   [[ -n "${TEMP_LOG}" && -f "${TEMP_LOG}" ]] && rm -f "${TEMP_LOG}" || true
 
+  [[ -n "${ACTIVE_RUN_MARKER}" && -f "${ACTIVE_RUN_MARKER}" ]] \
+    && rm -f "${ACTIVE_RUN_MARKER}" || true
+
   if [[ "${STOP_QDRANT_AFTER}" == "1" && "${STARTED_QDRANT_CONTAINER}" == "1" ]]; then
-    log "停止本脚本启动的 Qdrant 容器：${QDRANT_CONTAINER_NAME}"
-    docker rm -f "${QDRANT_CONTAINER_NAME}" >/dev/null 2>&1 || true
+    local qdrant_lock_fd=""
+    local other_active_runs=0
+    local marker=""
+    local marker_pid=""
+
+    mkdir -p "$(dirname -- "${QDRANT_LOCK_FILE}")" "${QDRANT_ACTIVE_RUN_DIR}"
+    exec {qdrant_lock_fd}>"${QDRANT_LOCK_FILE}"
+    flock -x "${qdrant_lock_fd}"
+
+    for marker in "${QDRANT_ACTIVE_RUN_DIR}"/*.run; do
+      [[ -e "${marker}" ]] || continue
+      marker_pid="$(basename -- "${marker}" .run)"
+      if [[ "${marker_pid}" =~ ^[0-9]+$ ]] && kill -0 "${marker_pid}" 2>/dev/null; then
+        other_active_runs=1
+      else
+        rm -f "${marker}" || true
+      fi
+    done
+
+    if [[ "${other_active_runs}" == "1" ]]; then
+      log "仍有其他召回实验使用 Qdrant，保留共享容器：${QDRANT_CONTAINER_NAME}"
+    else
+      log "停止本脚本启动的 Qdrant 容器：${QDRANT_CONTAINER_NAME}"
+      docker rm -f "${QDRANT_CONTAINER_NAME}" >/dev/null 2>&1 || true
+    fi
+
+    flock -u "${qdrant_lock_fd}" || true
+    exec {qdrant_lock_fd}>&-
   fi
 }
 trap cleanup EXIT
+
+if [[ "$#" -gt 2 ]]; then
+  die "用法：$0 [recall_config.json] [run_id]"
+fi
 
 if [[ ! -f "${REPO_ROOT}/pyproject.toml" || ! -d "${REPO_ROOT}/mem0" ]]; then
   die "无法识别仓库根目录：${REPO_ROOT}"
@@ -113,6 +176,67 @@ CONFIG_PATH="$(cd -- "$(dirname -- "${CONFIG_PATH}")" && pwd)/$(basename -- "${C
 [[ -f "${SCRIPT_DIR}/benchmark_memory.py" ]] \
   || die "缺少 ${SCRIPT_DIR}/benchmark_memory.py"
 
+command -v flock >/dev/null 2>&1 \
+  || die "找不到 flock；并行安全运行需要 util-linux 的 flock"
+
+prepare_run_identity() {
+  if [[ "${RECALL_ISOLATE_RUNS}" != "0" && "${RECALL_ISOLATE_RUNS}" != "1" ]]; then
+    die "RECALL_ISOLATE_RUNS 只能是 0 或 1"
+  fi
+
+  local requested_run_id="${RUN_ID_ARG}"
+  if [[ "${RECALL_ISOLATE_RUNS}" == "1" && -z "${requested_run_id}" ]]; then
+    requested_run_id="$(basename -- "${CONFIG_PATH}" .json)-$(date '+%Y%m%d-%H%M%S')-$$"
+  fi
+  if [[ "${RECALL_ISOLATE_RUNS}" == "0" ]]; then
+    requested_run_id="legacy"
+  fi
+
+  mapfile -t RUN_ID_PARTS < <(
+    "${PYTHON_BIN}" - "${requested_run_id}" "${CONFIG_PATH}" <<'PY'
+import hashlib
+import re
+import sys
+
+run_id = sys.argv[1].strip()
+config_path = sys.argv[2]
+safe_run_id = re.sub(r"[^A-Za-z0-9._-]+", "-", run_id).strip("-._")
+safe_run_id = safe_run_id[:64] or "run"
+digest = hashlib.sha256(f"{config_path}\0{run_id}".encode("utf-8")).hexdigest()[:12]
+print(run_id)
+print(f"{safe_run_id}--{digest}")
+PY
+  )
+  RUN_ID="${RUN_ID_PARTS[0]}"
+  RUN_NAMESPACE="${RUN_ID_PARTS[1]}"
+
+  QDRANT_COORDINATION_KEY="$(
+    "${PYTHON_BIN}" - "${QDRANT_URL}" "${QDRANT_CONTAINER_NAME}" <<'PY'
+import hashlib
+import sys
+
+value = "\0".join(sys.argv[1:])
+print(hashlib.sha256(value.encode("utf-8")).hexdigest()[:16])
+PY
+  )"
+  QDRANT_LOCK_FILE="${REPO_ROOT}/exp/runtime/.qdrant-locks/${QDRANT_COORDINATION_KEY}.lock"
+  QDRANT_ACTIVE_RUN_DIR="${REPO_ROOT}/exp/runtime/.qdrant-active-runs/${QDRANT_COORDINATION_KEY}"
+}
+
+acquire_run_lock() {
+  local run_lock_dir="${REPO_ROOT}/exp/runtime/.recall-run-locks"
+  local run_lock_file="${run_lock_dir}/${RUN_NAMESPACE}.lock"
+
+  mkdir -p "${run_lock_dir}" "${QDRANT_ACTIVE_RUN_DIR}"
+  exec {RUN_LOCK_FD}>"${run_lock_file}"
+  if ! flock -n "${RUN_LOCK_FD}"; then
+    die "run ID '${RUN_ID}' 已在运行；请换一个第二参数或设置不同的 RECALL_RUN_ID"
+  fi
+
+  ACTIVE_RUN_MARKER="${QDRANT_ACTIVE_RUN_DIR}/$$.run"
+  printf '%s\n' "${RUN_NAMESPACE}" >"${ACTIVE_RUN_MARKER}"
+}
+
 qdrant_ready() {
   "${PYTHON_BIN}" - "${QDRANT_URL}" >/dev/null 2>&1 <<'PY'
 import json
@@ -134,6 +258,18 @@ PY
 start_qdrant() {
   if qdrant_ready; then
     log "检测到可用的 Qdrant Server：${QDRANT_URL}"
+    return
+  fi
+
+  mkdir -p "$(dirname -- "${QDRANT_LOCK_FILE}")"
+  exec {QDRANT_START_LOCK_FD}>"${QDRANT_LOCK_FILE}"
+  log "等待 Qdrant 启动锁：${QDRANT_LOCK_FILE}"
+  flock -x "${QDRANT_START_LOCK_FD}"
+
+  # 另一个窗口可能在本进程等待锁时已经启动好服务。
+  if qdrant_ready; then
+    log "检测到其他实验已启动 Qdrant Server：${QDRANT_URL}"
+    release_qdrant_start_lock
     return
   fi
 
@@ -167,6 +303,7 @@ start_qdrant() {
   for _ in $(seq 1 60); do
     if qdrant_ready; then
       log "Qdrant Server 已就绪：${QDRANT_URL}"
+      release_qdrant_start_lock
       return
     fi
     sleep 1
@@ -182,7 +319,10 @@ create_effective_config() {
   "${PYTHON_BIN}" - \
     "${CONFIG_PATH}" \
     "${TEMP_CONFIG}" \
-    "${RECALL_SESSION_CONCURRENCY}" <<'PY'
+    "${RECALL_SESSION_CONCURRENCY}" \
+    "${RECALL_ISOLATE_RUNS}" \
+    "${RUN_ID}" \
+    "${RUN_NAMESPACE}" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -190,8 +330,35 @@ from pathlib import Path
 source = Path(sys.argv[1])
 target = Path(sys.argv[2])
 session_concurrency = sys.argv[3].strip()
+isolate_runs = sys.argv[4] == "1"
+run_id = sys.argv[5]
+run_namespace = sys.argv[6]
 
 config = json.loads(source.read_text(encoding="utf-8"))
+
+if isolate_runs:
+    benchmark = config.setdefault("benchmark", {})
+    storage = config.setdefault("storage", {})
+    base_run_name = str(benchmark.get("run_name", source.stem))
+    base_output_dir = Path(
+        str(benchmark.get("output_dir", "exp/results/recall_benchmark"))
+    )
+    base_runtime_dir = Path(
+        str(storage.get("runtime_dir", "exp/runtime/recall_benchmark"))
+    )
+    base_collection_name = str(
+        storage.get("collection_name", "recall_benchmark")
+    ).strip()
+    collection_digest = run_namespace.rsplit("--", 1)[-1]
+
+    benchmark["run_name"] = f"{base_run_name}__{run_id}"
+    benchmark["run_id"] = run_id
+    benchmark["run_namespace"] = run_namespace
+    benchmark["output_dir"] = str(base_output_dir / run_namespace)
+    storage["runtime_dir"] = str(base_runtime_dir / run_namespace)
+    # 摘要放在名称末尾会产生前缀包含关系；digest 放在固定位置可避免
+    # 清理当前 run 的派生 Collection 时误删另一个并行 run。
+    storage["collection_name"] = f"{base_collection_name}__run_{collection_digest}"
 
 if session_concurrency:
     value = int(session_concurrency)
@@ -239,6 +406,8 @@ evaluation = config.get("evaluation") or {}
 
 print("========== 召回测试配置 ==========")
 print(f"原始配置       : {source_path}")
+print(f"run_id         : {benchmark.get('run_id', '未隔离（legacy）')}")
+print(f"run_namespace  : {benchmark.get('run_namespace', '未隔离（legacy）')}")
 print(f"run_name       : {benchmark.get('run_name')}")
 print(f"数据集         : {dataset.get('path')}")
 print(f"最大 Session   : {dataset.get('max_sessions')}")
@@ -252,6 +421,7 @@ print(f"Top-K          : {retrieval.get('top_k', 20)}")
 print(f"阈值           : {retrieval.get('threshold', 0.1)}")
 print(f"只评长距离     : {evaluation.get('evaluate_only_long_range', True)}")
 print(f"Collection     : {storage.get('collection_name')}")
+print(f"SQLite 目录    : {storage.get('runtime_dir')}")
 print(f"Qdrant Server  : {qdrant_url}")
 print(f"中期 Worker    : {midterm_workers or '保留 memory_config.json 原值'}")
 print(f"长期 Worker    : {longterm_workers or '保留 memory_config.json 原值'}")
@@ -665,7 +835,9 @@ log "仓库根目录：${REPO_ROOT}"
 log "Python：$("${PYTHON_BIN}" --version 2>&1)"
 log "Qdrant URL：${QDRANT_URL}"
 
+prepare_run_identity
 create_effective_config
+acquire_run_lock
 print_test_config
 start_qdrant
 reset_test_state

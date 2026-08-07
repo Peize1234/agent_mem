@@ -1,0 +1,41 @@
+{
+  "snapshot_version": 1,
+  "created_at_epoch": 1786096364.3632593,
+  "sheet": "S001_贵州茅台_投研",
+  "session_id": "S001_贵州茅台_投研",
+  "source_dir": "/home/peize/Code/htzq/mem0/exp/results/recall_full_100_sessions_no_thinking",
+  "dataset_path": "/home/peize/Code/htzq/mem0/exp/enterprise_finance_memory_sessions_100_v3_realistic_2023_2025.xlsx",
+  "history_db_path": "/home/peize/Code/htzq/mem0/exp/runtime/recall_full_100_sessions/history.db",
+  "qdrant_collection": "recall_full_100_sessions_midterm_pages",
+  "source_git_commit": "55e2d5f5cb3f804832f090ad42c26be0dd661566",
+  "evaluated_query_count": 14,
+  "page_count": 47,
+  "gold_mapping_count": 36,
+  "eligible_gold_page_count": 21,
+  "gold_status_counts": {
+    "AVAILABLE": 21,
+    "GOLD_NOT_AVAILABLE_AT_QUERY_TIME": 14,
+    "PAGE_NOT_CREATED_WITHIN_STAGE0_RUN": 1
+  },
+  "visible_page_count_distribution": [
+    3,
+    7,
+    9,
+    10,
+    17,
+    18,
+    22,
+    24,
+    29,
+    31,
+    35,
+    38,
+    40,
+    45
+  ],
+  "gold_available_before_query_count": 21,
+  "future_page_leak_count": 0,
+  "production_page_representation": "summary + 'Keywords: ' + keywords + 'User: ' + user_input",
+  "production_embedding_model": "BAAI/bge-small-zh-v1.5",
+  "snapshot_hash": "be5421e5e290dfcd19357a5f49c16cf79a822c78b8e7b20d67e4972bc92c4ee1"
+}

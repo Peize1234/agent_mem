@@ -78,6 +78,22 @@ export DEEPSEEK_API_KEY="你的密钥"
 - 本次实验指定的画像开关
 - `background.enabled=true`
 
+实验专用的 LLM 诊断和 DeepSeek 中期摘要模式由 `benchmark_runtime` 控制：
+
+```json
+{
+  "benchmark_runtime": {
+    "llm_observability": true,
+    "deepseek_midterm_non_thinking": true,
+    "deepseek_longterm_non_thinking": true
+  }
+}
+```
+
+- `llm_observability=true`：在控制台日志中记录 Page 摘要、Session 合并和长期记忆提取的模型、任务 ID、Prompt/响应字符数与耗时，不记录正文。
+- `deepseek_midterm_non_thinking=true`：为 Page 摘要和 Session 合并请求附加 `thinking.type=disabled`。
+- `deepseek_longterm_non_thinking=true`：为长期记忆提取请求附加 `thinking.type=disabled`。
+
 结果目录中的 `effective_memory_config.json` 会保存实际配置，但密钥、令牌和密码会被脱敏。
 
 ## 4. 先运行召回率冒烟测试
@@ -342,7 +358,21 @@ concurrency_summary.json
 
 ## 10. 数据安全与重复运行
 
-- `reset_storage=true` 会删除当前配置中的实验 `runtime_dir`，不会删除正式数据库。
-- 召回和并发配置使用不同 `runtime_dir` 与 collection。
+- 使用 `run_recall_qdrant_server_fixed.sh` 时，每次启动会自动生成独立 run ID，并在配置的 `output_dir`、`runtime_dir` 下创建独立子目录，同时使用独立 Qdrant Collection。因此可以直接在多个窗口并行启动不同实验。
+- 建议用第二个参数给实验命名，便于辨认结果：
+
+  ```bash
+  ./exp/benchmark/run_recall_qdrant_server_fixed.sh \
+    exp/benchmark/recall_benchmark.json full
+
+  ./exp/benchmark/run_recall_qdrant_server_fixed.sh \
+    exp/benchmark/recall_benchmark_smoke.json smoke
+  ```
+
+- 第二个参数也可以通过 `RECALL_RUN_ID=thinking` 设置。同一配置和同一 run ID 不能同时运行，脚本会立即报错，避免互相覆盖。
+- 多组实验复用同一个 Qdrant Server；容器启动使用进程锁，不会因多个窗口同时启动而重复创建容器。
+- `reset_storage=true` 只会删除当前 run 的实验 `runtime_dir`、结果目录与 Collection，不会删除其他并行 run 或正式数据库。
+- 如需恢复旧行为，可设置 `RECALL_ISOLATE_RUNS=0`；此模式直接使用 JSON 中的路径，不适合并行运行。
+- 召回和并发配置仍应使用不同的基础 `runtime_dir` 与 collection。
 - 不要把实验 `runtime_dir` 修改为正式运行目录。
 - 每次重复运行默认从空实验数据库开始，便于比较结果。

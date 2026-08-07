@@ -2,7 +2,7 @@
   "benchmark": {
     "run_name": "recall_full_100_sessions",
     "reset_storage": true,
-    "output_dir": "exp/results/recall_full_100_sessions",
+    "output_dir": "exp/results/recall_full_100_sessions_no_thinking",
     "random_seed": 42
   },
   "dataset": {
