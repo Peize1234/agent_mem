@@ -1,0 +1,159 @@
+{
+  "total_turns": 50,
+  "successful_turns": 50,
+  "failed_turns": 0,
+  "evaluated_turns": 14,
+  "evaluated_successful_turns": 14,
+  "effective": {
+    "session_count": 1,
+    "session_concurrency": 20,
+    "short_term_message_capacity": 6,
+    "short_term_qa_capacity": 3,
+    "wait_strategy": "before_evaluation",
+    "evaluate_only_long_range": true,
+    "llm_mode": "real",
+    "infer": true,
+    "profile_enabled": false,
+    "runtime_dir": "/home/peize/Code/htzq/mem0/exp/runtime/recall_full_100_sessions",
+    "dataset_path": "/home/peize/Code/htzq/mem0/exp/enterprise_finance_memory_sessions_100_v3_realistic_2023_2025.xlsx",
+    "git_commit": "ae77c42bc86c483e72ec6d4d29451d78451a3b44",
+    "elapsed_seconds": 2948.265775680542
+  },
+  "build_total_ms": {
+    "count": 50,
+    "min": 43.97488999984489,
+    "mean": 250.56220204007332,
+    "p50": 101.89577500023006,
+    "p90": 173.12644319899846,
+    "p95": 192.60231999978714,
+    "p99": 3642.081608049908,
+    "max": 6791.421591000471,
+    "stddev": 935.7624109164237
+  },
+  "retrieve_context_ms": {
+    "count": 50,
+    "min": 43.715425000300456,
+    "mean": 249.88178731993685,
+    "p50": 101.10729249936412,
+    "p90": 172.16297989907616,
+    "p95": 192.01005024979168,
+    "p99": 3641.5949795295237,
+    "max": 6791.285434000201,
+    "stddev": 935.8356522805066
+  },
+  "add_submit_ms": {
+    "count": 50,
+    "min": 8.65355499990983,
+    "mean": 17.412331319956138,
+    "p50": 11.733670499779691,
+    "p90": 24.02417309986049,
+    "p95": 57.779676549989745,
+    "p99": 94.56271871015815,
+    "max": 97.44735900039814,
+    "stddev": 18.40178330288328
+  },
+  "short": {
+    "recall": 0.42857142857142855,
+    "precision": 0.35714285714285715,
+    "hit_rate": 1.0,
+    "full_dependency_recall": 0.0,
+    "mrr": 0.38095238095238093
+  },
+  "mid_page": {
+    "recall": 0.16666666666666666,
+    "precision": 0.09523809523809525,
+    "hit_rate": 0.35714285714285715,
+    "full_dependency_recall": 0.0,
+    "mrr": 0.16666666666666666
+  },
+  "mid_session": {
+    "recall": 0.5714285714285714,
+    "precision": 0.10719176356891047,
+    "hit_rate": 1.0,
+    "full_dependency_recall": 0.0,
+    "mrr": 0.25623760927482553
+  },
+  "mid": {
+    "recall": 0.5714285714285714,
+    "precision": 0.10719176356891047,
+    "hit_rate": 1.0,
+    "full_dependency_recall": 0.0,
+    "mrr": 0.20164039040338363
+  },
+  "long": {
+    "recall": 0.19047619047619047,
+    "precision": 0.13095238095238096,
+    "hit_rate": 0.35714285714285715,
+    "full_dependency_recall": 0.0,
+    "mrr": 0.20833333333333331
+  },
+  "mid_long": {
+    "recall": 0.5714285714285714,
+    "precision": 0.10719176356891047,
+    "hit_rate": 1.0,
+    "full_dependency_recall": 0.0,
+    "mrr": 0.20164039040338363
+  },
+  "all": {
+    "recall": 1.0,
+    "precision": 0.1353755687843867,
+    "hit_rate": 1.0,
+    "full_dependency_recall": 1.0,
+    "mrr": 0.38095238095238093
+  },
+  "by_dependency_type": {
+    "相邻承接＋历史回溯": {
+      "count": 6,
+      "mid_long_recall": 0.5,
+      "mid_long_precision": 0.09706025685127852,
+      "all_recall": 1.0
+    },
+    "相邻承接＋多跳综合": {
+      "count": 8,
+      "mid_long_recall": 0.625,
+      "mid_long_precision": 0.11479039360713443,
+      "all_recall": 1.0
+    }
+  },
+  "benchmark_config": {
+    "benchmark": {
+      "run_name": "recall_full_100_sessions",
+      "reset_storage": true,
+      "output_dir": "exp/results/recall_full_100_sessions",
+      "random_seed": 42
+    },
+    "dataset": {
+      "path": "exp/enterprise_finance_memory_sessions_100_v3_realistic_2023_2025.xlsx",
+      "include_sheets": [],
+      "max_sessions": 1,
+      "max_turns_per_session": null
+    },
+    "storage": {
+      "runtime_dir": "exp/runtime/recall_full_100_sessions",
+      "collection_name": "recall_full_100_sessions"
+    },
+    "execution": {
+      "session_concurrency": 20,
+      "retrieval_timeout_seconds": 180,
+      "add_timeout_seconds": 180,
+      "background_job_timeout_seconds": 1800,
+      "background_poll_interval_seconds": 0.2,
+      "wait_strategy": "before_evaluation"
+    },
+    "memory": {
+      "config_path": "exp/benchmark/memory_config.json",
+      "llm_mode": "real",
+      "infer": true,
+      "profile_enabled": false,
+      "profile_update_on_add": false
+    },
+    "retrieval": {
+      "top_k": 5,
+      "threshold": 0.1,
+      "rerank": false
+    },
+    "evaluation": {
+      "evaluate_only_long_range": true
+    }
+  }
+}
