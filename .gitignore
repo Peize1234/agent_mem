@@ -192,3 +192,5 @@ qdrant_storage/
 testing.ipynb
 .weave/
 
+# Experiment runtime state
+/exp/runtime/
