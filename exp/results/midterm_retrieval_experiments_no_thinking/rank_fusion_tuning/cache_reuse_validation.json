@@ -1,0 +1,247 @@
+{
+  "status": "PASS",
+  "previous_third_stage_output_present": true,
+  "source_files_unchanged_within_run": true,
+  "consecutive_run_source_states_unchanged": true,
+  "source_states_before": [
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/snapshot/snapshot_manifest.json",
+      "sha256": "8e1e858b587f46443443a56d37a728048680541b0eda7e73a5dbe901eb2b8abf",
+      "mtime_ns": 1786096364414577952,
+      "size": 1319
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/snapshot/queries.jsonl",
+      "sha256": "f0706a929185c9c6cc6ee1836665dcfcf3b3efdc35517acb80d17d7304bb6024",
+      "mtime_ns": 1786096364394577744,
+      "size": 2262293
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/snapshot/pages.jsonl",
+      "sha256": "7da7bb97c39ec6947f6b3ff8f1ca792dcc4d71b9bad2e28319d1545b1b0862c1",
+      "mtime_ns": 1786096364414577952,
+      "size": 2940498
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/snapshot/query_page_visibility.jsonl",
+      "sha256": "b1827cab97194839a4a510e318280ecdb13da880e3424ea3465a2e86e30c5e9a",
+      "mtime_ns": 1786096364414577952,
+      "size": 109107
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/baseline_metrics.json",
+      "sha256": "5c2513f6868888b42cb50f90aa80c8e36fff198c8a250f53c0975cac36723e06",
+      "mtime_ns": 1786106053129732647,
+      "size": 26068
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/cache/rerank/local_scores.jsonl",
+      "sha256": "12732dc86ab1776f725068aa2ced705d97414899672254842ebf986a3a62d66c",
+      "mtime_ns": 1786112438274623644,
+      "size": 384604
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/cache/rerank/llm_rerank.jsonl",
+      "sha256": "4e1bb1f3f3c607c59d9cfcf93762722a8c2bbe9716ae6a843523e1f0a2e6613c",
+      "mtime_ns": 1786110786283720436,
+      "size": 556764
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/cache/query/lightweight_query.jsonl",
+      "sha256": "06c587f8366fb885c35ba747f57bdc33ed6519e4ea8e195ce10e4691bbe5c737",
+      "mtime_ns": 1786110551442115104,
+      "size": 12484
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/cache/embeddings/BAAI_bge-small-zh-v1.5/pages-P1-377c6a0f4fe545aa.npz",
+      "sha256": "9dc13171fe87ec973c5bf6641e57b199f71a831afb9b0d523e11a34a294d29f5",
+      "mtime_ns": 1786096428695015104,
+      "size": 91197
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/cache/embeddings/BAAI_bge-small-zh-v1.5/pages-P2-660de603945cb3eb.npz",
+      "sha256": "ff690444d33caf85d052d72fc044b90dc013175bb1e8913cc3847b3675aa6c6c",
+      "mtime_ns": 1786096428763015626,
+      "size": 91152
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/cache/embeddings/BAAI_bge-small-zh-v1.5/pages-P3-0ae2a48d7b7e893b.npz",
+      "sha256": "ae03c510b38a398d07a5c3adeb5feeaf51f81171b33025f2770ef5ec2fef1fce",
+      "mtime_ns": 1786096429559021731,
+      "size": 91242
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/cache/embeddings/BAAI_bge-small-zh-v1.5/pages-P4-23803a630e464258.npz",
+      "sha256": "ae03c510b38a398d07a5c3adeb5feeaf51f81171b33025f2770ef5ec2fef1fce",
+      "mtime_ns": 1786096430347027770,
+      "size": 91242
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/cache/embeddings/BAAI_bge-small-zh-v1.5/pages-P5-90c0967213c7f7c0.npz",
+      "sha256": "5cb8b1565f56e30455101ef6372561fc0efa20497cb4133b69bc9e36f94b3694",
+      "mtime_ns": 1786096430855031663,
+      "size": 91249
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/cache/embeddings/BAAI_bge-small-zh-v1.5/pages-P6-5bbcf909932c644f.npz",
+      "sha256": "b99cc2bfa3ffd4e59a54b99a16cbf09d34bc4b548bb4adf614290bd2f98608a2",
+      "mtime_ns": 1786096431611037451,
+      "size": 91267
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/cache/embeddings/BAAI_bge-small-zh-v1.5/pages-P7-a9a9bc989c70380b.npz",
+      "sha256": "c4030138919dae6124260cd7517f8743847702c2b99761c523a3ce62718efc65",
+      "mtime_ns": 1786096431719038278,
+      "size": 91271
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/cache/embeddings/BAAI_bge-small-zh-v1.5/pages-P8-a69bf6d5b569642c.npz",
+      "sha256": "9fbe7b5f659de28e1cd8742f849e0957d7639e30a6d18b37c0648d7cdb14d03c",
+      "mtime_ns": 1786096432227042166,
+      "size": 91220
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/cache/embeddings/BAAI_bge-small-zh-v1.5/queries-Q0-Q1-Q2-Q3-Q4-Q5-Q6-QO-0904b0a7c52d6cef.npz",
+      "sha256": "6ccd836b9c68305ccec332ab01868f246e34e8ba6a128224cbad50b0968e200c",
+      "mtime_ns": 1786105221168336023,
+      "size": 187794
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/cache/embeddings/BAAI_bge-small-zh-v1.5/queries-Q0-Q1-Q2-Q3-Q4-Q5-Q6-QO-716ba4def9eed44a.npz",
+      "sha256": "4faf04db0296767cab9175c53e8e4b9b60a2b4953c07138eaf9b02d47d51c690",
+      "mtime_ns": 1786096428115010654,
+      "size": 232941
+    }
+  ],
+  "source_states_after": [
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/snapshot/snapshot_manifest.json",
+      "sha256": "8e1e858b587f46443443a56d37a728048680541b0eda7e73a5dbe901eb2b8abf",
+      "mtime_ns": 1786096364414577952,
+      "size": 1319
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/snapshot/queries.jsonl",
+      "sha256": "f0706a929185c9c6cc6ee1836665dcfcf3b3efdc35517acb80d17d7304bb6024",
+      "mtime_ns": 1786096364394577744,
+      "size": 2262293
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/snapshot/pages.jsonl",
+      "sha256": "7da7bb97c39ec6947f6b3ff8f1ca792dcc4d71b9bad2e28319d1545b1b0862c1",
+      "mtime_ns": 1786096364414577952,
+      "size": 2940498
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/snapshot/query_page_visibility.jsonl",
+      "sha256": "b1827cab97194839a4a510e318280ecdb13da880e3424ea3465a2e86e30c5e9a",
+      "mtime_ns": 1786096364414577952,
+      "size": 109107
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/baseline_metrics.json",
+      "sha256": "5c2513f6868888b42cb50f90aa80c8e36fff198c8a250f53c0975cac36723e06",
+      "mtime_ns": 1786106053129732647,
+      "size": 26068
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/cache/rerank/local_scores.jsonl",
+      "sha256": "12732dc86ab1776f725068aa2ced705d97414899672254842ebf986a3a62d66c",
+      "mtime_ns": 1786112438274623644,
+      "size": 384604
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/cache/rerank/llm_rerank.jsonl",
+      "sha256": "4e1bb1f3f3c607c59d9cfcf93762722a8c2bbe9716ae6a843523e1f0a2e6613c",
+      "mtime_ns": 1786110786283720436,
+      "size": 556764
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/cache/query/lightweight_query.jsonl",
+      "sha256": "06c587f8366fb885c35ba747f57bdc33ed6519e4ea8e195ce10e4691bbe5c737",
+      "mtime_ns": 1786110551442115104,
+      "size": 12484
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/cache/embeddings/BAAI_bge-small-zh-v1.5/pages-P1-377c6a0f4fe545aa.npz",
+      "sha256": "9dc13171fe87ec973c5bf6641e57b199f71a831afb9b0d523e11a34a294d29f5",
+      "mtime_ns": 1786096428695015104,
+      "size": 91197
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/cache/embeddings/BAAI_bge-small-zh-v1.5/pages-P2-660de603945cb3eb.npz",
+      "sha256": "ff690444d33caf85d052d72fc044b90dc013175bb1e8913cc3847b3675aa6c6c",
+      "mtime_ns": 1786096428763015626,
+      "size": 91152
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/cache/embeddings/BAAI_bge-small-zh-v1.5/pages-P3-0ae2a48d7b7e893b.npz",
+      "sha256": "ae03c510b38a398d07a5c3adeb5feeaf51f81171b33025f2770ef5ec2fef1fce",
+      "mtime_ns": 1786096429559021731,
+      "size": 91242
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/cache/embeddings/BAAI_bge-small-zh-v1.5/pages-P4-23803a630e464258.npz",
+      "sha256": "ae03c510b38a398d07a5c3adeb5feeaf51f81171b33025f2770ef5ec2fef1fce",
+      "mtime_ns": 1786096430347027770,
+      "size": 91242
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/cache/embeddings/BAAI_bge-small-zh-v1.5/pages-P5-90c0967213c7f7c0.npz",
+      "sha256": "5cb8b1565f56e30455101ef6372561fc0efa20497cb4133b69bc9e36f94b3694",
+      "mtime_ns": 1786096430855031663,
+      "size": 91249
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/cache/embeddings/BAAI_bge-small-zh-v1.5/pages-P6-5bbcf909932c644f.npz",
+      "sha256": "b99cc2bfa3ffd4e59a54b99a16cbf09d34bc4b548bb4adf614290bd2f98608a2",
+      "mtime_ns": 1786096431611037451,
+      "size": 91267
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/cache/embeddings/BAAI_bge-small-zh-v1.5/pages-P7-a9a9bc989c70380b.npz",
+      "sha256": "c4030138919dae6124260cd7517f8743847702c2b99761c523a3ce62718efc65",
+      "mtime_ns": 1786096431719038278,
+      "size": 91271
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/cache/embeddings/BAAI_bge-small-zh-v1.5/pages-P8-a69bf6d5b569642c.npz",
+      "sha256": "9fbe7b5f659de28e1cd8742f849e0957d7639e30a6d18b37c0648d7cdb14d03c",
+      "mtime_ns": 1786096432227042166,
+      "size": 91220
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/cache/embeddings/BAAI_bge-small-zh-v1.5/queries-Q0-Q1-Q2-Q3-Q4-Q5-Q6-QO-0904b0a7c52d6cef.npz",
+      "sha256": "6ccd836b9c68305ccec332ab01868f246e34e8ba6a128224cbad50b0968e200c",
+      "mtime_ns": 1786105221168336023,
+      "size": 187794
+    },
+    {
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/cache/embeddings/BAAI_bge-small-zh-v1.5/queries-Q0-Q1-Q2-Q3-Q4-Q5-Q6-QO-716ba4def9eed44a.npz",
+      "sha256": "4faf04db0296767cab9175c53e8e4b9b60a2b4953c07138eaf9b02d47d51c690",
+      "mtime_ns": 1786096428115010654,
+      "size": 232941
+    }
+  ],
+  "reused_local_score_cache": {
+    "status": "PASS",
+    "cache_path": "/home/peize/Code/htzq/mem0/exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/cache/rerank/local_scores.jsonl",
+    "cache_sha256": "12732dc86ab1776f725068aa2ced705d97414899672254842ebf986a3a62d66c",
+    "cache_row_count_total": 112,
+    "matched_all_visible_p8_base_rows": 14,
+    "matched_query_count": 14,
+    "reranker_model": "BAAI/bge-reranker-base",
+    "reranker_representation": "P8",
+    "cached_score_semantics": "sigmoid-normalized cross-encoder logits (normalize=True); ranking-preserving",
+    "new_reranker_calls": 0,
+    "new_llm_calls": 0
+  },
+  "new_deepseek_calls": 0,
+  "new_local_reranker_calls": 0,
+  "new_embedding_calls": 0,
+  "new_page_generation_calls": 0,
+  "new_memory_replay_calls": 0,
+  "sessions_evaluated": [
+    "S001_贵州茅台_投研"
+  ]
+}
