@@ -1,0 +1,49 @@
+{
+  "status": "PASS",
+  "sessions": [
+    "S002_贵州茅台_内审",
+    "S003_比亚迪_风委",
+    "S005_宁德时代_合规"
+  ],
+  "ignored_partial_or_out_of_scope_sessions": [
+    "S004_比亚迪_IR"
+  ],
+  "turn_count": 224,
+  "failed_turn_count": 0,
+  "cross_session_leak_count": 0,
+  "future_turn_leak_count": 0,
+  "expected_migration_jobs_by_session": {
+    "S002_贵州茅台_内审": 70,
+    "S003_比亚迪_风委": 90,
+    "S005_宁德时代_合规": 55
+  },
+  "actual_migration_jobs_by_session": {
+    "S002_贵州茅台_内审": 70,
+    "S005_宁德时代_合规": 55,
+    "S003_比亚迪_风委": 90
+  },
+  "migration_status_counts": {
+    "succeeded": 213,
+    "succeeded_degraded": 2
+  },
+  "midterm_status_counts": {
+    "succeeded": 213,
+    "succeeded_degraded": 2
+  },
+  "longterm_status_counts": {
+    "succeeded": 215
+  },
+  "session_concurrency": 4,
+  "session_wall_clock_seconds": {
+    "S002_贵州茅台_内审": 615.1021151550012,
+    "S005_宁德时代_合规": 461.16151865799475,
+    "S003_比亚迪_风委": 837.2239888460026
+  },
+  "actual_concurrent_wall_seconds": 842.692807674408,
+  "sequential_estimated_seconds": 1913.4876226589986,
+  "effective_session_speedup": 2.2706822761899192,
+  "no_thinking": {
+    "midterm": true,
+    "longterm": true
+  }
+}

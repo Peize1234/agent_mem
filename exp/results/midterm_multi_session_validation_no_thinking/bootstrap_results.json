@@ -1,0 +1,26 @@
+{
+  "quality_minus_baseline": {
+    "unit": "query",
+    "seed": 42,
+    "iterations": 10000,
+    "query_unit_count": 85,
+    "observed_delta_recall_at_5": 0.007518796992481203,
+    "observed_delta_pp": 0.7518796992481203,
+    "ci95_low": -0.06015037593984962,
+    "ci95_high": 0.07518796992481203,
+    "ci95_low_pp": -6.015037593984962,
+    "ci95_high_pp": 7.518796992481203
+  },
+  "pareto_minus_baseline": {
+    "unit": "query",
+    "seed": 42,
+    "iterations": 10000,
+    "query_unit_count": 85,
+    "observed_delta_recall_at_5": -0.007518796992481203,
+    "observed_delta_pp": -0.7518796992481203,
+    "ci95_low": -0.06504065040650407,
+    "ci95_high": 0.04964539007092199,
+    "ci95_low_pp": -6.504065040650407,
+    "ci95_high_pp": 4.964539007092199
+  }
+}

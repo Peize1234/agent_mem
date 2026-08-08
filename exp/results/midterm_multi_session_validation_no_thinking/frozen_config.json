@@ -1,0 +1,46 @@
+{
+  "frozen_before_heldout_execution": true,
+  "development_session": "S001_贵州茅台_投研",
+  "heldout_sessions": [
+    "S002_贵州茅台_内审",
+    "S003_比亚迪_风委",
+    "S004_比亚迪_IR",
+    "S005_宁德时代_合规"
+  ],
+  "query": "Q0 current user query",
+  "embedding": "BAAI/bge-small-zh-v1.5",
+  "output_k": 5,
+  "baseline": {
+    "candidate_representation": "P0",
+    "retrieval": "dense",
+    "candidate_k": 5,
+    "reranker": null
+  },
+  "quality": {
+    "candidate_representation": "P0",
+    "retrieval": "dense+chinese_bm25",
+    "fusion": "RRF",
+    "rrf_constant": 60,
+    "candidate_k": 20,
+    "rerank_representation": "P8",
+    "reranker": "BAAI/bge-reranker-base",
+    "final_ranking": "reranker_only",
+    "output_k": 5
+  },
+  "pareto": {
+    "candidate_representation": "P0",
+    "retrieval": "dense+chinese_bm25",
+    "fusion": "RRF",
+    "rrf_constant": 60,
+    "candidate_k": 15,
+    "rerank_representation": "P8",
+    "reranker": "BAAI/bge-reranker-base",
+    "final_ranking": "candidate_top2_protection_then_reranker",
+    "candidate_top_n_protection": 2,
+    "output_k": 5
+  },
+  "parameter_tuning_on_heldout_allowed": false,
+  "bootstrap_seed": 42,
+  "bootstrap_unit": "query",
+  "bootstrap_iterations": 10000
+}

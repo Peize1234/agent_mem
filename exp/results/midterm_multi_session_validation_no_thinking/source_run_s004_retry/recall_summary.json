@@ -1,0 +1,166 @@
+{
+  "total_turns": 74,
+  "successful_turns": 74,
+  "failed_turns": 0,
+  "evaluated_turns": 21,
+  "evaluated_successful_turns": 21,
+  "effective": {
+    "session_count": 1,
+    "session_concurrency": 1,
+    "short_term_message_capacity": 6,
+    "short_term_qa_capacity": 3,
+    "wait_strategy": "before_evaluation",
+    "evaluate_only_long_range": true,
+    "llm_mode": "real",
+    "infer": true,
+    "profile_enabled": false,
+    "runtime_dir": "/home/peize/Code/htzq/mem0/exp/runtime/midterm_multi_session_validation_s004_retry",
+    "dataset_path": "/home/peize/Code/htzq/mem0/exp/enterprise_finance_memory_sessions_100_v3_realistic_2023_2025.xlsx",
+    "git_commit": "d82486444d7b92e5bdadc61c082a7108b59fa9dd",
+    "elapsed_seconds": 665.5315124988556,
+    "session_wall_clock_seconds": {
+      "S004_比亚迪_IR": 665.2938978230013
+    },
+    "sequential_estimated_seconds": 665.2938978230013,
+    "effective_session_speedup": 0.9996429700601822
+  },
+  "build_total_ms": {
+    "count": 74,
+    "min": 67.46673099405598,
+    "mean": 369.5367822564967,
+    "p50": 261.6495529982785,
+    "p90": 402.7113333970192,
+    "p95": 433.45379664897337,
+    "p99": 2525.137192757654,
+    "max": 7948.4064639982535,
+    "stddev": 892.3490112185506
+  },
+  "retrieve_context_ms": {
+    "count": 74,
+    "min": 66.9501960001071,
+    "mean": 367.7100485955315,
+    "p50": 258.4713925025426,
+    "p90": 401.6416631944594,
+    "p95": 432.33632019873767,
+    "p99": 2524.4155023745834,
+    "max": 7948.247388994787,
+    "stddev": 892.512961687558
+  },
+  "add_submit_ms": {
+    "count": 74,
+    "min": 11.922475998289883,
+    "mean": 76.65561302722357,
+    "p50": 89.09087850042852,
+    "p90": 133.0277699038561,
+    "p95": 147.70547690241074,
+    "p99": 156.53496053775592,
+    "max": 168.56309899594635,
+    "stddev": 43.616228714926365
+  },
+  "short": {
+    "recall": 0.4444444444444445,
+    "precision": 0.39682539682539675,
+    "hit_rate": 1.0,
+    "full_dependency_recall": 0.0,
+    "mrr": 0.4603174603174603
+  },
+  "mid_page": {
+    "recall": 0.1349206349206349,
+    "precision": 0.07301587301587302,
+    "hit_rate": 0.3333333333333333,
+    "full_dependency_recall": 0.0,
+    "mrr": 0.1761904761904762
+  },
+  "mid_session": {
+    "recall": 0.5555555555555556,
+    "precision": 0.08085444902821957,
+    "hit_rate": 1.0,
+    "full_dependency_recall": 0.0,
+    "mrr": 0.1773544132906832
+  },
+  "mid": {
+    "recall": 0.5555555555555556,
+    "precision": 0.08085444902821957,
+    "hit_rate": 1.0,
+    "full_dependency_recall": 0.0,
+    "mrr": 0.19676887590988393
+  },
+  "long": {
+    "recall": 0.11904761904761904,
+    "precision": 0.10952380952380951,
+    "hit_rate": 0.3333333333333333,
+    "full_dependency_recall": 0.0,
+    "mrr": 0.1619047619047619
+  },
+  "mid_long": {
+    "recall": 0.5555555555555556,
+    "precision": 0.08085444902821957,
+    "hit_rate": 1.0,
+    "full_dependency_recall": 0.0,
+    "mrr": 0.19676887590988393
+  },
+  "all": {
+    "recall": 1.0,
+    "precision": 0.10709092258906805,
+    "hit_rate": 1.0,
+    "full_dependency_recall": 1.0,
+    "mrr": 0.4603174603174603
+  },
+  "by_dependency_type": {
+    "相邻承接＋历史回溯": {
+      "count": 8,
+      "mid_long_recall": 0.5,
+      "mid_long_precision": 0.07731768286010166,
+      "all_recall": 1.0
+    },
+    "相邻承接＋多跳综合": {
+      "count": 13,
+      "mid_long_recall": 0.5897435897435896,
+      "mid_long_precision": 0.08303092051629214,
+      "all_recall": 1.0
+    }
+  },
+  "benchmark_config": {
+    "benchmark": {
+      "run_name": "midterm_multi_session_validation_s004_isolated_retry",
+      "reset_storage": true,
+      "output_dir": "exp/results/midterm_multi_session_validation_no_thinking/source_run_s004_retry",
+      "random_seed": 42
+    },
+    "dataset": {
+      "path": "exp/enterprise_finance_memory_sessions_100_v3_realistic_2023_2025.xlsx",
+      "include_sheets": [
+        "S004_比亚迪_IR"
+      ],
+      "max_sessions": 1,
+      "max_turns_per_session": null
+    },
+    "storage": {
+      "runtime_dir": "exp/runtime/midterm_multi_session_validation_s004_retry",
+      "collection_name": "midterm_multi_session_validation_s004_retry"
+    },
+    "execution": {
+      "session_concurrency": 1,
+      "retrieval_timeout_seconds": 180,
+      "add_timeout_seconds": 180,
+      "background_job_timeout_seconds": 1800,
+      "background_poll_interval_seconds": 0.2,
+      "wait_strategy": "before_evaluation"
+    },
+    "memory": {
+      "config_path": "exp/benchmark/memory_config.json",
+      "llm_mode": "real",
+      "infer": true,
+      "profile_enabled": false,
+      "profile_update_on_add": false
+    },
+    "retrieval": {
+      "top_k": 5,
+      "threshold": 0.1,
+      "rerank": false
+    },
+    "evaluation": {
+      "evaluate_only_long_range": true
+    }
+  }
+}

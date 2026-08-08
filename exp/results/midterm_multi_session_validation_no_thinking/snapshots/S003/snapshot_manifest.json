@@ -1,0 +1,22 @@
+{
+  "snapshot_version": 1,
+  "session_id": "S003_比亚迪_风委",
+  "session_code": "S003",
+  "source_dir": "/home/peize/Code/htzq/mem0/exp/results/midterm_multi_session_validation_no_thinking/source_run_s002_s005",
+  "source_run_hash": "fd342cf2377334a6518211fde39ccc0aabed2ca507ee058c22acfe6d403744a9",
+  "history_db_path": "/home/peize/Code/htzq/mem0/exp/runtime/midterm_multi_session_validation_s002_s005/history.db",
+  "turn_count": 93,
+  "page_count": 90,
+  "long_range_query_count": 26,
+  "evaluated_query_count": 26,
+  "total_gold_lineage_count": 73,
+  "eligible_gold_page_count": 43,
+  "gold_status_counts": {
+    "AVAILABLE": 43,
+    "GOLD_NOT_AVAILABLE_AT_QUERY_TIME": 30
+  },
+  "future_page_leak_count": 0,
+  "production_page_representation": "P0",
+  "production_embedding_model": "BAAI/bge-small-zh-v1.5",
+  "snapshot_hash": "4cc6f99c8d59676c29cb8e291dcc6a6a7be37ec3232fa1c11b9149e13eb78391"
+}

@@ -1,0 +1,46 @@
+{
+  "benchmark": {
+    "run_name": "midterm_multi_session_validation_s002_s005",
+    "reset_storage": true,
+    "output_dir": "exp/results/midterm_multi_session_validation_no_thinking/source_run_s002_s005",
+    "random_seed": 42
+  },
+  "dataset": {
+    "path": "exp/enterprise_finance_memory_sessions_100_v3_realistic_2023_2025.xlsx",
+    "include_sheets": [
+      "S002_贵州茅台_内审",
+      "S003_比亚迪_风委",
+      "S004_比亚迪_IR",
+      "S005_宁德时代_合规"
+    ],
+    "max_sessions": 4,
+    "max_turns_per_session": null
+  },
+  "storage": {
+    "runtime_dir": "exp/runtime/midterm_multi_session_validation_s002_s005",
+    "collection_name": "midterm_multi_session_validation_s002_s005"
+  },
+  "execution": {
+    "session_concurrency": 4,
+    "retrieval_timeout_seconds": 180,
+    "add_timeout_seconds": 180,
+    "background_job_timeout_seconds": 1800,
+    "background_poll_interval_seconds": 0.2,
+    "wait_strategy": "before_evaluation"
+  },
+  "memory": {
+    "config_path": "exp/benchmark/memory_config.json",
+    "llm_mode": "real",
+    "infer": true,
+    "profile_enabled": false,
+    "profile_update_on_add": false
+  },
+  "retrieval": {
+    "top_k": 5,
+    "threshold": 0.1,
+    "rerank": false
+  },
+  "evaluation": {
+    "evaluate_only_long_range": true
+  }
+}

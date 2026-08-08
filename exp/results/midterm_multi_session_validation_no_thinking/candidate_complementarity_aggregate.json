@@ -1,0 +1,8 @@
+{
+  "scope": "S002-S005 heldout",
+  "DENSE_ONLY": 17,
+  "BM25_ONLY": 19,
+  "BOTH": 80,
+  "NEITHER": 17,
+  "is_complementary": true
+}

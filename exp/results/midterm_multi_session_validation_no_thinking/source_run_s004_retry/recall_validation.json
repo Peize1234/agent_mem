@@ -1,0 +1,37 @@
+{
+  "status": "PASS",
+  "sessions": [
+    "S004_比亚迪_IR"
+  ],
+  "ignored_partial_or_out_of_scope_sessions": [],
+  "turn_count": 74,
+  "failed_turn_count": 0,
+  "cross_session_leak_count": 0,
+  "future_turn_leak_count": 0,
+  "expected_migration_jobs_by_session": {
+    "S004_比亚迪_IR": 71
+  },
+  "actual_migration_jobs_by_session": {
+    "S004_比亚迪_IR": 71
+  },
+  "migration_status_counts": {
+    "succeeded": 71
+  },
+  "midterm_status_counts": {
+    "succeeded": 71
+  },
+  "longterm_status_counts": {
+    "succeeded": 71
+  },
+  "session_concurrency": 1,
+  "session_wall_clock_seconds": {
+    "S004_比亚迪_IR": 665.2938978230013
+  },
+  "actual_concurrent_wall_seconds": 665.5315124988556,
+  "sequential_estimated_seconds": 665.2938978230013,
+  "effective_session_speedup": 0.9996429700601822,
+  "no_thinking": {
+    "midterm": true,
+    "longterm": true
+  }
+}

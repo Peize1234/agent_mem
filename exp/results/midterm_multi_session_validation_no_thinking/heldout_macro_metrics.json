@@ -1,0 +1,27 @@
+{
+  "scope": "S002-S005 heldout only",
+  "baseline": {
+    "session_count": 4,
+    "macro_session_recall_at_5": 0.33758665026833634,
+    "macro_session_mrr": 0.2957491236366236,
+    "macro_session_ndcg_at_5": 0.23917609340042356,
+    "query_level_macro_mrr": 0.288736317705742,
+    "query_level_macro_ndcg_at_5": 0.2324078804125915
+  },
+  "quality": {
+    "session_count": 4,
+    "macro_session_recall_at_5": 0.33419051878354206,
+    "macro_session_mrr": 0.24215620607804597,
+    "macro_session_ndcg_at_5": 0.2153369199236721,
+    "query_level_macro_mrr": 0.24071293603140861,
+    "query_level_macro_ndcg_at_5": 0.21474783106975096
+  },
+  "pareto": {
+    "session_count": 4,
+    "macro_session_recall_at_5": 0.3221712880143113,
+    "macro_session_mrr": 0.24184461512008515,
+    "macro_session_ndcg_at_5": 0.20638278272000202,
+    "query_level_macro_mrr": 0.242612114070634,
+    "query_level_macro_ndcg_at_5": 0.20566607793393082
+  }
+}

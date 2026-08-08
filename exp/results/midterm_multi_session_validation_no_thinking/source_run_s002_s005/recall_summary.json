@@ -1,0 +1,172 @@
+{
+  "total_turns": 243,
+  "successful_turns": 242,
+  "failed_turns": 1,
+  "evaluated_turns": 68,
+  "evaluated_successful_turns": 68,
+  "effective": {
+    "session_count": 4,
+    "session_concurrency": 4,
+    "short_term_message_capacity": 6,
+    "short_term_qa_capacity": 3,
+    "wait_strategy": "before_evaluation",
+    "evaluate_only_long_range": true,
+    "llm_mode": "real",
+    "infer": true,
+    "profile_enabled": false,
+    "runtime_dir": "/home/peize/Code/htzq/mem0/exp/runtime/midterm_multi_session_validation_s002_s005",
+    "dataset_path": "/home/peize/Code/htzq/mem0/exp/enterprise_finance_memory_sessions_100_v3_realistic_2023_2025.xlsx",
+    "git_commit": "d82486444d7b92e5bdadc61c082a7108b59fa9dd",
+    "elapsed_seconds": 842.692807674408,
+    "session_wall_clock_seconds": {
+      "S004_比亚迪_IR": 139.64598809999734,
+      "S005_宁德时代_合规": 461.16151865799475,
+      "S002_贵州茅台_内审": 615.1021151550012,
+      "S003_比亚迪_风委": 837.2239888460026
+    },
+    "sequential_estimated_seconds": 2053.133610758996,
+    "effective_session_speedup": 2.4363962668971384
+  },
+  "build_total_ms": {
+    "count": 242,
+    "min": 67.71896799909882,
+    "mean": 760.1114220123544,
+    "p50": 460.7420569991518,
+    "p90": 1074.625287998788,
+    "p95": 1522.2127726028702,
+    "p99": 11624.34070096875,
+    "max": 11684.584074006125,
+    "stddev": 1488.6113442485137
+  },
+  "retrieve_context_ms": {
+    "count": 242,
+    "min": 67.44436000008136,
+    "mean": 756.9510863264621,
+    "p50": 449.9818404947291,
+    "p90": 1073.7826719014267,
+    "p95": 1521.35737605131,
+    "p99": 11624.21143626154,
+    "max": 11684.532913001021,
+    "stddev": 1489.0256804743653
+  },
+  "add_submit_ms": {
+    "count": 242,
+    "min": 11.554283999430481,
+    "mean": 119.99118483069373,
+    "p50": 95.31084800255485,
+    "p90": 194.3684131016198,
+    "p95": 276.8180587008826,
+    "p99": 519.5429478301959,
+    "max": 939.770912998938,
+    "stddev": 104.28701060523086
+  },
+  "short": {
+    "recall": 0.4313725490196078,
+    "precision": 0.38235294117647056,
+    "hit_rate": 1.0,
+    "full_dependency_recall": 0.0,
+    "mrr": 0.4313725490196078
+  },
+  "mid_page": {
+    "recall": 0.2230392156862745,
+    "precision": 0.12549019607843137,
+    "hit_rate": 0.5441176470588235,
+    "full_dependency_recall": 0.0,
+    "mrr": 0.2867647058823529
+  },
+  "mid_session": {
+    "recall": 0.5686274509803921,
+    "precision": 0.08936573106558757,
+    "hit_rate": 1.0,
+    "full_dependency_recall": 0.0,
+    "mrr": 0.23147301298987694
+  },
+  "mid": {
+    "recall": 0.5686274509803921,
+    "precision": 0.08936573106558757,
+    "hit_rate": 1.0,
+    "full_dependency_recall": 0.0,
+    "mrr": 0.3027955144398988
+  },
+  "long": {
+    "recall": 0.15441176470588236,
+    "precision": 0.10563725490196078,
+    "hit_rate": 0.36764705882352944,
+    "full_dependency_recall": 0.0,
+    "mrr": 0.20931372549019606
+  },
+  "mid_long": {
+    "recall": 0.5686274509803921,
+    "precision": 0.08936573106558757,
+    "hit_rate": 1.0,
+    "full_dependency_recall": 0.0,
+    "mrr": 0.3027955144398988
+  },
+  "all": {
+    "recall": 1.0,
+    "precision": 0.11461961243039624,
+    "hit_rate": 1.0,
+    "full_dependency_recall": 1.0,
+    "mrr": 0.4313725490196078
+  },
+  "by_dependency_type": {
+    "相邻承接＋历史回溯": {
+      "count": 26,
+      "mid_long_recall": 0.5,
+      "mid_long_precision": 0.08786571420897693,
+      "all_recall": 1.0
+    },
+    "相邻承接＋多跳综合": {
+      "count": 42,
+      "mid_long_recall": 0.611111111111111,
+      "mid_long_precision": 0.09029431292920369,
+      "all_recall": 1.0
+    }
+  },
+  "benchmark_config": {
+    "benchmark": {
+      "run_name": "midterm_multi_session_validation_s002_s005",
+      "reset_storage": true,
+      "output_dir": "exp/results/midterm_multi_session_validation_no_thinking/source_run_s002_s005",
+      "random_seed": 42
+    },
+    "dataset": {
+      "path": "exp/enterprise_finance_memory_sessions_100_v3_realistic_2023_2025.xlsx",
+      "include_sheets": [
+        "S002_贵州茅台_内审",
+        "S003_比亚迪_风委",
+        "S004_比亚迪_IR",
+        "S005_宁德时代_合规"
+      ],
+      "max_sessions": 4,
+      "max_turns_per_session": null
+    },
+    "storage": {
+      "runtime_dir": "exp/runtime/midterm_multi_session_validation_s002_s005",
+      "collection_name": "midterm_multi_session_validation_s002_s005"
+    },
+    "execution": {
+      "session_concurrency": 4,
+      "retrieval_timeout_seconds": 180,
+      "add_timeout_seconds": 180,
+      "background_job_timeout_seconds": 1800,
+      "background_poll_interval_seconds": 0.2,
+      "wait_strategy": "before_evaluation"
+    },
+    "memory": {
+      "config_path": "exp/benchmark/memory_config.json",
+      "llm_mode": "real",
+      "infer": true,
+      "profile_enabled": false,
+      "profile_update_on_add": false
+    },
+    "retrieval": {
+      "top_k": 5,
+      "threshold": 0.1,
+      "rerank": false
+    },
+    "evaluation": {
+      "evaluate_only_long_range": true
+    }
+  }
+}

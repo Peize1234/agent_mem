@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "frozen_config_sha256": "b7d693919b0211fd92162d717cc318d6127f60f9a469f1bc3354b2de73a357c3",
+  "heldout_sessions": [
+    "S002_贵州茅台_内审",
+    "S003_比亚迪_风委",
+    "S004_比亚迪_IR",
+    "S005_宁德时代_合规"
+  ],
+  "snapshot_hashes": {
+    "S002_贵州茅台_内审": "730e158042412115eb8083afddb41339017fc0c193c5f2998a2bb98f26eb2e27",
+    "S003_比亚迪_风委": "4cc6f99c8d59676c29cb8e291dcc6a6a7be37ec3232fa1c11b9149e13eb78391",
+    "S004_比亚迪_IR": "ba543f3c5effb33aad69ce9c882390507bcae6fa37601fc46ad9822ca932ec80",
+    "S005_宁德时代_合规": "0489f176d4b98560127dc5f63eb1dadbf6784821396069446404dc39b6363962"
+  },
+  "warmups": 3,
+  "repeats": 1,
+  "clock": "time.perf_counter",
+  "includes": "query embedding -> dense -> optional BM25/RRF/local reranker -> final Top5",
+  "cold_start_excluded": true
+}

@@ -1,0 +1,139 @@
+{
+  "dataset": "/home/peize/Code/htzq/mem0/exp/enterprise_finance_memory_sessions_100_v3_realistic_2023_2025.xlsx",
+  "first_five_in_dataset_order": [
+    {
+      "session_code": "S001",
+      "session_id": "S001_贵州茅台_投研",
+      "turn_count": 50,
+      "role": "development",
+      "source": "reused existing S001 snapshot/cache",
+      "full_benchmark_rerun": false
+    },
+    {
+      "session_code": "S002",
+      "session_id": "S002_贵州茅台_内审",
+      "turn_count": 73,
+      "role": "heldout",
+      "source": "new one-time no-thinking source run",
+      "full_benchmark_rerun": true
+    },
+    {
+      "session_code": "S003",
+      "session_id": "S003_比亚迪_风委",
+      "turn_count": 93,
+      "role": "heldout",
+      "source": "new one-time no-thinking source run",
+      "full_benchmark_rerun": true
+    },
+    {
+      "session_code": "S004",
+      "session_id": "S004_比亚迪_IR",
+      "turn_count": 74,
+      "role": "heldout",
+      "source": "new one-time no-thinking source run",
+      "full_benchmark_rerun": true
+    },
+    {
+      "session_code": "S005",
+      "session_id": "S005_宁德时代_合规",
+      "turn_count": 58,
+      "role": "heldout",
+      "source": "new one-time no-thinking source run",
+      "full_benchmark_rerun": true
+    }
+  ],
+  "out_of_scope_session_count": 0,
+  "source_run_validation": {
+    "status": "PASS",
+    "initial_concurrent_run": {
+      "status": "PASS",
+      "sessions": [
+        "S002_贵州茅台_内审",
+        "S003_比亚迪_风委",
+        "S005_宁德时代_合规"
+      ],
+      "ignored_partial_or_out_of_scope_sessions": [
+        "S004_比亚迪_IR"
+      ],
+      "turn_count": 224,
+      "failed_turn_count": 0,
+      "cross_session_leak_count": 0,
+      "future_turn_leak_count": 0,
+      "expected_migration_jobs_by_session": {
+        "S002_贵州茅台_内审": 70,
+        "S003_比亚迪_风委": 90,
+        "S005_宁德时代_合规": 55
+      },
+      "actual_migration_jobs_by_session": {
+        "S002_贵州茅台_内审": 70,
+        "S005_宁德时代_合规": 55,
+        "S003_比亚迪_风委": 90
+      },
+      "migration_status_counts": {
+        "succeeded": 213,
+        "succeeded_degraded": 2
+      },
+      "midterm_status_counts": {
+        "succeeded": 213,
+        "succeeded_degraded": 2
+      },
+      "longterm_status_counts": {
+        "succeeded": 215
+      },
+      "session_concurrency": 4,
+      "session_wall_clock_seconds": {
+        "S002_贵州茅台_内审": 615.1021151550012,
+        "S005_宁德时代_合规": 461.16151865799475,
+        "S003_比亚迪_风委": 837.2239888460026
+      },
+      "actual_concurrent_wall_seconds": 842.692807674408,
+      "sequential_estimated_seconds": 1913.4876226589986,
+      "effective_session_speedup": 2.2706822761899192,
+      "no_thinking": {
+        "midterm": true,
+        "longterm": true
+      }
+    },
+    "isolated_s004_retry": {
+      "status": "PASS",
+      "sessions": [
+        "S004_比亚迪_IR"
+      ],
+      "ignored_partial_or_out_of_scope_sessions": [],
+      "turn_count": 74,
+      "failed_turn_count": 0,
+      "cross_session_leak_count": 0,
+      "future_turn_leak_count": 0,
+      "expected_migration_jobs_by_session": {
+        "S004_比亚迪_IR": 71
+      },
+      "actual_migration_jobs_by_session": {
+        "S004_比亚迪_IR": 71
+      },
+      "migration_status_counts": {
+        "succeeded": 71
+      },
+      "midterm_status_counts": {
+        "succeeded": 71
+      },
+      "longterm_status_counts": {
+        "succeeded": 71
+      },
+      "session_concurrency": 1,
+      "session_wall_clock_seconds": {
+        "S004_比亚迪_IR": 665.2938978230013
+      },
+      "actual_concurrent_wall_seconds": 665.5315124988556,
+      "sequential_estimated_seconds": 665.2938978230013,
+      "effective_session_speedup": 0.9996429700601822,
+      "no_thinking": {
+        "midterm": true,
+        "longterm": true
+      }
+    },
+    "actual_wall_seconds": 1508.2243201732635,
+    "sequential_estimated_seconds": 2578.781520482,
+    "reason_for_isolated_retry": "The initial local-Qdrant concurrent source run hit an internal array-size race on S004-Q019. S002/S003/S005 were retained; S004 was rerun once in an isolated runtime.",
+    "effective_speedup": 1.7098129807280602
+  }
+}

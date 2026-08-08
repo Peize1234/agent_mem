@@ -1,0 +1,22 @@
+{
+  "snapshot_version": 1,
+  "session_id": "S004_比亚迪_IR",
+  "session_code": "S004",
+  "source_dir": "/home/peize/Code/htzq/mem0/exp/results/midterm_multi_session_validation_no_thinking/source_run_s004_retry",
+  "source_run_hash": "dbdcd3e93966abf8b7ae3c2cb28e45643905355f6160f6ef54f7906d6debda36",
+  "history_db_path": "/home/peize/Code/htzq/mem0/exp/runtime/midterm_multi_session_validation_s004_retry/history.db",
+  "turn_count": 74,
+  "page_count": 71,
+  "long_range_query_count": 21,
+  "evaluated_query_count": 21,
+  "total_gold_lineage_count": 57,
+  "eligible_gold_page_count": 32,
+  "gold_status_counts": {
+    "AVAILABLE": 32,
+    "GOLD_NOT_AVAILABLE_AT_QUERY_TIME": 25
+  },
+  "future_page_leak_count": 0,
+  "production_page_representation": "P0",
+  "production_embedding_model": "BAAI/bge-small-zh-v1.5",
+  "snapshot_hash": "ba543f3c5effb33aad69ce9c882390507bcae6fa37601fc46ad9822ca932ec80"
+}

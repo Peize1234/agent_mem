@@ -190,6 +190,7 @@ async def run() -> None:
     semaphore = asyncio.Semaphore(session_concurrency)
     records: list[dict[str, Any]] = []
     records_lock = asyncio.Lock()
+    session_wall_clock_seconds: dict[str, float] = {}
     raw_writer = AsyncJsonlWriter(output_dir / "recall_turn_results.jsonl")
     failure_writer = AsyncJsonlWriter(output_dir / "recall_failures.jsonl")
     started_at = time.time()
@@ -207,6 +208,7 @@ async def run() -> None:
 
     async def run_session(session) -> None:
         async with semaphore:
+            session_started = time.perf_counter()
             pending_migration_jobs: list[str] = []
             user_id = f"recall::{session.session_id}"
             try:
@@ -350,6 +352,8 @@ async def run() -> None:
                 await wait_pending(pending_migration_jobs)
             except Exception:
                 LOGGER.exception("Session %s 终止", session.session_id)
+            finally:
+                session_wall_clock_seconds[session.session_id] = time.perf_counter() - session_started
 
     try:
         await asyncio.gather(*(run_session(session) for session in sessions))
@@ -374,6 +378,8 @@ async def run() -> None:
                 "turn_count": len(rows),
                 "evaluated_count": len(evaluated_rows),
                 "error_count": sum(1 for row in rows if row.get("error")),
+                "wall_clock_seconds": session_wall_clock_seconds.get(session_id),
+                "migration_job_count": sum(bool(row.get("migration_job_id")) for row in rows),
                 "mid_long_recall": mean_or_none([row["mid_long_recall"] for row in evaluated_rows]),
                 "mid_long_precision": mean_or_none([row["mid_long_precision"] for row in evaluated_rows]),
                 "all_recall": mean_or_none([row["all_recall"] for row in evaluated_rows]),
@@ -384,6 +390,8 @@ async def run() -> None:
         )
     write_csv(output_dir / "recall_session_summary.csv", session_rows)
 
+    actual_elapsed_seconds = time.time() - started_at
+    sequential_estimated_seconds = sum(session_wall_clock_seconds.values())
     effective = {
         "session_count": len(sessions),
         "session_concurrency": session_concurrency,
@@ -397,7 +405,12 @@ async def run() -> None:
         "runtime_dir": str(runtime_dir),
         "dataset_path": str(dataset_path),
         "git_commit": safe_git_commit(REPO_ROOT),
-        "elapsed_seconds": time.time() - started_at,
+        "elapsed_seconds": actual_elapsed_seconds,
+        "session_wall_clock_seconds": session_wall_clock_seconds,
+        "sequential_estimated_seconds": sequential_estimated_seconds,
+        "effective_session_speedup": (
+            sequential_estimated_seconds / actual_elapsed_seconds if actual_elapsed_seconds > 0 else None
+        ),
     }
     summary = build_summary(records, config, effective)
     dump_json(output_dir / "recall_summary.json", summary)
