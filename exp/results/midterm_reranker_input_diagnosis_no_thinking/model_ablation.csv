@@ -1,0 +1,4 @@
+﻿model,load_ms,device,torch_threads,max_rss_delta_kb,max_length,tokenizer_model_max_length,max_position_embeddings,status,requested_max_length,reason,triggered,executed
+BAAI/bge-reranker-base,2588.894309999887,cpu,8,423028,512,512,514,AVAILABLE,,,,
+BAAI/bge-reranker-base,,,,,,,,UNSUPPORTED,1024,"tokenizer.model_max_length=512; model.max_position_embeddings=514. The architecture supports the configured 512-token pair, not a 1024-token sequence.",,
+BAAI/bge-reranker-v2-m3,,,,,,,,UNAVAILABLE_NOT_CACHED,,BAAI/bge-reranker-v2-m3 is not present in the existing HuggingFace cache. Network/model download was intentionally not introduced into this isolated diagnosis.,True,False
