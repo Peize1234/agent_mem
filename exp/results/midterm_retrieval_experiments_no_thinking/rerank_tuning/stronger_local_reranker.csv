@@ -1,0 +1,2 @@
+﻿candidate_representation,candidate_strategy,candidate_k,rerank_representation,reranker_model,evaluated_query_count,eligible_gold_count,mrr,ndcg_at_5,mean_gold_rank,median_gold_rank,max_gold_rank,recall_at_1,recall_at_3,recall_at_5,recall_at_10,recall_at_15,recall_at_20,recall_at_30,rerank_mean_ms,rerank_p95_ms,status
+P0,rrf60,20,P8,BAAI/bge-reranker-large,14,21,0.1984731173171023,0.19609591297705736,10.380952380952381,9,26,0.0,0.23809523809523808,0.3333333333333333,0.5714285714285714,0.7142857142857143,0.9047619047619048,1.0,51361.2027252857,150396.2097626456,AVAILABLE

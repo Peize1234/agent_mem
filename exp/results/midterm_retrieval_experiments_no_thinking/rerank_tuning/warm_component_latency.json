@@ -1,0 +1,120 @@
+{
+  "contract_hash": "f87b186963372591d036dfcf5226db703f7c1f83971c0916456440e3553bb5b6",
+  "contract": {
+    "snapshot_hash": "be5421e5e290dfcd19357a5f49c16cf79a822c78b8e7b20d67e4972bc92c4ee1",
+    "configs": {
+      "baseline": [
+        "P0",
+        "dense",
+        5
+      ],
+      "best_local": [
+        "P0",
+        "rrf60",
+        20
+      ],
+      "best_low_latency": [
+        "P0",
+        "rrf60",
+        10
+      ],
+      "recommended_pareto": [
+        "P0",
+        "rrf60",
+        15
+      ],
+      "best_deepseek": [
+        "P8",
+        "bm25",
+        20
+      ]
+    },
+    "warmups": 3,
+    "repeats": 5
+  },
+  "embedding": {
+    "model": "BAAI/bge-small-zh-v1.5",
+    "model_load_ms": 5341.654741001548,
+    "warmup_repeats": 3,
+    "measurement_repeats": 5,
+    "cold_start_excluded": true,
+    "measurement_count": 70,
+    "warm_mean_ms": 11.72238395748926,
+    "warm_p50_ms": 9.492541001236532,
+    "warm_p90_ms": 18.722036301915068,
+    "warm_p95_ms": 23.16133319982327,
+    "warm_max_ms": 42.12007000023732
+  },
+  "candidate_retrieval": {
+    "baseline": {
+      "candidate_representation": "P0",
+      "candidate_strategy": "dense",
+      "candidate_k": 5,
+      "warmup_repeats": 3,
+      "measurement_repeats": 5,
+      "cold_start_excluded": true,
+      "measurement_count": 70,
+      "warm_mean_ms": 5.9453043716660305,
+      "warm_p50_ms": 2.841837500454858,
+      "warm_p90_ms": 12.300008100282867,
+      "warm_p95_ms": 17.62077589955879,
+      "warm_max_ms": 46.74306699598674
+    },
+    "best_local": {
+      "candidate_representation": "P0",
+      "candidate_strategy": "rrf60",
+      "candidate_k": 20,
+      "warmup_repeats": 3,
+      "measurement_repeats": 5,
+      "cold_start_excluded": true,
+      "measurement_count": 70,
+      "warm_mean_ms": 99.81939305715579,
+      "warm_p50_ms": 108.65843600186054,
+      "warm_p90_ms": 173.6761796011706,
+      "warm_p95_ms": 210.34201995280443,
+      "warm_max_ms": 290.5345270046382
+    },
+    "best_low_latency": {
+      "candidate_representation": "P0",
+      "candidate_strategy": "rrf60",
+      "candidate_k": 10,
+      "warmup_repeats": 3,
+      "measurement_repeats": 5,
+      "cold_start_excluded": true,
+      "measurement_count": 70,
+      "warm_mean_ms": 92.87524794303214,
+      "warm_p50_ms": 106.61929600246367,
+      "warm_p90_ms": 159.13764630095102,
+      "warm_p95_ms": 182.29534544952907,
+      "warm_max_ms": 210.3829890038469
+    },
+    "recommended_pareto": {
+      "candidate_representation": "P0",
+      "candidate_strategy": "rrf60",
+      "candidate_k": 15,
+      "warmup_repeats": 3,
+      "measurement_repeats": 5,
+      "cold_start_excluded": true,
+      "measurement_count": 70,
+      "warm_mean_ms": 92.49517132817085,
+      "warm_p50_ms": 98.18635299961898,
+      "warm_p90_ms": 167.55647050013067,
+      "warm_p95_ms": 184.13797309985964,
+      "warm_max_ms": 215.5505019982229
+    },
+    "best_deepseek": {
+      "candidate_representation": "P8",
+      "candidate_strategy": "bm25",
+      "candidate_k": 20,
+      "warmup_repeats": 3,
+      "measurement_repeats": 5,
+      "cold_start_excluded": true,
+      "measurement_count": 70,
+      "warm_mean_ms": 43.11983695692366,
+      "warm_p50_ms": 43.45950950300903,
+      "warm_p90_ms": 75.62058940093267,
+      "warm_p95_ms": 89.12369019926699,
+      "warm_max_ms": 125.03399399429327
+    }
+  }
+}

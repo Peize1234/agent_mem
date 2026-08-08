@@ -1,0 +1,9 @@
+﻿candidate_representation,candidate_k,dense_only_gold,bm25_only_gold,both_gold,neither_gold
+P0,10,3,1,9,8
+P0,15,5,3,11,2
+P0,20,3,3,15,0
+P0,30,0,0,21,0
+P8,10,4,1,10,6
+P8,15,6,4,11,0
+P8,20,2,4,15,0
+P8,30,0,0,21,0

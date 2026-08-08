@@ -1,0 +1,50 @@
+{
+  "status": "PASS",
+  "validation": "A second complete run reused successful caches; SHA-256, mtime, and size were unchanged before and after the run.",
+  "second_run_command": "python exp/benchmark/run_midterm_rerank_tuning.py --warmup-repeats 3 --latency-repeats 5",
+  "files": [
+    {
+      "path": "cache/rerank/llm_rerank.jsonl",
+      "sha256_before": "4e1bb1f3f3c607c59d9cfcf93762722a8c2bbe9716ae6a843523e1f0a2e6613c",
+      "sha256_after": "4e1bb1f3f3c607c59d9cfcf93762722a8c2bbe9716ae6a843523e1f0a2e6613c",
+      "mtime_before": 1786110786,
+      "mtime_after": 1786110786,
+      "size": 556764,
+      "success_rows": 350
+    },
+    {
+      "path": "cache/query/lightweight_query.jsonl",
+      "sha256_before": "06c587f8366fb885c35ba747f57bdc33ed6519e4ea8e195ce10e4691bbe5c737",
+      "sha256_after": "06c587f8366fb885c35ba747f57bdc33ed6519e4ea8e195ce10e4691bbe5c737",
+      "mtime_before": 1786110551,
+      "mtime_after": 1786110551,
+      "size": 12484,
+      "success_rows": 14
+    },
+    {
+      "path": "cache/rerank/local_scores.jsonl",
+      "sha256_before": "12732dc86ab1776f725068aa2ced705d97414899672254842ebf986a3a62d66c",
+      "sha256_after": "12732dc86ab1776f725068aa2ced705d97414899672254842ebf986a3a62d66c",
+      "mtime_before": 1786112438,
+      "mtime_after": 1786112438,
+      "size": 384604,
+      "success_rows": 112
+    },
+    {
+      "path": "cache/embeddings/BAAI_bge-small-zh-v1.5/lightweight-query-variants-d36b3ef4e2a9f80f.npz",
+      "sha256_before": "3f7b3f5e12e0e10e05b55951bdd431a956a571a05099ffdc8c3596f8f040843f",
+      "sha256_after": "3f7b3f5e12e0e10e05b55951bdd431a956a571a05099ffdc8c3596f8f040843f",
+      "mtime_before": 1786110558,
+      "mtime_after": 1786110558,
+      "size": 80436
+    },
+    {
+      "path": "cache/embeddings/BAAI_bge-small-zh-v1.5/lightweight-query-variants-f0a944a18db52b24.npz",
+      "sha256_before": "8d87ca06287d2d9d437a60412dda82ae4060f4c00c30454817d76a5b1596b2ed",
+      "sha256_after": "8d87ca06287d2d9d437a60412dda82ae4060f4c00c30454817d76a5b1596b2ed",
+      "mtime_before": 1786109999,
+      "mtime_after": 1786109999,
+      "size": 53770
+    }
+  ]
+}
