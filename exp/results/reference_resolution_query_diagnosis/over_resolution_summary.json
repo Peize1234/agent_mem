@@ -1,0 +1,143 @@
+{
+  "audit_method": "Deterministic canonical-content diff across subject/time/indicator/comparison/historical-conclusion/task/constraint. Context support is checked only against current query + previous_3_qa. Reference-required uses explicit reference cues and unique antecedents; ambiguous multi-indicator antecedents remain not required.",
+  "classifications": [
+    "REFERENCE_REQUIRED",
+    "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED",
+    "UNSUPPORTED"
+  ],
+  "variants": {
+    "old_rewrite": {
+      "query_count": 99,
+      "total_added_entities": 509,
+      "average_added_entities_per_query": 5.141414141414141,
+      "REFERENCE_REQUIRED_added_count": 212,
+      "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED_count": 297,
+      "UNSUPPORTED_count": 0,
+      "added_by_category": {
+        "subject": 73,
+        "time": 187,
+        "indicator": 144,
+        "comparison_object": 58,
+        "task_action": 20,
+        "historical_conclusion": 19,
+        "constraint": 8
+      }
+    },
+    "reference_resolution": {
+      "query_count": 99,
+      "total_added_entities": 35,
+      "average_added_entities_per_query": 0.35353535353535354,
+      "REFERENCE_REQUIRED_added_count": 25,
+      "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED_count": 10,
+      "UNSUPPORTED_count": 0,
+      "added_by_category": {
+        "indicator": 21,
+        "comparison_object": 10,
+        "historical_conclusion": 3,
+        "task_action": 1
+      }
+    }
+  },
+  "length_statistics": {
+    "raw_query_text": {
+      "original": {
+        "count": 99,
+        "mean_chars": 50.03030303030303,
+        "median_chars": 49,
+        "p95_chars": 67.1,
+        "mean_tokens": 51.505050505050505,
+        "tokenizer": "BAAI/bge-small-zh-v1.5",
+        "token_count_includes_special_tokens": true
+      },
+      "old_standalone_rewrite": {
+        "count": 99,
+        "mean_chars": 64.62626262626263,
+        "median_chars": 61,
+        "p95_chars": 102.1,
+        "mean_tokens": 60.97979797979798,
+        "tokenizer": "BAAI/bge-small-zh-v1.5",
+        "token_count_includes_special_tokens": true
+      },
+      "reference_resolution": {
+        "count": 99,
+        "mean_chars": 51.44444444444444,
+        "median_chars": 49,
+        "p95_chars": 70.0,
+        "mean_tokens": 52.91919191919192,
+        "tokenizer": "BAAI/bge-small-zh-v1.5",
+        "token_count_includes_special_tokens": true
+      }
+    },
+    "actual_embedding_input": {
+      "baseline": {
+        "count": 99,
+        "mean_chars": 50.03030303030303,
+        "median_chars": 49,
+        "p95_chars": 67.1,
+        "mean_tokens": 51.505050505050505,
+        "tokenizer": "BAAI/bge-small-zh-v1.5",
+        "token_count_includes_special_tokens": true
+      },
+      "old_rewrite": {
+        "count": 99,
+        "mean_chars": 149.65656565656565,
+        "median_chars": 148,
+        "p95_chars": 190.0,
+        "mean_tokens": 120.48484848484848,
+        "tokenizer": "BAAI/bge-small-zh-v1.5",
+        "token_count_includes_special_tokens": true
+      },
+      "reference_resolution": {
+        "count": 99,
+        "mean_chars": 134.4747474747475,
+        "median_chars": 131,
+        "p95_chars": 169.29999999999998,
+        "mean_tokens": 112.42424242424242,
+        "tokenizer": "BAAI/bge-small-zh-v1.5",
+        "token_count_includes_special_tokens": true
+      }
+    },
+    "old_rewrite_to_original_char_ratio": {
+      "count": 99,
+      "mean": 1.310907190532588,
+      "median": 1.2244897959183674,
+      "p25": 1.0,
+      "p75": 1.5684046345811051,
+      "p95": 2.000874125874125
+    },
+    "resolved_to_original_char_ratio": {
+      "count": 99,
+      "mean": 1.028290987818554,
+      "median": 1.0,
+      "p25": 1.0,
+      "p75": 1.0,
+      "p95": 1.1715588363004776
+    }
+  },
+  "gold_rank_movement": {
+    "old_rewrite": {
+      "rank_movement_baseline_minus_variant": {
+        "count": 154,
+        "mean": 0.13636363636363635,
+        "median": 0.0,
+        "p25": -2.0,
+        "p75": 2.0,
+        "p95": 13.0
+      },
+      "extreme_demotion_top5_to_beyond20": 3,
+      "extreme_promotion_beyond20_to_top5": 1
+    },
+    "reference_resolution": {
+      "rank_movement_baseline_minus_variant": {
+        "count": 154,
+        "mean": 0.3181818181818182,
+        "median": 0.0,
+        "p25": -1.0,
+        "p75": 1.0,
+        "p95": 6.0
+      },
+      "extreme_demotion_top5_to_beyond20": 0,
+      "extreme_promotion_beyond20_to_top5": 0
+    }
+  }
+}
