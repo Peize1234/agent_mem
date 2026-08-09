@@ -1,0 +1,127 @@
+{
+  "groups": {
+    "CHANGED": {
+      "group": "CHANGED",
+      "query_count": 13,
+      "eligible_gold_count": 21,
+      "baseline_r5": 0.47619047619047616,
+      "reference_resolution_only_r5": 0.6190476190476191,
+      "delta_r5": 0.1428571428571429,
+      "promoted_gold": 3,
+      "demoted_gold": 0,
+      "net_gold_gain": 3
+    },
+    "UNCHANGED": {
+      "group": "UNCHANGED",
+      "query_count": 86,
+      "eligible_gold_count": 133,
+      "baseline_r5": 0.3007518796992481,
+      "reference_resolution_only_r5": 0.3007518796992481,
+      "delta_r5": 0.0,
+      "promoted_gold": 0,
+      "demoted_gold": 0,
+      "net_gold_gain": 0
+    }
+  },
+  "unchanged_invariant": "PASS",
+  "unchanged_validation": {
+    "unchanged_query_count": 86,
+    "tolerances": {
+      "vector_rtol": 1e-05,
+      "vector_atol": 1e-06,
+      "score_atol": 1e-06
+    },
+    "validation_a_text_identity": "PASS",
+    "validation_b_vector_identity": "PASS",
+    "validation_c_full_ranking_identity": "PASS",
+    "validation_d_gold_rank_score_identity": "PASS",
+    "all_pass": true,
+    "exact_vector_equal_count": 13,
+    "exact_ranking_score_equal_count": 13,
+    "minimum_vector_cosine": 0.9999999999994418,
+    "maximum_vector_abs_difference": 1.789303496479988e-07,
+    "maximum_ranking_score_abs_difference": 2.384185791015625e-07,
+    "failures": {
+      "text": [],
+      "vector": [],
+      "ranking": [],
+      "gold": []
+    }
+  },
+  "gold_rank_movement": {
+    "old_rewrite_only": {
+      "rank_movement_baseline_minus_variant": {
+        "count": 154,
+        "mean": -1.948051948051948,
+        "median": 0.0,
+        "p25": -4.0,
+        "p75": 3.0
+      },
+      "extreme_demotion_top5_to_beyond20": 8,
+      "extreme_promotion_beyond20_to_top5": 1
+    },
+    "reference_resolution_only": {
+      "rank_movement_baseline_minus_variant": {
+        "count": 154,
+        "mean": -0.06493506493506493,
+        "median": 0.0,
+        "p25": 0.0,
+        "p75": 0.0
+      },
+      "extreme_demotion_top5_to_beyond20": 0,
+      "extreme_promotion_beyond20_to_top5": 0
+    }
+  },
+  "over_resolution_rank_association": {
+    "old_rewrite_only": {
+      "REFERENCE_REQUIRED_positive": {
+        "query_count": 87,
+        "eligible_gold_count": 135,
+        "mean_gold_rank_movement_baseline_minus_variant": -2.2222222222222223,
+        "baseline_r5": 0.31851851851851853,
+        "variant_r5": 0.2814814814814815
+      },
+      "REFERENCE_REQUIRED_ge_2": {
+        "query_count": 51,
+        "eligible_gold_count": 82,
+        "mean_gold_rank_movement_baseline_minus_variant": -0.5609756097560976,
+        "baseline_r5": 0.32926829268292684,
+        "variant_r5": 0.35365853658536583
+      },
+      "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED_positive": {
+        "query_count": 70,
+        "eligible_gold_count": 109,
+        "mean_gold_rank_movement_baseline_minus_variant": -2.770642201834862,
+        "baseline_r5": 0.29357798165137616,
+        "variant_r5": 0.24770642201834864
+      }
+    },
+    "reference_resolution_only": {
+      "REFERENCE_REQUIRED_positive": {
+        "query_count": 11,
+        "eligible_gold_count": 19,
+        "mean_gold_rank_movement_baseline_minus_variant": -0.47368421052631576,
+        "baseline_r5": 0.5263157894736842,
+        "variant_r5": 0.631578947368421
+      },
+      "REFERENCE_REQUIRED_ge_2": {
+        "query_count": 8,
+        "eligible_gold_count": 14,
+        "mean_gold_rank_movement_baseline_minus_variant": 0.14285714285714285,
+        "baseline_r5": 0.5,
+        "variant_r5": 0.6428571428571429
+      },
+      "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED_positive": {
+        "query_count": 5,
+        "eligible_gold_count": 7,
+        "mean_gold_rank_movement_baseline_minus_variant": 0.8571428571428571,
+        "baseline_r5": 0.42857142857142855,
+        "variant_r5": 0.8571428571428571
+      }
+    }
+  },
+  "audit_sources_reused": {
+    "reference_resolution_audit": "/home/peize/Code/htzq/mem0/exp/results/reference_resolution_query_diagnosis/reference_resolution_audit.jsonl",
+    "over_resolution_summary": "/home/peize/Code/htzq/mem0/exp/results/reference_resolution_query_diagnosis/over_resolution_summary.json"
+  }
+}
