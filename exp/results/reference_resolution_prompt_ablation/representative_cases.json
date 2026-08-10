@@ -1,0 +1,4412 @@
+{
+  "mandatory_case_ids": [
+    "S001-Q033",
+    "S003-Q044",
+    "S004-Q052",
+    "S004-Q063",
+    "S005-Q042"
+  ],
+  "cases": [
+    {
+      "session_id": "S001",
+      "query_id": "S001-Q033",
+      "original_query": "基于上一轮的资产和权益原数，近似杠杆变化能说明什么、又不能说明什么；请把两段同比分开，不要合成一个趋势词。",
+      "resolved_queries": {
+        "P0": "基于上一轮的总资产和归母股东权益原数，近似杠杆变化能说明什么、又不能说明什么；请把两段同比分开，不要合成一个趋势词。",
+        "P1": "基于上一轮的总资产和归母股东权益原数，近似杠杆变化能说明什么、又不能说明什么；请把两段同比分开，不要合成一个趋势词。",
+        "P2": "基于上一轮的总资产和归母股东权益原数，近似杠杆变化能说明什么、又不能说明什么；请把两段同比分开，不要合成一个趋势词。",
+        "P3": "基于上一轮总资产与归母股东权益的原数，近似杠杆变化能说明什么、又不能说明什么；请把两段同比分开，不要合成一个趋势词。"
+      },
+      "actual_embedding_texts": {
+        "P0": "基于上一轮的总资产和归母股东权益原数，近似杠杆变化能说明什么、又不能说明什么；请把两段同比分开，不要合成一个趋势词。",
+        "P1": "基于上一轮的总资产和归母股东权益原数，近似杠杆变化能说明什么、又不能说明什么；请把两段同比分开，不要合成一个趋势词。",
+        "P2": "基于上一轮的总资产和归母股东权益原数，近似杠杆变化能说明什么、又不能说明什么；请把两段同比分开，不要合成一个趋势词。",
+        "P3": "基于上一轮总资产与归母股东权益的原数，近似杠杆变化能说明什么、又不能说明什么；请把两段同比分开，不要合成一个趋势词。"
+      },
+      "rankings_top10": {
+        "Baseline": [
+          {
+            "rank": 1,
+            "page_id": "f1228bac-12d1-520f-9787-52a8cdcd49db",
+            "source_turn_id": "S001-Q015",
+            "score": 0.5342599153518677,
+            "is_gold": false
+          },
+          {
+            "rank": 2,
+            "page_id": "d5c03971-3795-5256-a75f-b3921d61a92d",
+            "source_turn_id": "S001-Q023",
+            "score": 0.5201343297958374,
+            "is_gold": true
+          },
+          {
+            "rank": 3,
+            "page_id": "204ccd02-0a09-5bee-9d12-d6469c1688e8",
+            "source_turn_id": "S001-Q024",
+            "score": 0.5164670348167419,
+            "is_gold": false
+          },
+          {
+            "rank": 4,
+            "page_id": "f99dbe58-f286-568d-b1fe-f1ebe59c0e0a",
+            "source_turn_id": "S001-Q008",
+            "score": 0.5152604579925537,
+            "is_gold": false
+          },
+          {
+            "rank": 5,
+            "page_id": "7c06f308-8022-5f54-a63c-ab30458f4115",
+            "source_turn_id": "S001-Q013",
+            "score": 0.5059687495231628,
+            "is_gold": false
+          },
+          {
+            "rank": 6,
+            "page_id": "812b1a36-c36b-58cb-882e-3759ed7c7c58",
+            "source_turn_id": "S001-Q026",
+            "score": 0.4987223744392395,
+            "is_gold": false
+          },
+          {
+            "rank": 7,
+            "page_id": "fb76b32a-859d-5228-b170-550c026c1646",
+            "source_turn_id": "S001-Q028",
+            "score": 0.4945952892303467,
+            "is_gold": false
+          },
+          {
+            "rank": 8,
+            "page_id": "31eb0f30-7b80-5d07-8ba6-bc6a6a24cb62",
+            "source_turn_id": "S001-Q027",
+            "score": 0.4920762777328491,
+            "is_gold": false
+          },
+          {
+            "rank": 9,
+            "page_id": "55e7e466-3b1c-5014-85fc-2a14618ce254",
+            "source_turn_id": "S001-Q018",
+            "score": 0.4877818822860718,
+            "is_gold": false
+          },
+          {
+            "rank": 10,
+            "page_id": "77cecfad-195f-539e-b105-acf49d23a9c6",
+            "source_turn_id": "S001-Q020",
+            "score": 0.48285314440727234,
+            "is_gold": false
+          }
+        ],
+        "P0": [
+          {
+            "rank": 1,
+            "page_id": "d5c03971-3795-5256-a75f-b3921d61a92d",
+            "source_turn_id": "S001-Q023",
+            "score": 0.5790305137634277,
+            "is_gold": true
+          },
+          {
+            "rank": 2,
+            "page_id": "f1228bac-12d1-520f-9787-52a8cdcd49db",
+            "source_turn_id": "S001-Q015",
+            "score": 0.5734269022941589,
+            "is_gold": false
+          },
+          {
+            "rank": 3,
+            "page_id": "7c06f308-8022-5f54-a63c-ab30458f4115",
+            "source_turn_id": "S001-Q013",
+            "score": 0.5700843334197998,
+            "is_gold": false
+          },
+          {
+            "rank": 4,
+            "page_id": "204ccd02-0a09-5bee-9d12-d6469c1688e8",
+            "source_turn_id": "S001-Q024",
+            "score": 0.5512486696243286,
+            "is_gold": false
+          },
+          {
+            "rank": 5,
+            "page_id": "f99dbe58-f286-568d-b1fe-f1ebe59c0e0a",
+            "source_turn_id": "S001-Q008",
+            "score": 0.5492395162582397,
+            "is_gold": false
+          },
+          {
+            "rank": 6,
+            "page_id": "fb76b32a-859d-5228-b170-550c026c1646",
+            "source_turn_id": "S001-Q028",
+            "score": 0.5484878420829773,
+            "is_gold": false
+          },
+          {
+            "rank": 7,
+            "page_id": "ed0c9ffd-4cf7-5f79-aaea-898b8f2899f0",
+            "source_turn_id": "S001-Q009",
+            "score": 0.5479170083999634,
+            "is_gold": false
+          },
+          {
+            "rank": 8,
+            "page_id": "55e7e466-3b1c-5014-85fc-2a14618ce254",
+            "source_turn_id": "S001-Q018",
+            "score": 0.5426901578903198,
+            "is_gold": false
+          },
+          {
+            "rank": 9,
+            "page_id": "34fa3574-894f-575c-b9b0-0a183473746e",
+            "source_turn_id": "S001-Q012",
+            "score": 0.5375924706459045,
+            "is_gold": false
+          },
+          {
+            "rank": 10,
+            "page_id": "77cecfad-195f-539e-b105-acf49d23a9c6",
+            "source_turn_id": "S001-Q020",
+            "score": 0.5357657670974731,
+            "is_gold": false
+          }
+        ],
+        "P1": [
+          {
+            "rank": 1,
+            "page_id": "d5c03971-3795-5256-a75f-b3921d61a92d",
+            "source_turn_id": "S001-Q023",
+            "score": 0.5790305137634277,
+            "is_gold": true
+          },
+          {
+            "rank": 2,
+            "page_id": "f1228bac-12d1-520f-9787-52a8cdcd49db",
+            "source_turn_id": "S001-Q015",
+            "score": 0.5734269022941589,
+            "is_gold": false
+          },
+          {
+            "rank": 3,
+            "page_id": "7c06f308-8022-5f54-a63c-ab30458f4115",
+            "source_turn_id": "S001-Q013",
+            "score": 0.5700843334197998,
+            "is_gold": false
+          },
+          {
+            "rank": 4,
+            "page_id": "204ccd02-0a09-5bee-9d12-d6469c1688e8",
+            "source_turn_id": "S001-Q024",
+            "score": 0.5512486696243286,
+            "is_gold": false
+          },
+          {
+            "rank": 5,
+            "page_id": "f99dbe58-f286-568d-b1fe-f1ebe59c0e0a",
+            "source_turn_id": "S001-Q008",
+            "score": 0.5492395162582397,
+            "is_gold": false
+          },
+          {
+            "rank": 6,
+            "page_id": "fb76b32a-859d-5228-b170-550c026c1646",
+            "source_turn_id": "S001-Q028",
+            "score": 0.5484878420829773,
+            "is_gold": false
+          },
+          {
+            "rank": 7,
+            "page_id": "ed0c9ffd-4cf7-5f79-aaea-898b8f2899f0",
+            "source_turn_id": "S001-Q009",
+            "score": 0.5479170083999634,
+            "is_gold": false
+          },
+          {
+            "rank": 8,
+            "page_id": "55e7e466-3b1c-5014-85fc-2a14618ce254",
+            "source_turn_id": "S001-Q018",
+            "score": 0.5426901578903198,
+            "is_gold": false
+          },
+          {
+            "rank": 9,
+            "page_id": "34fa3574-894f-575c-b9b0-0a183473746e",
+            "source_turn_id": "S001-Q012",
+            "score": 0.5375924706459045,
+            "is_gold": false
+          },
+          {
+            "rank": 10,
+            "page_id": "77cecfad-195f-539e-b105-acf49d23a9c6",
+            "source_turn_id": "S001-Q020",
+            "score": 0.5357657670974731,
+            "is_gold": false
+          }
+        ],
+        "P2": [
+          {
+            "rank": 1,
+            "page_id": "d5c03971-3795-5256-a75f-b3921d61a92d",
+            "source_turn_id": "S001-Q023",
+            "score": 0.5790305137634277,
+            "is_gold": true
+          },
+          {
+            "rank": 2,
+            "page_id": "f1228bac-12d1-520f-9787-52a8cdcd49db",
+            "source_turn_id": "S001-Q015",
+            "score": 0.5734269022941589,
+            "is_gold": false
+          },
+          {
+            "rank": 3,
+            "page_id": "7c06f308-8022-5f54-a63c-ab30458f4115",
+            "source_turn_id": "S001-Q013",
+            "score": 0.5700843334197998,
+            "is_gold": false
+          },
+          {
+            "rank": 4,
+            "page_id": "204ccd02-0a09-5bee-9d12-d6469c1688e8",
+            "source_turn_id": "S001-Q024",
+            "score": 0.5512486696243286,
+            "is_gold": false
+          },
+          {
+            "rank": 5,
+            "page_id": "f99dbe58-f286-568d-b1fe-f1ebe59c0e0a",
+            "source_turn_id": "S001-Q008",
+            "score": 0.5492395162582397,
+            "is_gold": false
+          },
+          {
+            "rank": 6,
+            "page_id": "fb76b32a-859d-5228-b170-550c026c1646",
+            "source_turn_id": "S001-Q028",
+            "score": 0.5484878420829773,
+            "is_gold": false
+          },
+          {
+            "rank": 7,
+            "page_id": "ed0c9ffd-4cf7-5f79-aaea-898b8f2899f0",
+            "source_turn_id": "S001-Q009",
+            "score": 0.5479170083999634,
+            "is_gold": false
+          },
+          {
+            "rank": 8,
+            "page_id": "55e7e466-3b1c-5014-85fc-2a14618ce254",
+            "source_turn_id": "S001-Q018",
+            "score": 0.5426901578903198,
+            "is_gold": false
+          },
+          {
+            "rank": 9,
+            "page_id": "34fa3574-894f-575c-b9b0-0a183473746e",
+            "source_turn_id": "S001-Q012",
+            "score": 0.5375924706459045,
+            "is_gold": false
+          },
+          {
+            "rank": 10,
+            "page_id": "77cecfad-195f-539e-b105-acf49d23a9c6",
+            "source_turn_id": "S001-Q020",
+            "score": 0.5357657670974731,
+            "is_gold": false
+          }
+        ],
+        "P3": [
+          {
+            "rank": 1,
+            "page_id": "d5c03971-3795-5256-a75f-b3921d61a92d",
+            "source_turn_id": "S001-Q023",
+            "score": 0.5816624760627747,
+            "is_gold": true
+          },
+          {
+            "rank": 2,
+            "page_id": "7c06f308-8022-5f54-a63c-ab30458f4115",
+            "source_turn_id": "S001-Q013",
+            "score": 0.5714904069900513,
+            "is_gold": false
+          },
+          {
+            "rank": 3,
+            "page_id": "f1228bac-12d1-520f-9787-52a8cdcd49db",
+            "source_turn_id": "S001-Q015",
+            "score": 0.5711613297462463,
+            "is_gold": false
+          },
+          {
+            "rank": 4,
+            "page_id": "204ccd02-0a09-5bee-9d12-d6469c1688e8",
+            "source_turn_id": "S001-Q024",
+            "score": 0.5510427355766296,
+            "is_gold": false
+          },
+          {
+            "rank": 5,
+            "page_id": "fb76b32a-859d-5228-b170-550c026c1646",
+            "source_turn_id": "S001-Q028",
+            "score": 0.5504433512687683,
+            "is_gold": false
+          },
+          {
+            "rank": 6,
+            "page_id": "f99dbe58-f286-568d-b1fe-f1ebe59c0e0a",
+            "source_turn_id": "S001-Q008",
+            "score": 0.5481683015823364,
+            "is_gold": false
+          },
+          {
+            "rank": 7,
+            "page_id": "ed0c9ffd-4cf7-5f79-aaea-898b8f2899f0",
+            "source_turn_id": "S001-Q009",
+            "score": 0.544001579284668,
+            "is_gold": false
+          },
+          {
+            "rank": 8,
+            "page_id": "55e7e466-3b1c-5014-85fc-2a14618ce254",
+            "source_turn_id": "S001-Q018",
+            "score": 0.5415618419647217,
+            "is_gold": false
+          },
+          {
+            "rank": 9,
+            "page_id": "34fa3574-894f-575c-b9b0-0a183473746e",
+            "source_turn_id": "S001-Q012",
+            "score": 0.5400115251541138,
+            "is_gold": false
+          },
+          {
+            "rank": 10,
+            "page_id": "77cecfad-195f-539e-b105-acf49d23a9c6",
+            "source_turn_id": "S001-Q020",
+            "score": 0.5341390371322632,
+            "is_gold": false
+          }
+        ]
+      },
+      "gold_comparison": [
+        {
+          "gold_page_id": "d5c03971-3795-5256-a75f-b3921d61a92d",
+          "Baseline": {
+            "rank": 2,
+            "score": 0.5201343297958374
+          },
+          "P0": {
+            "rank": 1,
+            "score": 0.5790305137634277
+          },
+          "P1": {
+            "rank": 1,
+            "score": 0.5790305137634277
+          },
+          "P2": {
+            "rank": 1,
+            "score": 0.5790305137634277
+          },
+          "P3": {
+            "rank": 1,
+            "score": 0.5816624760627747
+          }
+        },
+        {
+          "gold_page_id": "b4497adc-7393-57c0-8917-ce3372fbd151",
+          "Baseline": {
+            "rank": 20,
+            "score": 0.4486255347728729
+          },
+          "P0": {
+            "rank": 24,
+            "score": 0.481160044670105
+          },
+          "P1": {
+            "rank": 24,
+            "score": 0.481160044670105
+          },
+          "P2": {
+            "rank": 24,
+            "score": 0.481160044670105
+          },
+          "P3": {
+            "rank": 24,
+            "score": 0.4783168137073517
+          }
+        }
+      ],
+      "resolution_audits": {
+        "P0": {
+          "session_id": "S001",
+          "query_id": "S001-Q033",
+          "prompt": "P0",
+          "original_query": "基于上一轮的资产和权益原数，近似杠杆变化能说明什么、又不能说明什么；请把两段同比分开，不要合成一个趋势词。",
+          "resolved_query": "基于上一轮的总资产和归母股东权益原数，近似杠杆变化能说明什么、又不能说明什么；请把两段同比分开，不要合成一个趋势词。",
+          "changed": true,
+          "visible_context_turn_ids": [
+            "S001-Q030",
+            "S001-Q031",
+            "S001-Q032"
+          ],
+          "audit_scope": "current query + previous_3_qa only; no Gold/Page/ranking",
+          "total_added_canonical_content": 3,
+          "classification_counts": {
+            "REFERENCE_REQUIRED": 3
+          },
+          "resolution_type_counts": {
+            "INDICATOR": 2,
+            "COMPARISON_OBJECT": 1
+          },
+          "added_content": [
+            {
+              "category": "indicator",
+              "canonical": "PARENT_EQUITY",
+              "surface_text": "归母股东权益",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                "结论\n对“沿着上一轮的结论，把现金分析与更早的盈利结论合在一起，形成一段可直接引用的阶段小结；回答时同时保留一项可能的反证。”的直接回答是：归母股东权益呈连续上升，营业收入呈先升后降。结合本会话前面已经确认的口径与本轮新增的投研摘要视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两"
+              ],
+              "raw_category": "indicator",
+              "resolution_type": "INDICATOR"
+            },
+            {
+              "category": "indicator",
+              "canonical": "TOTAL_ASSETS",
+              "surface_text": "总资产",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                ".34亿元，2024年862.28亿元，2025年823.20亿元；2024/2023为+15.38%，2025/2024为-4.53%。\n总资产：2023年2,727亿元，2024年2,989.45亿元，2025年3,038.35亿元；2024/2023为+9.62%，2025/20"
+              ],
+              "raw_category": "indicator",
+              "resolution_type": "INDICATOR"
+            },
+            {
+              "category": "comparison_object",
+              "canonical": "COMPARE[PARENT_EQUITY|TOTAL_ASSETS]",
+              "surface_text": "归母股东权益 / 总资产",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                "结论\n对“沿着上一轮的结论，把现金分析与更早的盈利结论合在一起，形成一段可直接引用的阶段小结；回答时同时保留一项可能的反证。”的直接回答是：归母股东权益呈连续上升，营业收入呈先升后降。结合本会话前面已经确认的口径与本轮新增的投研摘要视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两",
+                ".34亿元，2024年862.28亿元，2025年823.20亿元；2024/2023为+15.38%，2025/2024为-4.53%。\n总资产：2023年2,727亿元，2024年2,989.45亿元，2025年3,038.35亿元；2024/2023为+9.62%，2025/20"
+              ],
+              "raw_category": "comparison_object",
+              "resolution_type": "COMPARISON_OBJECT"
+            }
+          ]
+        },
+        "P1": {
+          "session_id": "S001",
+          "query_id": "S001-Q033",
+          "prompt": "P1",
+          "original_query": "基于上一轮的资产和权益原数，近似杠杆变化能说明什么、又不能说明什么；请把两段同比分开，不要合成一个趋势词。",
+          "resolved_query": "基于上一轮的总资产和归母股东权益原数，近似杠杆变化能说明什么、又不能说明什么；请把两段同比分开，不要合成一个趋势词。",
+          "changed": true,
+          "visible_context_turn_ids": [
+            "S001-Q030",
+            "S001-Q031",
+            "S001-Q032"
+          ],
+          "audit_scope": "current query + previous_3_qa only; no Gold/Page/ranking",
+          "total_added_canonical_content": 3,
+          "classification_counts": {
+            "REFERENCE_REQUIRED": 3
+          },
+          "resolution_type_counts": {
+            "INDICATOR": 2,
+            "COMPARISON_OBJECT": 1
+          },
+          "added_content": [
+            {
+              "category": "indicator",
+              "canonical": "PARENT_EQUITY",
+              "surface_text": "归母股东权益",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                "结论\n对“沿着上一轮的结论，把现金分析与更早的盈利结论合在一起，形成一段可直接引用的阶段小结；回答时同时保留一项可能的反证。”的直接回答是：归母股东权益呈连续上升，营业收入呈先升后降。结合本会话前面已经确认的口径与本轮新增的投研摘要视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两"
+              ],
+              "raw_category": "indicator",
+              "resolution_type": "INDICATOR"
+            },
+            {
+              "category": "indicator",
+              "canonical": "TOTAL_ASSETS",
+              "surface_text": "总资产",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                ".34亿元，2024年862.28亿元，2025年823.20亿元；2024/2023为+15.38%，2025/2024为-4.53%。\n总资产：2023年2,727亿元，2024年2,989.45亿元，2025年3,038.35亿元；2024/2023为+9.62%，2025/20"
+              ],
+              "raw_category": "indicator",
+              "resolution_type": "INDICATOR"
+            },
+            {
+              "category": "comparison_object",
+              "canonical": "COMPARE[PARENT_EQUITY|TOTAL_ASSETS]",
+              "surface_text": "归母股东权益 / 总资产",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                "结论\n对“沿着上一轮的结论，把现金分析与更早的盈利结论合在一起，形成一段可直接引用的阶段小结；回答时同时保留一项可能的反证。”的直接回答是：归母股东权益呈连续上升，营业收入呈先升后降。结合本会话前面已经确认的口径与本轮新增的投研摘要视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两",
+                ".34亿元，2024年862.28亿元，2025年823.20亿元；2024/2023为+15.38%，2025/2024为-4.53%。\n总资产：2023年2,727亿元，2024年2,989.45亿元，2025年3,038.35亿元；2024/2023为+9.62%，2025/20"
+              ],
+              "raw_category": "comparison_object",
+              "resolution_type": "COMPARISON_OBJECT"
+            }
+          ]
+        },
+        "P2": {
+          "session_id": "S001",
+          "query_id": "S001-Q033",
+          "prompt": "P2",
+          "original_query": "基于上一轮的资产和权益原数，近似杠杆变化能说明什么、又不能说明什么；请把两段同比分开，不要合成一个趋势词。",
+          "resolved_query": "基于上一轮的总资产和归母股东权益原数，近似杠杆变化能说明什么、又不能说明什么；请把两段同比分开，不要合成一个趋势词。",
+          "changed": true,
+          "visible_context_turn_ids": [
+            "S001-Q030",
+            "S001-Q031",
+            "S001-Q032"
+          ],
+          "audit_scope": "current query + previous_3_qa only; no Gold/Page/ranking",
+          "total_added_canonical_content": 3,
+          "classification_counts": {
+            "REFERENCE_REQUIRED": 3
+          },
+          "resolution_type_counts": {
+            "INDICATOR": 2,
+            "COMPARISON_OBJECT": 1
+          },
+          "added_content": [
+            {
+              "category": "indicator",
+              "canonical": "PARENT_EQUITY",
+              "surface_text": "归母股东权益",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                "结论\n对“沿着上一轮的结论，把现金分析与更早的盈利结论合在一起，形成一段可直接引用的阶段小结；回答时同时保留一项可能的反证。”的直接回答是：归母股东权益呈连续上升，营业收入呈先升后降。结合本会话前面已经确认的口径与本轮新增的投研摘要视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两"
+              ],
+              "raw_category": "indicator",
+              "resolution_type": "INDICATOR"
+            },
+            {
+              "category": "indicator",
+              "canonical": "TOTAL_ASSETS",
+              "surface_text": "总资产",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                ".34亿元，2024年862.28亿元，2025年823.20亿元；2024/2023为+15.38%，2025/2024为-4.53%。\n总资产：2023年2,727亿元，2024年2,989.45亿元，2025年3,038.35亿元；2024/2023为+9.62%，2025/20"
+              ],
+              "raw_category": "indicator",
+              "resolution_type": "INDICATOR"
+            },
+            {
+              "category": "comparison_object",
+              "canonical": "COMPARE[PARENT_EQUITY|TOTAL_ASSETS]",
+              "surface_text": "归母股东权益 / 总资产",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                "结论\n对“沿着上一轮的结论，把现金分析与更早的盈利结论合在一起，形成一段可直接引用的阶段小结；回答时同时保留一项可能的反证。”的直接回答是：归母股东权益呈连续上升，营业收入呈先升后降。结合本会话前面已经确认的口径与本轮新增的投研摘要视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两",
+                ".34亿元，2024年862.28亿元，2025年823.20亿元；2024/2023为+15.38%，2025/2024为-4.53%。\n总资产：2023年2,727亿元，2024年2,989.45亿元，2025年3,038.35亿元；2024/2023为+9.62%，2025/20"
+              ],
+              "raw_category": "comparison_object",
+              "resolution_type": "COMPARISON_OBJECT"
+            }
+          ]
+        },
+        "P3": {
+          "session_id": "S001",
+          "query_id": "S001-Q033",
+          "prompt": "P3",
+          "original_query": "基于上一轮的资产和权益原数，近似杠杆变化能说明什么、又不能说明什么；请把两段同比分开，不要合成一个趋势词。",
+          "resolved_query": "基于上一轮总资产与归母股东权益的原数，近似杠杆变化能说明什么、又不能说明什么；请把两段同比分开，不要合成一个趋势词。",
+          "changed": true,
+          "visible_context_turn_ids": [
+            "S001-Q030",
+            "S001-Q031",
+            "S001-Q032"
+          ],
+          "audit_scope": "current query + previous_3_qa only; no Gold/Page/ranking",
+          "total_added_canonical_content": 3,
+          "classification_counts": {
+            "REFERENCE_REQUIRED": 3
+          },
+          "resolution_type_counts": {
+            "INDICATOR": 2,
+            "COMPARISON_OBJECT": 1
+          },
+          "added_content": [
+            {
+              "category": "indicator",
+              "canonical": "PARENT_EQUITY",
+              "surface_text": "归母股东权益",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                "结论\n对“沿着上一轮的结论，把现金分析与更早的盈利结论合在一起，形成一段可直接引用的阶段小结；回答时同时保留一项可能的反证。”的直接回答是：归母股东权益呈连续上升，营业收入呈先升后降。结合本会话前面已经确认的口径与本轮新增的投研摘要视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两"
+              ],
+              "raw_category": "indicator",
+              "resolution_type": "INDICATOR"
+            },
+            {
+              "category": "indicator",
+              "canonical": "TOTAL_ASSETS",
+              "surface_text": "总资产",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                ".34亿元，2024年862.28亿元，2025年823.20亿元；2024/2023为+15.38%，2025/2024为-4.53%。\n总资产：2023年2,727亿元，2024年2,989.45亿元，2025年3,038.35亿元；2024/2023为+9.62%，2025/20"
+              ],
+              "raw_category": "indicator",
+              "resolution_type": "INDICATOR"
+            },
+            {
+              "category": "comparison_object",
+              "canonical": "COMPARE[PARENT_EQUITY|TOTAL_ASSETS]",
+              "surface_text": "归母股东权益 / 总资产",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                "结论\n对“沿着上一轮的结论，把现金分析与更早的盈利结论合在一起，形成一段可直接引用的阶段小结；回答时同时保留一项可能的反证。”的直接回答是：归母股东权益呈连续上升，营业收入呈先升后降。结合本会话前面已经确认的口径与本轮新增的投研摘要视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两",
+                ".34亿元，2024年862.28亿元，2025年823.20亿元；2024/2023为+15.38%，2025/2024为-4.53%。\n总资产：2023年2,727亿元，2024年2,989.45亿元，2025年3,038.35亿元；2024/2023为+9.62%，2025/20"
+              ],
+              "raw_category": "comparison_object",
+              "resolution_type": "COMPARISON_OBJECT"
+            }
+          ]
+        }
+      },
+      "page_details": [
+        {
+          "page_id": "f1228bac-12d1-520f-9787-52a8cdcd49db",
+          "source_turn_id": "S001-Q015",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 1,
+              "score": 0.5342599153518677
+            },
+            "P0": {
+              "rank": 2,
+              "score": 0.5734269022941589
+            },
+            "P1": {
+              "rank": 2,
+              "score": 0.5734269022941589
+            },
+            "P2": {
+              "rank": 2,
+              "score": 0.5734269022941589
+            },
+            "P3": {
+              "rank": 3,
+              "score": 0.5711613297462463
+            }
+          },
+          "production_p0_embedding_text": "基于贵州茅台2023-2025年年度报告，用户询问近似利润率变化，并要求将两段同比分开。营业收入2023年1,476.94亿元、2024年1,708.99亿元、2025年1,688.38亿元，同比分别为+15.71%、-1.21%，呈先升后降；归母股东权益2023年2,156.69亿元、2024年2,331.06亿元、2025年2,446.38亿元，同比分别为+8.09%、+4.95%，连续上升。结论为营业收入先升后降，归母股东权益连续上升，两段同比分开表述。数据来源为年报PDF，期间为2023-2025财年。\nKeywords: 贵州茅台, 2023-2025, 营业收入, 归母股东权益, 同比, 先升后降, 连续上升, 年度报告\nUser: 基于前面的收入和利润原数，近似利润率发生了什么变化；请把两段同比分开，不要合成一个趋势词。"
+        },
+        {
+          "page_id": "d5c03971-3795-5256-a75f-b3921d61a92d",
+          "source_turn_id": "S001-Q023",
+          "is_gold": true,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 2,
+              "score": 0.5201343297958374
+            },
+            "P0": {
+              "rank": 1,
+              "score": 0.5790305137634277
+            },
+            "P1": {
+              "rank": 1,
+              "score": 0.5790305137634277
+            },
+            "P2": {
+              "rank": 1,
+              "score": 0.5790305137634277
+            },
+            "P3": {
+              "rank": 1,
+              "score": 0.5816624760627747
+            }
+          },
+          "production_p0_embedding_text": "用户要求将上一轮现金流与归母净利润逐年配对，找出错位最明显的年份，并保留方向冲突。但当前底表未取得经营现金流完整序列，无法计算现金利润比，因此仅对已取得的营业收入、归母净利润、总资产、归母股东权益进行逐年配对分析。数据来源为贵州茅台2025年年度报告（2026-04-17披露），期间为2023-2025年。营业收入：2023年1,476.94亿元，2024年1,708.99亿元（+15.71%），2025年1,688.38亿元（-1.21%），呈先升后降；归母净利润：2023年747.34亿元，2024年862.28亿元（+15.38%），2025年823.20亿元（-4.53%），呈先升后降；总资产：2023年2,727亿元，2024年2,989.45亿元（+9.62%），2025年3,038.35亿元（+1.64%），连续上升；归母股东权益：2023年2,156.69亿元，2024年2,331.06亿元（+8.09%），2025年2,446.38亿元（+4.95%），连续上升。结论：营业收入与归母净利润在2025年出现方向反转（收入-1.21%，利润-4.53%），但两者方向一致，无冲突；归母股东权益与营业收入方向不同（权益连续上升，收入先升后降），冲突保留。错位最明显年份为2025年，因收入与利润同步下降，而权益仍增长。分析限制：未取得现金流数据，无法配对；期末资产计算比率仅为近似。\nKeywords: 贵州茅台, 2023-2025, 营业收入, 归母净利润, 归母股东权益, 同比, 先升后降, 连续上升\nUser: 把上一轮现金流与归母净利润逐年配对，两者在哪一年错位最明显；如果指标方向不同，请保留这种冲突。"
+        },
+        {
+          "page_id": "204ccd02-0a09-5bee-9d12-d6469c1688e8",
+          "source_turn_id": "S001-Q024",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 3,
+              "score": 0.5164670348167419
+            },
+            "P0": {
+              "rank": 4,
+              "score": 0.5512486696243286
+            },
+            "P1": {
+              "rank": 4,
+              "score": 0.5512486696243286
+            },
+            "P2": {
+              "rank": 4,
+              "score": 0.5512486696243286
+            },
+            "P3": {
+              "rank": 4,
+              "score": 0.5510427355766296
+            }
+          },
+          "production_p0_embedding_text": "用户要求计算现金流与净利润的近似比率并解释其含义，且结论需可复算。分析主体为贵州茅台，期间为2023-2025三个完整财年，数据来源为2025年年度报告（2026-04-17发布）。已确认三年关键数据：营业收入分别为1476.94、1708.99、1688.38亿元，同比+15.71%、-1.21%；归母净利润分别为747.34、862.28、823.20亿元，同比+15.38%、-4.53%；总资产分别为2727、2989.45、3038.35亿元，同比+9.62%、+1.64%；归母股东权益分别为2156.69、2331.06、2446.38亿元，同比+8.09%、+4.95%。结论为归母净利润先升后降，总资产连续上升，二者方向不同，需保留冲突。比率计算需明确公式和近似性，不混入预测或未披露原因。\nKeywords: 贵州茅台, 2023-2025, 现金流与净利润比率, 归母净利润, 总资产, 同比, 先升后降, 连续上升\nUser: 接着计算现金流与净利润的近似比率，这个比率能说明到什么程度；把结论写得可以回到公开来源复算。"
+        },
+        {
+          "page_id": "f99dbe58-f286-568d-b1fe-f1ebe59c0e0a",
+          "source_turn_id": "S001-Q008",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 4,
+              "score": 0.5152604579925537
+            },
+            "P0": {
+              "rank": 5,
+              "score": 0.5492395162582397
+            },
+            "P1": {
+              "rank": 5,
+              "score": 0.5492395162582397
+            },
+            "P2": {
+              "rank": 5,
+              "score": 0.5492395162582397
+            },
+            "P3": {
+              "rank": 6,
+              "score": 0.5481683015823364
+            }
+          },
+          "production_p0_embedding_text": "用户要求将现金和利润变化放入总资产路径中，判断资产扩张是否得到经营结果支撑，并将口径限制写入结论。分析对象为贵州茅台，期间为2023-2025三个完整财年，数据来源为2025年年度报告（2026-04-17披露）。关键数据：营业收入2023年1,476.94亿元、2024年1,708.99亿元、2025年1,688.38亿元；归母净利润2023年747.34亿元、2024年862.28亿元、2025年823.20亿元；总资产2023年2,727亿元、2024年2,989.45亿元、2025年3,038.35亿元；归母股东权益2023年2,156.69亿元、2024年2,331.06亿元、2025年2,446.38亿元。结论：归母净利润先升后降（2024年+15.38%，2025年-4.53%），总资产连续上升（2024年+9.62%，2025年+1.64%），资产扩张未得到利润同步支撑，但需注意口径限制，不进行因果归因。\nKeywords: 贵州茅台, 2023-2025, 总资产, 归母净利润, 资产扩张, 经营支撑, 同比, 年度报告\nUser: 把前面的现金和利润变化放到总资产路径里看，资产扩张得到经营结果支撑了吗；把口径限制放在结论里，不要另作假设。"
+        },
+        {
+          "page_id": "7c06f308-8022-5f54-a63c-ab30458f4115",
+          "source_turn_id": "S001-Q013",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 5,
+              "score": 0.5059687495231628
+            },
+            "P0": {
+              "rank": 3,
+              "score": 0.5700843334197998
+            },
+            "P1": {
+              "rank": 3,
+              "score": 0.5700843334197998
+            },
+            "P2": {
+              "rank": 3,
+              "score": 0.5700843334197998
+            },
+            "P3": {
+              "rank": 2,
+              "score": 0.5714904069900513
+            }
+          },
+          "production_p0_embedding_text": "用户询问贵州茅台2023-2025年总资产与归母净利润的年度差异，要求解释两段同比并说明与上一问的关系。分析基于2025年年报（2026-04-17披露），期间为2023-2025三个完整财年。数据：营业收入2023年1,476.94亿元、2024年1,708.99亿元、2025年1,688.38亿元，同比+15.71%、-1.21%；归母净利润2023年747.34亿元、2024年862.28亿元、2025年823.20亿元，同比+15.38%、-4.53%；总资产2023年2,727亿元、2024年2,989.45亿元、2025年3,038.35亿元，同比+9.62%、+1.64%；归母股东权益2023年2,156.69亿元、2024年2,331.06亿元、2025年2,446.38亿元，同比+8.09%、+4.95%。结论：总资产连续上升，归母净利润先升后降，拐点在2025年。回答强调与前文关于三年路径、扣非净利润、规模质量问题的连续性，并区分事实、计算与判断，限制因果解释，保留反证和缺口。\nKeywords: 贵州茅台, 2023-2025, 总资产, 归母净利润, 同比, 年度拐点, 年报, 权益研究员\nUser: 上一轮的差异具体集中在哪个年度，能否把两段同比分别解释清楚；别只复述数字，要说明它和上一问的关系。"
+        },
+        {
+          "page_id": "fb76b32a-859d-5228-b170-550c026c1646",
+          "source_turn_id": "S001-Q028",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 7,
+              "score": 0.4945952892303467
+            },
+            "P0": {
+              "rank": 6,
+              "score": 0.5484878420829773
+            },
+            "P1": {
+              "rank": 6,
+              "score": 0.5484878420829773
+            },
+            "P2": {
+              "rank": 6,
+              "score": 0.5484878420829773
+            },
+            "P3": {
+              "rank": 5,
+              "score": 0.5504433512687683
+            }
+          },
+          "production_p0_embedding_text": "用户要求从已出现的数字中找出可能推翻现金质量结论的反证，并确保结论可直接用于下一轮追问。分析主体为贵州茅台，期间为2023-2025三个完整财年，数据来源为2025年年度报告（2026-04-17发布）。已确认的关键数据：归母净利润2023年747.34亿元、2024年862.28亿元、2025年823.20亿元，同比分别为+15.38%、-4.53%，呈先升后降；总资产2023年2,727亿元、2024年2,989.45亿元、2025年3,038.35亿元，同比分别为+9.62%、+1.64%，呈连续上升。结论：归母净利润先升后降，总资产连续上升，二者方向不同，构成对现金质量结论的潜在反证，需保留冲突并缩小结论范围。后续应优先查阅附注以解释差异，并区分事实、计算与判断。\nKeywords: 贵州茅台, 2023-2025, 归母净利润, 总资产, 反证, 现金质量, 先升后降, 连续上升\nUser: 我不想只听支持项，哪项前面已经出现的数字可能推翻现金质量结论；结论要能直接接到下一轮继续追问。"
+        },
+        {
+          "page_id": "b4497adc-7393-57c0-8917-ce3372fbd151",
+          "source_turn_id": "S001-Q029",
+          "is_gold": true,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 20,
+              "score": 0.4486255347728729
+            },
+            "P0": {
+              "rank": 24,
+              "score": 0.481160044670105
+            },
+            "P1": {
+              "rank": 24,
+              "score": 0.481160044670105
+            },
+            "P2": {
+              "rank": 24,
+              "score": 0.481160044670105
+            },
+            "P3": {
+              "rank": 24,
+              "score": 0.4783168137073517
+            }
+          },
+          "production_p0_embedding_text": "用户要求对贵州茅台2023-2025年现金相关风险进行排序，并区分最新一年（2025年）的边际变化与完整三年路径。基于2025年年报（2026-04-17披露），已确认三年数据：营业收入分别为1476.94、1708.99、1688.38亿元，同比+15.71%、-1.21%；归母净利润分别为747.34、862.28、823.20亿元，同比+15.38%、-4.53%；总资产分别为2727、2989.45、3038.35亿元，同比+9.62%、+1.64%；归母股东权益分别为2156.69、2331.06、2446.38亿元，同比+8.09%、+4.95%。结论：总资产连续上升，归母净利润先升后降，2025年出现拐点。风险排序基于证据直接性和对权益研究的影响，现金与利润匹配度因缺乏经营现金流数据而无法确认，列为待核验事项。\nKeywords: 贵州茅台, 2023-2025, 现金风险排序, 归母净利润, 总资产, 同比, 边际变化, 三年路径\nUser: 结合刚才的支持证据和反证，现金相关风险应该怎样排序；请区分最新一年的边际变化和完整三年路径。"
+        }
+      ]
+    },
+    {
+      "session_id": "S003",
+      "query_id": "S003-Q044",
+      "original_query": "刚才的三层证据中，哪些措辞已经超过事实本身能够支持的强度；把2024年这个中间点也保留下来。",
+      "resolved_queries": {
+        "P0": "刚才的三层证据中，哪些措辞已经超过事实本身能够支持的强度；把2024年这个中间点也保留下来。",
+        "P1": "刚才的三层证据（原始披露、派生计算、分析判断）中，哪些措辞已经超过事实本身能够支持的强度；把2024年这个中间点也保留下来。",
+        "P2": "刚才的三层证据中，哪些措辞已经超过事实本身能够支持的强度；把2024年这个中间点也保留下来。",
+        "P3": "刚才关于总资产与归母净利润的三层证据中，哪些措辞已经超过事实本身能够支持的强度；把2024年这个中间点也保留下来。"
+      },
+      "actual_embedding_texts": {
+        "P0": "刚才的三层证据中，哪些措辞已经超过事实本身能够支持的强度；把2024年这个中间点也保留下来。",
+        "P1": "刚才的三层证据（原始披露、派生计算、分析判断）中，哪些措辞已经超过事实本身能够支持的强度；把2024年这个中间点也保留下来。",
+        "P2": "刚才的三层证据中，哪些措辞已经超过事实本身能够支持的强度；把2024年这个中间点也保留下来。",
+        "P3": "刚才关于总资产与归母净利润的三层证据中，哪些措辞已经超过事实本身能够支持的强度；把2024年这个中间点也保留下来。"
+      },
+      "rankings_top10": {
+        "Baseline": [
+          {
+            "rank": 1,
+            "page_id": "22322d48-4d17-5d2e-8760-ab1acaeb9f0a",
+            "source_turn_id": "S003-Q008",
+            "score": 0.5543110966682434,
+            "is_gold": false
+          },
+          {
+            "rank": 2,
+            "page_id": "2013e8e4-8edb-5c7a-9104-a9e3d152b49c",
+            "source_turn_id": "S003-Q025",
+            "score": 0.5131210088729858,
+            "is_gold": false
+          },
+          {
+            "rank": 3,
+            "page_id": "a66c00f0-adb2-544a-954c-97b7393168b0",
+            "source_turn_id": "S003-Q038",
+            "score": 0.5072020888328552,
+            "is_gold": false
+          },
+          {
+            "rank": 4,
+            "page_id": "de8457cd-4b07-5775-9f5e-95f5d65583a0",
+            "source_turn_id": "S003-Q039",
+            "score": 0.5032588243484497,
+            "is_gold": false
+          },
+          {
+            "rank": 5,
+            "page_id": "4ed05884-3478-5a91-a63f-3067fd41956d",
+            "source_turn_id": "S003-Q027",
+            "score": 0.48721253871917725,
+            "is_gold": false
+          },
+          {
+            "rank": 6,
+            "page_id": "3bd00881-7f00-5756-9420-0d2f71ecdc25",
+            "source_turn_id": "S003-Q013",
+            "score": 0.4836573898792267,
+            "is_gold": false
+          },
+          {
+            "rank": 7,
+            "page_id": "cd287a69-0373-5edb-a16a-81be12c7a77e",
+            "source_turn_id": "S003-Q037",
+            "score": 0.48338282108306885,
+            "is_gold": false
+          },
+          {
+            "rank": 8,
+            "page_id": "cdb5dd69-63b7-55e7-a4a0-85d8028c468c",
+            "source_turn_id": "S003-Q026",
+            "score": 0.48109307885169983,
+            "is_gold": false
+          },
+          {
+            "rank": 9,
+            "page_id": "25fd6ff3-e933-563b-baa2-5722e21d26fc",
+            "source_turn_id": "S003-Q016",
+            "score": 0.4764483869075775,
+            "is_gold": false
+          },
+          {
+            "rank": 10,
+            "page_id": "1b59ffe6-5fba-511e-b39a-6529e998d6ca",
+            "source_turn_id": "S003-Q015",
+            "score": 0.4746750593185425,
+            "is_gold": false
+          }
+        ],
+        "P0": [
+          {
+            "rank": 1,
+            "page_id": "22322d48-4d17-5d2e-8760-ab1acaeb9f0a",
+            "source_turn_id": "S003-Q008",
+            "score": 0.5543110966682434,
+            "is_gold": false
+          },
+          {
+            "rank": 2,
+            "page_id": "2013e8e4-8edb-5c7a-9104-a9e3d152b49c",
+            "source_turn_id": "S003-Q025",
+            "score": 0.5131210088729858,
+            "is_gold": false
+          },
+          {
+            "rank": 3,
+            "page_id": "a66c00f0-adb2-544a-954c-97b7393168b0",
+            "source_turn_id": "S003-Q038",
+            "score": 0.5072020292282104,
+            "is_gold": false
+          },
+          {
+            "rank": 4,
+            "page_id": "de8457cd-4b07-5775-9f5e-95f5d65583a0",
+            "source_turn_id": "S003-Q039",
+            "score": 0.5032588243484497,
+            "is_gold": false
+          },
+          {
+            "rank": 5,
+            "page_id": "4ed05884-3478-5a91-a63f-3067fd41956d",
+            "source_turn_id": "S003-Q027",
+            "score": 0.48721250891685486,
+            "is_gold": false
+          },
+          {
+            "rank": 6,
+            "page_id": "3bd00881-7f00-5756-9420-0d2f71ecdc25",
+            "source_turn_id": "S003-Q013",
+            "score": 0.4836573898792267,
+            "is_gold": false
+          },
+          {
+            "rank": 7,
+            "page_id": "cd287a69-0373-5edb-a16a-81be12c7a77e",
+            "source_turn_id": "S003-Q037",
+            "score": 0.48338282108306885,
+            "is_gold": false
+          },
+          {
+            "rank": 8,
+            "page_id": "cdb5dd69-63b7-55e7-a4a0-85d8028c468c",
+            "source_turn_id": "S003-Q026",
+            "score": 0.4810931086540222,
+            "is_gold": false
+          },
+          {
+            "rank": 9,
+            "page_id": "25fd6ff3-e933-563b-baa2-5722e21d26fc",
+            "source_turn_id": "S003-Q016",
+            "score": 0.4764483571052551,
+            "is_gold": false
+          },
+          {
+            "rank": 10,
+            "page_id": "1b59ffe6-5fba-511e-b39a-6529e998d6ca",
+            "source_turn_id": "S003-Q015",
+            "score": 0.4746750295162201,
+            "is_gold": false
+          }
+        ],
+        "P1": [
+          {
+            "rank": 1,
+            "page_id": "22322d48-4d17-5d2e-8760-ab1acaeb9f0a",
+            "source_turn_id": "S003-Q008",
+            "score": 0.5112729072570801,
+            "is_gold": false
+          },
+          {
+            "rank": 2,
+            "page_id": "a66c00f0-adb2-544a-954c-97b7393168b0",
+            "source_turn_id": "S003-Q038",
+            "score": 0.48776525259017944,
+            "is_gold": false
+          },
+          {
+            "rank": 3,
+            "page_id": "de8457cd-4b07-5775-9f5e-95f5d65583a0",
+            "source_turn_id": "S003-Q039",
+            "score": 0.4740205407142639,
+            "is_gold": false
+          },
+          {
+            "rank": 4,
+            "page_id": "25fd6ff3-e933-563b-baa2-5722e21d26fc",
+            "source_turn_id": "S003-Q016",
+            "score": 0.47197872400283813,
+            "is_gold": false
+          },
+          {
+            "rank": 5,
+            "page_id": "2013e8e4-8edb-5c7a-9104-a9e3d152b49c",
+            "source_turn_id": "S003-Q025",
+            "score": 0.47092294692993164,
+            "is_gold": false
+          },
+          {
+            "rank": 6,
+            "page_id": "4ed05884-3478-5a91-a63f-3067fd41956d",
+            "source_turn_id": "S003-Q027",
+            "score": 0.4656532108783722,
+            "is_gold": false
+          },
+          {
+            "rank": 7,
+            "page_id": "1b59ffe6-5fba-511e-b39a-6529e998d6ca",
+            "source_turn_id": "S003-Q015",
+            "score": 0.4553319215774536,
+            "is_gold": false
+          },
+          {
+            "rank": 8,
+            "page_id": "fe6436d0-9e94-53f7-ae4c-13a3d82b10ba",
+            "source_turn_id": "S003-Q030",
+            "score": 0.4547763466835022,
+            "is_gold": false
+          },
+          {
+            "rank": 9,
+            "page_id": "3bd00881-7f00-5756-9420-0d2f71ecdc25",
+            "source_turn_id": "S003-Q013",
+            "score": 0.4523988664150238,
+            "is_gold": false
+          },
+          {
+            "rank": 10,
+            "page_id": "cd287a69-0373-5edb-a16a-81be12c7a77e",
+            "source_turn_id": "S003-Q037",
+            "score": 0.4523286819458008,
+            "is_gold": false
+          }
+        ],
+        "P2": [
+          {
+            "rank": 1,
+            "page_id": "22322d48-4d17-5d2e-8760-ab1acaeb9f0a",
+            "source_turn_id": "S003-Q008",
+            "score": 0.5543110966682434,
+            "is_gold": false
+          },
+          {
+            "rank": 2,
+            "page_id": "2013e8e4-8edb-5c7a-9104-a9e3d152b49c",
+            "source_turn_id": "S003-Q025",
+            "score": 0.5131210088729858,
+            "is_gold": false
+          },
+          {
+            "rank": 3,
+            "page_id": "a66c00f0-adb2-544a-954c-97b7393168b0",
+            "source_turn_id": "S003-Q038",
+            "score": 0.5072020292282104,
+            "is_gold": false
+          },
+          {
+            "rank": 4,
+            "page_id": "de8457cd-4b07-5775-9f5e-95f5d65583a0",
+            "source_turn_id": "S003-Q039",
+            "score": 0.5032588243484497,
+            "is_gold": false
+          },
+          {
+            "rank": 5,
+            "page_id": "4ed05884-3478-5a91-a63f-3067fd41956d",
+            "source_turn_id": "S003-Q027",
+            "score": 0.48721250891685486,
+            "is_gold": false
+          },
+          {
+            "rank": 6,
+            "page_id": "3bd00881-7f00-5756-9420-0d2f71ecdc25",
+            "source_turn_id": "S003-Q013",
+            "score": 0.4836573898792267,
+            "is_gold": false
+          },
+          {
+            "rank": 7,
+            "page_id": "cd287a69-0373-5edb-a16a-81be12c7a77e",
+            "source_turn_id": "S003-Q037",
+            "score": 0.48338282108306885,
+            "is_gold": false
+          },
+          {
+            "rank": 8,
+            "page_id": "cdb5dd69-63b7-55e7-a4a0-85d8028c468c",
+            "source_turn_id": "S003-Q026",
+            "score": 0.4810931086540222,
+            "is_gold": false
+          },
+          {
+            "rank": 9,
+            "page_id": "25fd6ff3-e933-563b-baa2-5722e21d26fc",
+            "source_turn_id": "S003-Q016",
+            "score": 0.4764483571052551,
+            "is_gold": false
+          },
+          {
+            "rank": 10,
+            "page_id": "1b59ffe6-5fba-511e-b39a-6529e998d6ca",
+            "source_turn_id": "S003-Q015",
+            "score": 0.4746750295162201,
+            "is_gold": false
+          }
+        ],
+        "P3": [
+          {
+            "rank": 1,
+            "page_id": "22322d48-4d17-5d2e-8760-ab1acaeb9f0a",
+            "source_turn_id": "S003-Q008",
+            "score": 0.672707200050354,
+            "is_gold": false
+          },
+          {
+            "rank": 2,
+            "page_id": "3446dbc5-5d91-5f49-a1fe-1d68979506a4",
+            "source_turn_id": "S003-Q011",
+            "score": 0.6102272272109985,
+            "is_gold": false
+          },
+          {
+            "rank": 3,
+            "page_id": "7a6c2c70-6d05-5a6d-9a53-32d92efee826",
+            "source_turn_id": "S003-Q028",
+            "score": 0.6073516607284546,
+            "is_gold": false
+          },
+          {
+            "rank": 4,
+            "page_id": "a66c00f0-adb2-544a-954c-97b7393168b0",
+            "source_turn_id": "S003-Q038",
+            "score": 0.6061453819274902,
+            "is_gold": false
+          },
+          {
+            "rank": 5,
+            "page_id": "c2e23686-4871-5c9c-952e-5ac662b6d9bb",
+            "source_turn_id": "S003-Q017",
+            "score": 0.6012512445449829,
+            "is_gold": false
+          },
+          {
+            "rank": 6,
+            "page_id": "914dcda3-55d6-504a-9159-f6f54938f31f",
+            "source_turn_id": "S003-Q006",
+            "score": 0.5945026874542236,
+            "is_gold": false
+          },
+          {
+            "rank": 7,
+            "page_id": "1b535a84-9ae4-50ee-bbda-1d7ba186183e",
+            "source_turn_id": "S003-Q029",
+            "score": 0.5928695797920227,
+            "is_gold": false
+          },
+          {
+            "rank": 8,
+            "page_id": "bd2dd48b-5c6b-516a-9bdc-e2e5cdb84c9c",
+            "source_turn_id": "S003-Q040",
+            "score": 0.59147047996521,
+            "is_gold": true
+          },
+          {
+            "rank": 9,
+            "page_id": "2013e8e4-8edb-5c7a-9104-a9e3d152b49c",
+            "source_turn_id": "S003-Q025",
+            "score": 0.5898410081863403,
+            "is_gold": false
+          },
+          {
+            "rank": 10,
+            "page_id": "3bd00881-7f00-5756-9420-0d2f71ecdc25",
+            "source_turn_id": "S003-Q013",
+            "score": 0.5887144804000854,
+            "is_gold": false
+          }
+        ]
+      },
+      "gold_comparison": [
+        {
+          "gold_page_id": "ae9f0678-a87f-5377-8edd-5fbd8ff4b4fa",
+          "Baseline": {
+            "rank": 37,
+            "score": 0.4009626805782318
+          },
+          "P0": {
+            "rank": 37,
+            "score": 0.4009627103805542
+          },
+          "P1": {
+            "rank": 31,
+            "score": 0.39273974299430847
+          },
+          "P2": {
+            "rank": 37,
+            "score": 0.4009627103805542
+          },
+          "P3": {
+            "rank": 17,
+            "score": 0.5800658464431763
+          }
+        },
+        {
+          "gold_page_id": "bd2dd48b-5c6b-516a-9bdc-e2e5cdb84c9c",
+          "Baseline": {
+            "rank": 22,
+            "score": 0.44993260502815247
+          },
+          "P0": {
+            "rank": 22,
+            "score": 0.44993263483047485
+          },
+          "P1": {
+            "rank": 14,
+            "score": 0.44456157088279724
+          },
+          "P2": {
+            "rank": 22,
+            "score": 0.44993263483047485
+          },
+          "P3": {
+            "rank": 8,
+            "score": 0.59147047996521
+          }
+        }
+      ],
+      "resolution_audits": {
+        "P0": {
+          "session_id": "S003",
+          "query_id": "S003-Q044",
+          "prompt": "P0",
+          "original_query": "刚才的三层证据中，哪些措辞已经超过事实本身能够支持的强度；把2024年这个中间点也保留下来。",
+          "resolved_query": "刚才的三层证据中，哪些措辞已经超过事实本身能够支持的强度；把2024年这个中间点也保留下来。",
+          "changed": false,
+          "visible_context_turn_ids": [
+            "S003-Q041",
+            "S003-Q042",
+            "S003-Q043"
+          ],
+          "audit_scope": "current query + previous_3_qa only; no Gold/Page/ranking",
+          "total_added_canonical_content": 0,
+          "classification_counts": {},
+          "resolution_type_counts": {},
+          "added_content": []
+        },
+        "P1": {
+          "session_id": "S003",
+          "query_id": "S003-Q044",
+          "prompt": "P1",
+          "original_query": "刚才的三层证据中，哪些措辞已经超过事实本身能够支持的强度；把2024年这个中间点也保留下来。",
+          "resolved_query": "刚才的三层证据（原始披露、派生计算、分析判断）中，哪些措辞已经超过事实本身能够支持的强度；把2024年这个中间点也保留下来。",
+          "changed": true,
+          "visible_context_turn_ids": [
+            "S003-Q041",
+            "S003-Q042",
+            "S003-Q043"
+          ],
+          "audit_scope": "current query + previous_3_qa only; no Gold/Page/ranking",
+          "total_added_canonical_content": 3,
+          "classification_counts": {
+            "REFERENCE_REQUIRED": 3
+          },
+          "resolution_type_counts": {
+            "EVIDENCE_OBJECT": 3
+          },
+          "added_content": [
+            {
+              "category": "semantic_object",
+              "canonical": "EVIDENCE_RAW_DISCLOSURE",
+              "surface_text": "原始披露",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                "开，就只作为可能需要继续查阅的信息，不作为已确认原因。这样做使后续对话能够准确区分事实、计算和判断。\n\n证据的三个层次\n第一层是年度报告中的原始披露，包括报告标题、发布日期、指标名称、单位、主体和三年比较数；这一层应当能够回到来源文件。第二层是由原始数字直接计算的同比、首尾差额或近似比率"
+              ],
+              "raw_category": "semantic_object",
+              "resolution_type": "EVIDENCE_OBJECT"
+            },
+            {
+              "category": "semantic_object",
+              "canonical": "EVIDENCE_DERIVED_CALCULATION",
+              "surface_text": "派生计算",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                "邻问题的连续性，也能保证跨多轮回溯时不会把临时解释误记成永久事实。\n\n[S003-Q043] User: 沿着上一轮的口径检查，把原始披露、派生计算和分析判断分开写清楚；把口径限制放在结论里，不要另作假设。\nAssistant: 结论\n对“沿着上一轮的口径检查，把原始披露、派生计算和分析"
+              ],
+              "raw_category": "semantic_object",
+              "resolution_type": "EVIDENCE_OBJECT"
+            },
+            {
+              "category": "semantic_object",
+              "canonical": "EVIDENCE_ANALYTICAL_JUDGMENT",
+              "surface_text": "分析判断",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                "体和三年比较数；这一层应当能够回到来源文件。第二层是由原始数字直接计算的同比、首尾差额或近似比率，必须公开公式、分子分母和近似性。第三层才是分析判断，例如趋势是否稳定、现金与利润是否匹配、哪些风险值得优先关注。把三层分开后，未来即使修改判断，也不需要重写原始事实；若来源发生重述，则应先更"
+              ],
+              "raw_category": "semantic_object",
+              "resolution_type": "EVIDENCE_OBJECT"
+            }
+          ]
+        },
+        "P2": {
+          "session_id": "S003",
+          "query_id": "S003-Q044",
+          "prompt": "P2",
+          "original_query": "刚才的三层证据中，哪些措辞已经超过事实本身能够支持的强度；把2024年这个中间点也保留下来。",
+          "resolved_query": "刚才的三层证据中，哪些措辞已经超过事实本身能够支持的强度；把2024年这个中间点也保留下来。",
+          "changed": false,
+          "visible_context_turn_ids": [
+            "S003-Q041",
+            "S003-Q042",
+            "S003-Q043"
+          ],
+          "audit_scope": "current query + previous_3_qa only; no Gold/Page/ranking",
+          "total_added_canonical_content": 0,
+          "classification_counts": {},
+          "resolution_type_counts": {},
+          "added_content": []
+        },
+        "P3": {
+          "session_id": "S003",
+          "query_id": "S003-Q044",
+          "prompt": "P3",
+          "original_query": "刚才的三层证据中，哪些措辞已经超过事实本身能够支持的强度；把2024年这个中间点也保留下来。",
+          "resolved_query": "刚才关于总资产与归母净利润的三层证据中，哪些措辞已经超过事实本身能够支持的强度；把2024年这个中间点也保留下来。",
+          "changed": true,
+          "visible_context_turn_ids": [
+            "S003-Q041",
+            "S003-Q042",
+            "S003-Q043"
+          ],
+          "audit_scope": "current query + previous_3_qa only; no Gold/Page/ranking",
+          "total_added_canonical_content": 3,
+          "classification_counts": {
+            "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED": 3
+          },
+          "resolution_type_counts": {
+            "EVIDENCE_OBJECT": 3
+          },
+          "added_content": [
+            {
+              "category": "indicator",
+              "canonical": "PARENT_NET_PROFIT",
+              "surface_text": "归母净利润",
+              "classification": "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED",
+              "context_supported": true,
+              "reference_required": false,
+              "evidence_snippets": [
+                "istant: 结论\n对“前面的结论先不往下延伸，接下来逐项确认它们能否追溯到公开披露；把结论写得可以回到公开来源复算。”的直接回答是：扣非归母净利润呈先升后降，归母净利润呈先升后降。结合本会话前面已经确认的口径与本轮新增的来源追溯视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明"
+              ],
+              "raw_category": "indicator",
+              "resolution_type": "EVIDENCE_OBJECT"
+            },
+            {
+              "category": "indicator",
+              "canonical": "TOTAL_ASSETS",
+              "surface_text": "总资产",
+              "classification": "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED",
+              "context_supported": true,
+              "reference_required": false,
+              "evidence_snippets": [
+                "亿元，2024年1,334.54亿元，2025年591.36亿元；2024/2023为-21.37%，2025/2024为-55.69%。\n总资产：2023年6,795.48亿元，2024年7,833.56亿元，2025年8,837.3亿元；2024/2023为+15.28%，2025"
+              ],
+              "raw_category": "indicator",
+              "resolution_type": "EVIDENCE_OBJECT"
+            },
+            {
+              "category": "comparison_object",
+              "canonical": "COMPARE[PARENT_NET_PROFIT|TOTAL_ASSETS]",
+              "surface_text": "归母净利润 / 总资产",
+              "classification": "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED",
+              "context_supported": true,
+              "reference_required": false,
+              "evidence_snippets": [
+                "istant: 结论\n对“前面的结论先不往下延伸，接下来逐项确认它们能否追溯到公开披露；把结论写得可以回到公开来源复算。”的直接回答是：扣非归母净利润呈先升后降，归母净利润呈先升后降。结合本会话前面已经确认的口径与本轮新增的来源追溯视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明",
+                "亿元，2024年1,334.54亿元，2025年591.36亿元；2024/2023为-21.37%，2025/2024为-55.69%。\n总资产：2023年6,795.48亿元，2024年7,833.56亿元，2025年8,837.3亿元；2024/2023为+15.28%，2025"
+              ],
+              "raw_category": "comparison_object",
+              "resolution_type": "EVIDENCE_OBJECT"
+            }
+          ]
+        }
+      },
+      "page_details": [
+        {
+          "page_id": "22322d48-4d17-5d2e-8760-ab1acaeb9f0a",
+          "source_turn_id": "S003-Q008",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 1,
+              "score": 0.5543110966682434
+            },
+            "P0": {
+              "rank": 1,
+              "score": 0.5543110966682434
+            },
+            "P1": {
+              "rank": 1,
+              "score": 0.5112729072570801
+            },
+            "P2": {
+              "rank": 1,
+              "score": 0.5543110966682434
+            },
+            "P3": {
+              "rank": 1,
+              "score": 0.672707200050354
+            }
+          },
+          "production_p0_embedding_text": "用户要求将现金和利润变化放入总资产路径中，评估资产扩张是否得到经营结果支撑，并保留2024年作为中间点。分析对象为比亚迪，期间为2023-2025三个完整财年，数据来源为《比亚迪2025年年度报告或年度报告摘要》（2026-03-28发布）。关键数据：总资产2023年6,795.48亿元、2024年7,833.56亿元、2025年8,837.3亿元，同比+15.28%、+12.81%，连续上升；归母股东权益2023年1,388.1亿元、2024年1,852.51亿元、2025年2,462.75亿元，同比+33.46%、+32.94%，连续上升。结论：归母股东权益和总资产均连续上升，资产扩张得到权益积累的支撑，但无法确认具体经营原因，需附注支持。2024年作为中间点保留，两段同比均需观察。\nKeywords: 比亚迪, 2023-2025, 总资产, 归母股东权益, 资产扩张, 经营支撑, 同比, 2024年中间点\nUser: 把前面的现金和利润变化放到总资产路径里看，资产扩张得到经营结果支撑了吗；把2024年这个中间点也保留下来。"
+        },
+        {
+          "page_id": "2013e8e4-8edb-5c7a-9104-a9e3d152b49c",
+          "source_turn_id": "S003-Q025",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 2,
+              "score": 0.5131210088729858
+            },
+            "P0": {
+              "rank": 2,
+              "score": 0.5131210088729858
+            },
+            "P1": {
+              "rank": 5,
+              "score": 0.47092294692993164
+            },
+            "P2": {
+              "rank": 2,
+              "score": 0.5131210088729858
+            },
+            "P3": {
+              "rank": 9,
+              "score": 0.5898410081863403
+            }
+          },
+          "production_p0_embedding_text": "用户询问若仅看2025年是否会夸大或掩盖三年趋势，并要求将口径限制写入结论。分析对象为比亚迪，期间为2023-2025三个完整财年，数据来源为2025年年度报告（2026-03-28披露）。关键数据：总资产连续上升（2023:6795.48亿元，2024:7833.56亿元，2025:8837.3亿元，同比+15.28%、+12.81%）；归母净利润先升后降（2023:300.41亿元，2024:402.54亿元，2025:326.19亿元，同比+34.00%、-18.97%）。结论：仅看2025年会掩盖2024年拐点，需同时保留两段同比；总资产连续上升，归母净利润先升后降，该组合对风险监控有参考价值，但具体原因未披露，不归因。\nKeywords: 比亚迪, 2023-2025, 总资产, 归母净利润, 年度拐点, 同比, 年报, 风险监控\nUser: 刚才的现金错位如果只看2025年，会不会夸大或掩盖三年趋势；把口径限制放在结论里，不要另作假设。"
+        },
+        {
+          "page_id": "a66c00f0-adb2-544a-954c-97b7393168b0",
+          "source_turn_id": "S003-Q038",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 3,
+              "score": 0.5072020888328552
+            },
+            "P0": {
+              "rank": 3,
+              "score": 0.5072020292282104
+            },
+            "P1": {
+              "rank": 2,
+              "score": 0.48776525259017944
+            },
+            "P2": {
+              "rank": 3,
+              "score": 0.5072020292282104
+            },
+            "P3": {
+              "rank": 4,
+              "score": 0.6061453819274902
+            }
+          },
+          "production_p0_embedding_text": "用户要求从风险委员会委员视角，反向验证上一轮关于比亚迪的结论，找出最可能削弱该结论的已披露数字。上一轮结论为归母股东权益和总资产均连续上升。本轮分析确认：归母股东权益2023-2025年分别为1388.1、1852.51、2462.75亿元，同比+33.46%、+32.94%，连续上升；总资产分别为6795.48、7833.56、8837.3亿元，同比+15.28%、+12.81%，连续上升。两项指标同向，未发现削弱结论的反证，但指出经营现金流连续下降（2023-2025年分别为1697.25、1334.54、591.36亿元，同比-21.37%、-55.69%）可能构成潜在风险点。数据来源为比亚迪2025年年度报告（2026-03-28披露），期间为2023-2025三个完整财年。结论限定为历史事实，不涉及预测或归因。\nKeywords: 比亚迪, 2023-2025, 归母股东权益, 总资产, 反证检验, 风险委员会, 经营现金流, 年度报告\nUser: 我想反过来验证上一轮结论，哪一项已披露数字最可能削弱它；请从当前岗位最关心的证据开始回答。"
+        },
+        {
+          "page_id": "de8457cd-4b07-5775-9f5e-95f5d65583a0",
+          "source_turn_id": "S003-Q039",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 4,
+              "score": 0.5032588243484497
+            },
+            "P0": {
+              "rank": 4,
+              "score": 0.5032588243484497
+            },
+            "P1": {
+              "rank": 3,
+              "score": 0.4740205407142639
+            },
+            "P2": {
+              "rank": 4,
+              "score": 0.5032588243484497
+            },
+            "P3": {
+              "rank": 22,
+              "score": 0.5702146291732788
+            }
+          },
+          "production_p0_embedding_text": "用户要求结合反证修正前文表述，并强调不要只比较2023年和2025年两个端点。分析对象为比亚迪，期间为2023-2025三个完整财年，数据来源为2025年年度报告（2026-03-28披露）。关键数据：营业收入连续上升（2023年6023.15亿元，2024年7771.02亿元，2025年8039.65亿元；同比+29.02%、+3.46%）；归母净利润先升后降（2023年300.41亿元，2024年402.54亿元，2025年326.19亿元；同比+34.00%、-18.97%）。结论：营业收入连续上升，归母净利润先升后降，需保留两段同比和中间拐点，避免首尾差额掩盖路径。前文表述中若有过强判断应降级，具体原因需附注支持。\nKeywords: 比亚迪, 2023-2025, 营业收入, 归母净利润, 同比, 拐点, 反证, 年度报告\nUser: 结合刚才的反证，前面有哪些表述需要降级或修正；不要只比较2023年和2025年两个端点。"
+        },
+        {
+          "page_id": "4ed05884-3478-5a91-a63f-3067fd41956d",
+          "source_turn_id": "S003-Q027",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 5,
+              "score": 0.48721253871917725
+            },
+            "P0": {
+              "rank": 5,
+              "score": 0.48721250891685486
+            },
+            "P1": {
+              "rank": 6,
+              "score": 0.4656532108783722
+            },
+            "P2": {
+              "rank": 5,
+              "score": 0.48721250891685486
+            },
+            "P3": {
+              "rank": 18,
+              "score": 0.5778541564941406
+            }
+          },
+          "production_p0_embedding_text": "用户以风险委员会委员身份，要求从反证、尾部风险与监控触发项角度，判断比亚迪2023-2025年现金证据最直接影响的结论，并确保结论可衔接下一轮追问。基于比亚迪2025年年度报告（2026-03-28披露），确认三年关键数据：营业收入连续上升（2023年6,023.15亿元、2024年7,771.02亿元、2025年8,039.65亿元，同比+29.02%、+3.46%）；归母净利润先升后降（2023年300.41亿元、2024年402.54亿元、2025年326.19亿元，同比+34.00%、-18.97%）；扣非归母净利润同向先升后降；经营活动现金流净额连续下降（2023年1,697.25亿元、2024年1,334.54亿元、2025年591.36亿元，同比-21.37%、-55.69%）；总资产和归母股东权益连续上升。分析指出收入与利润方向不同，构成反证，需保留2024年拐点；经营现金流与利润错位（比率从5.65倍降至1.81倍）提示尾部风险；监控触发项应关注2025年利润和现金流大幅下滑。结论为：最直接影响判断是“营业收入连续上升、归母净利润先升后降”，该组合对风险议题卡有直接参考价值，但具体原因需附注支持，不能外推未来。待办：后续可追问利润下滑原因、现金流下降构成、资产效率等。\nKeywords: 比亚迪, 2023-2025, 营业收入, 归母净利润, 经营活动现金流, 反证, 尾部风险, 监控触发项\nUser: 从反证、尾部风险与监控触发项的角度，刚才这组现金证据最直接影响哪项判断；结论要能直接接到下一轮继续追问。"
+        },
+        {
+          "page_id": "25fd6ff3-e933-563b-baa2-5722e21d26fc",
+          "source_turn_id": "S003-Q016",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 9,
+              "score": 0.4764483869075775
+            },
+            "P0": {
+              "rank": 9,
+              "score": 0.4764483571052551
+            },
+            "P1": {
+              "rank": 4,
+              "score": 0.47197872400283813
+            },
+            "P2": {
+              "rank": 9,
+              "score": 0.4764483571052551
+            },
+            "P3": {
+              "rank": 14,
+              "score": 0.5817770957946777
+            }
+          },
+          "production_p0_embedding_text": "用户询问上一轮识别的矛盾主要发生在哪一年，以及2025年是延续还是反转，并要求必要时修订判断。分析对象为比亚迪，期间为2023-2025年，数据来源为2025年年度报告。关键数据：归母净利润2023年300.41亿元、2024年402.54亿元、2025年326.19亿元，同比分别为+34.00%、-18.97%，呈先升后降；总资产2023年6,795.48亿元、2024年7,833.56亿元、2025年8,837.3亿元，同比分别为+15.28%、+12.81%，连续上升。结论：矛盾主要发生在2025年，归母净利润出现反转（由升转降），而总资产延续上升。未对前文判断进行修订，但强调需区分事实与解释，具体原因需附注支持。\nKeywords: 比亚迪, 2023-2025年, 归母净利润, 总资产, 同比, 拐点, 先升后降, 连续上升\nUser: 上一轮识别的矛盾主要发生在哪一年，2025年是延续还是反转；如果前面的判断需要修订，请直接指出。"
+        },
+        {
+          "page_id": "3446dbc5-5d91-5f49-a1fe-1d68979506a4",
+          "source_turn_id": "S003-Q011",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 18,
+              "score": 0.4562951624393463
+            },
+            "P0": {
+              "rank": 18,
+              "score": 0.4562951922416687
+            },
+            "P1": {
+              "rank": 24,
+              "score": 0.42328956723213196
+            },
+            "P2": {
+              "rank": 18,
+              "score": 0.4562951922416687
+            },
+            "P3": {
+              "rank": 2,
+              "score": 0.6102272272109985
+            }
+          },
+          "production_p0_embedding_text": "用户要求检查比亚迪2023-2025年总资产的三年变化，并保留一项可能的反证。基于2025年年报（2026-03-28发布），总资产分别为6795.48亿元、7833.56亿元、8837.3亿元，同比+15.28%、+12.81%，连续上升。但归母净利润和扣非归母净利润均呈先升后降（2024年+34.00%/+29.94%，2025年-18.97%/-20.38%），经营现金流净额连续下降（2025年-55.69%），作为反证，表明资产增长未获利润和现金同步支持。结论：资产扩张与盈利、现金趋势背离，需关注资产效率。\nKeywords: 比亚迪, 2023-2025, 总资产, 三年变化, 反证, 归母净利润, 扣非归母净利润, 经营现金流\nUser: 前面的利润和现金已经梳理过了，接下来检查总资产的三年变化；回答时同时保留一项可能的反证。"
+        },
+        {
+          "page_id": "7a6c2c70-6d05-5a6d-9a53-32d92efee826",
+          "source_turn_id": "S003-Q028",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 11,
+              "score": 0.46743693947792053
+            },
+            "P0": {
+              "rank": 11,
+              "score": 0.4674369990825653
+            },
+            "P1": {
+              "rank": 11,
+              "score": 0.4502677321434021
+            },
+            "P2": {
+              "rank": 11,
+              "score": 0.4674369990825653
+            },
+            "P3": {
+              "rank": 3,
+              "score": 0.6073516607284546
+            }
+          },
+          "production_p0_embedding_text": "用户要求从反证角度检验现金质量结论，并区分最新一年边际变化与完整三年路径。分析主体为比亚迪，期间为2023-2025年，数据来源为2025年年度报告（2026-03-28披露）。关键数据：归母净利润2023年300.41亿元、2024年402.54亿元、2025年326.19亿元，同比分别为+34.00%、-18.97%，呈先升后降；总资产2023年6,795.48亿元、2024年7,833.56亿元、2025年8,837.3亿元，同比分别为+15.28%、+12.81%，连续上升。经营现金流净额连续下降，2025年同比-55.69%。结论：归母净利润先升后降，总资产连续上升，两者方向不同，需保留冲突，不能简单评价现金质量。最新一年（2025）边际变化为利润和现金流下降，而三年路径显示利润有拐点。\nKeywords: 比亚迪, 2023-2025, 归母净利润, 总资产, 经营现金流, 反证, 边际变化, 三年路径\nUser: 我不想只听支持项，哪项前面已经出现的数字可能推翻现金质量结论；请区分最新一年的边际变化和完整三年路径。"
+        },
+        {
+          "page_id": "c2e23686-4871-5c9c-952e-5ac662b6d9bb",
+          "source_turn_id": "S003-Q017",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 15,
+              "score": 0.46078547835350037
+            },
+            "P0": {
+              "rank": 15,
+              "score": 0.46078550815582275
+            },
+            "P1": {
+              "rank": 18,
+              "score": 0.4401203989982605
+            },
+            "P2": {
+              "rank": 15,
+              "score": 0.46078550815582275
+            },
+            "P3": {
+              "rank": 5,
+              "score": 0.6012512445449829
+            }
+          },
+          "production_p0_embedding_text": "用户要求用完整财年数据反向检查“资产扩张有效”的说法。基于比亚迪2023-2025年年度报告，扣非归母净利润和归母净利润均呈先升后降（2024年上升，2025年下降），而总资产和归母股东权益持续增长，表明资产扩张并未带来同步的利润增长，因此“资产扩张有效”的说法不成立。数据来源为比亚迪2025年年度报告，披露日期2026-03-28。\nKeywords: 比亚迪, 2023-2025, 资产扩张, 扣非归母净利润, 归母净利润, 反证, 完整财年\nUser: 请用前面已经出现的数字反向检查，资产扩张有效这一说法是否站得住；请用完整财年数据回答，不加入季度信息。"
+        },
+        {
+          "page_id": "ae9f0678-a87f-5377-8edd-5fbd8ff4b4fa",
+          "source_turn_id": "S003-Q034",
+          "is_gold": true,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 37,
+              "score": 0.4009626805782318
+            },
+            "P0": {
+              "rank": 37,
+              "score": 0.4009627103805542
+            },
+            "P1": {
+              "rank": 31,
+              "score": 0.39273974299430847
+            },
+            "P2": {
+              "rank": 37,
+              "score": 0.4009627103805542
+            },
+            "P3": {
+              "rank": 17,
+              "score": 0.5800658464431763
+            }
+          },
+          "production_p0_embedding_text": "用户要求加入扣非净利润，分析归母净利润与扣非净利润的差异，并判断利润变化中属于持续经营口径的部分，同时要求修订之前的判断。分析主体为比亚迪，期间为2023-2025三个完整财年，数据来源为《比亚迪2025年年度报告或年度报告摘要》（2026-03-28披露）。关键数据：归母净利润2023年300.41亿元、2024年402.54亿元、2025年326.19亿元，同比分别为+34.00%、-18.97%；扣非归母净利润2023年284.62亿元、2024年369.83亿元、2025年294.46亿元，同比分别为+29.94%、-20.38%。两者均呈先升后降，且2025年扣非降幅大于归母，表明非经常性损益对利润有一定支撑。总资产连续上升，2023-2025年分别为6,795.48亿元、7,833.56亿元、8,837.3亿元。结论：归母净利润先升后降，总资产连续上升，两者方向不同，需保留冲突。前文判断中若存在过度解释，已修订为仅描述事实，不归因于具体原因。待办：需查阅年报附注以解释扣非差异及现金流下降原因。\nKeywords: 比亚迪, 2023-2025, 扣非净利润, 归母净利润, 总资产, 同比, 先升后降, 持续经营\nUser: 接着加入扣非净利润，刚才看到的利润变化有多少属于持续经营口径；如果前面的判断需要修订，请直接指出。"
+        },
+        {
+          "page_id": "bd2dd48b-5c6b-516a-9bdc-e2e5cdb84c9c",
+          "source_turn_id": "S003-Q040",
+          "is_gold": true,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 22,
+              "score": 0.44993260502815247
+            },
+            "P0": {
+              "rank": 22,
+              "score": 0.44993263483047485
+            },
+            "P1": {
+              "rank": 14,
+              "score": 0.44456157088279724
+            },
+            "P2": {
+              "rank": 22,
+              "score": 0.44993263483047485
+            },
+            "P3": {
+              "rank": 8,
+              "score": 0.59147047996521
+            }
+          },
+          "production_p0_embedding_text": "用户要求将盈利分析接回整体画像，给出不超过公开证据边界的结论，并保留指标方向冲突。分析对象为比亚迪，期间为2023-2025三个完整财年，数据来源为2025年年度报告（2026-03-28披露）。关键数据：归母净利润2023年300.41亿元、2024年402.54亿元、2025年326.19亿元，同比分别为+34.00%、-18.97%，呈先升后降；总资产2023年6,795.48亿元、2024年7,833.56亿元、2025年8,837.3亿元，同比分别为+15.28%、+12.81%，呈连续上升。结论为归母净利润先升后降，总资产连续上升，两者方向不同，冲突予以保留。分析基于公开年报，不包含预测或未披露原因。\nKeywords: 比亚迪, 2023-2025, 盈利分析, 归母净利润, 总资产, 同比, 先升后降, 连续上升\nUser: 把这一组盈利分析接回前面的整体画像，给出一段不超过公开证据边界的结论；如果指标方向不同，请保留这种冲突。"
+        }
+      ]
+    },
+    {
+      "session_id": "S004",
+      "query_id": "S004-Q052",
+      "original_query": "刚才的反例与主结论冲突在哪里，是口径问题还是指标本来就不同步；请明确哪些是年报原数、哪些是计算结果。",
+      "resolved_queries": {
+        "P0": "刚才的反例与主结论冲突在哪里，是口径问题还是指标本来就不同步；请明确哪些是年报原数、哪些是计算结果。",
+        "P1": "刚才的反例（归母净利润呈先升后降、扣非归母净利润呈先升后降）与主结论（营业收入呈连续上升、归母股东权益呈连续上升）冲突在哪里，是口径问题还是指标本来就不同步；请明确哪些是年报原数、哪些是计算结果。",
+        "P2": "刚才的反例（归母净利润呈先升后降，扣非归母净利润呈先升后降）与主结论（营业收入呈连续上升，归母股东权益呈连续上升）冲突在哪里，是口径问题还是指标本来就不同步；请明确哪些是年报原数、哪些是计算结果。",
+        "P3": "刚才归母净利润与扣非归母净利润的反例与主结论冲突在哪里，是口径问题还是指标本来就不同步；请明确哪些是年报原数、哪些是计算结果。"
+      },
+      "actual_embedding_texts": {
+        "P0": "刚才的反例与主结论冲突在哪里，是口径问题还是指标本来就不同步；请明确哪些是年报原数、哪些是计算结果。",
+        "P1": "刚才的反例（归母净利润呈先升后降、扣非归母净利润呈先升后降）与主结论（营业收入呈连续上升、归母股东权益呈连续上升）冲突在哪里，是口径问题还是指标本来就不同步；请明确哪些是年报原数、哪些是计算结果。",
+        "P2": "刚才的反例（归母净利润呈先升后降，扣非归母净利润呈先升后降）与主结论（营业收入呈连续上升，归母股东权益呈连续上升）冲突在哪里，是口径问题还是指标本来就不同步；请明确哪些是年报原数、哪些是计算结果。",
+        "P3": "刚才归母净利润与扣非归母净利润的反例与主结论冲突在哪里，是口径问题还是指标本来就不同步；请明确哪些是年报原数、哪些是计算结果。"
+      },
+      "rankings_top10": {
+        "Baseline": [
+          {
+            "rank": 1,
+            "page_id": "bead4a59-825d-5fae-97c6-57173fa22a57",
+            "source_turn_id": "S004-Q047",
+            "score": 0.5438233613967896,
+            "is_gold": false
+          },
+          {
+            "rank": 2,
+            "page_id": "af2f12c2-5599-5bb2-a024-327fc47109bd",
+            "source_turn_id": "S004-Q025",
+            "score": 0.5176104307174683,
+            "is_gold": false
+          },
+          {
+            "rank": 3,
+            "page_id": "301ca8db-dd23-5356-b475-b3ed2daf748b",
+            "source_turn_id": "S004-Q026",
+            "score": 0.5082759261131287,
+            "is_gold": false
+          },
+          {
+            "rank": 4,
+            "page_id": "1c71306d-9c13-5283-93c6-a4254c6bd987",
+            "source_turn_id": "S004-Q042",
+            "score": 0.49962833523750305,
+            "is_gold": false
+          },
+          {
+            "rank": 5,
+            "page_id": "efa76ffd-7a27-50b3-8489-bff781ea4539",
+            "source_turn_id": "S004-Q044",
+            "score": 0.4973908066749573,
+            "is_gold": false
+          },
+          {
+            "rank": 6,
+            "page_id": "9195d3a5-2623-5911-b769-527782545856",
+            "source_turn_id": "S004-Q016",
+            "score": 0.49326103925704956,
+            "is_gold": false
+          },
+          {
+            "rank": 7,
+            "page_id": "e45c4d60-1608-5524-b2df-3c2b4e8007c5",
+            "source_turn_id": "S004-Q003",
+            "score": 0.4833223223686218,
+            "is_gold": false
+          },
+          {
+            "rank": 8,
+            "page_id": "73b2fb55-c036-52ca-842e-cc784d317c61",
+            "source_turn_id": "S004-Q023",
+            "score": 0.4821934401988983,
+            "is_gold": false
+          },
+          {
+            "rank": 9,
+            "page_id": "1e8809d9-9426-51b9-9e17-039093174440",
+            "source_turn_id": "S004-Q018",
+            "score": 0.4768100678920746,
+            "is_gold": false
+          },
+          {
+            "rank": 10,
+            "page_id": "703822a7-ed06-55d2-95de-006ba6203852",
+            "source_turn_id": "S004-Q038",
+            "score": 0.4751737713813782,
+            "is_gold": false
+          }
+        ],
+        "P0": [
+          {
+            "rank": 1,
+            "page_id": "bead4a59-825d-5fae-97c6-57173fa22a57",
+            "source_turn_id": "S004-Q047",
+            "score": 0.5438233017921448,
+            "is_gold": false
+          },
+          {
+            "rank": 2,
+            "page_id": "af2f12c2-5599-5bb2-a024-327fc47109bd",
+            "source_turn_id": "S004-Q025",
+            "score": 0.5176104307174683,
+            "is_gold": false
+          },
+          {
+            "rank": 3,
+            "page_id": "301ca8db-dd23-5356-b475-b3ed2daf748b",
+            "source_turn_id": "S004-Q026",
+            "score": 0.5082759261131287,
+            "is_gold": false
+          },
+          {
+            "rank": 4,
+            "page_id": "1c71306d-9c13-5283-93c6-a4254c6bd987",
+            "source_turn_id": "S004-Q042",
+            "score": 0.4996282458305359,
+            "is_gold": false
+          },
+          {
+            "rank": 5,
+            "page_id": "efa76ffd-7a27-50b3-8489-bff781ea4539",
+            "source_turn_id": "S004-Q044",
+            "score": 0.4973908066749573,
+            "is_gold": false
+          },
+          {
+            "rank": 6,
+            "page_id": "9195d3a5-2623-5911-b769-527782545856",
+            "source_turn_id": "S004-Q016",
+            "score": 0.49326106905937195,
+            "is_gold": false
+          },
+          {
+            "rank": 7,
+            "page_id": "e45c4d60-1608-5524-b2df-3c2b4e8007c5",
+            "source_turn_id": "S004-Q003",
+            "score": 0.48332229256629944,
+            "is_gold": false
+          },
+          {
+            "rank": 8,
+            "page_id": "73b2fb55-c036-52ca-842e-cc784d317c61",
+            "source_turn_id": "S004-Q023",
+            "score": 0.48219338059425354,
+            "is_gold": false
+          },
+          {
+            "rank": 9,
+            "page_id": "1e8809d9-9426-51b9-9e17-039093174440",
+            "source_turn_id": "S004-Q018",
+            "score": 0.4768100678920746,
+            "is_gold": false
+          },
+          {
+            "rank": 10,
+            "page_id": "703822a7-ed06-55d2-95de-006ba6203852",
+            "source_turn_id": "S004-Q038",
+            "score": 0.475173681974411,
+            "is_gold": false
+          }
+        ],
+        "P1": [
+          {
+            "rank": 1,
+            "page_id": "9195d3a5-2623-5911-b769-527782545856",
+            "source_turn_id": "S004-Q016",
+            "score": 0.6351638436317444,
+            "is_gold": false
+          },
+          {
+            "rank": 2,
+            "page_id": "bead4a59-825d-5fae-97c6-57173fa22a57",
+            "source_turn_id": "S004-Q047",
+            "score": 0.6300214529037476,
+            "is_gold": false
+          },
+          {
+            "rank": 3,
+            "page_id": "efa76ffd-7a27-50b3-8489-bff781ea4539",
+            "source_turn_id": "S004-Q044",
+            "score": 0.6268734335899353,
+            "is_gold": false
+          },
+          {
+            "rank": 4,
+            "page_id": "f642437d-2d3c-5b95-a7f6-29f2e68c0a13",
+            "source_turn_id": "S004-Q022",
+            "score": 0.6266133785247803,
+            "is_gold": false
+          },
+          {
+            "rank": 5,
+            "page_id": "af2f12c2-5599-5bb2-a024-327fc47109bd",
+            "source_turn_id": "S004-Q025",
+            "score": 0.6226831674575806,
+            "is_gold": false
+          },
+          {
+            "rank": 6,
+            "page_id": "dad4c589-bd44-5d61-917f-9435b971db4d",
+            "source_turn_id": "S004-Q029",
+            "score": 0.613122284412384,
+            "is_gold": false
+          },
+          {
+            "rank": 7,
+            "page_id": "e45c4d60-1608-5524-b2df-3c2b4e8007c5",
+            "source_turn_id": "S004-Q003",
+            "score": 0.6114597320556641,
+            "is_gold": false
+          },
+          {
+            "rank": 8,
+            "page_id": "703822a7-ed06-55d2-95de-006ba6203852",
+            "source_turn_id": "S004-Q038",
+            "score": 0.6093670129776001,
+            "is_gold": false
+          },
+          {
+            "rank": 9,
+            "page_id": "a60bbf7a-8108-58fc-8b4a-1356764282aa",
+            "source_turn_id": "S004-Q008",
+            "score": 0.6084757447242737,
+            "is_gold": false
+          },
+          {
+            "rank": 10,
+            "page_id": "73b2fb55-c036-52ca-842e-cc784d317c61",
+            "source_turn_id": "S004-Q023",
+            "score": 0.6083329916000366,
+            "is_gold": false
+          }
+        ],
+        "P2": [
+          {
+            "rank": 1,
+            "page_id": "9195d3a5-2623-5911-b769-527782545856",
+            "source_turn_id": "S004-Q016",
+            "score": 0.6489995718002319,
+            "is_gold": false
+          },
+          {
+            "rank": 2,
+            "page_id": "f642437d-2d3c-5b95-a7f6-29f2e68c0a13",
+            "source_turn_id": "S004-Q022",
+            "score": 0.6435993909835815,
+            "is_gold": false
+          },
+          {
+            "rank": 3,
+            "page_id": "bead4a59-825d-5fae-97c6-57173fa22a57",
+            "source_turn_id": "S004-Q047",
+            "score": 0.6334336400032043,
+            "is_gold": false
+          },
+          {
+            "rank": 4,
+            "page_id": "efa76ffd-7a27-50b3-8489-bff781ea4539",
+            "source_turn_id": "S004-Q044",
+            "score": 0.6322867274284363,
+            "is_gold": false
+          },
+          {
+            "rank": 5,
+            "page_id": "af2f12c2-5599-5bb2-a024-327fc47109bd",
+            "source_turn_id": "S004-Q025",
+            "score": 0.6261851787567139,
+            "is_gold": false
+          },
+          {
+            "rank": 6,
+            "page_id": "dad4c589-bd44-5d61-917f-9435b971db4d",
+            "source_turn_id": "S004-Q029",
+            "score": 0.6209361553192139,
+            "is_gold": false
+          },
+          {
+            "rank": 7,
+            "page_id": "594016a4-b321-5143-a8c6-3923fed20111",
+            "source_turn_id": "S004-Q032",
+            "score": 0.6167641878128052,
+            "is_gold": false
+          },
+          {
+            "rank": 8,
+            "page_id": "73b2fb55-c036-52ca-842e-cc784d317c61",
+            "source_turn_id": "S004-Q023",
+            "score": 0.6165773868560791,
+            "is_gold": false
+          },
+          {
+            "rank": 9,
+            "page_id": "703822a7-ed06-55d2-95de-006ba6203852",
+            "source_turn_id": "S004-Q038",
+            "score": 0.6164684295654297,
+            "is_gold": false
+          },
+          {
+            "rank": 10,
+            "page_id": "e45c4d60-1608-5524-b2df-3c2b4e8007c5",
+            "source_turn_id": "S004-Q003",
+            "score": 0.6164446473121643,
+            "is_gold": false
+          }
+        ],
+        "P3": [
+          {
+            "rank": 1,
+            "page_id": "9195d3a5-2623-5911-b769-527782545856",
+            "source_turn_id": "S004-Q016",
+            "score": 0.652091383934021,
+            "is_gold": false
+          },
+          {
+            "rank": 2,
+            "page_id": "f642437d-2d3c-5b95-a7f6-29f2e68c0a13",
+            "source_turn_id": "S004-Q022",
+            "score": 0.6116904616355896,
+            "is_gold": false
+          },
+          {
+            "rank": 3,
+            "page_id": "bead4a59-825d-5fae-97c6-57173fa22a57",
+            "source_turn_id": "S004-Q047",
+            "score": 0.6082777380943298,
+            "is_gold": false
+          },
+          {
+            "rank": 4,
+            "page_id": "af2f12c2-5599-5bb2-a024-327fc47109bd",
+            "source_turn_id": "S004-Q025",
+            "score": 0.6050780415534973,
+            "is_gold": false
+          },
+          {
+            "rank": 5,
+            "page_id": "094486b7-1e86-5360-8005-66c6886152c2",
+            "source_turn_id": "S004-Q034",
+            "score": 0.6046523451805115,
+            "is_gold": false
+          },
+          {
+            "rank": 6,
+            "page_id": "7567fc91-4210-59bc-ac74-0cc3060edc83",
+            "source_turn_id": "S004-Q014",
+            "score": 0.5954926013946533,
+            "is_gold": false
+          },
+          {
+            "rank": 7,
+            "page_id": "682aecdf-197a-5dc6-b88d-886b08ffb500",
+            "source_turn_id": "S004-Q040",
+            "score": 0.5901118516921997,
+            "is_gold": true
+          },
+          {
+            "rank": 8,
+            "page_id": "75c0a8f8-fa8f-5fdb-89db-f1e0f0f43bb4",
+            "source_turn_id": "S004-Q007",
+            "score": 0.5891464352607727,
+            "is_gold": false
+          },
+          {
+            "rank": 9,
+            "page_id": "dad4c589-bd44-5d61-917f-9435b971db4d",
+            "source_turn_id": "S004-Q029",
+            "score": 0.58245849609375,
+            "is_gold": false
+          },
+          {
+            "rank": 10,
+            "page_id": "7bce82cf-85f9-5dca-a1dd-56af843fb11e",
+            "source_turn_id": "S004-Q035",
+            "score": 0.5813888907432556,
+            "is_gold": false
+          }
+        ]
+      },
+      "gold_comparison": [
+        {
+          "gold_page_id": "682aecdf-197a-5dc6-b88d-886b08ffb500",
+          "Baseline": {
+            "rank": 17,
+            "score": 0.453130841255188
+          },
+          "P0": {
+            "rank": 17,
+            "score": 0.4531307816505432
+          },
+          "P1": {
+            "rank": 13,
+            "score": 0.6057858467102051
+          },
+          "P2": {
+            "rank": 12,
+            "score": 0.6159033179283142
+          },
+          "P3": {
+            "rank": 7,
+            "score": 0.5901118516921997
+          }
+        },
+        {
+          "gold_page_id": "b229284b-6a2b-5cfb-a8c8-0ccc1bd72603",
+          "Baseline": {
+            "rank": 38,
+            "score": 0.4072052836418152
+          },
+          "P0": {
+            "rank": 38,
+            "score": 0.4072052240371704
+          },
+          "P1": {
+            "rank": 39,
+            "score": 0.5532425045967102
+          },
+          "P2": {
+            "rank": 38,
+            "score": 0.5637668371200562
+          },
+          "P3": {
+            "rank": 30,
+            "score": 0.5501688718795776
+          }
+        }
+      ],
+      "resolution_audits": {
+        "P0": {
+          "session_id": "S004",
+          "query_id": "S004-Q052",
+          "prompt": "P0",
+          "original_query": "刚才的反例与主结论冲突在哪里，是口径问题还是指标本来就不同步；请明确哪些是年报原数、哪些是计算结果。",
+          "resolved_query": "刚才的反例与主结论冲突在哪里，是口径问题还是指标本来就不同步；请明确哪些是年报原数、哪些是计算结果。",
+          "changed": false,
+          "visible_context_turn_ids": [
+            "S004-Q049",
+            "S004-Q050",
+            "S004-Q051"
+          ],
+          "audit_scope": "current query + previous_3_qa only; no Gold/Page/ranking",
+          "total_added_canonical_content": 0,
+          "classification_counts": {},
+          "resolution_type_counts": {},
+          "added_content": []
+        },
+        "P1": {
+          "session_id": "S004",
+          "query_id": "S004-Q052",
+          "prompt": "P1",
+          "original_query": "刚才的反例与主结论冲突在哪里，是口径问题还是指标本来就不同步；请明确哪些是年报原数、哪些是计算结果。",
+          "resolved_query": "刚才的反例（归母净利润呈先升后降、扣非归母净利润呈先升后降）与主结论（营业收入呈连续上升、归母股东权益呈连续上升）冲突在哪里，是口径问题还是指标本来就不同步；请明确哪些是年报原数、哪些是计算结果。",
+          "changed": true,
+          "visible_context_turn_ids": [
+            "S004-Q049",
+            "S004-Q050",
+            "S004-Q051"
+          ],
+          "audit_scope": "current query + previous_3_qa only; no Gold/Page/ranking",
+          "total_added_canonical_content": 7,
+          "classification_counts": {
+            "REFERENCE_REQUIRED": 3,
+            "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED": 4
+          },
+          "resolution_type_counts": {
+            "EVIDENCE_OBJECT": 7
+          },
+          "added_content": [
+            {
+              "category": "indicator",
+              "canonical": "ADJUSTED_PARENT_NET_PROFIT",
+              "surface_text": "扣非归母净利润",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                "险点交给管理层，怎样问才能对应到具体披露而不是泛泛问原因；不要只比较2023年和2025年两个端点。”的直接回答是：归母股东权益呈连续上升，扣非归母净利润呈先升后降。结合本会话前面已经确认的口径与本轮新增的管理问询视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两条指标在三年内是否同"
+              ],
+              "raw_category": "indicator",
+              "resolution_type": "EVIDENCE_OBJECT"
+            },
+            {
+              "category": "indicator",
+              "canonical": "PARENT_EQUITY",
+              "surface_text": "归母股东权益",
+              "classification": "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED",
+              "context_supported": true,
+              "reference_required": false,
+              "evidence_snippets": [
+                "结论\n对“如果把刚才的风险点交给管理层，怎样问才能对应到具体披露而不是泛泛问原因；不要只比较2023年和2025年两个端点。”的直接回答是：归母股东权益呈连续上升，扣非归母净利润呈先升后降。结合本会话前面已经确认的口径与本轮新增的管理问询视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是"
+              ],
+              "raw_category": "indicator",
+              "resolution_type": "EVIDENCE_OBJECT"
+            },
+            {
+              "category": "indicator",
+              "canonical": "PARENT_NET_PROFIT",
+              "surface_text": "归母净利润",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                "交给管理层，怎样问才能对应到具体披露而不是泛泛问原因；不要只比较2023年和2025年两个端点。”的直接回答是：归母股东权益呈连续上升，扣非归母净利润呈先升后降。结合本会话前面已经确认的口径与本轮新增的管理问询视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两条指标在三年内是否同"
+              ],
+              "raw_category": "indicator",
+              "resolution_type": "EVIDENCE_OBJECT"
+            },
+            {
+              "category": "indicator",
+              "canonical": "REVENUE",
+              "surface_text": "营业收入",
+              "classification": "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED",
+              "context_supported": true,
+              "reference_required": false,
+              "evidence_snippets": [
+                "营原因若未在年报正文或附注中明确披露，则不作确定归因。本回答完全使用公开历史信息，不包含预测、目标值、概率或模拟经营情景。\n\n三年关键数据\n营业收入：2023年6,023.15亿元，2024年7,771.02亿元，2025年8,039.65亿元；2024/2023为+29.02%，202"
+              ],
+              "raw_category": "indicator",
+              "resolution_type": "EVIDENCE_OBJECT"
+            },
+            {
+              "category": "comparison_object",
+              "canonical": "COMPARE[ADJUSTED_PARENT_NET_PROFIT|PARENT_EQUITY|PARENT_NET_PROFIT|REVENUE]",
+              "surface_text": "扣非归母净利润 / 归母股东权益 / 归母净利润 / 营业收入",
+              "classification": "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED",
+              "context_supported": true,
+              "reference_required": false,
+              "evidence_snippets": [
+                "险点交给管理层，怎样问才能对应到具体披露而不是泛泛问原因；不要只比较2023年和2025年两个端点。”的直接回答是：归母股东权益呈连续上升，扣非归母净利润呈先升后降。结合本会话前面已经确认的口径与本轮新增的管理问询视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两条指标在三年内是否同",
+                "结论\n对“如果把刚才的风险点交给管理层，怎样问才能对应到具体披露而不是泛泛问原因；不要只比较2023年和2025年两个端点。”的直接回答是：归母股东权益呈连续上升，扣非归母净利润呈先升后降。结合本会话前面已经确认的口径与本轮新增的管理问询视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是",
+                "交给管理层，怎样问才能对应到具体披露而不是泛泛问原因；不要只比较2023年和2025年两个端点。”的直接回答是：归母股东权益呈连续上升，扣非归母净利润呈先升后降。结合本会话前面已经确认的口径与本轮新增的管理问询视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两条指标在三年内是否同",
+                "营原因若未在年报正文或附注中明确披露，则不作确定归因。本回答完全使用公开历史信息，不包含预测、目标值、概率或模拟经营情景。\n\n三年关键数据\n营业收入：2023年6,023.15亿元，2024年7,771.02亿元，2025年8,039.65亿元；2024/2023为+29.02%，202"
+              ],
+              "raw_category": "comparison_object",
+              "resolution_type": "EVIDENCE_OBJECT"
+            },
+            {
+              "category": "historical_conclusion",
+              "canonical": "RISE_THEN_FALL",
+              "surface_text": "先升后降",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                "怎样问才能对应到具体披露而不是泛泛问原因；不要只比较2023年和2025年两个端点。”的直接回答是：归母股东权益呈连续上升，扣非归母净利润呈先升后降。结合本会话前面已经确认的口径与本轮新增的管理问询视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两条指标在三年内是否同向、拐点出"
+              ],
+              "raw_category": "historical_conclusion",
+              "resolution_type": "EVIDENCE_OBJECT"
+            },
+            {
+              "category": "historical_conclusion",
+              "canonical": "CONTINUOUS_RISE",
+              "surface_text": "连续上升",
+              "classification": "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED",
+              "context_supported": true,
+              "reference_required": false,
+              "evidence_snippets": [
+                "把刚才的风险点交给管理层，怎样问才能对应到具体披露而不是泛泛问原因；不要只比较2023年和2025年两个端点。”的直接回答是：归母股东权益呈连续上升，扣非归母净利润呈先升后降。结合本会话前面已经确认的口径与本轮新增的管理问询视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两条指"
+              ],
+              "raw_category": "historical_conclusion",
+              "resolution_type": "EVIDENCE_OBJECT"
+            }
+          ]
+        },
+        "P2": {
+          "session_id": "S004",
+          "query_id": "S004-Q052",
+          "prompt": "P2",
+          "original_query": "刚才的反例与主结论冲突在哪里，是口径问题还是指标本来就不同步；请明确哪些是年报原数、哪些是计算结果。",
+          "resolved_query": "刚才的反例（归母净利润呈先升后降，扣非归母净利润呈先升后降）与主结论（营业收入呈连续上升，归母股东权益呈连续上升）冲突在哪里，是口径问题还是指标本来就不同步；请明确哪些是年报原数、哪些是计算结果。",
+          "changed": true,
+          "visible_context_turn_ids": [
+            "S004-Q049",
+            "S004-Q050",
+            "S004-Q051"
+          ],
+          "audit_scope": "current query + previous_3_qa only; no Gold/Page/ranking",
+          "total_added_canonical_content": 7,
+          "classification_counts": {
+            "REFERENCE_REQUIRED": 3,
+            "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED": 4
+          },
+          "resolution_type_counts": {
+            "EVIDENCE_OBJECT": 7
+          },
+          "added_content": [
+            {
+              "category": "indicator",
+              "canonical": "ADJUSTED_PARENT_NET_PROFIT",
+              "surface_text": "扣非归母净利润",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                "险点交给管理层，怎样问才能对应到具体披露而不是泛泛问原因；不要只比较2023年和2025年两个端点。”的直接回答是：归母股东权益呈连续上升，扣非归母净利润呈先升后降。结合本会话前面已经确认的口径与本轮新增的管理问询视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两条指标在三年内是否同"
+              ],
+              "raw_category": "indicator",
+              "resolution_type": "EVIDENCE_OBJECT"
+            },
+            {
+              "category": "indicator",
+              "canonical": "PARENT_EQUITY",
+              "surface_text": "归母股东权益",
+              "classification": "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED",
+              "context_supported": true,
+              "reference_required": false,
+              "evidence_snippets": [
+                "结论\n对“如果把刚才的风险点交给管理层，怎样问才能对应到具体披露而不是泛泛问原因；不要只比较2023年和2025年两个端点。”的直接回答是：归母股东权益呈连续上升，扣非归母净利润呈先升后降。结合本会话前面已经确认的口径与本轮新增的管理问询视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是"
+              ],
+              "raw_category": "indicator",
+              "resolution_type": "EVIDENCE_OBJECT"
+            },
+            {
+              "category": "indicator",
+              "canonical": "PARENT_NET_PROFIT",
+              "surface_text": "归母净利润",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                "交给管理层，怎样问才能对应到具体披露而不是泛泛问原因；不要只比较2023年和2025年两个端点。”的直接回答是：归母股东权益呈连续上升，扣非归母净利润呈先升后降。结合本会话前面已经确认的口径与本轮新增的管理问询视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两条指标在三年内是否同"
+              ],
+              "raw_category": "indicator",
+              "resolution_type": "EVIDENCE_OBJECT"
+            },
+            {
+              "category": "indicator",
+              "canonical": "REVENUE",
+              "surface_text": "营业收入",
+              "classification": "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED",
+              "context_supported": true,
+              "reference_required": false,
+              "evidence_snippets": [
+                "营原因若未在年报正文或附注中明确披露，则不作确定归因。本回答完全使用公开历史信息，不包含预测、目标值、概率或模拟经营情景。\n\n三年关键数据\n营业收入：2023年6,023.15亿元，2024年7,771.02亿元，2025年8,039.65亿元；2024/2023为+29.02%，202"
+              ],
+              "raw_category": "indicator",
+              "resolution_type": "EVIDENCE_OBJECT"
+            },
+            {
+              "category": "comparison_object",
+              "canonical": "COMPARE[ADJUSTED_PARENT_NET_PROFIT|PARENT_EQUITY|PARENT_NET_PROFIT|REVENUE]",
+              "surface_text": "扣非归母净利润 / 归母股东权益 / 归母净利润 / 营业收入",
+              "classification": "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED",
+              "context_supported": true,
+              "reference_required": false,
+              "evidence_snippets": [
+                "险点交给管理层，怎样问才能对应到具体披露而不是泛泛问原因；不要只比较2023年和2025年两个端点。”的直接回答是：归母股东权益呈连续上升，扣非归母净利润呈先升后降。结合本会话前面已经确认的口径与本轮新增的管理问询视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两条指标在三年内是否同",
+                "结论\n对“如果把刚才的风险点交给管理层，怎样问才能对应到具体披露而不是泛泛问原因；不要只比较2023年和2025年两个端点。”的直接回答是：归母股东权益呈连续上升，扣非归母净利润呈先升后降。结合本会话前面已经确认的口径与本轮新增的管理问询视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是",
+                "交给管理层，怎样问才能对应到具体披露而不是泛泛问原因；不要只比较2023年和2025年两个端点。”的直接回答是：归母股东权益呈连续上升，扣非归母净利润呈先升后降。结合本会话前面已经确认的口径与本轮新增的管理问询视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两条指标在三年内是否同",
+                "营原因若未在年报正文或附注中明确披露，则不作确定归因。本回答完全使用公开历史信息，不包含预测、目标值、概率或模拟经营情景。\n\n三年关键数据\n营业收入：2023年6,023.15亿元，2024年7,771.02亿元，2025年8,039.65亿元；2024/2023为+29.02%，202"
+              ],
+              "raw_category": "comparison_object",
+              "resolution_type": "EVIDENCE_OBJECT"
+            },
+            {
+              "category": "historical_conclusion",
+              "canonical": "RISE_THEN_FALL",
+              "surface_text": "先升后降",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                "怎样问才能对应到具体披露而不是泛泛问原因；不要只比较2023年和2025年两个端点。”的直接回答是：归母股东权益呈连续上升，扣非归母净利润呈先升后降。结合本会话前面已经确认的口径与本轮新增的管理问询视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两条指标在三年内是否同向、拐点出"
+              ],
+              "raw_category": "historical_conclusion",
+              "resolution_type": "EVIDENCE_OBJECT"
+            },
+            {
+              "category": "historical_conclusion",
+              "canonical": "CONTINUOUS_RISE",
+              "surface_text": "连续上升",
+              "classification": "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED",
+              "context_supported": true,
+              "reference_required": false,
+              "evidence_snippets": [
+                "把刚才的风险点交给管理层，怎样问才能对应到具体披露而不是泛泛问原因；不要只比较2023年和2025年两个端点。”的直接回答是：归母股东权益呈连续上升，扣非归母净利润呈先升后降。结合本会话前面已经确认的口径与本轮新增的管理问询视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两条指"
+              ],
+              "raw_category": "historical_conclusion",
+              "resolution_type": "EVIDENCE_OBJECT"
+            }
+          ]
+        },
+        "P3": {
+          "session_id": "S004",
+          "query_id": "S004-Q052",
+          "prompt": "P3",
+          "original_query": "刚才的反例与主结论冲突在哪里，是口径问题还是指标本来就不同步；请明确哪些是年报原数、哪些是计算结果。",
+          "resolved_query": "刚才归母净利润与扣非归母净利润的反例与主结论冲突在哪里，是口径问题还是指标本来就不同步；请明确哪些是年报原数、哪些是计算结果。",
+          "changed": true,
+          "visible_context_turn_ids": [
+            "S004-Q049",
+            "S004-Q050",
+            "S004-Q051"
+          ],
+          "audit_scope": "current query + previous_3_qa only; no Gold/Page/ranking",
+          "total_added_canonical_content": 3,
+          "classification_counts": {
+            "REFERENCE_REQUIRED": 3
+          },
+          "resolution_type_counts": {
+            "EVIDENCE_OBJECT": 3
+          },
+          "added_content": [
+            {
+              "category": "indicator",
+              "canonical": "ADJUSTED_PARENT_NET_PROFIT",
+              "surface_text": "扣非归母净利润",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                "险点交给管理层，怎样问才能对应到具体披露而不是泛泛问原因；不要只比较2023年和2025年两个端点。”的直接回答是：归母股东权益呈连续上升，扣非归母净利润呈先升后降。结合本会话前面已经确认的口径与本轮新增的管理问询视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两条指标在三年内是否同"
+              ],
+              "raw_category": "indicator",
+              "resolution_type": "EVIDENCE_OBJECT"
+            },
+            {
+              "category": "indicator",
+              "canonical": "PARENT_NET_PROFIT",
+              "surface_text": "归母净利润",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                "交给管理层，怎样问才能对应到具体披露而不是泛泛问原因；不要只比较2023年和2025年两个端点。”的直接回答是：归母股东权益呈连续上升，扣非归母净利润呈先升后降。结合本会话前面已经确认的口径与本轮新增的管理问询视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两条指标在三年内是否同"
+              ],
+              "raw_category": "indicator",
+              "resolution_type": "EVIDENCE_OBJECT"
+            },
+            {
+              "category": "comparison_object",
+              "canonical": "COMPARE[ADJUSTED_PARENT_NET_PROFIT|PARENT_NET_PROFIT]",
+              "surface_text": "扣非归母净利润 / 归母净利润",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                "险点交给管理层，怎样问才能对应到具体披露而不是泛泛问原因；不要只比较2023年和2025年两个端点。”的直接回答是：归母股东权益呈连续上升，扣非归母净利润呈先升后降。结合本会话前面已经确认的口径与本轮新增的管理问询视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两条指标在三年内是否同",
+                "交给管理层，怎样问才能对应到具体披露而不是泛泛问原因；不要只比较2023年和2025年两个端点。”的直接回答是：归母股东权益呈连续上升，扣非归母净利润呈先升后降。结合本会话前面已经确认的口径与本轮新增的管理问询视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两条指标在三年内是否同"
+              ],
+              "raw_category": "comparison_object",
+              "resolution_type": "EVIDENCE_OBJECT"
+            }
+          ]
+        }
+      },
+      "page_details": [
+        {
+          "page_id": "bead4a59-825d-5fae-97c6-57173fa22a57",
+          "source_turn_id": "S004-Q047",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 1,
+              "score": 0.5438233613967896
+            },
+            "P0": {
+              "rank": 1,
+              "score": 0.5438233017921448
+            },
+            "P1": {
+              "rank": 2,
+              "score": 0.6300214529037476
+            },
+            "P2": {
+              "rank": 3,
+              "score": 0.6334336400032043
+            },
+            "P3": {
+              "rank": 3,
+              "score": 0.6082777380943298
+            }
+          },
+          "production_p0_embedding_text": "用户要求对上一轮结论进行反证检验，确认是否存在与主结论冲突的真实数字。分析主体为比亚迪，期间为2023-2025三个完整财年，数据来源为《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28）。主结论为：经营活动现金流净额连续下降（2023年1,697.25亿元、2024年1,334.54亿元、2025年591.36亿元，同比分别为-21.37%、-55.69%），扣非归母净利润先升后降（2023年284.62亿元、2024年369.83亿元、2025年294.46亿元，同比分别为+29.94%、-20.38%）。反证检验确认：两项指标三年路径同向，无冲突数字；但具体经营原因未在年报中明确披露，不能确认。已确认事实包括三年原数、同比、首尾差额及近似比率；不能确认的原因包括未披露的附注细节、业务分部数据及会计政策变化。结论限定为历史证据摘要，不包含预测或模拟。\nKeywords: 比亚迪, 2023-2025, 反证检验, 经营活动现金流净额, 扣非归母净利润, 年报, 同比, 投资者关系\nUser: 沿着上一轮的结论，修订以后再做一次反证检验，是否还有真实数字与主结论冲突；先说明能确认的事实，再说还不能确认的原因。"
+        },
+        {
+          "page_id": "af2f12c2-5599-5bb2-a024-327fc47109bd",
+          "source_turn_id": "S004-Q025",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 2,
+              "score": 0.5176104307174683
+            },
+            "P0": {
+              "rank": 2,
+              "score": 0.5176104307174683
+            },
+            "P1": {
+              "rank": 5,
+              "score": 0.6226831674575806
+            },
+            "P2": {
+              "rank": 5,
+              "score": 0.6261851787567139
+            },
+            "P3": {
+              "rank": 4,
+              "score": 0.6050780415534973
+            }
+          },
+          "production_p0_embedding_text": "用户询问当收入、资产和权益方向不一致时如何表述效率判断，以及证据不足时如何指出缺口，并以比亚迪2023-2025年数据为例。分析基于比亚迪2025年年度报告（2026-03-28发布），期间为2023-2025三个完整财年。关键数据：营业收入2023年6,023.15亿元、2024年7,771.02亿元、2025年8,039.65亿元；归母净利润2023年300.41亿元、2024年402.54亿元、2025年326.19亿元；扣非归母净利润2023年284.62亿元、2024年369.83亿元、2025年294.46亿元；经营现金流净额2023年1,697.25亿元、2024年1,334.54亿元、2025年591.36亿元；总资产2023年6,795.48亿元、2024年7,833.56亿元、2025年8,837.3亿元；归母股东权益2023年1,388.1亿元、2024年1,852.51亿元、2025年2,462.75亿元。结论：归母股东权益连续上升（同比+33.46%、+32.94%），扣非归母净利润先升后降（同比+29.94%、-20.38%），两者方向不一致，应保留冲突并缩小结论范围，避免归因于未披露原因。证据不足时明确列出缺口，不补估计值。\nKeywords: 比亚迪, 2023-2025, 财务分析, 归母股东权益, 扣非归母净利润, 同比, 证据缺口, 年报\nUser: 如果收入、资产和权益方向不一致，刚才的效率判断应当怎样表述；如果证据不足，直接说明缺口，不要补估计值，在比亚迪这组三年数字中具体怎么体现？"
+        },
+        {
+          "page_id": "301ca8db-dd23-5356-b475-b3ed2daf748b",
+          "source_turn_id": "S004-Q026",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 3,
+              "score": 0.5082759261131287
+            },
+            "P0": {
+              "rank": 3,
+              "score": 0.5082759261131287
+            },
+            "P1": {
+              "rank": 17,
+              "score": 0.5984523296356201
+            },
+            "P2": {
+              "rank": 21,
+              "score": 0.6027878522872925
+            },
+            "P3": {
+              "rank": 28,
+              "score": 0.5537487268447876
+            }
+          },
+          "production_p0_embedding_text": "用户询问上一轮识别的矛盾主要发生在哪一年，2025年是延续还是反转，并要求在比亚迪三年数据中具体体现。助手基于比亚迪2023-2025年年度报告（来源：https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF，披露日期2026-03-28）提供三年关键数据：营业收入2023年6,023.15亿元、2024年7,771.02亿元、2025年8,039.65亿元，同比分别为+29.02%、+3.46%，连续上升；归母净利润2023年300.41亿元、2024年402.54亿元、2025年326.19亿元，同比分别为+34.00%、-18.97%，先升后降；扣非归母净利润2023年284.62亿元、2024年369.83亿元、2025年294.46亿元，同比分别为+29.94%、-20.38%，先升后降；经营活动现金流净额2023年1,697.25亿元、2024年1,334.54亿元、2025年591.36亿元，同比分别为-21.37%、-55.69%，连续下降；总资产2023年6,795.48亿元、2024年7,833.56亿元、2025年8,837.3亿元，同比分别为+15.28%、+12.81%，连续上升；归母股东权益2023年1,388.1亿元、2024年1,852.51亿元、2025年2,462.75亿元，同比分别为+33.46%、+32.94%，连续上升。助手指出矛盾主要发生在2025年，表现为收入增长但利润和现金流下降，2025年出现拐点（利润和现金流反转下降）。结论为营业收入和归母股东权益连续上升，但利润和现金流在2025年出现下降，需关注盈利质量与现金回收。助手强调所有结论基于公开历史信息，不包含预测，具体原因需附注支持。\nKeywords: 比亚迪, 2023-2025, 营业收入, 归母净利润, 经营现金流, 同比, 拐点, 矛盾\nUser: 上一轮识别的矛盾主要发生在哪一年，2025年是延续还是反转；如果前面的判断需要修订，请直接指出，在比亚迪这组三年数字中具体怎么体现？"
+        },
+        {
+          "page_id": "1c71306d-9c13-5283-93c6-a4254c6bd987",
+          "source_turn_id": "S004-Q042",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 4,
+              "score": 0.49962833523750305
+            },
+            "P0": {
+              "rank": 4,
+              "score": 0.4996282458305359
+            },
+            "P1": {
+              "rank": 25,
+              "score": 0.5852276086807251
+            },
+            "P2": {
+              "rank": 27,
+              "score": 0.588489830493927
+            },
+            "P3": {
+              "rank": 16,
+              "score": 0.570137083530426
+            }
+          },
+          "production_p0_embedding_text": "用户要求检查比亚迪2023-2025年三年比较数是否存在单位、主体或重述口径差异，并强调将两段同比分开表述。分析基于比亚迪2025年年度报告（披露日期2026-03-28），确认总资产和归母股东权益均连续上升：总资产分别为6795.48、7833.56、8837.3亿元，同比+15.28%、+12.81%；归母股东权益分别为1388.1、1852.51、2462.75亿元，同比+33.46%、+32.94%。其他指标如营业收入、归母净利润、扣非归母净利润、经营现金流也列出三年数据及同比，但未发现口径差异。结论强调两段同比分开，不合成趋势词，并指出首尾差额不能替代年度路径。\nKeywords: 比亚迪, 2023-2025, 三年比较, 口径差异, 总资产, 归母股东权益, 同比, 年度报告\nUser: 刚才确认了来源，再检查三年比较数是否存在单位、主体或重述口径差异；请把两段同比分开，不要合成一个趋势词。"
+        },
+        {
+          "page_id": "efa76ffd-7a27-50b3-8489-bff781ea4539",
+          "source_turn_id": "S004-Q044",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 5,
+              "score": 0.4973908066749573
+            },
+            "P0": {
+              "rank": 5,
+              "score": 0.4973908066749573
+            },
+            "P1": {
+              "rank": 3,
+              "score": 0.6268734335899353
+            },
+            "P2": {
+              "rank": 4,
+              "score": 0.6322867274284363
+            },
+            "P3": {
+              "rank": 23,
+              "score": 0.5614067316055298
+            }
+          },
+          "production_p0_embedding_text": "用户询问在之前的三层证据中，哪些措辞超出了事实支持强度，并要求直接指出需要修订的判断。助手基于比亚迪2023-2025年年度报告数据，确认营业收入（2023年6,023.15亿元，2024年7,771.02亿元，2025年8,039.65亿元）和归母股东权益（2023年1,388.1亿元，2024年1,852.51亿元，2025年2,462.75亿元）均连续上升，但指出其他指标如归母净利润、扣非净利润、经营现金流等存在拐点或下降，因此建议将结论限定为“营业收入和归母股东权益连续上升”，避免使用“经营质量持续改善”等过度表述。助手强调所有结论基于公开年报，不推测具体原因，并建议在后续分析中区分事实、计算和判断。\nKeywords: 比亚迪, 2023-2025, 证据强度, 营业收入, 归母股东权益, 连续上升, 措辞修订, 年报数据\nUser: 刚才的三层证据中，哪些措辞已经超过事实本身能够支持的强度；如果前面的判断需要修订，请直接指出。"
+        },
+        {
+          "page_id": "9195d3a5-2623-5911-b769-527782545856",
+          "source_turn_id": "S004-Q016",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 6,
+              "score": 0.49326103925704956
+            },
+            "P0": {
+              "rank": 6,
+              "score": 0.49326106905937195
+            },
+            "P1": {
+              "rank": 1,
+              "score": 0.6351638436317444
+            },
+            "P2": {
+              "rank": 1,
+              "score": 0.6489995718002319
+            },
+            "P3": {
+              "rank": 1,
+              "score": 0.652091383934021
+            }
+          },
+          "production_p0_embedding_text": "用户询问比亚迪2023-2025年扣非归母净利润与归母股东权益的变化，判断现金表现是效率问题还是错位，并要求区分年报原数与计算结果。分析基于《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源：https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF）。年报原数：扣非归母净利润2023年284.62亿元、2024年369.83亿元、2025年294.46亿元；归母股东权益2023年1,388.1亿元、2024年1,852.51亿元、2025年2,462.75亿元。计算结果：扣非归母净利润同比2024/2023为+29.94%、2025/2024为-20.38%；归母股东权益同比2024/2023为+33.46%、2025/2024为+32.94%。结论：扣非归母净利润先升后降，归母股东权益连续上升，两者方向不同，仅能确认错位，不能判定为效率问题；具体原因未在年报中明确披露，不作归因。\nKeywords: 比亚迪, 2023-2025, 扣非归母净利润, 归母股东权益, 年报原数, 计算结果, 同比, 错位\nUser: 再结合总资产变化，前面的现金表现更像效率问题还是只能确认存在错位；请明确哪些是年报原数、哪些是计算结果。"
+        },
+        {
+          "page_id": "f642437d-2d3c-5b95-a7f6-29f2e68c0a13",
+          "source_turn_id": "S004-Q022",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 25,
+              "score": 0.43223750591278076
+            },
+            "P0": {
+              "rank": 25,
+              "score": 0.432237446308136
+            },
+            "P1": {
+              "rank": 4,
+              "score": 0.6266133785247803
+            },
+            "P2": {
+              "rank": 2,
+              "score": 0.6435993909835815
+            },
+            "P3": {
+              "rank": 2,
+              "score": 0.6116904616355896
+            }
+          },
+          "production_p0_embedding_text": "用户询问比亚迪2023-2025年扣非归母净利润与归母股东权益的扩张/收缩是否同步，并要求结合前文资产变化分析。基于比亚迪2025年年报（2026-03-28披露），扣非归母净利润三年分别为284.62、369.83、294.46亿元，同比+29.94%、-20.38%，呈先升后降；归母股东权益三年分别为1388.1、1852.51、2462.75亿元，同比+33.46%、+32.94%，连续上升。两者不同步：利润先升后降，权益持续增长。结论为历史事实，不归因具体原因，不预测未来。\nKeywords: 比亚迪, 2023-2025, 扣非归母净利润, 归母股东权益, 同步性, 先升后降, 连续上升, 年报\nUser: 刚才看到资产变化后，再看股东权益，两者的扩张或收缩是否同步；别只复述数字，要说明它和上一问的关系，在比亚迪这组三年数字中具体怎么体现？"
+        },
+        {
+          "page_id": "094486b7-1e86-5360-8005-66c6886152c2",
+          "source_turn_id": "S004-Q034",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 32,
+              "score": 0.4188690185546875
+            },
+            "P0": {
+              "rank": 32,
+              "score": 0.4188689589500427
+            },
+            "P1": {
+              "rank": 18,
+              "score": 0.5983097553253174
+            },
+            "P2": {
+              "rank": 13,
+              "score": 0.6156070232391357
+            },
+            "P3": {
+              "rank": 5,
+              "score": 0.6046523451805115
+            }
+          },
+          "production_p0_embedding_text": "用户要求分析比亚迪2023-2025年扣非归母净利润与归母股东权益的变化，并明确年报原数与计算结果。数据来源为比亚迪2025年年度报告（2026-03-28发布）。扣非归母净利润：2023年284.62亿元，2024年369.83亿元，2025年294.46亿元，同比分别为+29.94%、-20.38%，呈先升后降；归母股东权益：2023年1,388.1亿元，2024年1,852.51亿元，2025年2,462.75亿元，同比分别为+33.46%、+32.94%，连续上升。所有三年数值均为年报原数，同比为计算结果。结论为扣非归母净利润先升后降，归母股东权益连续上升，两者方向不同，需保留冲突并关注拐点。\nKeywords: 比亚迪, 2023-2025, 扣非归母净利润, 归母股东权益, 年报原数, 同比, 先升后降, 连续上升\nUser: 接着加入扣非净利润，刚才看到的利润变化有多少属于持续经营口径；请明确哪些是年报原数、哪些是计算结果。"
+        },
+        {
+          "page_id": "682aecdf-197a-5dc6-b88d-886b08ffb500",
+          "source_turn_id": "S004-Q040",
+          "is_gold": true,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 17,
+              "score": 0.453130841255188
+            },
+            "P0": {
+              "rank": 17,
+              "score": 0.4531307816505432
+            },
+            "P1": {
+              "rank": 13,
+              "score": 0.6057858467102051
+            },
+            "P2": {
+              "rank": 12,
+              "score": 0.6159033179283142
+            },
+            "P3": {
+              "rank": 7,
+              "score": 0.5901118516921997
+            }
+          },
+          "production_p0_embedding_text": "用户要求将盈利分析接回整体画像，给出不超过公开证据边界的结论，并说明与上一问的关系。分析主体为比亚迪，期间为2023-2025三个完整财年，数据来源为《比亚迪2025年年度报告或年度报告摘要》（2026-03-28发布）。核心结论：扣非归母净利润呈先升后降（2023年284.62亿元，2024年369.83亿元，2025年294.46亿元；同比+29.94%、-20.38%），归母股东权益连续上升（2023年1,388.1亿元，2024年1,852.51亿元，2025年2,462.75亿元；同比+33.46%、+32.94%）。结论强调指标间方向差异，不归因于未披露原因，并明确基期、口径和证据边界。上一问涉及基期选择和反证修正，本回答沿用其确认的三年口径和原始数字，并重新检验解释性结论。\nKeywords: 比亚迪, 2023-2025, 盈利分析, 扣非归母净利润, 归母股东权益, 同比, 年报, 投资者关系\nUser: 把这一组盈利分析接回前面的整体画像，给出一段不超过公开证据边界的结论；别只复述数字，要说明它和上一问的关系。"
+        },
+        {
+          "page_id": "b229284b-6a2b-5cfb-a8c8-0ccc1bd72603",
+          "source_turn_id": "S004-Q045",
+          "is_gold": true,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 38,
+              "score": 0.4072052836418152
+            },
+            "P0": {
+              "rank": 38,
+              "score": 0.4072052240371704
+            },
+            "P1": {
+              "rank": 39,
+              "score": 0.5532425045967102
+            },
+            "P2": {
+              "rank": 38,
+              "score": 0.5637668371200562
+            },
+            "P3": {
+              "rank": 30,
+              "score": 0.5501688718795776
+            }
+          },
+          "production_p0_embedding_text": "用户要求基于比亚迪2023-2025年完整财年数据，回答仅凭年度报告摘要无法回答的信息缺口，并明确不加入季度信息。分析主体为比亚迪，数据来源为2025年年度报告（披露日期2026-03-28）。关键数据：营业收入2023-2025年分别为6023.15、7771.02、8039.65亿元，同比+29.02%、+3.46%；归母净利润分别为300.41、402.54、326.19亿元，同比+34.00%、-18.97%；扣非归母净利润分别为284.62、369.83、294.46亿元，同比+29.94%、-20.38%；经营现金流净额分别为1697.25、1334.54、591.36亿元，同比-21.37%、-55.69%；总资产分别为6795.48、7833.56、8837.3亿元，同比+15.28%、+12.81%；归母股东权益分别为1388.1、1852.51、2462.75亿元，同比+33.46%、+32.94%。结论：归母净利润和扣非归母净利润均呈先升后降，2024年为拐点。分析强调区分事实、计算和判断，不归因于未披露的具体原因，并保留信息缺口。\nKeywords: 比亚迪, 2023-2025财年, 归母净利润, 扣非归母净利润, 先升后降, 年度报告, 信息缺口, 同比分析\nUser: 接着看信息缺口，前面哪些问题仅凭当前年度报告摘要还不能回答；请用完整财年数据回答，不加入季度信息。"
+        }
+      ]
+    },
+    {
+      "session_id": "S004",
+      "query_id": "S004-Q063",
+      "original_query": "这条证据链里如果有两个指标方向相反，前面的冲突应该怎样解释；请用完整财年数据回答，不加入季度信息。",
+      "resolved_queries": {
+        "P0": "这条证据链里如果有两个指标方向相反，前面的冲突应该怎样解释；请用完整财年数据回答，不加入季度信息。",
+        "P1": "这条证据链里如果有两个指标方向相反，前面的冲突应该怎样解释；请用完整财年数据回答，不加入季度信息。",
+        "P2": "这条证据链里如果有两个指标方向相反，前面的冲突应该怎样解释；请用完整财年数据回答，不加入季度信息。",
+        "P3": "这条营业收入与归母股东权益的证据链里如果有两个指标方向相反，前面的冲突应该怎样解释；请用完整财年数据回答，不加入季度信息。"
+      },
+      "actual_embedding_texts": {
+        "P0": "这条证据链里如果有两个指标方向相反，前面的冲突应该怎样解释；请用完整财年数据回答，不加入季度信息。",
+        "P1": "这条证据链里如果有两个指标方向相反，前面的冲突应该怎样解释；请用完整财年数据回答，不加入季度信息。",
+        "P2": "这条证据链里如果有两个指标方向相反，前面的冲突应该怎样解释；请用完整财年数据回答，不加入季度信息。",
+        "P3": "这条营业收入与归母股东权益的证据链里如果有两个指标方向相反，前面的冲突应该怎样解释；请用完整财年数据回答，不加入季度信息。"
+      },
+      "rankings_top10": {
+        "Baseline": [
+          {
+            "rank": 1,
+            "page_id": "e170d165-c266-54ae-b2e5-43779070a30c",
+            "source_turn_id": "S004-Q049",
+            "score": 0.5245422124862671,
+            "is_gold": false
+          },
+          {
+            "rank": 2,
+            "page_id": "2c5547ce-bd04-536c-8b2d-e09ae5633e53",
+            "source_turn_id": "S004-Q057",
+            "score": 0.5229606628417969,
+            "is_gold": true
+          },
+          {
+            "rank": 3,
+            "page_id": "bead4a59-825d-5fae-97c6-57173fa22a57",
+            "source_turn_id": "S004-Q047",
+            "score": 0.5133665204048157,
+            "is_gold": false
+          },
+          {
+            "rank": 4,
+            "page_id": "efa76ffd-7a27-50b3-8489-bff781ea4539",
+            "source_turn_id": "S004-Q044",
+            "score": 0.5039489269256592,
+            "is_gold": false
+          },
+          {
+            "rank": 5,
+            "page_id": "af2f12c2-5599-5bb2-a024-327fc47109bd",
+            "source_turn_id": "S004-Q025",
+            "score": 0.5002708435058594,
+            "is_gold": false
+          },
+          {
+            "rank": 6,
+            "page_id": "28de896e-9356-58a4-a8c5-c3efe7770f57",
+            "source_turn_id": "S004-Q058",
+            "score": 0.4975927770137787,
+            "is_gold": false
+          },
+          {
+            "rank": 7,
+            "page_id": "301ca8db-dd23-5356-b475-b3ed2daf748b",
+            "source_turn_id": "S004-Q026",
+            "score": 0.4941147565841675,
+            "is_gold": false
+          },
+          {
+            "rank": 8,
+            "page_id": "1e8809d9-9426-51b9-9e17-039093174440",
+            "source_turn_id": "S004-Q018",
+            "score": 0.4827326238155365,
+            "is_gold": false
+          },
+          {
+            "rank": 9,
+            "page_id": "c022f180-c519-52a7-9c70-3f15928609b5",
+            "source_turn_id": "S004-Q027",
+            "score": 0.4768349230289459,
+            "is_gold": false
+          },
+          {
+            "rank": 10,
+            "page_id": "c61777d3-f94f-5655-9b6b-9d6cdc28c303",
+            "source_turn_id": "S004-Q036",
+            "score": 0.4766921401023865,
+            "is_gold": false
+          }
+        ],
+        "P0": [
+          {
+            "rank": 1,
+            "page_id": "e170d165-c266-54ae-b2e5-43779070a30c",
+            "source_turn_id": "S004-Q049",
+            "score": 0.5245422720909119,
+            "is_gold": false
+          },
+          {
+            "rank": 2,
+            "page_id": "2c5547ce-bd04-536c-8b2d-e09ae5633e53",
+            "source_turn_id": "S004-Q057",
+            "score": 0.5229606032371521,
+            "is_gold": true
+          },
+          {
+            "rank": 3,
+            "page_id": "bead4a59-825d-5fae-97c6-57173fa22a57",
+            "source_turn_id": "S004-Q047",
+            "score": 0.5133666396141052,
+            "is_gold": false
+          },
+          {
+            "rank": 4,
+            "page_id": "efa76ffd-7a27-50b3-8489-bff781ea4539",
+            "source_turn_id": "S004-Q044",
+            "score": 0.503948986530304,
+            "is_gold": false
+          },
+          {
+            "rank": 5,
+            "page_id": "af2f12c2-5599-5bb2-a024-327fc47109bd",
+            "source_turn_id": "S004-Q025",
+            "score": 0.5002709031105042,
+            "is_gold": false
+          },
+          {
+            "rank": 6,
+            "page_id": "28de896e-9356-58a4-a8c5-c3efe7770f57",
+            "source_turn_id": "S004-Q058",
+            "score": 0.4975929260253906,
+            "is_gold": false
+          },
+          {
+            "rank": 7,
+            "page_id": "301ca8db-dd23-5356-b475-b3ed2daf748b",
+            "source_turn_id": "S004-Q026",
+            "score": 0.49411481618881226,
+            "is_gold": false
+          },
+          {
+            "rank": 8,
+            "page_id": "1e8809d9-9426-51b9-9e17-039093174440",
+            "source_turn_id": "S004-Q018",
+            "score": 0.4827326834201813,
+            "is_gold": false
+          },
+          {
+            "rank": 9,
+            "page_id": "c022f180-c519-52a7-9c70-3f15928609b5",
+            "source_turn_id": "S004-Q027",
+            "score": 0.4768349230289459,
+            "is_gold": false
+          },
+          {
+            "rank": 10,
+            "page_id": "c61777d3-f94f-5655-9b6b-9d6cdc28c303",
+            "source_turn_id": "S004-Q036",
+            "score": 0.47669216990470886,
+            "is_gold": false
+          }
+        ],
+        "P1": [
+          {
+            "rank": 1,
+            "page_id": "e170d165-c266-54ae-b2e5-43779070a30c",
+            "source_turn_id": "S004-Q049",
+            "score": 0.5245422720909119,
+            "is_gold": false
+          },
+          {
+            "rank": 2,
+            "page_id": "2c5547ce-bd04-536c-8b2d-e09ae5633e53",
+            "source_turn_id": "S004-Q057",
+            "score": 0.5229606032371521,
+            "is_gold": true
+          },
+          {
+            "rank": 3,
+            "page_id": "bead4a59-825d-5fae-97c6-57173fa22a57",
+            "source_turn_id": "S004-Q047",
+            "score": 0.5133666396141052,
+            "is_gold": false
+          },
+          {
+            "rank": 4,
+            "page_id": "efa76ffd-7a27-50b3-8489-bff781ea4539",
+            "source_turn_id": "S004-Q044",
+            "score": 0.503948986530304,
+            "is_gold": false
+          },
+          {
+            "rank": 5,
+            "page_id": "af2f12c2-5599-5bb2-a024-327fc47109bd",
+            "source_turn_id": "S004-Q025",
+            "score": 0.5002709031105042,
+            "is_gold": false
+          },
+          {
+            "rank": 6,
+            "page_id": "28de896e-9356-58a4-a8c5-c3efe7770f57",
+            "source_turn_id": "S004-Q058",
+            "score": 0.4975929260253906,
+            "is_gold": false
+          },
+          {
+            "rank": 7,
+            "page_id": "301ca8db-dd23-5356-b475-b3ed2daf748b",
+            "source_turn_id": "S004-Q026",
+            "score": 0.49411481618881226,
+            "is_gold": false
+          },
+          {
+            "rank": 8,
+            "page_id": "1e8809d9-9426-51b9-9e17-039093174440",
+            "source_turn_id": "S004-Q018",
+            "score": 0.4827326834201813,
+            "is_gold": false
+          },
+          {
+            "rank": 9,
+            "page_id": "c022f180-c519-52a7-9c70-3f15928609b5",
+            "source_turn_id": "S004-Q027",
+            "score": 0.4768349230289459,
+            "is_gold": false
+          },
+          {
+            "rank": 10,
+            "page_id": "c61777d3-f94f-5655-9b6b-9d6cdc28c303",
+            "source_turn_id": "S004-Q036",
+            "score": 0.47669216990470886,
+            "is_gold": false
+          }
+        ],
+        "P2": [
+          {
+            "rank": 1,
+            "page_id": "e170d165-c266-54ae-b2e5-43779070a30c",
+            "source_turn_id": "S004-Q049",
+            "score": 0.5245422720909119,
+            "is_gold": false
+          },
+          {
+            "rank": 2,
+            "page_id": "2c5547ce-bd04-536c-8b2d-e09ae5633e53",
+            "source_turn_id": "S004-Q057",
+            "score": 0.5229606032371521,
+            "is_gold": true
+          },
+          {
+            "rank": 3,
+            "page_id": "bead4a59-825d-5fae-97c6-57173fa22a57",
+            "source_turn_id": "S004-Q047",
+            "score": 0.5133666396141052,
+            "is_gold": false
+          },
+          {
+            "rank": 4,
+            "page_id": "efa76ffd-7a27-50b3-8489-bff781ea4539",
+            "source_turn_id": "S004-Q044",
+            "score": 0.503948986530304,
+            "is_gold": false
+          },
+          {
+            "rank": 5,
+            "page_id": "af2f12c2-5599-5bb2-a024-327fc47109bd",
+            "source_turn_id": "S004-Q025",
+            "score": 0.5002709031105042,
+            "is_gold": false
+          },
+          {
+            "rank": 6,
+            "page_id": "28de896e-9356-58a4-a8c5-c3efe7770f57",
+            "source_turn_id": "S004-Q058",
+            "score": 0.4975929260253906,
+            "is_gold": false
+          },
+          {
+            "rank": 7,
+            "page_id": "301ca8db-dd23-5356-b475-b3ed2daf748b",
+            "source_turn_id": "S004-Q026",
+            "score": 0.49411481618881226,
+            "is_gold": false
+          },
+          {
+            "rank": 8,
+            "page_id": "1e8809d9-9426-51b9-9e17-039093174440",
+            "source_turn_id": "S004-Q018",
+            "score": 0.4827326834201813,
+            "is_gold": false
+          },
+          {
+            "rank": 9,
+            "page_id": "c022f180-c519-52a7-9c70-3f15928609b5",
+            "source_turn_id": "S004-Q027",
+            "score": 0.4768349230289459,
+            "is_gold": false
+          },
+          {
+            "rank": 10,
+            "page_id": "c61777d3-f94f-5655-9b6b-9d6cdc28c303",
+            "source_turn_id": "S004-Q036",
+            "score": 0.47669216990470886,
+            "is_gold": false
+          }
+        ],
+        "P3": [
+          {
+            "rank": 1,
+            "page_id": "efa76ffd-7a27-50b3-8489-bff781ea4539",
+            "source_turn_id": "S004-Q044",
+            "score": 0.5826096534729004,
+            "is_gold": false
+          },
+          {
+            "rank": 2,
+            "page_id": "28de896e-9356-58a4-a8c5-c3efe7770f57",
+            "source_turn_id": "S004-Q058",
+            "score": 0.5817304849624634,
+            "is_gold": false
+          },
+          {
+            "rank": 3,
+            "page_id": "878d53f1-01f1-5c71-a049-a27cb9acec6e",
+            "source_turn_id": "S004-Q052",
+            "score": 0.579745888710022,
+            "is_gold": false
+          },
+          {
+            "rank": 4,
+            "page_id": "a655a675-0bf0-58db-b487-3e8f7894215e",
+            "source_turn_id": "S004-Q024",
+            "score": 0.5597052574157715,
+            "is_gold": false
+          },
+          {
+            "rank": 5,
+            "page_id": "af2f12c2-5599-5bb2-a024-327fc47109bd",
+            "source_turn_id": "S004-Q025",
+            "score": 0.5596770644187927,
+            "is_gold": false
+          },
+          {
+            "rank": 6,
+            "page_id": "594016a4-b321-5143-a8c6-3923fed20111",
+            "source_turn_id": "S004-Q032",
+            "score": 0.5510308146476746,
+            "is_gold": false
+          },
+          {
+            "rank": 7,
+            "page_id": "7567fc91-4210-59bc-ac74-0cc3060edc83",
+            "source_turn_id": "S004-Q014",
+            "score": 0.5498715043067932,
+            "is_gold": false
+          },
+          {
+            "rank": 8,
+            "page_id": "a60bbf7a-8108-58fc-8b4a-1356764282aa",
+            "source_turn_id": "S004-Q008",
+            "score": 0.5465388298034668,
+            "is_gold": false
+          },
+          {
+            "rank": 9,
+            "page_id": "e170d165-c266-54ae-b2e5-43779070a30c",
+            "source_turn_id": "S004-Q049",
+            "score": 0.5458573698997498,
+            "is_gold": false
+          },
+          {
+            "rank": 10,
+            "page_id": "c022f180-c519-52a7-9c70-3f15928609b5",
+            "source_turn_id": "S004-Q027",
+            "score": 0.542914628982544,
+            "is_gold": false
+          }
+        ]
+      },
+      "gold_comparison": [
+        {
+          "gold_page_id": "2c5547ce-bd04-536c-8b2d-e09ae5633e53",
+          "Baseline": {
+            "rank": 2,
+            "score": 0.5229606628417969
+          },
+          "P0": {
+            "rank": 2,
+            "score": 0.5229606032371521
+          },
+          "P1": {
+            "rank": 2,
+            "score": 0.5229606032371521
+          },
+          "P2": {
+            "rank": 2,
+            "score": 0.5229606032371521
+          },
+          "P3": {
+            "rank": 18,
+            "score": 0.5324908494949341
+          }
+        }
+      ],
+      "resolution_audits": {
+        "P0": {
+          "session_id": "S004",
+          "query_id": "S004-Q063",
+          "prompt": "P0",
+          "original_query": "这条证据链里如果有两个指标方向相反，前面的冲突应该怎样解释；请用完整财年数据回答，不加入季度信息。",
+          "resolved_query": "这条证据链里如果有两个指标方向相反，前面的冲突应该怎样解释；请用完整财年数据回答，不加入季度信息。",
+          "changed": false,
+          "visible_context_turn_ids": [
+            "S004-Q060",
+            "S004-Q061",
+            "S004-Q062"
+          ],
+          "audit_scope": "current query + previous_3_qa only; no Gold/Page/ranking",
+          "total_added_canonical_content": 0,
+          "classification_counts": {},
+          "resolution_type_counts": {},
+          "added_content": []
+        },
+        "P1": {
+          "session_id": "S004",
+          "query_id": "S004-Q063",
+          "prompt": "P1",
+          "original_query": "这条证据链里如果有两个指标方向相反，前面的冲突应该怎样解释；请用完整财年数据回答，不加入季度信息。",
+          "resolved_query": "这条证据链里如果有两个指标方向相反，前面的冲突应该怎样解释；请用完整财年数据回答，不加入季度信息。",
+          "changed": false,
+          "visible_context_turn_ids": [
+            "S004-Q060",
+            "S004-Q061",
+            "S004-Q062"
+          ],
+          "audit_scope": "current query + previous_3_qa only; no Gold/Page/ranking",
+          "total_added_canonical_content": 0,
+          "classification_counts": {},
+          "resolution_type_counts": {},
+          "added_content": []
+        },
+        "P2": {
+          "session_id": "S004",
+          "query_id": "S004-Q063",
+          "prompt": "P2",
+          "original_query": "这条证据链里如果有两个指标方向相反，前面的冲突应该怎样解释；请用完整财年数据回答，不加入季度信息。",
+          "resolved_query": "这条证据链里如果有两个指标方向相反，前面的冲突应该怎样解释；请用完整财年数据回答，不加入季度信息。",
+          "changed": false,
+          "visible_context_turn_ids": [
+            "S004-Q060",
+            "S004-Q061",
+            "S004-Q062"
+          ],
+          "audit_scope": "current query + previous_3_qa only; no Gold/Page/ranking",
+          "total_added_canonical_content": 0,
+          "classification_counts": {},
+          "resolution_type_counts": {},
+          "added_content": []
+        },
+        "P3": {
+          "session_id": "S004",
+          "query_id": "S004-Q063",
+          "prompt": "P3",
+          "original_query": "这条证据链里如果有两个指标方向相反，前面的冲突应该怎样解释；请用完整财年数据回答，不加入季度信息。",
+          "resolved_query": "这条营业收入与归母股东权益的证据链里如果有两个指标方向相反，前面的冲突应该怎样解释；请用完整财年数据回答，不加入季度信息。",
+          "changed": true,
+          "visible_context_turn_ids": [
+            "S004-Q060",
+            "S004-Q061",
+            "S004-Q062"
+          ],
+          "audit_scope": "current query + previous_3_qa only; no Gold/Page/ranking",
+          "total_added_canonical_content": 3,
+          "classification_counts": {
+            "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED": 3
+          },
+          "resolution_type_counts": {
+            "EVIDENCE_OBJECT": 3
+          },
+          "added_content": [
+            {
+              "category": "indicator",
+              "canonical": "PARENT_EQUITY",
+              "surface_text": "归母股东权益",
+              "classification": "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED",
+              "context_supported": true,
+              "reference_required": false,
+              "evidence_snippets": [
+                "上一轮的结论，把这一轮质疑、修订和仍未解决的矛盾汇总成一段正式结论；请把两段同比分开，不要合成一个趋势词。”的直接回答是：总资产呈连续上升，归母股东权益呈连续上升。结合本会话前面已经确认的口径与本轮新增的投研摘要视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两条指标在三年内是否同"
+              ],
+              "raw_category": "indicator",
+              "resolution_type": "EVIDENCE_OBJECT"
+            },
+            {
+              "category": "indicator",
+              "canonical": "REVENUE",
+              "surface_text": "营业收入",
+              "classification": "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED",
+              "context_supported": true,
+              "reference_required": false,
+              "evidence_snippets": [
+                "营原因若未在年报正文或附注中明确披露，则不作确定归因。本回答完全使用公开历史信息，不包含预测、目标值、概率或模拟经营情景。\n\n三年关键数据\n营业收入：2023年6,023.15亿元，2024年7,771.02亿元，2025年8,039.65亿元；2024/2023为+29.02%，202"
+              ],
+              "raw_category": "indicator",
+              "resolution_type": "EVIDENCE_OBJECT"
+            },
+            {
+              "category": "comparison_object",
+              "canonical": "COMPARE[PARENT_EQUITY|REVENUE]",
+              "surface_text": "归母股东权益 / 营业收入",
+              "classification": "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED",
+              "context_supported": true,
+              "reference_required": false,
+              "evidence_snippets": [
+                "上一轮的结论，把这一轮质疑、修订和仍未解决的矛盾汇总成一段正式结论；请把两段同比分开，不要合成一个趋势词。”的直接回答是：总资产呈连续上升，归母股东权益呈连续上升。结合本会话前面已经确认的口径与本轮新增的投研摘要视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两条指标在三年内是否同",
+                "营原因若未在年报正文或附注中明确披露，则不作确定归因。本回答完全使用公开历史信息，不包含预测、目标值、概率或模拟经营情景。\n\n三年关键数据\n营业收入：2023年6,023.15亿元，2024年7,771.02亿元，2025年8,039.65亿元；2024/2023为+29.02%，202"
+              ],
+              "raw_category": "comparison_object",
+              "resolution_type": "EVIDENCE_OBJECT"
+            }
+          ]
+        }
+      },
+      "page_details": [
+        {
+          "page_id": "e170d165-c266-54ae-b2e5-43779070a30c",
+          "source_turn_id": "S004-Q049",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 1,
+              "score": 0.5245422124862671
+            },
+            "P0": {
+              "rank": 1,
+              "score": 0.5245422720909119
+            },
+            "P1": {
+              "rank": 1,
+              "score": 0.5245422720909119
+            },
+            "P2": {
+              "rank": 1,
+              "score": 0.5245422720909119
+            },
+            "P3": {
+              "rank": 9,
+              "score": 0.5458573698997498
+            }
+          },
+          "production_p0_embedding_text": "用户询问如何将风险点向管理层提问以对应具体披露，并强调不要仅比较2023年和2025年两个端点。分析主体为比亚迪，期间为2023-2025三个完整财年，数据来源为《比亚迪2025年年度报告或年度报告摘要》（2026-03-28发布）。关键数据：归母股东权益连续上升（2023年1388.1亿元，2024年1852.51亿元，2025年2462.75亿元，同比+33.46%、+32.94%）；扣非归母净利润先升后降（2023年284.62亿元，2024年369.83亿元，2025年294.46亿元，同比+29.94%、-20.38%）。结论为两项指标形态不同，需分开年度观察，避免首尾差额掩盖拐点。回答强调证据分级、来源追溯、因果解释限制，并建议管理层问询应指向具体年度、指标和披露位置。\nKeywords: 比亚迪, 2023-2025, 归母股东权益, 扣非归母净利润, 管理层问询, 年度同比, 证据分级, 年报来源\nUser: 如果把刚才的风险点交给管理层，怎样问才能对应到具体披露而不是泛泛问原因；不要只比较2023年和2025年两个端点。"
+        },
+        {
+          "page_id": "2c5547ce-bd04-536c-8b2d-e09ae5633e53",
+          "source_turn_id": "S004-Q057",
+          "is_gold": true,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 2,
+              "score": 0.5229606628417969
+            },
+            "P0": {
+              "rank": 2,
+              "score": 0.5229606032371521
+            },
+            "P1": {
+              "rank": 2,
+              "score": 0.5229606032371521
+            },
+            "P2": {
+              "rank": 2,
+              "score": 0.5229606032371521
+            },
+            "P3": {
+              "rank": 18,
+              "score": 0.5324908494949341
+            }
+          },
+          "production_p0_embedding_text": "用户要求基于之前的证据强度审查，确定哪些因果措辞必须删除，并保留一项可能的反证。分析对象为比亚迪，期间为2023-2025年，数据来源为2025年年度报告。关键数据：归母净利润2023年300.41亿元、2024年402.54亿元、2025年326.19亿元，同比分别为+34.00%、-18.97%，呈先升后降；扣非归母净利润2023年284.62亿元、2024年369.83亿元、2025年294.46亿元，同比分别为+29.94%、-20.38%，同样先升后降。结论是必须删除超出证据强度的因果措辞，如“证明”“必然”“由某因素导致”，改用“显示”“与……一致”“提示需要关注”等。保留的反证是扣非归母净利润的下降趋势，作为交叉检查，若与主结论同向则增强一致性，若反向则需缩小结论范围。\nKeywords: 比亚迪, 2023-2025, 因果措辞, 证据强度, 归母净利润, 扣非归母净利润, 先升后降, 反证\nUser: 沿着刚才的证据强度审查，哪些因果措辞必须删掉；回答时同时保留一项可能的反证。"
+        },
+        {
+          "page_id": "bead4a59-825d-5fae-97c6-57173fa22a57",
+          "source_turn_id": "S004-Q047",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 3,
+              "score": 0.5133665204048157
+            },
+            "P0": {
+              "rank": 3,
+              "score": 0.5133666396141052
+            },
+            "P1": {
+              "rank": 3,
+              "score": 0.5133666396141052
+            },
+            "P2": {
+              "rank": 3,
+              "score": 0.5133666396141052
+            },
+            "P3": {
+              "rank": 26,
+              "score": 0.5162469744682312
+            }
+          },
+          "production_p0_embedding_text": "用户要求对上一轮结论进行反证检验，确认是否存在与主结论冲突的真实数字。分析主体为比亚迪，期间为2023-2025三个完整财年，数据来源为《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28）。主结论为：经营活动现金流净额连续下降（2023年1,697.25亿元、2024年1,334.54亿元、2025年591.36亿元，同比分别为-21.37%、-55.69%），扣非归母净利润先升后降（2023年284.62亿元、2024年369.83亿元、2025年294.46亿元，同比分别为+29.94%、-20.38%）。反证检验确认：两项指标三年路径同向，无冲突数字；但具体经营原因未在年报中明确披露，不能确认。已确认事实包括三年原数、同比、首尾差额及近似比率；不能确认的原因包括未披露的附注细节、业务分部数据及会计政策变化。结论限定为历史证据摘要，不包含预测或模拟。\nKeywords: 比亚迪, 2023-2025, 反证检验, 经营活动现金流净额, 扣非归母净利润, 年报, 同比, 投资者关系\nUser: 沿着上一轮的结论，修订以后再做一次反证检验，是否还有真实数字与主结论冲突；先说明能确认的事实，再说还不能确认的原因。"
+        },
+        {
+          "page_id": "efa76ffd-7a27-50b3-8489-bff781ea4539",
+          "source_turn_id": "S004-Q044",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 4,
+              "score": 0.5039489269256592
+            },
+            "P0": {
+              "rank": 4,
+              "score": 0.503948986530304
+            },
+            "P1": {
+              "rank": 4,
+              "score": 0.503948986530304
+            },
+            "P2": {
+              "rank": 4,
+              "score": 0.503948986530304
+            },
+            "P3": {
+              "rank": 1,
+              "score": 0.5826096534729004
+            }
+          },
+          "production_p0_embedding_text": "用户询问在之前的三层证据中，哪些措辞超出了事实支持强度，并要求直接指出需要修订的判断。助手基于比亚迪2023-2025年年度报告数据，确认营业收入（2023年6,023.15亿元，2024年7,771.02亿元，2025年8,039.65亿元）和归母股东权益（2023年1,388.1亿元，2024年1,852.51亿元，2025年2,462.75亿元）均连续上升，但指出其他指标如归母净利润、扣非净利润、经营现金流等存在拐点或下降，因此建议将结论限定为“营业收入和归母股东权益连续上升”，避免使用“经营质量持续改善”等过度表述。助手强调所有结论基于公开年报，不推测具体原因，并建议在后续分析中区分事实、计算和判断。\nKeywords: 比亚迪, 2023-2025, 证据强度, 营业收入, 归母股东权益, 连续上升, 措辞修订, 年报数据\nUser: 刚才的三层证据中，哪些措辞已经超过事实本身能够支持的强度；如果前面的判断需要修订，请直接指出。"
+        },
+        {
+          "page_id": "af2f12c2-5599-5bb2-a024-327fc47109bd",
+          "source_turn_id": "S004-Q025",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 5,
+              "score": 0.5002708435058594
+            },
+            "P0": {
+              "rank": 5,
+              "score": 0.5002709031105042
+            },
+            "P1": {
+              "rank": 5,
+              "score": 0.5002709031105042
+            },
+            "P2": {
+              "rank": 5,
+              "score": 0.5002709031105042
+            },
+            "P3": {
+              "rank": 5,
+              "score": 0.5596770644187927
+            }
+          },
+          "production_p0_embedding_text": "用户询问当收入、资产和权益方向不一致时如何表述效率判断，以及证据不足时如何指出缺口，并以比亚迪2023-2025年数据为例。分析基于比亚迪2025年年度报告（2026-03-28发布），期间为2023-2025三个完整财年。关键数据：营业收入2023年6,023.15亿元、2024年7,771.02亿元、2025年8,039.65亿元；归母净利润2023年300.41亿元、2024年402.54亿元、2025年326.19亿元；扣非归母净利润2023年284.62亿元、2024年369.83亿元、2025年294.46亿元；经营现金流净额2023年1,697.25亿元、2024年1,334.54亿元、2025年591.36亿元；总资产2023年6,795.48亿元、2024年7,833.56亿元、2025年8,837.3亿元；归母股东权益2023年1,388.1亿元、2024年1,852.51亿元、2025年2,462.75亿元。结论：归母股东权益连续上升（同比+33.46%、+32.94%），扣非归母净利润先升后降（同比+29.94%、-20.38%），两者方向不一致，应保留冲突并缩小结论范围，避免归因于未披露原因。证据不足时明确列出缺口，不补估计值。\nKeywords: 比亚迪, 2023-2025, 财务分析, 归母股东权益, 扣非归母净利润, 同比, 证据缺口, 年报\nUser: 如果收入、资产和权益方向不一致，刚才的效率判断应当怎样表述；如果证据不足，直接说明缺口，不要补估计值，在比亚迪这组三年数字中具体怎么体现？"
+        },
+        {
+          "page_id": "28de896e-9356-58a4-a8c5-c3efe7770f57",
+          "source_turn_id": "S004-Q058",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 6,
+              "score": 0.4975927770137787
+            },
+            "P0": {
+              "rank": 6,
+              "score": 0.4975929260253906
+            },
+            "P1": {
+              "rank": 6,
+              "score": 0.4975929260253906
+            },
+            "P2": {
+              "rank": 6,
+              "score": 0.4975929260253906
+            },
+            "P3": {
+              "rank": 2,
+              "score": 0.5817304849624634
+            }
+          },
+          "production_p0_embedding_text": "用户询问若管理层不同意之前的风险判断，最具体的追问应是什么，并要求说明与上一问的关系。上一问涉及审查因果措辞并保留反证。分析对象为比亚迪，期间为2023-2025三个完整财年，数据来源为2025年年度报告（2026-03-28披露）。核心数据：扣非归母净利润2023年284.62亿元、2024年369.83亿元、2025年294.46亿元，同比分别为+29.94%、-20.38%，呈先升后降；归母股东权益2023年1388.1亿元、2024年1852.51亿元、2025年2462.75亿元，同比分别为+33.46%、+32.94%，连续上升。回答指出，最具体的追问应指向具体年度、指标和披露位置，例如利润与现金流方向差异、资产构成、扣非与归母差额、比较数是否重述等，并强调不预设原因。结论为扣非归母净利润先升后降，归母股东权益连续上升，该组合对投资者关系有参考价值，但具体原因需附注确认。\nKeywords: 比亚迪, 2023-2025, 扣非归母净利润, 归母股东权益, 风险判断, 管理层追问, 投资者关系, 年度报告\nUser: 如果管理层不同意前面的风险判断，最具体的追问应该是什么；别只复述数字，要说明它和上一问的关系。"
+        },
+        {
+          "page_id": "878d53f1-01f1-5c71-a049-a27cb9acec6e",
+          "source_turn_id": "S004-Q052",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 13,
+              "score": 0.47300049662590027
+            },
+            "P0": {
+              "rank": 13,
+              "score": 0.47300055623054504
+            },
+            "P1": {
+              "rank": 13,
+              "score": 0.47300055623054504
+            },
+            "P2": {
+              "rank": 13,
+              "score": 0.47300055623054504
+            },
+            "P3": {
+              "rank": 3,
+              "score": 0.579745888710022
+            }
+          },
+          "production_p0_embedding_text": "用户询问比亚迪扣非归母净利润与归母股东权益走势冲突的原因，要求区分年报原数与计算结果。助手确认扣非归母净利润2023-2025年分别为284.62、369.83、294.46亿元，同比+29.94%、-20.38%，呈先升后降；归母股东权益分别为1388.1、1852.51、2462.75亿元，同比+33.46%、+32.94%，连续上升。冲突源于指标性质不同，非口径问题。所有数字均来自比亚迪2025年年报（2026-03-28发布），同比为计算值。结论为两指标不同步，需保留冲突并缩小结论范围。\nKeywords: 比亚迪, 2023-2025, 扣非归母净利润, 归母股东权益, 年报原数, 同比计算, 指标冲突, 投资者关系\nUser: 刚才的反例与主结论冲突在哪里，是口径问题还是指标本来就不同步；请明确哪些是年报原数、哪些是计算结果。"
+        },
+        {
+          "page_id": "a655a675-0bf0-58db-b487-3e8f7894215e",
+          "source_turn_id": "S004-Q024",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 20,
+              "score": 0.4544023871421814
+            },
+            "P0": {
+              "rank": 20,
+              "score": 0.454402357339859
+            },
+            "P1": {
+              "rank": 20,
+              "score": 0.454402357339859
+            },
+            "P2": {
+              "rank": 20,
+              "score": 0.454402357339859
+            },
+            "P3": {
+              "rank": 4,
+              "score": 0.5597052574157715
+            }
+          },
+          "production_p0_embedding_text": "用户询问比亚迪2023-2025年总资产与归母股东权益是否得到规模增长支撑，并要求将两段同比分开分析。基于2025年年报（2026-03-28披露），总资产分别为6795.48、7833.56、8837.3亿元，同比+15.28%、+12.81%，连续上升；归母股东权益分别为1388.1、1852.51、2462.75亿元，同比+33.46%、+32.94%，连续上升。结论为两项指标均连续上升，但需区分规模与质量，且不归因于未披露原因。\nKeywords: 比亚迪, 2023-2025, 总资产, 归母股东权益, 同比分析, 规模增长, 年报, 财务分析\nUser: 把前面的营业收入接回来，资产变化有没有得到规模增长支撑；请把两段同比分开，不要合成一个趋势词，在比亚迪这组三年数字中具体怎么体现？"
+        }
+      ]
+    },
+    {
+      "session_id": "S005",
+      "query_id": "S005-Q042",
+      "original_query": "刚才看到资产变化后，再看股东权益，两者的扩张或收缩是否同步；把口径限制放在结论里，不要另作假设。",
+      "resolved_queries": {
+        "P0": "刚才看到资产变化后，再看股东权益，两者的扩张或收缩是否同步；把口径限制放在结论里，不要另作假设。",
+        "P1": "刚才看到总资产的三年变化后，再看归母股东权益，总资产与归母股东权益的扩张或收缩是否同步；把口径限制放在结论里，不要另作假设。",
+        "P2": "刚才看到总资产变化后，再看归母股东权益，总资产与归母股东权益的扩张或收缩是否同步；把口径限制放在结论里，不要另作假设。",
+        "P3": "刚才看到总资产三年变化后，再看归母股东权益，总资产与归母股东权益的扩张或收缩是否同步；把口径限制放在结论里，不要另作假设。"
+      },
+      "actual_embedding_texts": {
+        "P0": "刚才看到资产变化后，再看股东权益，两者的扩张或收缩是否同步；把口径限制放在结论里，不要另作假设。",
+        "P1": "刚才看到总资产的三年变化后，再看归母股东权益，总资产与归母股东权益的扩张或收缩是否同步；把口径限制放在结论里，不要另作假设。",
+        "P2": "刚才看到总资产变化后，再看归母股东权益，总资产与归母股东权益的扩张或收缩是否同步；把口径限制放在结论里，不要另作假设。",
+        "P3": "刚才看到总资产三年变化后，再看归母股东权益，总资产与归母股东权益的扩张或收缩是否同步；把口径限制放在结论里，不要另作假设。"
+      },
+      "rankings_top10": {
+        "Baseline": [
+          {
+            "rank": 1,
+            "page_id": "c64751d6-21c8-5c09-87da-48f940293661",
+            "source_turn_id": "S005-Q008",
+            "score": 0.5903980135917664,
+            "is_gold": false
+          },
+          {
+            "rank": 2,
+            "page_id": "99505de4-75be-5000-9569-861beeedb502",
+            "source_turn_id": "S005-Q009",
+            "score": 0.5866729617118835,
+            "is_gold": false
+          },
+          {
+            "rank": 3,
+            "page_id": "19b9c9f1-754d-5322-831d-a2b5bbc632f9",
+            "source_turn_id": "S005-Q036",
+            "score": 0.549081563949585,
+            "is_gold": true
+          },
+          {
+            "rank": 4,
+            "page_id": "6e436632-8d73-58b8-a746-7cbc36ffe10f",
+            "source_turn_id": "S005-Q006",
+            "score": 0.5463139414787292,
+            "is_gold": false
+          },
+          {
+            "rank": 5,
+            "page_id": "c9df831e-8129-54b6-ae61-1696a98bc2eb",
+            "source_turn_id": "S005-Q010",
+            "score": 0.5371514558792114,
+            "is_gold": false
+          },
+          {
+            "rank": 6,
+            "page_id": "87d6b0ff-8b24-5176-ba24-dbc110c6e1d5",
+            "source_turn_id": "S005-Q014",
+            "score": 0.5300860404968262,
+            "is_gold": false
+          },
+          {
+            "rank": 7,
+            "page_id": "53a0c2bd-e2e0-5a10-8976-c6a159c1cd78",
+            "source_turn_id": "S005-Q034",
+            "score": 0.5263909697532654,
+            "is_gold": false
+          },
+          {
+            "rank": 8,
+            "page_id": "832ae479-4eb3-56ae-a971-8428404182ba",
+            "source_turn_id": "S005-Q024",
+            "score": 0.5255414247512817,
+            "is_gold": false
+          },
+          {
+            "rank": 9,
+            "page_id": "52954b6d-4823-5e0a-955d-8a3b24df0a30",
+            "source_turn_id": "S005-Q029",
+            "score": 0.5254455804824829,
+            "is_gold": false
+          },
+          {
+            "rank": 10,
+            "page_id": "7c3c5f07-e810-5c5d-9aaf-d8bb716acf5c",
+            "source_turn_id": "S005-Q030",
+            "score": 0.5181335210800171,
+            "is_gold": false
+          }
+        ],
+        "P0": [
+          {
+            "rank": 1,
+            "page_id": "c64751d6-21c8-5c09-87da-48f940293661",
+            "source_turn_id": "S005-Q008",
+            "score": 0.5903979539871216,
+            "is_gold": false
+          },
+          {
+            "rank": 2,
+            "page_id": "99505de4-75be-5000-9569-861beeedb502",
+            "source_turn_id": "S005-Q009",
+            "score": 0.5866730213165283,
+            "is_gold": false
+          },
+          {
+            "rank": 3,
+            "page_id": "19b9c9f1-754d-5322-831d-a2b5bbc632f9",
+            "source_turn_id": "S005-Q036",
+            "score": 0.549081563949585,
+            "is_gold": true
+          },
+          {
+            "rank": 4,
+            "page_id": "6e436632-8d73-58b8-a746-7cbc36ffe10f",
+            "source_turn_id": "S005-Q006",
+            "score": 0.5463138818740845,
+            "is_gold": false
+          },
+          {
+            "rank": 5,
+            "page_id": "c9df831e-8129-54b6-ae61-1696a98bc2eb",
+            "source_turn_id": "S005-Q010",
+            "score": 0.537151575088501,
+            "is_gold": false
+          },
+          {
+            "rank": 6,
+            "page_id": "87d6b0ff-8b24-5176-ba24-dbc110c6e1d5",
+            "source_turn_id": "S005-Q014",
+            "score": 0.5300859212875366,
+            "is_gold": false
+          },
+          {
+            "rank": 7,
+            "page_id": "53a0c2bd-e2e0-5a10-8976-c6a159c1cd78",
+            "source_turn_id": "S005-Q034",
+            "score": 0.5263910293579102,
+            "is_gold": false
+          },
+          {
+            "rank": 8,
+            "page_id": "832ae479-4eb3-56ae-a971-8428404182ba",
+            "source_turn_id": "S005-Q024",
+            "score": 0.5255414247512817,
+            "is_gold": false
+          },
+          {
+            "rank": 9,
+            "page_id": "52954b6d-4823-5e0a-955d-8a3b24df0a30",
+            "source_turn_id": "S005-Q029",
+            "score": 0.5254455208778381,
+            "is_gold": false
+          },
+          {
+            "rank": 10,
+            "page_id": "7c3c5f07-e810-5c5d-9aaf-d8bb716acf5c",
+            "source_turn_id": "S005-Q030",
+            "score": 0.5181335806846619,
+            "is_gold": false
+          }
+        ],
+        "P1": [
+          {
+            "rank": 1,
+            "page_id": "99505de4-75be-5000-9569-861beeedb502",
+            "source_turn_id": "S005-Q009",
+            "score": 0.6630951762199402,
+            "is_gold": false
+          },
+          {
+            "rank": 2,
+            "page_id": "c64751d6-21c8-5c09-87da-48f940293661",
+            "source_turn_id": "S005-Q008",
+            "score": 0.647621750831604,
+            "is_gold": false
+          },
+          {
+            "rank": 3,
+            "page_id": "52954b6d-4823-5e0a-955d-8a3b24df0a30",
+            "source_turn_id": "S005-Q029",
+            "score": 0.6267253160476685,
+            "is_gold": false
+          },
+          {
+            "rank": 4,
+            "page_id": "19b9c9f1-754d-5322-831d-a2b5bbc632f9",
+            "source_turn_id": "S005-Q036",
+            "score": 0.6265477538108826,
+            "is_gold": true
+          },
+          {
+            "rank": 5,
+            "page_id": "832ae479-4eb3-56ae-a971-8428404182ba",
+            "source_turn_id": "S005-Q024",
+            "score": 0.6219656467437744,
+            "is_gold": false
+          },
+          {
+            "rank": 6,
+            "page_id": "c9df831e-8129-54b6-ae61-1696a98bc2eb",
+            "source_turn_id": "S005-Q010",
+            "score": 0.621354341506958,
+            "is_gold": false
+          },
+          {
+            "rank": 7,
+            "page_id": "6e436632-8d73-58b8-a746-7cbc36ffe10f",
+            "source_turn_id": "S005-Q006",
+            "score": 0.6212012767791748,
+            "is_gold": false
+          },
+          {
+            "rank": 8,
+            "page_id": "bcb24496-086a-528b-a09e-86bae79fa560",
+            "source_turn_id": "S005-Q012",
+            "score": 0.6184204816818237,
+            "is_gold": false
+          },
+          {
+            "rank": 9,
+            "page_id": "87d6b0ff-8b24-5176-ba24-dbc110c6e1d5",
+            "source_turn_id": "S005-Q014",
+            "score": 0.6046167016029358,
+            "is_gold": false
+          },
+          {
+            "rank": 10,
+            "page_id": "7c3c5f07-e810-5c5d-9aaf-d8bb716acf5c",
+            "source_turn_id": "S005-Q030",
+            "score": 0.5976859331130981,
+            "is_gold": false
+          }
+        ],
+        "P2": [
+          {
+            "rank": 1,
+            "page_id": "c64751d6-21c8-5c09-87da-48f940293661",
+            "source_turn_id": "S005-Q008",
+            "score": 0.6401463747024536,
+            "is_gold": false
+          },
+          {
+            "rank": 2,
+            "page_id": "99505de4-75be-5000-9569-861beeedb502",
+            "source_turn_id": "S005-Q009",
+            "score": 0.6339910626411438,
+            "is_gold": false
+          },
+          {
+            "rank": 3,
+            "page_id": "19b9c9f1-754d-5322-831d-a2b5bbc632f9",
+            "source_turn_id": "S005-Q036",
+            "score": 0.6224579811096191,
+            "is_gold": true
+          },
+          {
+            "rank": 4,
+            "page_id": "832ae479-4eb3-56ae-a971-8428404182ba",
+            "source_turn_id": "S005-Q024",
+            "score": 0.6181148886680603,
+            "is_gold": false
+          },
+          {
+            "rank": 5,
+            "page_id": "52954b6d-4823-5e0a-955d-8a3b24df0a30",
+            "source_turn_id": "S005-Q029",
+            "score": 0.6140177249908447,
+            "is_gold": false
+          },
+          {
+            "rank": 6,
+            "page_id": "c9df831e-8129-54b6-ae61-1696a98bc2eb",
+            "source_turn_id": "S005-Q010",
+            "score": 0.5920752882957458,
+            "is_gold": false
+          },
+          {
+            "rank": 7,
+            "page_id": "6e436632-8d73-58b8-a746-7cbc36ffe10f",
+            "source_turn_id": "S005-Q006",
+            "score": 0.5916275978088379,
+            "is_gold": false
+          },
+          {
+            "rank": 8,
+            "page_id": "87d6b0ff-8b24-5176-ba24-dbc110c6e1d5",
+            "source_turn_id": "S005-Q014",
+            "score": 0.577297568321228,
+            "is_gold": false
+          },
+          {
+            "rank": 9,
+            "page_id": "53a0c2bd-e2e0-5a10-8976-c6a159c1cd78",
+            "source_turn_id": "S005-Q034",
+            "score": 0.5772610306739807,
+            "is_gold": false
+          },
+          {
+            "rank": 10,
+            "page_id": "53df8e4e-eaee-52cb-b98e-f8b807d39632",
+            "source_turn_id": "S005-Q017",
+            "score": 0.5672730803489685,
+            "is_gold": false
+          }
+        ],
+        "P3": [
+          {
+            "rank": 1,
+            "page_id": "99505de4-75be-5000-9569-861beeedb502",
+            "source_turn_id": "S005-Q009",
+            "score": 0.6588924527168274,
+            "is_gold": false
+          },
+          {
+            "rank": 2,
+            "page_id": "c64751d6-21c8-5c09-87da-48f940293661",
+            "source_turn_id": "S005-Q008",
+            "score": 0.6487542986869812,
+            "is_gold": false
+          },
+          {
+            "rank": 3,
+            "page_id": "19b9c9f1-754d-5322-831d-a2b5bbc632f9",
+            "source_turn_id": "S005-Q036",
+            "score": 0.6276584267616272,
+            "is_gold": true
+          },
+          {
+            "rank": 4,
+            "page_id": "52954b6d-4823-5e0a-955d-8a3b24df0a30",
+            "source_turn_id": "S005-Q029",
+            "score": 0.6256191730499268,
+            "is_gold": false
+          },
+          {
+            "rank": 5,
+            "page_id": "6e436632-8d73-58b8-a746-7cbc36ffe10f",
+            "source_turn_id": "S005-Q006",
+            "score": 0.6216854453086853,
+            "is_gold": false
+          },
+          {
+            "rank": 6,
+            "page_id": "832ae479-4eb3-56ae-a971-8428404182ba",
+            "source_turn_id": "S005-Q024",
+            "score": 0.6215601563453674,
+            "is_gold": false
+          },
+          {
+            "rank": 7,
+            "page_id": "bcb24496-086a-528b-a09e-86bae79fa560",
+            "source_turn_id": "S005-Q012",
+            "score": 0.619917631149292,
+            "is_gold": false
+          },
+          {
+            "rank": 8,
+            "page_id": "c9df831e-8129-54b6-ae61-1696a98bc2eb",
+            "source_turn_id": "S005-Q010",
+            "score": 0.6168583631515503,
+            "is_gold": false
+          },
+          {
+            "rank": 9,
+            "page_id": "87d6b0ff-8b24-5176-ba24-dbc110c6e1d5",
+            "source_turn_id": "S005-Q014",
+            "score": 0.6051146984100342,
+            "is_gold": false
+          },
+          {
+            "rank": 10,
+            "page_id": "7c3c5f07-e810-5c5d-9aaf-d8bb716acf5c",
+            "source_turn_id": "S005-Q030",
+            "score": 0.5975856781005859,
+            "is_gold": false
+          }
+        ]
+      },
+      "gold_comparison": [
+        {
+          "gold_page_id": "19b9c9f1-754d-5322-831d-a2b5bbc632f9",
+          "Baseline": {
+            "rank": 3,
+            "score": 0.549081563949585
+          },
+          "P0": {
+            "rank": 3,
+            "score": 0.549081563949585
+          },
+          "P1": {
+            "rank": 4,
+            "score": 0.6265477538108826
+          },
+          "P2": {
+            "rank": 3,
+            "score": 0.6224579811096191
+          },
+          "P3": {
+            "rank": 3,
+            "score": 0.6276584267616272
+          }
+        }
+      ],
+      "resolution_audits": {
+        "P0": {
+          "session_id": "S005",
+          "query_id": "S005-Q042",
+          "prompt": "P0",
+          "original_query": "刚才看到资产变化后，再看股东权益，两者的扩张或收缩是否同步；把口径限制放在结论里，不要另作假设。",
+          "resolved_query": "刚才看到资产变化后，再看股东权益，两者的扩张或收缩是否同步；把口径限制放在结论里，不要另作假设。",
+          "changed": false,
+          "visible_context_turn_ids": [
+            "S005-Q039",
+            "S005-Q040",
+            "S005-Q041"
+          ],
+          "audit_scope": "current query + previous_3_qa only; no Gold/Page/ranking",
+          "total_added_canonical_content": 0,
+          "classification_counts": {},
+          "resolution_type_counts": {},
+          "added_content": []
+        },
+        "P1": {
+          "session_id": "S005",
+          "query_id": "S005-Q042",
+          "prompt": "P1",
+          "original_query": "刚才看到资产变化后，再看股东权益，两者的扩张或收缩是否同步；把口径限制放在结论里，不要另作假设。",
+          "resolved_query": "刚才看到总资产的三年变化后，再看归母股东权益，总资产与归母股东权益的扩张或收缩是否同步；把口径限制放在结论里，不要另作假设。",
+          "changed": true,
+          "visible_context_turn_ids": [
+            "S005-Q039",
+            "S005-Q040",
+            "S005-Q041"
+          ],
+          "audit_scope": "current query + previous_3_qa only; no Gold/Page/ranking",
+          "total_added_canonical_content": 4,
+          "classification_counts": {
+            "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED": 1,
+            "REFERENCE_REQUIRED": 3
+          },
+          "resolution_type_counts": {
+            "TIME": 1,
+            "COMPARISON_OBJECT": 3
+          },
+          "added_content": [
+            {
+              "category": "time",
+              "canonical": "THREE_YEAR_PERIOD",
+              "surface_text": "三年",
+              "classification": "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED",
+              "context_supported": true,
+              "reference_required": false,
+              "evidence_snippets": [
+                "\n来源和分析范围\n本分析以《宁德时代2025年年度报告或年度报告摘要》为事实来源，披露日期2026-03-10，期间固定为2023—2025三个完整财年。来源地址：https://static.cninfo.com.cn/finalpage/2026-03-10/1225002213.PDF"
+              ],
+              "raw_category": "time",
+              "resolution_type": "TIME"
+            },
+            {
+              "category": "indicator",
+              "canonical": "PARENT_EQUITY",
+              "surface_text": "归母股东权益",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                "nt: 结论\n对“结合刚才的支持证据和反证，现金相关风险应该怎样排序；如果指标方向不同，请保留这种冲突。”的直接回答是：营业收入呈先降后升，归母股东权益呈连续上升。结合本会话前面已经确认的口径与本轮新增的风险排序视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两条指标在三年内是否同"
+              ],
+              "raw_category": "indicator",
+              "resolution_type": "COMPARISON_OBJECT"
+            },
+            {
+              "category": "indicator",
+              "canonical": "TOTAL_ASSETS",
+              "surface_text": "总资产",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                "21亿元，2024年507.45亿元，2025年722.01亿元；2024/2023为+15.01%，2025/2024为+42.28%。\n总资产：2023年7,171.68亿元，2024年7,866.58亿元，2025年9,748.28亿元；2024/2023为+9.69%，2025"
+              ],
+              "raw_category": "indicator",
+              "resolution_type": "COMPARISON_OBJECT"
+            },
+            {
+              "category": "comparison_object",
+              "canonical": "COMPARE[PARENT_EQUITY|TOTAL_ASSETS]",
+              "surface_text": "归母股东权益 / 总资产",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                "nt: 结论\n对“结合刚才的支持证据和反证，现金相关风险应该怎样排序；如果指标方向不同，请保留这种冲突。”的直接回答是：营业收入呈先降后升，归母股东权益呈连续上升。结合本会话前面已经确认的口径与本轮新增的风险排序视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两条指标在三年内是否同",
+                "21亿元，2024年507.45亿元，2025年722.01亿元；2024/2023为+15.01%，2025/2024为+42.28%。\n总资产：2023年7,171.68亿元，2024年7,866.58亿元，2025年9,748.28亿元；2024/2023为+9.69%，2025"
+              ],
+              "raw_category": "comparison_object",
+              "resolution_type": "COMPARISON_OBJECT"
+            }
+          ]
+        },
+        "P2": {
+          "session_id": "S005",
+          "query_id": "S005-Q042",
+          "prompt": "P2",
+          "original_query": "刚才看到资产变化后，再看股东权益，两者的扩张或收缩是否同步；把口径限制放在结论里，不要另作假设。",
+          "resolved_query": "刚才看到总资产变化后，再看归母股东权益，总资产与归母股东权益的扩张或收缩是否同步；把口径限制放在结论里，不要另作假设。",
+          "changed": true,
+          "visible_context_turn_ids": [
+            "S005-Q039",
+            "S005-Q040",
+            "S005-Q041"
+          ],
+          "audit_scope": "current query + previous_3_qa only; no Gold/Page/ranking",
+          "total_added_canonical_content": 3,
+          "classification_counts": {
+            "REFERENCE_REQUIRED": 3
+          },
+          "resolution_type_counts": {
+            "COMPARISON_OBJECT": 3
+          },
+          "added_content": [
+            {
+              "category": "indicator",
+              "canonical": "PARENT_EQUITY",
+              "surface_text": "归母股东权益",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                "nt: 结论\n对“结合刚才的支持证据和反证，现金相关风险应该怎样排序；如果指标方向不同，请保留这种冲突。”的直接回答是：营业收入呈先降后升，归母股东权益呈连续上升。结合本会话前面已经确认的口径与本轮新增的风险排序视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两条指标在三年内是否同"
+              ],
+              "raw_category": "indicator",
+              "resolution_type": "COMPARISON_OBJECT"
+            },
+            {
+              "category": "indicator",
+              "canonical": "TOTAL_ASSETS",
+              "surface_text": "总资产",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                "21亿元，2024年507.45亿元，2025年722.01亿元；2024/2023为+15.01%，2025/2024为+42.28%。\n总资产：2023年7,171.68亿元，2024年7,866.58亿元，2025年9,748.28亿元；2024/2023为+9.69%，2025"
+              ],
+              "raw_category": "indicator",
+              "resolution_type": "COMPARISON_OBJECT"
+            },
+            {
+              "category": "comparison_object",
+              "canonical": "COMPARE[PARENT_EQUITY|TOTAL_ASSETS]",
+              "surface_text": "归母股东权益 / 总资产",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                "nt: 结论\n对“结合刚才的支持证据和反证，现金相关风险应该怎样排序；如果指标方向不同，请保留这种冲突。”的直接回答是：营业收入呈先降后升，归母股东权益呈连续上升。结合本会话前面已经确认的口径与本轮新增的风险排序视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两条指标在三年内是否同",
+                "21亿元，2024年507.45亿元，2025年722.01亿元；2024/2023为+15.01%，2025/2024为+42.28%。\n总资产：2023年7,171.68亿元，2024年7,866.58亿元，2025年9,748.28亿元；2024/2023为+9.69%，2025"
+              ],
+              "raw_category": "comparison_object",
+              "resolution_type": "COMPARISON_OBJECT"
+            }
+          ]
+        },
+        "P3": {
+          "session_id": "S005",
+          "query_id": "S005-Q042",
+          "prompt": "P3",
+          "original_query": "刚才看到资产变化后，再看股东权益，两者的扩张或收缩是否同步；把口径限制放在结论里，不要另作假设。",
+          "resolved_query": "刚才看到总资产三年变化后，再看归母股东权益，总资产与归母股东权益的扩张或收缩是否同步；把口径限制放在结论里，不要另作假设。",
+          "changed": true,
+          "visible_context_turn_ids": [
+            "S005-Q039",
+            "S005-Q040",
+            "S005-Q041"
+          ],
+          "audit_scope": "current query + previous_3_qa only; no Gold/Page/ranking",
+          "total_added_canonical_content": 4,
+          "classification_counts": {
+            "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED": 1,
+            "REFERENCE_REQUIRED": 3
+          },
+          "resolution_type_counts": {
+            "TIME": 1,
+            "COMPARISON_OBJECT": 3
+          },
+          "added_content": [
+            {
+              "category": "time",
+              "canonical": "THREE_YEAR_PERIOD",
+              "surface_text": "三年",
+              "classification": "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED",
+              "context_supported": true,
+              "reference_required": false,
+              "evidence_snippets": [
+                "\n来源和分析范围\n本分析以《宁德时代2025年年度报告或年度报告摘要》为事实来源，披露日期2026-03-10，期间固定为2023—2025三个完整财年。来源地址：https://static.cninfo.com.cn/finalpage/2026-03-10/1225002213.PDF"
+              ],
+              "raw_category": "time",
+              "resolution_type": "TIME"
+            },
+            {
+              "category": "indicator",
+              "canonical": "PARENT_EQUITY",
+              "surface_text": "归母股东权益",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                "nt: 结论\n对“结合刚才的支持证据和反证，现金相关风险应该怎样排序；如果指标方向不同，请保留这种冲突。”的直接回答是：营业收入呈先降后升，归母股东权益呈连续上升。结合本会话前面已经确认的口径与本轮新增的风险排序视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两条指标在三年内是否同"
+              ],
+              "raw_category": "indicator",
+              "resolution_type": "COMPARISON_OBJECT"
+            },
+            {
+              "category": "indicator",
+              "canonical": "TOTAL_ASSETS",
+              "surface_text": "总资产",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                "21亿元，2024年507.45亿元，2025年722.01亿元；2024/2023为+15.01%，2025/2024为+42.28%。\n总资产：2023年7,171.68亿元，2024年7,866.58亿元，2025年9,748.28亿元；2024/2023为+9.69%，2025"
+              ],
+              "raw_category": "indicator",
+              "resolution_type": "COMPARISON_OBJECT"
+            },
+            {
+              "category": "comparison_object",
+              "canonical": "COMPARE[PARENT_EQUITY|TOTAL_ASSETS]",
+              "surface_text": "归母股东权益 / 总资产",
+              "classification": "REFERENCE_REQUIRED",
+              "context_supported": true,
+              "reference_required": true,
+              "evidence_snippets": [
+                "nt: 结论\n对“结合刚才的支持证据和反证，现金相关风险应该怎样排序；如果指标方向不同，请保留这种冲突。”的直接回答是：营业收入呈先降后升，归母股东权益呈连续上升。结合本会话前面已经确认的口径与本轮新增的风险排序视角，当前最稳妥的表述不是简单评价“好”或“坏”，而是说明两条指标在三年内是否同",
+                "21亿元，2024年507.45亿元，2025年722.01亿元；2024/2023为+15.01%，2025/2024为+42.28%。\n总资产：2023年7,171.68亿元，2024年7,866.58亿元，2025年9,748.28亿元；2024/2023为+9.69%，2025"
+              ],
+              "raw_category": "comparison_object",
+              "resolution_type": "COMPARISON_OBJECT"
+            }
+          ]
+        }
+      },
+      "page_details": [
+        {
+          "page_id": "c64751d6-21c8-5c09-87da-48f940293661",
+          "source_turn_id": "S005-Q008",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 1,
+              "score": 0.5903980135917664
+            },
+            "P0": {
+              "rank": 1,
+              "score": 0.5903979539871216
+            },
+            "P1": {
+              "rank": 2,
+              "score": 0.647621750831604
+            },
+            "P2": {
+              "rank": 1,
+              "score": 0.6401463747024536
+            },
+            "P3": {
+              "rank": 2,
+              "score": 0.6487542986869812
+            }
+          },
+          "production_p0_embedding_text": "用户要求将现金和利润变化放入总资产路径，判断资产扩张是否得到经营结果支撑，并确保结论可衔接下一轮追问。分析主体为宁德时代，期间为2023-2025年，数据来源为2025年年度报告（2026-03-10披露）。关键数据：营业收入2023年4009.17亿元、2024年3620.13亿元、2025年4237.02亿元；归母净利润2023年441.21亿元、2024年507.45亿元、2025年722.01亿元；总资产2023年7171.68亿元、2024年7866.58亿元、2025年9748.28亿元；归母股东权益2023年1977.08亿元、2024年2469.3亿元、2025年3371.08亿元。同比：归母净利润2024/2023 +15.01%，2025/2024 +42.28%；总资产2024/2023 +9.69%，2025/2024 +23.92%。结论：归母净利润和总资产均连续上升，但资产增速快于收入，近似周转率下降（2023年0.559倍、2024年0.460倍、2025年0.435倍），提示资产承载效率承压，但具体原因需附注支持。现金利润比因缺乏完整序列未计算。结论限定为历史事实，不推断原因或未来。\nKeywords: 宁德时代, 2023-2025, 总资产, 归母净利润, 资产扩张, 经营支撑, 同比, 周转率\nUser: 把前面的现金和利润变化放到总资产路径里看，资产扩张得到经营结果支撑了吗；结论要能直接接到下一轮继续追问。"
+        },
+        {
+          "page_id": "99505de4-75be-5000-9569-861beeedb502",
+          "source_turn_id": "S005-Q009",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 2,
+              "score": 0.5866729617118835
+            },
+            "P0": {
+              "rank": 2,
+              "score": 0.5866730213165283
+            },
+            "P1": {
+              "rank": 1,
+              "score": 0.6630951762199402
+            },
+            "P2": {
+              "rank": 2,
+              "score": 0.6339910626411438
+            },
+            "P3": {
+              "rank": 1,
+              "score": 0.6588924527168274
+            }
+          },
+          "production_p0_embedding_text": "用户要求分析宁德时代股东权益积累情况，区分最新一年边际变化与完整三年路径。基于2023-2025年年度报告，归母股东权益分别为1977.08亿元、2469.3亿元、3371.08亿元，同比+24.90%、+36.52%，连续上升；归母净利润分别为441.21亿元、507.45亿元、722.01亿元，同比+15.01%、+42.28%，连续上升。总资产连续上升，但收入2024年下降。结论为权益积累连续，但需注意口径限制，具体原因未披露。来源为2025年年报，披露日期2026-03-10。\nKeywords: 宁德时代, 2023-2025, 股东权益, 归母净利润, 总资产, 同比, 年报, 权益积累\nUser: 接着看股东权益，前面这些经营变化最终有没有转化为权益积累；请区分最新一年的边际变化和完整三年路径。"
+        },
+        {
+          "page_id": "19b9c9f1-754d-5322-831d-a2b5bbc632f9",
+          "source_turn_id": "S005-Q036",
+          "is_gold": true,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 3,
+              "score": 0.549081563949585
+            },
+            "P0": {
+              "rank": 3,
+              "score": 0.549081563949585
+            },
+            "P1": {
+              "rank": 4,
+              "score": 0.6265477538108826
+            },
+            "P2": {
+              "rank": 3,
+              "score": 0.6224579811096191
+            },
+            "P3": {
+              "rank": 3,
+              "score": 0.6276584267616272
+            }
+          },
+          "production_p0_embedding_text": "用户询问结合总资产变化，判断现金表现是效率问题还是仅存在错位，并要求先说明能确认的事实，再说明不能确认的原因。分析主体为宁德时代，期间为2023-2025三个完整财年，数据来源为2025年年度报告（2026-03-10披露）。已确认事实：归母净利润连续上升（2023年441.21亿元，2024年507.45亿元，2025年722.01亿元，同比+15.01%、+42.28%）；总资产连续上升（2023年7,171.68亿元，2024年7,866.58亿元，2025年9,748.28亿元，同比+9.69%、+23.92%）；营业收入先降后升（2023年4,009.17亿元，2024年3,620.13亿元，2025年4,237.02亿元，同比-9.70%、+17.04%）；归母股东权益连续上升（2023年1,977.08亿元，2024年2,469.3亿元，2025年3,371.08亿元，同比+24.90%、+36.52%）。近似资产周转率（营业收入/期末总资产）逐年下降（0.559、0.460、0.435倍）。不能确认的原因：未取得经营现金流完整序列，无法计算现金利润比；资产效率变化的具体原因（如产能、并购、金融资产等）未在附注中确认；利润与现金的匹配程度无法判断。结论：当前只能确认归母净利润与总资产同向连续上升，但无法判定现金表现是效率问题还是错位，需进一步查阅附注。\nKeywords: 宁德时代, 2023-2025, 归母净利润, 总资产, 营业收入, 资产周转率, 现金错位, 效率问题\nUser: 再结合总资产变化，前面的现金表现更像效率问题还是只能确认存在错位；先说明能确认的事实，再说还不能确认的原因。"
+        },
+        {
+          "page_id": "6e436632-8d73-58b8-a746-7cbc36ffe10f",
+          "source_turn_id": "S005-Q006",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 4,
+              "score": 0.5463139414787292
+            },
+            "P0": {
+              "rank": 4,
+              "score": 0.5463138818740845
+            },
+            "P1": {
+              "rank": 7,
+              "score": 0.6212012767791748
+            },
+            "P2": {
+              "rank": 7,
+              "score": 0.5916275978088379
+            },
+            "P3": {
+              "rank": 5,
+              "score": 0.6216854453086853
+            }
+          },
+          "production_p0_embedding_text": "用户要求将扣非净利润纳入分析，并询问是否需调整此前对盈利趋势的判断，同时要求将口径限制写入结论而非另作假设。分析主体为宁德时代，期间为2023—2025三个完整财年，数据来源为《宁德时代2025年年度报告或年度报告摘要》（披露日期2026-03-10）。已确认的三年原数：营业收入2023年4,009.17亿元、2024年3,620.13亿元、2025年4,237.02亿元，同比分别为-9.70%、+17.04%；归母净利润2023年441.21亿元、2024年507.45亿元、2025年722.01亿元，同比分别为+15.01%、+42.28%；总资产2023年7,171.68亿元、2024年7,866.58亿元、2025年9,748.28亿元，同比分别为+9.69%、+23.92%；归母股东权益2023年1,977.08亿元、2024年2,469.3亿元、2025年3,371.08亿元，同比分别为+24.90%、+36.52%。结论：归母股东权益连续上升，营业收入先降后升；未取得扣非净利润完整三年序列，无法计算非经常性损益，相关判断保持开放。所有结论基于公开历史信息，不包含预测或模拟。\nKeywords: 宁德时代, 2023-2025, 扣非净利润, 盈利趋势, 营业收入, 归母净利润, 归母股东权益, 同比\nUser: 再把扣非净利润接进来，前面对盈利趋势的判断需要调整吗；把口径限制放在结论里，不要另作假设。"
+        },
+        {
+          "page_id": "c9df831e-8129-54b6-ae61-1696a98bc2eb",
+          "source_turn_id": "S005-Q010",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 5,
+              "score": 0.5371514558792114
+            },
+            "P0": {
+              "rank": 5,
+              "score": 0.537151575088501
+            },
+            "P1": {
+              "rank": 6,
+              "score": 0.621354341506958
+            },
+            "P2": {
+              "rank": 6,
+              "score": 0.5920752882957458
+            },
+            "P3": {
+              "rank": 8,
+              "score": 0.6168583631515503
+            }
+          },
+          "production_p0_embedding_text": "针对宁德时代2023-2025年三个完整财年的合规核验意见，最稳妥的阶段性结论是：归母股东权益连续上升（2023年1,977.08亿元，2024年2,469.3亿元，2025年3,371.08亿元；同比+24.90%、+36.52%），营业收入先降后升（2023年4,009.17亿元，2024年3,620.13亿元，2025年4,237.02亿元；同比-9.70%、+17.04%）。该结论基于《宁德时代2025年年度报告或年度报告摘要》（披露日期2026-03-10，来源地址https://static.cninfo.com.cn/finalpage/2026-03-10/1225002213.PDF），仅覆盖公开历史信息，不包含预测或情景。可能的反证是：营业收入在2024年同比下降，与归母股东权益的连续上升不完全同步，提示需关注收入与权益积累的阶段性背离。结论需区分事实、计算和判断，具体经营原因未在年报中明确披露前不作归因。\nKeywords: 宁德时代, 2023-2025, 合规核验, 归母股东权益, 营业收入, 同比, 年报, 反证\nUser: 综合刚才几轮，如果现在写一段合规核验意见，最稳妥的阶段性结论是什么；回答时同时保留一项可能的反证。"
+        },
+        {
+          "page_id": "52954b6d-4823-5e0a-955d-8a3b24df0a30",
+          "source_turn_id": "S005-Q029",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 9,
+              "score": 0.5254455804824829
+            },
+            "P0": {
+              "rank": 9,
+              "score": 0.5254455208778381
+            },
+            "P1": {
+              "rank": 3,
+              "score": 0.6267253160476685
+            },
+            "P2": {
+              "rank": 5,
+              "score": 0.6140177249908447
+            },
+            "P3": {
+              "rank": 4,
+              "score": 0.6256191730499268
+            }
+          },
+          "production_p0_embedding_text": "用户要求结合上一轮反证检验，对前文表述进行降级或修正，并说明与上一问的关系。分析对象为宁德时代，期间为2023-2025三个完整财年，数据来源为2025年年度报告（披露日期2026-03-10）。核心数据：营业收入分别为4009.17、3620.13、4237.02亿元，同比-9.70%、+17.04%；归母净利润分别为441.21、507.45、722.01亿元，同比+15.01%、+42.28%；总资产分别为7171.68、7866.58、9748.28亿元，同比+9.69%、+23.92%；归母股东权益分别为1977.08、2469.3、3371.08亿元，同比+24.90%、+36.52%。结论：总资产和归母净利润均连续上升，但需区分事实与判断，避免过度归因；前文若存在“经营质量全面改善”等强表述，应降级为“指标连续上升，但具体原因未披露”。修正记录：保留原数，限制解释性结论。待办：如需深化，需查阅附注确认原因。\nKeywords: 宁德时代, 2023-2025, 总资产, 归母净利润, 同比, 反证, 表述降级, 年度报告\nUser: 结合刚才的反证，前面有哪些表述需要降级或修正；别只复述数字，要说明它和上一问的关系。"
+        },
+        {
+          "page_id": "832ae479-4eb3-56ae-a971-8428404182ba",
+          "source_turn_id": "S005-Q024",
+          "is_gold": false,
+          "ranks_and_scores": {
+            "Baseline": {
+              "rank": 8,
+              "score": 0.5255414247512817
+            },
+            "P0": {
+              "rank": 8,
+              "score": 0.5255414247512817
+            },
+            "P1": {
+              "rank": 5,
+              "score": 0.6219656467437744
+            },
+            "P2": {
+              "rank": 4,
+              "score": 0.6181148886680603
+            },
+            "P3": {
+              "rank": 6,
+              "score": 0.6215601563453674
+            }
+          },
+          "production_p0_embedding_text": "用户要求加入扣非净利润，分析归母净利润与总资产在2023-2025年的变化，并明确口径限制。基于宁德时代2025年年度报告（2026-03-10发布），归母净利润连续上升（441.21亿、507.45亿、722.01亿元，同比+15.01%、+42.28%），总资产连续上升（7171.68亿、7866.58亿、9748.28亿元，同比+9.69%、+23.92%）。扣非净利润数据未取得，无法计算非经常性损益。结论限定为历史事实，不归因具体原因，不预测未来。\nKeywords: 宁德时代, 2023-2025, 归母净利润, 总资产, 扣非净利润, 同比, 年报, 口径限制\nUser: 接着加入扣非净利润，刚才看到的利润变化有多少属于持续经营口径；把口径限制放在结论里，不要另作假设。"
+        }
+      ]
+    }
+  ]
+}

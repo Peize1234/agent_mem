@@ -1,0 +1,8 @@
+{
+  "hash_contract": "SHA256 of exact UTF-8 prompt file bytes",
+  "frozen_before_first_llm_call": true,
+  "P4": {
+    "file": "P4_identity_only.txt",
+    "sha256": "57031db3e440ad11f2146d10509f426f399b1b7950296cda6ff43f2fc8a8bf00"
+  }
+}

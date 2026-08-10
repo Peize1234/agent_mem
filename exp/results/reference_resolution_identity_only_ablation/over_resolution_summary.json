@@ -1,0 +1,294 @@
+{
+  "audit_method": "Reused P0/P2 deterministic canonical audit; P4 uses the identical canonical/semantic-object method. State audit combines canonical historical-conclusion diff, state-term occurrence delta, and SequenceMatcher added-span alignment. No Gold/Page/ranking enters either audit.",
+  "prompts": {
+    "P0": {
+      "total_added_canonical_content": 35,
+      "REFERENCE_REQUIRED": 25,
+      "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED": 10,
+      "UNSUPPORTED": 0,
+      "added_content_precision": 0.7142857142857143,
+      "unnecessary_addition_rate": 0.2857142857142857,
+      "state_content_additions": null,
+      "by_resolution_type": {
+        "INDICATOR": {
+          "prompt": "P0",
+          "resolution_type": "INDICATOR",
+          "total": 8,
+          "reference_required": 5,
+          "context_supported_but_not_required": 3,
+          "unsupported": 0,
+          "precision": 0.625
+        },
+        "COMPARISON_OBJECT": {
+          "prompt": "P0",
+          "resolution_type": "COMPARISON_OBJECT",
+          "total": 11,
+          "reference_required": 9,
+          "context_supported_but_not_required": 2,
+          "unsupported": 0,
+          "precision": 0.8181818181818182
+        },
+        "PRIOR_JUDGMENT": {
+          "prompt": "P0",
+          "resolution_type": "PRIOR_JUDGMENT",
+          "total": 15,
+          "reference_required": 11,
+          "context_supported_but_not_required": 4,
+          "unsupported": 0,
+          "precision": 0.7333333333333333
+        },
+        "EVIDENCE_OBJECT": {
+          "prompt": "P0",
+          "resolution_type": "EVIDENCE_OBJECT",
+          "total": 0,
+          "reference_required": 0,
+          "context_supported_but_not_required": 0,
+          "unsupported": 0,
+          "precision": null
+        },
+        "SUBJECT": {
+          "prompt": "P0",
+          "resolution_type": "SUBJECT",
+          "total": 0,
+          "reference_required": 0,
+          "context_supported_but_not_required": 0,
+          "unsupported": 0,
+          "precision": null
+        },
+        "TIME": {
+          "prompt": "P0",
+          "resolution_type": "TIME",
+          "total": 0,
+          "reference_required": 0,
+          "context_supported_but_not_required": 0,
+          "unsupported": 0,
+          "precision": null
+        },
+        "OTHER": {
+          "prompt": "P0",
+          "resolution_type": "OTHER",
+          "total": 1,
+          "reference_required": 0,
+          "context_supported_but_not_required": 1,
+          "unsupported": 0,
+          "precision": 0.0
+        }
+      }
+    },
+    "P2": {
+      "total_added_canonical_content": 163,
+      "REFERENCE_REQUIRED": 64,
+      "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED": 99,
+      "UNSUPPORTED": 0,
+      "added_content_precision": 0.39263803680981596,
+      "unnecessary_addition_rate": 0.6073619631901841,
+      "state_content_additions": 41,
+      "by_resolution_type": {
+        "INDICATOR": {
+          "prompt": "P2",
+          "resolution_type": "INDICATOR",
+          "total": 43,
+          "reference_required": 7,
+          "context_supported_but_not_required": 36,
+          "unsupported": 0,
+          "precision": 0.16279069767441862
+        },
+        "COMPARISON_OBJECT": {
+          "prompt": "P2",
+          "resolution_type": "COMPARISON_OBJECT",
+          "total": 23,
+          "reference_required": 12,
+          "context_supported_but_not_required": 11,
+          "unsupported": 0,
+          "precision": 0.5217391304347826
+        },
+        "PRIOR_JUDGMENT": {
+          "prompt": "P2",
+          "resolution_type": "PRIOR_JUDGMENT",
+          "total": 53,
+          "reference_required": 32,
+          "context_supported_but_not_required": 21,
+          "unsupported": 0,
+          "precision": 0.6037735849056604
+        },
+        "EVIDENCE_OBJECT": {
+          "prompt": "P2",
+          "resolution_type": "EVIDENCE_OBJECT",
+          "total": 37,
+          "reference_required": 13,
+          "context_supported_but_not_required": 24,
+          "unsupported": 0,
+          "precision": 0.35135135135135137
+        },
+        "SUBJECT": {
+          "prompt": "P2",
+          "resolution_type": "SUBJECT",
+          "total": 0,
+          "reference_required": 0,
+          "context_supported_but_not_required": 0,
+          "unsupported": 0,
+          "precision": null
+        },
+        "TIME": {
+          "prompt": "P2",
+          "resolution_type": "TIME",
+          "total": 3,
+          "reference_required": 0,
+          "context_supported_but_not_required": 3,
+          "unsupported": 0,
+          "precision": 0.0
+        },
+        "OTHER": {
+          "prompt": "P2",
+          "resolution_type": "OTHER",
+          "total": 4,
+          "reference_required": 0,
+          "context_supported_but_not_required": 4,
+          "unsupported": 0,
+          "precision": 0.0
+        }
+      }
+    },
+    "P4": {
+      "total_added_canonical_content": 74,
+      "REFERENCE_REQUIRED": 44,
+      "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED": 30,
+      "UNSUPPORTED": 0,
+      "added_content_precision": 0.5945945945945946,
+      "unnecessary_addition_rate": 0.40540540540540543,
+      "state_content_additions": 0,
+      "by_resolution_type": {
+        "INDICATOR": {
+          "prompt": "P4",
+          "resolution_type": "INDICATOR",
+          "total": 17,
+          "reference_required": 8,
+          "context_supported_but_not_required": 9,
+          "unsupported": 0,
+          "precision": 0.47058823529411764
+        },
+        "COMPARISON_OBJECT": {
+          "prompt": "P4",
+          "resolution_type": "COMPARISON_OBJECT",
+          "total": 20,
+          "reference_required": 13,
+          "context_supported_but_not_required": 7,
+          "unsupported": 0,
+          "precision": 0.65
+        },
+        "PRIOR_JUDGMENT": {
+          "prompt": "P4",
+          "resolution_type": "PRIOR_JUDGMENT",
+          "total": 19,
+          "reference_required": 11,
+          "context_supported_but_not_required": 8,
+          "unsupported": 0,
+          "precision": 0.5789473684210527
+        },
+        "EVIDENCE_OBJECT": {
+          "prompt": "P4",
+          "resolution_type": "EVIDENCE_OBJECT",
+          "total": 18,
+          "reference_required": 12,
+          "context_supported_but_not_required": 6,
+          "unsupported": 0,
+          "precision": 0.6666666666666666
+        },
+        "SUBJECT": {
+          "prompt": "P4",
+          "resolution_type": "SUBJECT",
+          "total": 0,
+          "reference_required": 0,
+          "context_supported_but_not_required": 0,
+          "unsupported": 0,
+          "precision": null
+        },
+        "TIME": {
+          "prompt": "P4",
+          "resolution_type": "TIME",
+          "total": 0,
+          "reference_required": 0,
+          "context_supported_but_not_required": 0,
+          "unsupported": 0,
+          "precision": null
+        },
+        "OTHER": {
+          "prompt": "P4",
+          "resolution_type": "OTHER",
+          "total": 0,
+          "reference_required": 0,
+          "context_supported_but_not_required": 0,
+          "unsupported": 0,
+          "precision": null
+        }
+      }
+    }
+  },
+  "p0_p2_prior_audit_reproduction": "PASS",
+  "p2_to_p4_gold_tradeoff": {
+    "p2_promoted_gold_total": 7,
+    "p4_preserved_p2_promotions": 2,
+    "p4_lost_p2_promotions": 5,
+    "p4_new_promotions": 1,
+    "p2_demoted_gold_total": 3,
+    "p4_recovered_p2_demotions": 2,
+    "preserved_p2_promotions": [
+      {
+        "session_id": "S001",
+        "query_id": "S001-Q013",
+        "gold_page_id": "9b4b60a1-f0f9-5368-b4ce-b441752321bb"
+      },
+      {
+        "session_id": "S004",
+        "query_id": "S004-Q035",
+        "gold_page_id": "dad4c589-bd44-5d61-917f-9435b971db4d"
+      }
+    ],
+    "lost_p2_promotions": [
+      {
+        "session_id": "S002",
+        "query_id": "S002-Q028",
+        "gold_page_id": "42756865-0f8f-5dcc-a050-6ecec5b828ce"
+      },
+      {
+        "session_id": "S003",
+        "query_id": "S003-Q066",
+        "gold_page_id": "3e1cec0a-77e2-5463-865e-1f49b78e966c"
+      },
+      {
+        "session_id": "S003",
+        "query_id": "S003-Q077",
+        "gold_page_id": "21f9ae05-f6a0-5cc5-af10-142d014dcf11"
+      },
+      {
+        "session_id": "S004",
+        "query_id": "S004-Q022",
+        "gold_page_id": "1404aa4a-3c7a-565e-8e67-9f834683b3b2"
+      },
+      {
+        "session_id": "S004",
+        "query_id": "S004-Q039",
+        "gold_page_id": "c022f180-c519-52a7-9c70-3f15928609b5"
+      }
+    ],
+    "new_p4_promotions": [
+      {
+        "session_id": "S001",
+        "query_id": "S001-Q039",
+        "gold_page_id": "c107828c-a741-55f6-8e0c-446cfbdba215"
+      }
+    ],
+    "recovered_p2_demotions": [
+      {
+        "session_id": "S001",
+        "query_id": "S001-Q026",
+        "gold_page_id": "88e975b7-0f5a-5f5c-98ce-e461dcab93b8"
+      },
+      {
+        "session_id": "S003",
+        "query_id": "S003-Q039",
+        "gold_page_id": "4ed05884-3478-5a91-a63f-3067fd41956d"
+      }
+    ]
+  }
+}

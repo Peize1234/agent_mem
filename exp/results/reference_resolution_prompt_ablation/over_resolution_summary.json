@@ -1,0 +1,322 @@
+{
+  "audit_method": "Deterministic canonical-content diff using the frozen current-query + previous_3_qa audit. No Gold, Page text, retrieval result, score, future dialogue, or benchmark label is used.",
+  "resolution_types": [
+    "SUBJECT",
+    "INDICATOR",
+    "COMPARISON_OBJECT",
+    "PRIOR_JUDGMENT",
+    "EVIDENCE_OBJECT",
+    "TIME",
+    "OTHER"
+  ],
+  "classifications": [
+    "REFERENCE_REQUIRED",
+    "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED",
+    "UNSUPPORTED"
+  ],
+  "prompts": {
+    "P0": {
+      "query_count": 99,
+      "changed_query_count": 13,
+      "unchanged_query_count": 86,
+      "total_added_canonical_content": 35,
+      "average_added_canonical_content_per_query": 0.35353535353535354,
+      "REFERENCE_REQUIRED": 25,
+      "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED": 10,
+      "UNSUPPORTED": 0,
+      "by_resolution_type": {
+        "INDICATOR": 8,
+        "COMPARISON_OBJECT": 11,
+        "PRIOR_JUDGMENT": 15,
+        "OTHER": 1
+      },
+      "by_resolution_type_and_classification": {
+        "SUBJECT": {
+          "prompt": "P0",
+          "resolution_type": "SUBJECT",
+          "total_added_canonical_content": 0,
+          "reference_required": 0,
+          "context_supported_but_not_required": 0,
+          "unsupported": 0
+        },
+        "INDICATOR": {
+          "prompt": "P0",
+          "resolution_type": "INDICATOR",
+          "total_added_canonical_content": 8,
+          "reference_required": 5,
+          "context_supported_but_not_required": 3,
+          "unsupported": 0
+        },
+        "COMPARISON_OBJECT": {
+          "prompt": "P0",
+          "resolution_type": "COMPARISON_OBJECT",
+          "total_added_canonical_content": 11,
+          "reference_required": 9,
+          "context_supported_but_not_required": 2,
+          "unsupported": 0
+        },
+        "PRIOR_JUDGMENT": {
+          "prompt": "P0",
+          "resolution_type": "PRIOR_JUDGMENT",
+          "total_added_canonical_content": 15,
+          "reference_required": 11,
+          "context_supported_but_not_required": 4,
+          "unsupported": 0
+        },
+        "EVIDENCE_OBJECT": {
+          "prompt": "P0",
+          "resolution_type": "EVIDENCE_OBJECT",
+          "total_added_canonical_content": 0,
+          "reference_required": 0,
+          "context_supported_but_not_required": 0,
+          "unsupported": 0
+        },
+        "TIME": {
+          "prompt": "P0",
+          "resolution_type": "TIME",
+          "total_added_canonical_content": 0,
+          "reference_required": 0,
+          "context_supported_but_not_required": 0,
+          "unsupported": 0
+        },
+        "OTHER": {
+          "prompt": "P0",
+          "resolution_type": "OTHER",
+          "total_added_canonical_content": 1,
+          "reference_required": 0,
+          "context_supported_but_not_required": 1,
+          "unsupported": 0
+        }
+      }
+    },
+    "P1": {
+      "query_count": 99,
+      "changed_query_count": 84,
+      "unchanged_query_count": 15,
+      "total_added_canonical_content": 315,
+      "average_added_canonical_content_per_query": 3.1818181818181817,
+      "REFERENCE_REQUIRED": 109,
+      "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED": 204,
+      "UNSUPPORTED": 2,
+      "by_resolution_type": {
+        "INDICATOR": 85,
+        "COMPARISON_OBJECT": 41,
+        "PRIOR_JUDGMENT": 65,
+        "TIME": 26,
+        "OTHER": 11,
+        "EVIDENCE_OBJECT": 87
+      },
+      "by_resolution_type_and_classification": {
+        "SUBJECT": {
+          "prompt": "P1",
+          "resolution_type": "SUBJECT",
+          "total_added_canonical_content": 0,
+          "reference_required": 0,
+          "context_supported_but_not_required": 0,
+          "unsupported": 0
+        },
+        "INDICATOR": {
+          "prompt": "P1",
+          "resolution_type": "INDICATOR",
+          "total_added_canonical_content": 85,
+          "reference_required": 10,
+          "context_supported_but_not_required": 75,
+          "unsupported": 0
+        },
+        "COMPARISON_OBJECT": {
+          "prompt": "P1",
+          "resolution_type": "COMPARISON_OBJECT",
+          "total_added_canonical_content": 41,
+          "reference_required": 16,
+          "context_supported_but_not_required": 25,
+          "unsupported": 0
+        },
+        "PRIOR_JUDGMENT": {
+          "prompt": "P1",
+          "resolution_type": "PRIOR_JUDGMENT",
+          "total_added_canonical_content": 65,
+          "reference_required": 47,
+          "context_supported_but_not_required": 18,
+          "unsupported": 0
+        },
+        "EVIDENCE_OBJECT": {
+          "prompt": "P1",
+          "resolution_type": "EVIDENCE_OBJECT",
+          "total_added_canonical_content": 87,
+          "reference_required": 35,
+          "context_supported_but_not_required": 50,
+          "unsupported": 2
+        },
+        "TIME": {
+          "prompt": "P1",
+          "resolution_type": "TIME",
+          "total_added_canonical_content": 26,
+          "reference_required": 1,
+          "context_supported_but_not_required": 25,
+          "unsupported": 0
+        },
+        "OTHER": {
+          "prompt": "P1",
+          "resolution_type": "OTHER",
+          "total_added_canonical_content": 11,
+          "reference_required": 0,
+          "context_supported_but_not_required": 11,
+          "unsupported": 0
+        }
+      }
+    },
+    "P2": {
+      "query_count": 99,
+      "changed_query_count": 50,
+      "unchanged_query_count": 49,
+      "total_added_canonical_content": 163,
+      "average_added_canonical_content_per_query": 1.6464646464646464,
+      "REFERENCE_REQUIRED": 64,
+      "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED": 99,
+      "UNSUPPORTED": 0,
+      "by_resolution_type": {
+        "INDICATOR": 43,
+        "PRIOR_JUDGMENT": 53,
+        "COMPARISON_OBJECT": 23,
+        "OTHER": 4,
+        "EVIDENCE_OBJECT": 37,
+        "TIME": 3
+      },
+      "by_resolution_type_and_classification": {
+        "SUBJECT": {
+          "prompt": "P2",
+          "resolution_type": "SUBJECT",
+          "total_added_canonical_content": 0,
+          "reference_required": 0,
+          "context_supported_but_not_required": 0,
+          "unsupported": 0
+        },
+        "INDICATOR": {
+          "prompt": "P2",
+          "resolution_type": "INDICATOR",
+          "total_added_canonical_content": 43,
+          "reference_required": 7,
+          "context_supported_but_not_required": 36,
+          "unsupported": 0
+        },
+        "COMPARISON_OBJECT": {
+          "prompt": "P2",
+          "resolution_type": "COMPARISON_OBJECT",
+          "total_added_canonical_content": 23,
+          "reference_required": 12,
+          "context_supported_but_not_required": 11,
+          "unsupported": 0
+        },
+        "PRIOR_JUDGMENT": {
+          "prompt": "P2",
+          "resolution_type": "PRIOR_JUDGMENT",
+          "total_added_canonical_content": 53,
+          "reference_required": 32,
+          "context_supported_but_not_required": 21,
+          "unsupported": 0
+        },
+        "EVIDENCE_OBJECT": {
+          "prompt": "P2",
+          "resolution_type": "EVIDENCE_OBJECT",
+          "total_added_canonical_content": 37,
+          "reference_required": 13,
+          "context_supported_but_not_required": 24,
+          "unsupported": 0
+        },
+        "TIME": {
+          "prompt": "P2",
+          "resolution_type": "TIME",
+          "total_added_canonical_content": 3,
+          "reference_required": 0,
+          "context_supported_but_not_required": 3,
+          "unsupported": 0
+        },
+        "OTHER": {
+          "prompt": "P2",
+          "resolution_type": "OTHER",
+          "total_added_canonical_content": 4,
+          "reference_required": 0,
+          "context_supported_but_not_required": 4,
+          "unsupported": 0
+        }
+      }
+    },
+    "P3": {
+      "query_count": 99,
+      "changed_query_count": 84,
+      "unchanged_query_count": 15,
+      "total_added_canonical_content": 249,
+      "average_added_canonical_content_per_query": 2.515151515151515,
+      "REFERENCE_REQUIRED": 86,
+      "CONTEXT_SUPPORTED_BUT_NOT_REQUIRED": 162,
+      "UNSUPPORTED": 1,
+      "by_resolution_type": {
+        "INDICATOR": 62,
+        "COMPARISON_OBJECT": 42,
+        "PRIOR_JUDGMENT": 58,
+        "EVIDENCE_OBJECT": 84,
+        "OTHER": 2,
+        "TIME": 1
+      },
+      "by_resolution_type_and_classification": {
+        "SUBJECT": {
+          "prompt": "P3",
+          "resolution_type": "SUBJECT",
+          "total_added_canonical_content": 0,
+          "reference_required": 0,
+          "context_supported_but_not_required": 0,
+          "unsupported": 0
+        },
+        "INDICATOR": {
+          "prompt": "P3",
+          "resolution_type": "INDICATOR",
+          "total_added_canonical_content": 62,
+          "reference_required": 8,
+          "context_supported_but_not_required": 54,
+          "unsupported": 0
+        },
+        "COMPARISON_OBJECT": {
+          "prompt": "P3",
+          "resolution_type": "COMPARISON_OBJECT",
+          "total_added_canonical_content": 42,
+          "reference_required": 15,
+          "context_supported_but_not_required": 27,
+          "unsupported": 0
+        },
+        "PRIOR_JUDGMENT": {
+          "prompt": "P3",
+          "resolution_type": "PRIOR_JUDGMENT",
+          "total_added_canonical_content": 58,
+          "reference_required": 39,
+          "context_supported_but_not_required": 19,
+          "unsupported": 0
+        },
+        "EVIDENCE_OBJECT": {
+          "prompt": "P3",
+          "resolution_type": "EVIDENCE_OBJECT",
+          "total_added_canonical_content": 84,
+          "reference_required": 24,
+          "context_supported_but_not_required": 59,
+          "unsupported": 1
+        },
+        "TIME": {
+          "prompt": "P3",
+          "resolution_type": "TIME",
+          "total_added_canonical_content": 1,
+          "reference_required": 0,
+          "context_supported_but_not_required": 1,
+          "unsupported": 0
+        },
+        "OTHER": {
+          "prompt": "P3",
+          "resolution_type": "OTHER",
+          "total_added_canonical_content": 2,
+          "reference_required": 0,
+          "context_supported_but_not_required": 2,
+          "unsupported": 0
+        }
+      }
+    }
+  },
+  "p0_prior_audit_reproduction": "PASS"
+}

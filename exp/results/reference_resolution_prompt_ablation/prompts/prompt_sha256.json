@@ -1,0 +1,20 @@
+{
+  "hash_contract": "SHA256 of exact UTF-8 prompt file bytes",
+  "frozen_before_first_llm_call": true,
+  "P0": {
+    "file": "P0_current.txt",
+    "sha256": "178183e2fbe9580a99f1596da2817d3a63d9886ba7581196a92c61d394f74a57"
+  },
+  "P1": {
+    "file": "P1_explicit_reference.txt",
+    "sha256": "d32c4bbe0ac60078b884e6f3413d5d4207e7c8a9b46f08a57946e654b73ee2fb"
+  },
+  "P2": {
+    "file": "P2_slot_bounded.txt",
+    "sha256": "175bff40baf459596b5cb8ec0443c411898c3b75f1e884e443c5a3af79fd25f0"
+  },
+  "P3": {
+    "file": "P3_one_hop_dependency.txt",
+    "sha256": "f758bd82ffecb609479dcb0e9a73f3e72ff60491d9fb60e0538f2f8076ea5407"
+  }
+}
