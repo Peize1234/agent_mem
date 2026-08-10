@@ -1,0 +1,12 @@
+{
+  "frozen_before_first_llm_call": true,
+  "hash_contract": "SHA256 of exact UTF-8 file bytes",
+  "Production": {
+    "file": "Original_Production_Add_Prompt.txt",
+    "sha256": "bede5bf2781904ced0781facd5ca700d3d4a14c357784543096546ff74f73729"
+  },
+  "ConservativeTuned": {
+    "file": "Conservative_Retrieval_Tuned_Add_Prompt.txt",
+    "sha256": "e88ff5e17e9d501015bc82f2879fde28926dc6c85bd1eee5912d25326168ab4a"
+  }
+}

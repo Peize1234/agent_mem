@@ -1,0 +1,551 @@
+{
+  "experiment_name": "midterm_add_conservative_retrieval_tuning_ablation",
+  "session_count": 5,
+  "page_count": 333,
+  "evaluation_query_count": 99,
+  "eligible_gold_count": 154,
+  "human_facing_config_labels": {
+    "Production_OriginalQuery": "原 Production Add Prompt + 原始问题直接检索",
+    "Production_ResolvedQuery": "原 Production Add Prompt + 上下文引用解析后检索",
+    "ConservativeTuned_OriginalQuery": "保守调优 Add Prompt + 原始问题直接检索",
+    "ConservativeTuned_ResolvedQuery": "保守调优 Add Prompt + 上下文引用解析后检索"
+  },
+  "Production_prompt_sha256_before": "bede5bf2781904ced0781facd5ca700d3d4a14c357784543096546ff74f73729",
+  "Conservative_Tuned_prompt_sha256_before": "e88ff5e17e9d501015bc82f2879fde28926dc6c85bd1eee5912d25326168ab4a",
+  "prompt_sha256_after_generation": {
+    "Production": "bede5bf2781904ced0781facd5ca700d3d4a14c357784543096546ff74f73729",
+    "ConservativeTuned": "e88ff5e17e9d501015bc82f2879fde28926dc6c85bd1eee5912d25326168ab4a"
+  },
+  "prompt_frozen": true,
+  "prompt_changed_after_results": false,
+  "input_contract": "exact production User + Assistant raw dialogue only",
+  "output_contract": {
+    "summary": "string",
+    "keywords": "list persisted at max 8"
+  },
+  "page_formatter": "<summary>\\nKeywords: <keywords>\\nUser: <original_user>",
+  "summary_model": "deepseek-v4-flash",
+  "thinking_mode": "disabled",
+  "temperature": 0.1,
+  "top_p": 0.1,
+  "top_k": 1,
+  "generation": {
+    "successful_output_count": 333,
+    "actual_api_attempts": 333,
+    "retry_count": 0,
+    "provider_precondition_rejected_count": 0,
+    "cache_hit_count": 333,
+    "raw_keyword_truncation_count": 328,
+    "cache_path": "/home/peize/Code/htzq/mem0/exp/results/midterm_add_conservative_retrieval_tuning_ablation/cache/conservative_tuned_summary_llm.jsonl"
+  },
+  "Production_new_LLM_calls": 0,
+  "Search_new_LLM_calls": 0,
+  "Conservative_Tuned_successful_outputs": 333,
+  "Production_Page_embeddings_reused": 333,
+  "Conservative_Tuned_Page_embedding_items": 333,
+  "Conservative_Tuned_Page_embedding_computed_this_run": 0,
+  "embedding_metadata": {
+    "model": "BAAI/bge-small-zh-v1.5",
+    "batch_name": "conservative-tuned-pages-S001-S005",
+    "content_hash": "b3e524120c947b20a94f58e9c90afdaad866dc10cf512d6afd8113d61597837a",
+    "item_count": 333,
+    "dimension": 512,
+    "build_ms": 4060.3019800000766,
+    "item_latency_ms": {},
+    "cache_hit": true
+  },
+  "tokenizer_truncation_summary": {
+    "原 Production Add Prompt": {
+      "tokenizer_class": "BertTokenizer",
+      "tokenizer_model_max_length": 512,
+      "sentence_transformer_max_seq_length": 512,
+      "effective_max_length": 512,
+      "special_tokens_single": 2,
+      "content_token_budget": 510,
+      "truncation_enabled_by_sentence_transformer": true,
+      "truncation_strategy": "longest_first (single sequence)",
+      "truncation_side": "right",
+      "padding_side": "right",
+      "token_count_mean": 437.14114114114113,
+      "token_count_median": 432,
+      "token_count_p90": 560.4000000000001,
+      "token_count_p95": 595.8,
+      "token_count_max": 768,
+      "truncated_page_count": 76,
+      "truncated_page_rate": 0.22822822822822822,
+      "user_partially_truncated_page_count": 43,
+      "user_fully_truncated_page_count": 33,
+      "user_partially_or_fully_truncated_page_count": 76,
+      "component_token_definition": "token counts include each field label (Keywords:/User:) but exclude special tokens"
+    },
+    "保守调优 Add Prompt": {
+      "tokenizer_class": "BertTokenizer",
+      "tokenizer_model_max_length": 512,
+      "sentence_transformer_max_seq_length": 512,
+      "effective_max_length": 512,
+      "special_tokens_single": 2,
+      "content_token_budget": 510,
+      "truncation_enabled_by_sentence_transformer": true,
+      "truncation_strategy": "longest_first (single sequence)",
+      "truncation_side": "right",
+      "padding_side": "right",
+      "token_count_mean": 503.9309309309309,
+      "token_count_median": 510,
+      "token_count_p90": 629.0,
+      "token_count_p95": 683.9999999999999,
+      "token_count_max": 999,
+      "truncated_page_count": 161,
+      "truncated_page_rate": 0.48348348348348347,
+      "user_partially_truncated_page_count": 61,
+      "user_fully_truncated_page_count": 100,
+      "user_partially_or_fully_truncated_page_count": 161,
+      "component_token_definition": "token counts include each field label (Keywords:/User:) but exclude special tokens"
+    }
+  },
+  "embedding_model": "BAAI/bge-small-zh-v1.5",
+  "embedding_mode": "add",
+  "dimension": 512,
+  "Baseline_Query_embeddings_reused": 99,
+  "Resolved_Query_embeddings_reused": 99,
+  "full_session_rerun": false,
+  "source_turn_set_changed": false,
+  "eligible_gold_changed": false,
+  "visible_page_ids_changed": false,
+  "query_text_changed": false,
+  "validation": {
+    "production_original_query_reproduction": {
+      "status": "PASS",
+      "micro_r5": 0.3246753246753247,
+      "macro_r5": 0.3367359868813357
+    },
+    "production_resolved_query_reproduction": {
+      "status": "PASS",
+      "micro_r5": 0.35064935064935066,
+      "macro_r5": 0.3601371496720334
+    },
+    "frozen_coverage": {
+      "status": "PASS",
+      "page_count": 333,
+      "query_count": 99,
+      "eligible_gold_count": 154
+    },
+    "visible_page_ids": {
+      "status": "PASS",
+      "mapping_sha256": "2f540d58198a7555d9d6b64b2a82302d4f40b36d0f00e968d1b98b08f2514fb1"
+    },
+    "query_texts_and_vectors": {
+      "status": "PASS",
+      "original_query_contract": "original_query exactly",
+      "resolved_query_contract": "frozen P2 resolved_query only"
+    },
+    "production_input_contract": {
+      "status": "PASS",
+      "contract": "User:<user_input>\\n\\nAssistant:<assistant_response>",
+      "previous_dialogue_included": false
+    },
+    "prompt_frozen": {
+      "status": "PASS",
+      "sha256": {
+        "Production": "bede5bf2781904ced0781facd5ca700d3d4a14c357784543096546ff74f73729",
+        "ConservativeTuned": "e88ff5e17e9d501015bc82f2879fde28926dc6c85bd1eee5912d25326168ab4a"
+      }
+    },
+    "new_llm_scope": {
+      "status": "PASS",
+      "Production_calls": 0,
+      "Search_calls": 0,
+      "ConservativeTuned_expected_outputs": 333
+    },
+    "prompt_hash_after_generation": {
+      "status": "PASS",
+      "before": {
+        "Production": "bede5bf2781904ced0781facd5ca700d3d4a14c357784543096546ff74f73729",
+        "ConservativeTuned": "e88ff5e17e9d501015bc82f2879fde28926dc6c85bd1eee5912d25326168ab4a"
+      },
+      "after": {
+        "Production": "bede5bf2781904ced0781facd5ca700d3d4a14c357784543096546ff74f73729",
+        "ConservativeTuned": "e88ff5e17e9d501015bc82f2879fde28926dc6c85bd1eee5912d25326168ab4a"
+      }
+    },
+    "post_generation_page_identity_and_formatter": {
+      "status": "PASS",
+      "source_turn_counts": {
+        "Production": 333,
+        "ConservativeTuned": 333
+      },
+      "formatter": "<summary>\\nKeywords: <keywords>\\nUser: <original_user>"
+    }
+  },
+  "validation_all_pass": true,
+  "aggregate_metrics": {
+    "Production_OriginalQuery": {
+      "evaluated_query_count": 99,
+      "eligible_gold_count": 154,
+      "mrr": 0.2948787273272229,
+      "ndcg_at_5": 0.23693173037976822,
+      "mean_gold_rank": 14.571428571428571,
+      "median_gold_rank": 9.0,
+      "max_gold_rank": 75,
+      "recall_at_1": 0.07792207792207792,
+      "macro_recall_at_1": 0.07575757575757576,
+      "recall_at_3": 0.24675324675324675,
+      "macro_recall_at_3": 0.2676767676767677,
+      "recall_at_5": 0.3246753246753247,
+      "macro_recall_at_5": 0.3367003367003367,
+      "recall_at_10": 0.525974025974026,
+      "macro_recall_at_10": 0.5252525252525253,
+      "recall_at_15": 0.6623376623376623,
+      "macro_recall_at_15": 0.6717171717171717,
+      "recall_at_20": 0.7467532467532467,
+      "macro_recall_at_20": 0.7525252525252525,
+      "recall_at_30": 0.8571428571428571,
+      "macro_recall_at_30": 0.8602693602693603,
+      "macro_session_r5": 0.3367359868813357
+    },
+    "Production_ResolvedQuery": {
+      "evaluated_query_count": 99,
+      "eligible_gold_count": 154,
+      "mrr": 0.30458163138396327,
+      "ndcg_at_5": 0.25331484942842847,
+      "mean_gold_rank": 14.551948051948052,
+      "median_gold_rank": 9.0,
+      "max_gold_rank": 77,
+      "recall_at_1": 0.08441558441558442,
+      "macro_recall_at_1": 0.08585858585858586,
+      "recall_at_3": 0.2532467532467532,
+      "macro_recall_at_3": 0.27609427609427606,
+      "recall_at_5": 0.35064935064935066,
+      "macro_recall_at_5": 0.3653198653198653,
+      "recall_at_10": 0.525974025974026,
+      "macro_recall_at_10": 0.5404040404040404,
+      "recall_at_15": 0.6818181818181818,
+      "macro_recall_at_15": 0.6902356902356902,
+      "recall_at_20": 0.7597402597402597,
+      "macro_recall_at_20": 0.7609427609427609,
+      "recall_at_30": 0.8376623376623377,
+      "macro_recall_at_30": 0.8350168350168351,
+      "macro_session_r5": 0.3601371496720334
+    },
+    "ConservativeTuned_OriginalQuery": {
+      "evaluated_query_count": 99,
+      "eligible_gold_count": 154,
+      "mrr": 0.26681291853614586,
+      "ndcg_at_5": 0.21356404969023768,
+      "mean_gold_rank": 14.714285714285714,
+      "median_gold_rank": 11.0,
+      "max_gold_rank": 72,
+      "recall_at_1": 0.07142857142857142,
+      "macro_recall_at_1": 0.0707070707070707,
+      "recall_at_3": 0.2012987012987013,
+      "macro_recall_at_3": 0.2222222222222222,
+      "recall_at_5": 0.2922077922077922,
+      "macro_recall_at_5": 0.3114478114478114,
+      "recall_at_10": 0.4935064935064935,
+      "macro_recall_at_10": 0.5084175084175084,
+      "recall_at_15": 0.6233766233766234,
+      "macro_recall_at_15": 0.6363636363636364,
+      "recall_at_20": 0.7467532467532467,
+      "macro_recall_at_20": 0.7457912457912458,
+      "recall_at_30": 0.8636363636363636,
+      "macro_recall_at_30": 0.872053872053872,
+      "macro_session_r5": 0.31067169264843686
+    },
+    "ConservativeTuned_ResolvedQuery": {
+      "evaluated_query_count": 99,
+      "eligible_gold_count": 154,
+      "mrr": 0.2739339590184872,
+      "ndcg_at_5": 0.21781711033781323,
+      "mean_gold_rank": 14.753246753246753,
+      "median_gold_rank": 9.0,
+      "max_gold_rank": 66,
+      "recall_at_1": 0.07792207792207792,
+      "macro_recall_at_1": 0.08080808080808081,
+      "recall_at_3": 0.19480519480519481,
+      "macro_recall_at_3": 0.2222222222222222,
+      "recall_at_5": 0.2922077922077922,
+      "macro_recall_at_5": 0.3148148148148148,
+      "recall_at_10": 0.538961038961039,
+      "macro_recall_at_10": 0.5572390572390572,
+      "recall_at_15": 0.6818181818181818,
+      "macro_recall_at_15": 0.6919191919191919,
+      "recall_at_20": 0.7532467532467533,
+      "macro_recall_at_20": 0.7558922558922558,
+      "recall_at_30": 0.8506493506493507,
+      "macro_recall_at_30": 0.8468013468013468,
+      "macro_session_r5": 0.30907285543913454
+    }
+  },
+  "keyword_summary": {
+    "Production": {
+      "mean_keyword_count": 7.987987987987988
+    },
+    "ConservativeTuned": {
+      "mean_keyword_count": 8.0
+    },
+    "exact_ordered_keyword_match_count": 33,
+    "mean_keyword_jaccard": 0.6595440428773762,
+    "total_added_keyword_instances": 591,
+    "total_lost_keyword_instances": 587,
+    "top_added_keywords": [
+      [
+        "年度报告",
+        38
+      ],
+      [
+        "连续上升",
+        34
+      ],
+      [
+        "先升后降",
+        32
+      ],
+      [
+        "营业收入",
+        31
+      ],
+      [
+        "同比",
+        31
+      ],
+      [
+        "总资产",
+        29
+      ],
+      [
+        "归母净利润",
+        28
+      ],
+      [
+        "归母股东权益",
+        28
+      ],
+      [
+        "经营活动现金流",
+        20
+      ],
+      [
+        "年报",
+        15
+      ],
+      [
+        "2023-2025年",
+        12
+      ],
+      [
+        "经营现金流",
+        12
+      ],
+      [
+        "投资者关系",
+        12
+      ],
+      [
+        "同比分析",
+        11
+      ],
+      [
+        "2023-2025财年",
+        11
+      ],
+      [
+        "反证",
+        10
+      ],
+      [
+        "经营活动现金流净额",
+        10
+      ],
+      [
+        "拐点",
+        7
+      ],
+      [
+        "风险委员会",
+        7
+      ],
+      [
+        "内控审计",
+        6
+      ],
+      [
+        "年报来源",
+        6
+      ],
+      [
+        "同比变化",
+        5
+      ],
+      [
+        "年度拐点",
+        5
+      ],
+      [
+        "证据分级",
+        5
+      ],
+      [
+        "口径限制",
+        5
+      ],
+      [
+        "先降后升",
+        5
+      ],
+      [
+        "证据缺口",
+        4
+      ],
+      [
+        "风险议题卡",
+        4
+      ],
+      [
+        "反证检验",
+        4
+      ],
+      [
+        "扣非归母净利润",
+        4
+      ]
+    ],
+    "top_lost_keywords": [
+      [
+        "年报",
+        59
+      ],
+      [
+        "同比",
+        49
+      ],
+      [
+        "年度报告",
+        45
+      ],
+      [
+        "2023-2025",
+        24
+      ],
+      [
+        "连续上升",
+        17
+      ],
+      [
+        "财务分析",
+        15
+      ],
+      [
+        "先升后降",
+        14
+      ],
+      [
+        "经营现金流",
+        14
+      ],
+      [
+        "经营活动现金流",
+        13
+      ],
+      [
+        "同比分析",
+        11
+      ],
+      [
+        "三年路径",
+        9
+      ],
+      [
+        "反证检验",
+        8
+      ],
+      [
+        "风险议题卡",
+        8
+      ],
+      [
+        "反证",
+        8
+      ],
+      [
+        "归母净利润",
+        7
+      ],
+      [
+        "风险排序",
+        7
+      ],
+      [
+        "内控审计",
+        7
+      ],
+      [
+        "投资者关系",
+        7
+      ],
+      [
+        "年报来源",
+        6
+      ],
+      [
+        "拐点",
+        6
+      ],
+      [
+        "年报数据",
+        6
+      ],
+      [
+        "风险分析",
+        6
+      ],
+      [
+        "权益研究员",
+        5
+      ],
+      [
+        "年报原数",
+        5
+      ],
+      [
+        "盈利分析",
+        5
+      ],
+      [
+        "口径限制",
+        5
+      ],
+      [
+        "法务合规",
+        5
+      ],
+      [
+        "年报分析",
+        4
+      ],
+      [
+        "总资产",
+        4
+      ],
+      [
+        "三年比较",
+        4
+      ]
+    ]
+  },
+  "fidelity_potential_unsupported_count": 55,
+  "replacement_decision": {
+    "decision_rule_frozen_before_results": "建议替换仅当调优 Prompt 在两种 Search 下的 Micro R@5 和 Macro R@5 均不低于 Production，且至少一种 Search 的 Micro R@5 严格提升，并且两种 Search 的 net Gold gain 均不为负。",
+    "conditions": {
+      "原始问题直接检索 Micro R@5 non-decreasing": false,
+      "原始问题直接检索 Macro R@5 non-decreasing": false,
+      "原始问题直接检索 net Gold gain non-negative": false,
+      "上下文引用解析后检索 Micro R@5 non-decreasing": false,
+      "上下文引用解析后检索 Macro R@5 non-decreasing": false,
+      "上下文引用解析后检索 net Gold gain non-negative": false,
+      "at least one strict Micro R@5 improvement": false
+    },
+    "recommend_replace_production": false,
+    "conclusion": "不值得替换 Production"
+  },
+  "production_prompt_char_count": 1052,
+  "tuned_prompt_char_count": 1425
+}

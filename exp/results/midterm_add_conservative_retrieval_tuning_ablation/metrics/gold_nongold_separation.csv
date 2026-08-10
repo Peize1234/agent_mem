@@ -1,0 +1,5 @@
+﻿完整实验配置,Add Prompt,Search 方案,query_count,best_Gold_score_mean,best_NonGold_score_mean,separation_margin_mean,separation_margin_median,positive_margin_rate,margin_definition
+原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,99,0.5087228820781515,0.5600051380167104,-0.05128225593855887,-0.04756450653076172,0.12121212121212122,best visible eligible Gold score - best visible Non-Gold score
+原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,99,0.5481819365963791,0.5964918127565673,-0.048309876160188156,-0.04224720597267151,0.13131313131313133,best visible eligible Gold score - best visible Non-Gold score
+保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,99,0.5075062106956135,0.5625096041746814,-0.05500339347906787,-0.05156749486923218,0.1111111111111111,best visible eligible Gold score - best visible Non-Gold score
+保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,99,0.5468931321543876,0.6002491694508176,-0.05335603729643003,-0.05136233568191528,0.12121212121212122,best visible eligible Gold score - best visible Non-Gold score

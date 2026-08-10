@@ -1,0 +1,334 @@
+﻿session_id,source_turn_id,status,unsupported,audit_scope
+S001,S001-Q001,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q002,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q003,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q004,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q005,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q006,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1476.94"", ""1688.38"", ""1708.99"", ""2156.69"", ""2331.06"", ""2446.38"", ""2727"", ""2989.45"", ""3038.35""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q007,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q008,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q009,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q010,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q011,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q012,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q013,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q014,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q015,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q016,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q017,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q018,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q019,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q020,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q021,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q022,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1476.94"", ""1688.38"", ""1708.99"", ""2156.69"", ""2331.06"", ""2446.38"", ""2727"", ""2989.45"", ""3038.35""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q023,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q024,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q025,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q026,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1476.94"", ""1688.38"", ""1708.99"", ""2156.69"", ""2331.06"", ""2446.38"", ""2727"", ""2989.45"", ""3038.35""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q027,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q028,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q029,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""2025，""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q030,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q031,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q032,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q033,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q034,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q035,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1476.94"", ""1688.38"", ""1708.99"", ""2156.69"", ""2331.06"", ""2446.38""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q036,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q037,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q038,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1476.94"", ""1688.38"", ""1708.99"", ""2156.69"", ""2331.06"", ""2446.38"", ""2727"", ""2989.45"", ""3038.35""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q039,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q040,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q041,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q042,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q043,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""+211.44"", ""+289.69"", ""+311.35"", ""+75.86""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q044,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q045,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q046,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S001,S001-Q047,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q001,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q002,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q003,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1476.94"", ""1688.38"", ""1708.99"", ""2156.69"", ""2331.06"", ""2446.38"", ""2727"", ""2989.45"", ""3038.35""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q004,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q005,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q006,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q007,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q008,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q009,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q010,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q011,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q012,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1476.94"", ""1688.38"", ""1708.99"", ""2156.69"", ""2331.06"", ""2446.38"", ""2727"", ""2989.45"", ""3038.35""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q013,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q014,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q015,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q016,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q017,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q018,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q019,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q020,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q021,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q022,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1476.94"", ""1688.38"", ""1708.99""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q023,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q024,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q025,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1476.94"", ""1688.38"", ""1708.99"", ""2156.69"", ""2331.06"", ""2446.38"", ""2727"", ""2989.45"", ""3038.35""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q026,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q027,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q028,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q029,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q030,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q031,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q032,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q033,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q034,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q035,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q036,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1476.94"", ""1688.38"", ""1708.99"", ""2156.69"", ""2331.06"", ""2446.38"", ""2727"", ""2989.45"", ""3038.35""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q037,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""2156.69"", ""2331.06"", ""2446.38"", ""2727"", ""2989.45"", ""3038.35""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q038,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1476.94"", ""1688.38"", ""1708.99""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q039,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q040,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q041,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q042,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q043,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q044,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q045,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q046,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q047,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q048,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q049,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1476.94"", ""1688.38"", ""1708.99"", ""2156.69"", ""2331.06"", ""2446.38"", ""2727"", ""2989.45"", ""3038.35""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q050,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q051,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q052,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q053,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1.21%""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q054,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q055,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q056,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q057,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q058,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q059,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q060,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q061,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1476.94"", ""1688.38"", ""1708.99"", ""2156.69"", ""2331.06"", ""2446.38"", ""2727"", ""2989.45"", ""3038.35""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q062,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q063,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q064,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q065,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q066,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q067,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q068,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q069,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S002,S002-Q070,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q001,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q002,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q003,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1334.54"", ""1388.1"", ""1697.25"", ""1852.51"", ""2462.75"", ""6023.15"", ""6795.48"", ""7771.02"", ""7833.56"", ""8039.65"", ""8837.3""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q004,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q005,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q006,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1334.54"", ""1388.1"", ""1697.25"", ""1852.51"", ""2462.75"", ""6023.15"", ""6795.48"", ""7771.02"", ""7833.56"", ""8039.65"", ""8837.3""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q007,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q008,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q009,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q010,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q011,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q012,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1334.54"", ""1388.1"", ""1697.25"", ""1852.51"", ""2462.75"", ""6023.15"", ""6795.48"", ""7771.02"", ""7833.56"", ""8039.65"", ""8837.3""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q013,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q014,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q015,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1334.54"", ""1388.1"", ""1697.25"", ""1852.51"", ""2462.75"", ""6023.15"", ""6795.48"", ""7771.02"", ""7833.56"", ""8039.65"", ""8837.3""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q016,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1334.54"", ""1388.1"", ""1697.25"", ""1852.51"", ""2462.75"", ""6023.15"", ""6795.48"", ""7771.02"", ""7833.56"", ""8039.65"", ""8837.3""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q017,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q018,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q019,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q020,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q021,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q022,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q023,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""18.97%"", ""21.37%"", ""34.00%"", ""55.69%""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q024,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1334.54"", ""1697.25"", ""8837.3""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q025,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q026,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q027,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q028,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1334.54"", ""1388.1"", ""1697.25"", ""1852.51"", ""2462.75"", ""6023.15"", ""6795.48"", ""7771.02"", ""7833.56"", ""8039.65"", ""8837.3""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q029,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q030,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q031,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q032,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q033,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1334.54"", ""1388.1"", ""1697.25"", ""1852.51"", ""2462.75"", ""6023.15"", ""6795.48"", ""7771.02"", ""7833.56"", ""8039.65"", ""8837.3""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q034,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q035,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q036,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q037,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1334.54"", ""1388.1"", ""1697.25"", ""1852.51"", ""2462.75"", ""6023.15"", ""6795.48"", ""7771.02"", ""7833.56"", ""8039.65"", ""8837.3""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q038,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1334.54"", ""1388.1"", ""1697.25"", ""1852.51"", ""2462.75"", ""6023.15"", ""6795.48"", ""7771.02"", ""7833.56"", ""8039.65"", ""8837.3""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q039,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q040,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q041,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q042,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q043,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q044,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q045,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q046,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q047,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q048,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q049,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q050,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q051,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q052,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q053,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q054,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q055,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1334.54"", ""1388.1"", ""1697.25"", ""1852.51"", ""2462.75"", ""6023.15"", ""6795.48"", ""7771.02"", ""7833.56"", ""8039.65"", ""8837.3""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q056,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q057,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q058,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q059,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q060,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q061,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q062,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q063,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q064,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q065,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1334.54"", ""1388.1"", ""1697.25"", ""1852.51"", ""2462.75"", ""6023.15"", ""6795.48"", ""7771.02"", ""7833.56"", ""8039.65"", ""8837.3""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q066,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q067,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q068,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q069,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q070,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q071,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1334.54"", ""1697.25"", ""6023.15"", ""7771.02"", ""8039.65""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q072,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q073,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q074,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q075,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q076,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q077,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q078,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q079,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q080,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q081,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q082,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q083,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1334.54"", ""1388.1"", ""1697.25"", ""1852.51"", ""2462.75"", ""6023.15"", ""6795.48"", ""7771.02"", ""7833.56"", ""8039.65"", ""8837.3""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q084,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q085,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""12.81%"", ""15.28%"", ""18.97%"", ""20.38%"", ""21.37%"", ""29.02%"", ""29.94%"", ""3.46%"", ""32.94%"", ""33.46%"", ""34.00%"", ""55.69%""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q086,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q087,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q088,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q089,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1334.54"", ""1388.1"", ""1697.25"", ""1852.51"", ""2462.75"", ""6023.15"", ""6795.48"", ""7771.02"", ""7833.56"", ""8039.65"", ""8837.3""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S003,S003-Q090,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q001,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q002,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q003,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1334.54"", ""1388.1"", ""1697.25"", ""1852.51"", ""2462.75"", ""6023.15"", ""6795.48"", ""7771.02"", ""7833.56"", ""8039.65"", ""8837.3""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q004,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q005,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q006,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q007,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1334.54"", ""1388.1"", ""1697.25"", ""1852.51"", ""2462.75"", ""6023.15"", ""6795.48"", ""7771.02"", ""7833.56"", ""8039.65"", ""8837.3""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q008,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q009,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q010,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q011,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q012,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q013,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""18.97%"", ""55.69%""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q014,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q015,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1334.54"", ""1388.1"", ""1697.25"", ""1852.51"", ""2462.75"", ""6023.15"", ""6795.48"", ""7771.02"", ""7833.56"", ""8039.65"", ""8837.3""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q016,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q017,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q018,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q019,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q020,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q021,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q022,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1388.1"", ""1852.51"", ""2462.75""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q023,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q024,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q025,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q026,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q027,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1334.54"", ""1388.1"", ""1697.25"", ""1852.51"", ""2462.75"", ""6023.15"", ""6795.48"", ""7771.02"", ""7833.56"", ""8039.65"", ""8837.3""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q028,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1388.1"", ""1852.51"", ""2462.75""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q029,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1334.54"", ""1388.1"", ""1697.25"", ""1852.51"", ""2462.75"", ""6023.15"", ""6795.48"", ""7771.02"", ""7833.56"", ""8039.65"", ""8837.3""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q030,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q031,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q032,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q033,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q034,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q035,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q036,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1334.54"", ""1388.1"", ""1697.25"", ""1852.51"", ""2462.75"", ""6023.15"", ""6795.48"", ""7771.02"", ""7833.56"", ""8039.65"", ""8837.3""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q037,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1334.54"", ""1388.1"", ""1697.25"", ""1852.51"", ""2462.75"", ""6023.15"", ""6795.48"", ""7771.02"", ""7833.56"", ""8039.65"", ""8837.3""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q038,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q039,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q040,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q041,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q042,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q043,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q044,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q045,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q046,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q047,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1334.54"", ""1697.25""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q048,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""12.81%"", ""15.28%"", ""18.97%"", ""20.38%"", ""21.37%"", ""29.02%"", ""29.94%"", ""3.46%"", ""32.94%"", ""33.46%"", ""34.00%"", ""55.69%""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q049,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q050,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q051,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1334.54"", ""1697.25"", ""6023.15"", ""7771.02"", ""8039.65""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q052,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q053,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q054,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q055,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q056,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q057,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q058,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q059,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q060,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q061,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q062,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q063,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q064,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q065,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q066,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q067,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q068,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q069,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q070,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [], ""numbers"": [""1334.54"", ""1388.1"", ""1697.25"", ""1852.51"", ""2462.75"", ""6023.15"", ""6795.48"", ""7771.02"", ""7833.56"", ""8039.65"", ""8837.3""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S004,S004-Q071,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q001,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q002,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q003,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q004,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q005,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [""1977""], ""numbers"": [""1977.08"", ""2469.3"", ""3371.08"", ""3620.13"", ""4009.17"", ""4237.02"", ""7171.68"", ""7866.58"", ""9748.28""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q006,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q007,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [""1977""], ""numbers"": [""1977.08"", ""2469.3"", ""3371.08"", ""3620.13"", ""4009.17"", ""4237.02""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q008,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q009,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q010,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q011,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q012,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [""1977""], ""numbers"": [""1977.08"", ""2469.3"", ""3371.08"", ""3620.13"", ""4009.17"", ""4237.02"", ""7171.68"", ""7866.58"", ""9748.28""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q013,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q014,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q015,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [""1977""], ""numbers"": [""1977.08"", ""2469.3"", ""3371.08"", ""3620.13"", ""4009.17"", ""4237.02"", ""7171.68"", ""7866.58"", ""9748.28""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q016,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q017,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q018,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q019,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q020,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q021,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q022,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q023,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q024,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [""1977""], ""numbers"": [""1977.08"", ""2469.3"", ""3371.08"", ""3620.13"", ""4009.17"", ""4237.02"", ""7171.68"", ""7866.58"", ""9748.28""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q025,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q026,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q027,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q028,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q029,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q030,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q031,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q032,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q033,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q034,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q035,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q036,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q037,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q038,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q039,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q040,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q041,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q042,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q043,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q044,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q045,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q046,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q047,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q048,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [""1977""], ""numbers"": [""1977.08"", ""2469.3"", ""3371.08"", ""3620.13"", ""4009.17"", ""4237.02"", ""7171.68"", ""7866.58"", ""9748.28""]}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q049,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q050,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q051,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q052,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q053,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q054,NO_FLAG,"{""indicators"": [], ""years"": [], ""numbers"": []}",deterministic comparison against current User + Assistant only; no Gold/rank
+S005,S005-Q055,POTENTIAL_UNSUPPORTED,"{""indicators"": [], ""years"": [""1977""], ""numbers"": [""1977.08"", ""2469.3"", ""3371.08"", ""3620.13"", ""4009.17"", ""4237.02""]}",deterministic comparison against current User + Assistant only; no Gold/rank

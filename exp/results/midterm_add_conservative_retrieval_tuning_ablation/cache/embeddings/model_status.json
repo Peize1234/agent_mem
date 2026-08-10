@@ -1,0 +1,7 @@
+{
+  "BAAI/bge-small-zh-v1.5": {
+    "status": "AVAILABLE",
+    "load_ms": 5151.381314999526,
+    "dimension": 512
+  }
+}

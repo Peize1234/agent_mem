@@ -1,0 +1,617 @@
+﻿Session,Query ID,Gold Page ID,Gold source_turn_id,完整实验配置,Add Prompt,Search 方案,Gold rank,Gold score,Gold hit Top5
+S001,S001-Q007,2631e802-75be-5089-9418-baece6a717cf,S001-Q001,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,3,0.35526493191719055,True
+S001,S001-Q011,2631e802-75be-5089-9418-baece6a717cf,S001-Q001,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,6,0.4535906910896301,False
+S001,S001-Q011,dc12b285-c21d-5cfe-84a2-d016fce5ffe6,S001-Q007,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,1,0.5185934901237488,True
+S001,S001-Q013,2631e802-75be-5089-9418-baece6a717cf,S001-Q001,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,9,0.3880617618560791,False
+S001,S001-Q013,9b4b60a1-f0f9-5368-b4ce-b441752321bb,S001-Q006,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,7,0.4383961260318756,False
+S001,S001-Q014,f99dbe58-f286-568d-b1fe-f1ebe59c0e0a,S001-Q008,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,1,0.6648146510124207,True
+S001,S001-Q021,f1228bac-12d1-520f-9787-52a8cdcd49db,S001-Q015,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,6,0.5378081798553467,False
+S001,S001-Q022,34fa3574-894f-575c-b9b0-0a183473746e,S001-Q012,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,16,0.5138569474220276,False
+S001,S001-Q022,55e7e466-3b1c-5014-85fc-2a14618ce254,S001-Q018,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,13,0.5241682529449463,False
+S001,S001-Q026,289ba3d6-8b24-5c77-8df9-7af211ee1007,S001-Q014,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,21,0.3901694118976593,False
+S001,S001-Q026,88e975b7-0f5a-5f5c-98ce-e461dcab93b8,S001-Q019,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,4,0.4946797788143158,True
+S001,S001-Q028,44777fdf-abd5-5570-b0aa-8e3f1cb44000,S001-Q022,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,2,0.48575401306152344,True
+S001,S001-Q033,d5c03971-3795-5256-a75f-b3921d61a92d,S001-Q023,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,2,0.5201343297958374,True
+S001,S001-Q033,b4497adc-7393-57c0-8917-ce3372fbd151,S001-Q029,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,20,0.4486255347728729,False
+S001,S001-Q035,b4497adc-7393-57c0-8917-ce3372fbd151,S001-Q029,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,27,0.38482916355133057,False
+S001,S001-Q039,31eb0f30-7b80-5d07-8ba6-bc6a6a24cb62,S001-Q027,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,3,0.49549949169158936,True
+S001,S001-Q039,c107828c-a741-55f6-8e0c-446cfbdba215,S001-Q032,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,11,0.4700566232204437,False
+S001,S001-Q042,0ec56d0d-4e11-511a-9b98-5f6bddfc2dcc,S001-Q036,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,6,0.524163007736206,False
+S001,S001-Q044,32b5d492-2df9-5ed9-ac46-caca5c87097c,S001-Q034,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,15,0.38481488823890686,False
+S001,S001-Q044,4054aab2-0aa7-5019-b341-077265511add,S001-Q040,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,29,0.335262268781662,False
+S001,S001-Q049,de592e81-e050-536b-8909-32866c85f6c2,S001-Q043,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,13,0.4355660080909729,False
+S002,S002-Q007,f70d87dd-c4b9-59de-a761-869308b1818b,S002-Q001,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,3,0.33832457661628723,True
+S002,S002-Q011,f70d87dd-c4b9-59de-a761-869308b1818b,S002-Q001,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,6,0.3450709879398346,False
+S002,S002-Q011,03c3981b-3b09-56ca-a545-043c8ff0d240,S002-Q007,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,3,0.3914191424846649,True
+S002,S002-Q013,f70d87dd-c4b9-59de-a761-869308b1818b,S002-Q001,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,9,0.33159926533699036,False
+S002,S002-Q013,a6c0000c-f234-59a1-b6e5-1283680d9b77,S002-Q006,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,5,0.4067200720310211,True
+S002,S002-Q014,37d568b0-90c6-5481-b7d9-e0101fd95e52,S002-Q008,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,3,0.5073202252388,True
+S002,S002-Q021,691ce2a8-c4c3-51f3-8cb7-32f42cdee99e,S002-Q015,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,13,0.6465378403663635,False
+S002,S002-Q022,4d8b4bb3-4a1f-538c-af07-cc0ce19ea796,S002-Q012,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,4,0.7317522764205933,True
+S002,S002-Q022,b304ab57-b911-5070-88ba-fca4f39a37e8,S002-Q018,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,11,0.6958172917366028,False
+S002,S002-Q026,00ce1b35-d357-53e0-a42e-a8f97d4a07f0,S002-Q014,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,6,0.6949954032897949,False
+S002,S002-Q026,e64218f2-62ce-555a-ba53-f3fd1214e0f7,S002-Q019,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,9,0.6865123510360718,False
+S002,S002-Q028,42756865-0f8f-5dcc-a050-6ecec5b828ce,S002-Q022,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,8,0.635677695274353,False
+S002,S002-Q033,79860bb6-6010-5ca0-ac81-f4327e2bff44,S002-Q023,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,4,0.7509975433349609,True
+S002,S002-Q033,893b3ae9-1f94-5436-8c6d-54e200693867,S002-Q029,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,11,0.713391900062561,False
+S002,S002-Q035,893b3ae9-1f94-5436-8c6d-54e200693867,S002-Q029,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,8,0.71683669090271,False
+S002,S002-Q039,0dd982c7-f7b2-5ac0-8c16-56d44bbe4330,S002-Q027,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,12,0.6947565078735352,False
+S002,S002-Q039,78a623b8-bff9-5b45-b990-24d74e714f9b,S002-Q032,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,1,0.7444235682487488,True
+S002,S002-Q042,5c22c135-b86e-56a3-83eb-7484d1183dca,S002-Q036,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,5,0.7117832899093628,True
+S002,S002-Q044,57b8caa3-b46e-50f2-a65a-bb244543b1c3,S002-Q034,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,40,0.6301290392875671,False
+S002,S002-Q044,647fce0c-6320-5a98-819d-50dff3300582,S002-Q040,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,11,0.7112531065940857,False
+S002,S002-Q049,57600f18-283a-5f61-bf9e-7a48d4f8d3c5,S002-Q043,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,5,0.6977245807647705,True
+S002,S002-Q052,647fce0c-6320-5a98-819d-50dff3300582,S002-Q040,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,2,0.5538138151168823,True
+S002,S002-Q052,d728a292-3080-5624-89ff-d8e05d09e8ca,S002-Q045,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,5,0.5295717716217041,True
+S002,S002-Q055,d728a292-3080-5624-89ff-d8e05d09e8ca,S002-Q045,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,5,0.519546627998352,True
+S002,S002-Q055,2e583969-bc65-5074-a7fe-0424438cd092,S002-Q051,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,13,0.49913763999938965,False
+S002,S002-Q056,e40ec65e-2907-515a-b1dd-3bec39109106,S002-Q050,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,34,0.34421658515930176,False
+S002,S002-Q063,3549589e-05fe-5631-9385-5379f8dd4396,S002-Q057,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,19,0.3813455402851105,False
+S002,S002-Q065,a2f4bee5-f836-545e-8197-d79f3f2d284c,S002-Q053,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,1,0.5514099597930908,True
+S002,S002-Q065,7cf76f8c-3ecc-5aa0-8867-9b1934ccb270,S002-Q058,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,10,0.47436463832855225,False
+S002,S002-Q066,166328f1-a89c-5b18-8a53-02ac909e0849,S002-Q056,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,1,0.5741122364997864,True
+S002,S002-Q066,323c7c4f-02b6-5801-9c72-3623423fb3c6,S002-Q062,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,9,0.48527994751930237,False
+S002,S002-Q070,95dce1c8-76eb-5c10-b622-b77e03c00526,S002-Q064,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,37,0.39760541915893555,False
+S003,S003-Q007,d84b52e5-9dec-53d0-8a9d-ddef9f5bd919,S003-Q001,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,1,0.37955912947654724,True
+S003,S003-Q011,d84b52e5-9dec-53d0-8a9d-ddef9f5bd919,S003-Q001,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,3,0.48598742485046387,True
+S003,S003-Q011,aacabfac-ac8e-5c81-8f0b-9adc0eeeef33,S003-Q007,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,2,0.513968288898468,True
+S003,S003-Q013,d84b52e5-9dec-53d0-8a9d-ddef9f5bd919,S003-Q001,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,7,0.4879744350910187,False
+S003,S003-Q013,914dcda3-55d6-504a-9159-f6f54938f31f,S003-Q006,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,2,0.5344179272651672,True
+S003,S003-Q014,22322d48-4d17-5d2e-8760-ab1acaeb9f0a,S003-Q008,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,1,0.5515123605728149,True
+S003,S003-Q021,1b59ffe6-5fba-511e-b39a-6529e998d6ca,S003-Q015,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,14,0.6067447662353516,False
+S003,S003-Q022,4b59a558-4eb8-5c30-a40b-2e1cc9df12a2,S003-Q012,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,1,0.540005624294281,True
+S003,S003-Q022,bd6d22da-10ea-5784-b308-d3f5d1f57469,S003-Q018,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,3,0.5354854464530945,True
+S003,S003-Q026,cee54426-e3ab-5ae2-aaab-81de729e05f3,S003-Q014,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,21,0.5021357536315918,False
+S003,S003-Q026,bd0dc9f1-4c0c-5c9f-b9c0-5a7b5051b7f2,S003-Q019,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,6,0.566022515296936,False
+S003,S003-Q028,9ca9c523-e56d-58df-aa6b-c54a80e3dbb5,S003-Q022,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,2,0.4874832332134247,True
+S003,S003-Q033,c96d749e-7c02-5289-ab48-fd03586dd5b1,S003-Q023,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,19,0.47346293926239014,False
+S003,S003-Q033,1b535a84-9ae4-50ee-bbda-1d7ba186183e,S003-Q029,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,17,0.4776647090911865,False
+S003,S003-Q035,1b535a84-9ae4-50ee-bbda-1d7ba186183e,S003-Q029,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,11,0.5142894387245178,False
+S003,S003-Q039,4ed05884-3478-5a91-a63f-3067fd41956d,S003-Q027,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,4,0.5138795971870422,True
+S003,S003-Q039,c94687e6-820c-5c03-a774-40d03e0f70be,S003-Q032,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,29,0.42981383204460144,False
+S003,S003-Q042,82bf5c46-13d0-5fb7-9826-308047a68fc7,S003-Q036,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,12,0.5011759400367737,False
+S003,S003-Q044,ae9f0678-a87f-5377-8edd-5fbd8ff4b4fa,S003-Q034,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,37,0.4009626805782318,False
+S003,S003-Q044,bd2dd48b-5c6b-516a-9bdc-e2e5cdb84c9c,S003-Q040,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,22,0.44993260502815247,False
+S003,S003-Q049,2316a391-e779-530b-ac2f-055182347d32,S003-Q043,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,25,0.39701777696609497,False
+S003,S003-Q052,bd2dd48b-5c6b-516a-9bdc-e2e5cdb84c9c,S003-Q040,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,16,0.4209011197090149,False
+S003,S003-Q052,cc3a667e-ea49-5490-bb5c-5a4d9db97e6f,S003-Q045,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,36,0.3635977506637573,False
+S003,S003-Q055,cc3a667e-ea49-5490-bb5c-5a4d9db97e6f,S003-Q045,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,50,0.3734886050224304,False
+S003,S003-Q055,9409734e-8235-5011-8c1a-60ed15ad9024,S003-Q051,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,8,0.4666304290294647,False
+S003,S003-Q056,59d896c1-0734-53cf-821a-5728dd5fe548,S003-Q050,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,25,0.39264366030693054,False
+S003,S003-Q063,83b39f0f-a1ea-5e54-98aa-d61af4aee5f9,S003-Q057,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,14,0.42972472310066223,False
+S003,S003-Q065,92bbf5d0-665d-52fa-92dd-d73231b6a2f4,S003-Q053,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,31,0.39131292700767517,False
+S003,S003-Q065,ad470150-cd72-5d94-9d96-467573c4b92b,S003-Q058,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,33,0.38522157073020935,False
+S003,S003-Q066,3e1cec0a-77e2-5463-865e-1f49b78e966c,S003-Q056,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,6,0.4341575503349304,False
+S003,S003-Q066,e6b075df-0710-53c0-a850-a6bc715553b6,S003-Q062,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,39,0.34592118859291077,False
+S003,S003-Q070,6e93a473-ae4a-524c-aee1-43aafd7f6bb0,S003-Q064,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,6,0.4145900309085846,False
+S003,S003-Q077,21f9ae05-f6a0-5cc5-af10-142d014dcf11,S003-Q067,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,7,0.447327196598053,False
+S003,S003-Q077,96af7f08-1678-5164-9e1e-935a577a7d1b,S003-Q071,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,67,0.32590147852897644,False
+S003,S003-Q077,2fdaac5c-103c-5100-8480-7d15511a3658,S003-Q073,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,26,0.41176116466522217,False
+S003,S003-Q078,70584af0-da6d-5ee7-9e7c-ad3f962ef545,S003-Q066,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,8,0.5034886598587036,False
+S003,S003-Q078,96af7f08-1678-5164-9e1e-935a577a7d1b,S003-Q071,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,70,0.4027944505214691,False
+S003,S003-Q084,15caa01c-5d97-5da1-93ca-bbb8a8cf5f22,S003-Q078,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,68,0.457669198513031,False
+S003,S003-Q088,15caa01c-5d97-5da1-93ca-bbb8a8cf5f22,S003-Q078,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,75,0.34470492601394653,False
+S003,S003-Q088,dc75d4a6-dbec-512b-bed7-4048466382c6,S003-Q084,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,22,0.42815840244293213,False
+S003,S003-Q091,68d070f4-4242-579d-b5a8-83f3dc6283b3,S003-Q079,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,27,0.4808177649974823,False
+S003,S003-Q091,dc75d4a6-dbec-512b-bed7-4048466382c6,S003-Q084,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,4,0.5210728645324707,True
+S003,S003-Q091,ff75fe78-c1af-5b7a-a243-9648b6132a06,S003-Q085,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,8,0.5104247331619263,False
+S004,S004-Q007,9de4c8e1-1f2d-56af-8e3f-eaed84f7c238,S004-Q001,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,2,0.3488452732563019,True
+S004,S004-Q011,9de4c8e1-1f2d-56af-8e3f-eaed84f7c238,S004-Q001,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,6,0.4478003680706024,False
+S004,S004-Q011,75c0a8f8-fa8f-5fdb-89db-f1e0f0f43bb4,S004-Q007,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,1,0.626485288143158,True
+S004,S004-Q013,9de4c8e1-1f2d-56af-8e3f-eaed84f7c238,S004-Q001,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,8,0.5743756294250488,False
+S004,S004-Q013,d876eb51-66ba-5437-955a-25c3f405ef2f,S004-Q006,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,2,0.6311529874801636,True
+S004,S004-Q014,a60bbf7a-8108-58fc-8b4a-1356764282aa,S004-Q008,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,2,0.5237041115760803,True
+S004,S004-Q021,112af49e-d51f-599c-ad67-5cc18432f1a8,S004-Q015,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,11,0.692194402217865,False
+S004,S004-Q022,1404aa4a-3c7a-565e-8e67-9f834683b3b2,S004-Q012,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,9,0.6558319330215454,False
+S004,S004-Q022,1e8809d9-9426-51b9-9e17-039093174440,S004-Q018,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,5,0.6664348244667053,True
+S004,S004-Q026,7567fc91-4210-59bc-ac74-0cc3060edc83,S004-Q014,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,22,0.5618359446525574,False
+S004,S004-Q026,fadb48cb-a45f-5f46-8f39-e18bd7dff4f1,S004-Q019,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,15,0.607856035232544,False
+S004,S004-Q028,f642437d-2d3c-5b95-a7f6-29f2e68c0a13,S004-Q022,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,19,0.638894259929657,False
+S004,S004-Q033,73b2fb55-c036-52ca-842e-cc784d317c61,S004-Q023,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,2,0.5140451192855835,True
+S004,S004-Q033,dad4c589-bd44-5d61-917f-9435b971db4d,S004-Q029,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,18,0.4629700183868408,False
+S004,S004-Q035,dad4c589-bd44-5d61-917f-9435b971db4d,S004-Q029,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,6,0.4753205478191376,False
+S004,S004-Q039,c022f180-c519-52a7-9c70-3f15928609b5,S004-Q027,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,6,0.3509902358055115,False
+S004,S004-Q039,594016a4-b321-5143-a8c6-3923fed20111,S004-Q032,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,21,0.2760118842124939,False
+S004,S004-Q042,c61777d3-f94f-5655-9b6b-9d6cdc28c303,S004-Q036,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,8,0.49345386028289795,False
+S004,S004-Q044,094486b7-1e86-5360-8005-66c6886152c2,S004-Q034,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,40,0.28102946281433105,False
+S004,S004-Q044,682aecdf-197a-5dc6-b88d-886b08ffb500,S004-Q040,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,14,0.36668768525123596,False
+S004,S004-Q049,08c5243c-c754-5bb1-b020-dfbf21f542d7,S004-Q043,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,25,0.44328320026397705,False
+S004,S004-Q052,682aecdf-197a-5dc6-b88d-886b08ffb500,S004-Q040,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,17,0.453130841255188,False
+S004,S004-Q052,b229284b-6a2b-5cfb-a8c8-0ccc1bd72603,S004-Q045,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,38,0.4072052836418152,False
+S004,S004-Q055,b229284b-6a2b-5cfb-a8c8-0ccc1bd72603,S004-Q045,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,49,0.3857173025608063,False
+S004,S004-Q055,90248870-b2cb-59d2-a707-79d09f366d8a,S004-Q051,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,38,0.40836551785469055,False
+S004,S004-Q056,adc1eeb8-b0f8-5877-88cf-abdd23798b3a,S004-Q050,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,41,0.38185083866119385,False
+S004,S004-Q063,2c5547ce-bd04-536c-8b2d-e09ae5633e53,S004-Q057,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,2,0.5229606628417969,True
+S004,S004-Q065,ca05266e-320c-5081-9d2d-f7c8689c58a9,S004-Q053,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,20,0.42018499970436096,False
+S004,S004-Q065,28de896e-9356-58a4-a8c5-c3efe7770f57,S004-Q058,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,6,0.44664400815963745,False
+S004,S004-Q066,52990abe-a81c-5937-b506-8a88315cc3c0,S004-Q056,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,12,0.3909291625022888,False
+S004,S004-Q066,57ef23a9-5ba4-568c-9cc1-4c5e9a47ec7a,S004-Q062,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,42,0.3365212082862854,False
+S004,S004-Q070,2e530daf-4b7a-5b20-9fe7-9c23daee4af6,S004-Q064,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,32,0.4317394196987152,False
+S005,S005-Q007,73dd18d4-5dac-5f27-ac96-83de10de4633,S005-Q001,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,2,0.4711211323738098,True
+S005,S005-Q011,73dd18d4-5dac-5f27-ac96-83de10de4633,S005-Q001,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,7,0.4023248851299286,False
+S005,S005-Q011,9c806b54-004f-57bf-8755-c4a0eebd929e,S005-Q007,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,2,0.45313093066215515,True
+S005,S005-Q013,73dd18d4-5dac-5f27-ac96-83de10de4633,S005-Q001,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,9,0.4182943105697632,False
+S005,S005-Q013,6e436632-8d73-58b8-a746-7cbc36ffe10f,S005-Q006,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,1,0.5017252564430237,True
+S005,S005-Q014,c64751d6-21c8-5c09-87da-48f940293661,S005-Q008,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,3,0.45949772000312805,True
+S005,S005-Q021,5095d8f5-e975-5011-976e-e587c31560f2,S005-Q015,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,11,0.5081461668014526,False
+S005,S005-Q022,bcb24496-086a-528b-a09e-86bae79fa560,S005-Q012,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,1,0.6334474086761475,True
+S005,S005-Q022,c16509f9-dd00-5e11-9acf-ecc8f08ad424,S005-Q018,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,16,0.5099824070930481,False
+S005,S005-Q026,87d6b0ff-8b24-5176-ba24-dbc110c6e1d5,S005-Q014,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,3,0.5428827404975891,True
+S005,S005-Q026,daf8b285-37ac-5e07-a640-74fc9322fe21,S005-Q019,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,11,0.531827986240387,False
+S005,S005-Q028,102b7fa7-9564-5e73-98e7-41fde776fa99,S005-Q022,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,19,0.35931506752967834,False
+S005,S005-Q033,407824ab-fd2c-5a7b-ac60-4e9d2ed5311e,S005-Q023,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,7,0.5736443400382996,False
+S005,S005-Q033,52954b6d-4823-5e0a-955d-8a3b24df0a30,S005-Q029,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,2,0.6042726635932922,True
+S005,S005-Q035,52954b6d-4823-5e0a-955d-8a3b24df0a30,S005-Q029,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,27,0.4777073264122009,False
+S005,S005-Q039,e0f6fcfc-3a3a-5dbe-8aa0-d690b2179326,S005-Q027,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,32,0.3987697660923004,False
+S005,S005-Q039,a9136ff5-7fca-58fe-8907-08b361042647,S005-Q032,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,1,0.542832612991333,True
+S005,S005-Q042,19b9c9f1-754d-5322-831d-a2b5bbc632f9,S005-Q036,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,3,0.549081563949585,True
+S005,S005-Q044,53a0c2bd-e2e0-5a10-8976-c6a159c1cd78,S005-Q034,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,25,0.5383332371711731,False
+S005,S005-Q044,009ec1d2-83f6-5755-bd7a-e5a92eda1890,S005-Q040,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,18,0.5522897243499756,False
+S005,S005-Q049,d0b649b9-d683-5ad9-a5a6-64c75b0bc996,S005-Q043,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,3,0.5986030697822571,True
+S005,S005-Q052,009ec1d2-83f6-5755-bd7a-e5a92eda1890,S005-Q040,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,5,0.5705035924911499,True
+S005,S005-Q052,c50cce28-4618-514d-bc83-20a57b6f5562,S005-Q045,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,29,0.5134084820747375,False
+S005,S005-Q055,c50cce28-4618-514d-bc83-20a57b6f5562,S005-Q045,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,14,0.49585023522377014,False
+S005,S005-Q055,cc845b3c-bd6e-511e-8bf1-44f5e08cf54a,S005-Q051,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,3,0.5418193340301514,True
+S005,S005-Q056,749bba84-be69-55e2-98a1-a9617e473fb0,S005-Q050,原 Production Add Prompt + 原始问题直接检索,原 Production Add Prompt,原始问题直接检索,38,0.46856755018234253,False
+S001,S001-Q007,2631e802-75be-5089-9418-baece6a717cf,S001-Q001,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,3,0.39499086141586304,True
+S001,S001-Q011,2631e802-75be-5089-9418-baece6a717cf,S001-Q001,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,6,0.4535906910896301,False
+S001,S001-Q011,dc12b285-c21d-5cfe-84a2-d016fce5ffe6,S001-Q007,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,1,0.5185934901237488,True
+S001,S001-Q013,2631e802-75be-5089-9418-baece6a717cf,S001-Q001,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,9,0.5047256946563721,False
+S001,S001-Q013,9b4b60a1-f0f9-5368-b4ce-b441752321bb,S001-Q006,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,3,0.5994397401809692,True
+S001,S001-Q014,f99dbe58-f286-568d-b1fe-f1ebe59c0e0a,S001-Q008,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,3,0.6697158813476562,True
+S001,S001-Q021,f1228bac-12d1-520f-9787-52a8cdcd49db,S001-Q015,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,6,0.6287976503372192,False
+S001,S001-Q022,34fa3574-894f-575c-b9b0-0a183473746e,S001-Q012,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,17,0.5299906134605408,False
+S001,S001-Q022,55e7e466-3b1c-5014-85fc-2a14618ce254,S001-Q018,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,11,0.549980640411377,False
+S001,S001-Q026,289ba3d6-8b24-5c77-8df9-7af211ee1007,S001-Q014,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,17,0.5301981568336487,False
+S001,S001-Q026,88e975b7-0f5a-5f5c-98ce-e461dcab93b8,S001-Q019,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,11,0.5581398606300354,False
+S001,S001-Q028,44777fdf-abd5-5570-b0aa-8e3f1cb44000,S001-Q022,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,2,0.48575401306152344,True
+S001,S001-Q033,d5c03971-3795-5256-a75f-b3921d61a92d,S001-Q023,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,1,0.5790305137634277,True
+S001,S001-Q033,b4497adc-7393-57c0-8917-ce3372fbd151,S001-Q029,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,24,0.481160044670105,False
+S001,S001-Q035,b4497adc-7393-57c0-8917-ce3372fbd151,S001-Q029,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,28,0.3815840482711792,False
+S001,S001-Q039,31eb0f30-7b80-5d07-8ba6-bc6a6a24cb62,S001-Q027,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,3,0.49549949169158936,True
+S001,S001-Q039,c107828c-a741-55f6-8e0c-446cfbdba215,S001-Q032,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,11,0.4700566232204437,False
+S001,S001-Q042,0ec56d0d-4e11-511a-9b98-5f6bddfc2dcc,S001-Q036,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,6,0.524163007736206,False
+S001,S001-Q044,32b5d492-2df9-5ed9-ac46-caca5c87097c,S001-Q034,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,15,0.38481488823890686,False
+S001,S001-Q044,4054aab2-0aa7-5019-b341-077265511add,S001-Q040,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,29,0.335262268781662,False
+S001,S001-Q049,de592e81-e050-536b-8909-32866c85f6c2,S001-Q043,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,11,0.5786396265029907,False
+S002,S002-Q007,f70d87dd-c4b9-59de-a761-869308b1818b,S002-Q001,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,3,0.3383246064186096,True
+S002,S002-Q011,f70d87dd-c4b9-59de-a761-869308b1818b,S002-Q001,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,6,0.3450709879398346,False
+S002,S002-Q011,03c3981b-3b09-56ca-a545-043c8ff0d240,S002-Q007,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,3,0.3914192020893097,True
+S002,S002-Q013,f70d87dd-c4b9-59de-a761-869308b1818b,S002-Q001,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,9,0.3315993845462799,False
+S002,S002-Q013,a6c0000c-f234-59a1-b6e5-1283680d9b77,S002-Q006,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,5,0.4067201614379883,True
+S002,S002-Q014,37d568b0-90c6-5481-b7d9-e0101fd95e52,S002-Q008,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,3,0.5073203444480896,True
+S002,S002-Q021,691ce2a8-c4c3-51f3-8cb7-32f42cdee99e,S002-Q015,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,13,0.6465377807617188,False
+S002,S002-Q022,4d8b4bb3-4a1f-538c-af07-cc0ce19ea796,S002-Q012,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,4,0.7392288446426392,True
+S002,S002-Q022,b304ab57-b911-5070-88ba-fca4f39a37e8,S002-Q018,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,11,0.7118639945983887,False
+S002,S002-Q026,00ce1b35-d357-53e0-a42e-a8f97d4a07f0,S002-Q014,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,6,0.6949952840805054,False
+S002,S002-Q026,e64218f2-62ce-555a-ba53-f3fd1214e0f7,S002-Q019,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,9,0.6865124106407166,False
+S002,S002-Q028,42756865-0f8f-5dcc-a050-6ecec5b828ce,S002-Q022,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,1,0.772222638130188,True
+S002,S002-Q033,79860bb6-6010-5ca0-ac81-f4327e2bff44,S002-Q023,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,4,0.7509974837303162,True
+S002,S002-Q033,893b3ae9-1f94-5436-8c6d-54e200693867,S002-Q029,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,11,0.7133919596672058,False
+S002,S002-Q035,893b3ae9-1f94-5436-8c6d-54e200693867,S002-Q029,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,9,0.7331234216690063,False
+S002,S002-Q039,0dd982c7-f7b2-5ac0-8c16-56d44bbe4330,S002-Q027,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,12,0.6947564482688904,False
+S002,S002-Q039,78a623b8-bff9-5b45-b990-24d74e714f9b,S002-Q032,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,1,0.7444235682487488,True
+S002,S002-Q042,5c22c135-b86e-56a3-83eb-7484d1183dca,S002-Q036,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,4,0.7403773665428162,True
+S002,S002-Q044,57b8caa3-b46e-50f2-a65a-bb244543b1c3,S002-Q034,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,40,0.6301290988922119,False
+S002,S002-Q044,647fce0c-6320-5a98-819d-50dff3300582,S002-Q040,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,11,0.7112531661987305,False
+S002,S002-Q049,57600f18-283a-5f61-bf9e-7a48d4f8d3c5,S002-Q043,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,5,0.6977246403694153,True
+S002,S002-Q052,647fce0c-6320-5a98-819d-50dff3300582,S002-Q040,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,2,0.5538136959075928,True
+S002,S002-Q052,d728a292-3080-5624-89ff-d8e05d09e8ca,S002-Q045,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,5,0.5295717120170593,True
+S002,S002-Q055,d728a292-3080-5624-89ff-d8e05d09e8ca,S002-Q045,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,5,0.519546627998352,True
+S002,S002-Q055,2e583969-bc65-5074-a7fe-0424438cd092,S002-Q051,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,13,0.4991377890110016,False
+S002,S002-Q056,e40ec65e-2907-515a-b1dd-3bec39109106,S002-Q050,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,34,0.34421661496162415,False
+S002,S002-Q063,3549589e-05fe-5631-9385-5379f8dd4396,S002-Q057,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,22,0.5971354246139526,False
+S002,S002-Q065,a2f4bee5-f836-545e-8197-d79f3f2d284c,S002-Q053,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,2,0.6259294152259827,True
+S002,S002-Q065,7cf76f8c-3ecc-5aa0-8867-9b1934ccb270,S002-Q058,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,20,0.5521422624588013,False
+S002,S002-Q066,166328f1-a89c-5b18-8a53-02ac909e0849,S002-Q056,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,1,0.5971285104751587,True
+S002,S002-Q066,323c7c4f-02b6-5801-9c72-3623423fb3c6,S002-Q062,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,17,0.5194598436355591,False
+S002,S002-Q070,95dce1c8-76eb-5c10-b622-b77e03c00526,S002-Q064,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,37,0.3976052701473236,False
+S003,S003-Q007,d84b52e5-9dec-53d0-8a9d-ddef9f5bd919,S003-Q001,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,1,0.37955912947654724,True
+S003,S003-Q011,d84b52e5-9dec-53d0-8a9d-ddef9f5bd919,S003-Q001,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,3,0.48598745465278625,True
+S003,S003-Q011,aacabfac-ac8e-5c81-8f0b-9adc0eeeef33,S003-Q007,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,2,0.513968288898468,True
+S003,S003-Q013,d84b52e5-9dec-53d0-8a9d-ddef9f5bd919,S003-Q001,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,6,0.5126270055770874,False
+S003,S003-Q013,914dcda3-55d6-504a-9159-f6f54938f31f,S003-Q006,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,2,0.5747254490852356,True
+S003,S003-Q014,22322d48-4d17-5d2e-8760-ab1acaeb9f0a,S003-Q008,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,1,0.5515123605728149,True
+S003,S003-Q021,1b59ffe6-5fba-511e-b39a-6529e998d6ca,S003-Q015,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,16,0.5892691612243652,False
+S003,S003-Q022,4b59a558-4eb8-5c30-a40b-2e1cc9df12a2,S003-Q012,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,1,0.613099217414856,True
+S003,S003-Q022,bd6d22da-10ea-5784-b308-d3f5d1f57469,S003-Q018,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,5,0.5816530585289001,True
+S003,S003-Q026,cee54426-e3ab-5ae2-aaab-81de729e05f3,S003-Q014,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,21,0.5282920002937317,False
+S003,S003-Q026,bd0dc9f1-4c0c-5c9f-b9c0-5a7b5051b7f2,S003-Q019,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,14,0.5923358201980591,False
+S003,S003-Q028,9ca9c523-e56d-58df-aa6b-c54a80e3dbb5,S003-Q022,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,1,0.576715350151062,True
+S003,S003-Q033,c96d749e-7c02-5289-ab48-fd03586dd5b1,S003-Q023,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,15,0.5715500116348267,False
+S003,S003-Q033,1b535a84-9ae4-50ee-bbda-1d7ba186183e,S003-Q029,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,13,0.5745878219604492,False
+S003,S003-Q035,1b535a84-9ae4-50ee-bbda-1d7ba186183e,S003-Q029,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,7,0.5711592435836792,False
+S003,S003-Q039,4ed05884-3478-5a91-a63f-3067fd41956d,S003-Q027,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,6,0.6036669015884399,False
+S003,S003-Q039,c94687e6-820c-5c03-a774-40d03e0f70be,S003-Q032,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,23,0.5550810694694519,False
+S003,S003-Q042,82bf5c46-13d0-5fb7-9826-308047a68fc7,S003-Q036,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,12,0.5011759996414185,False
+S003,S003-Q044,ae9f0678-a87f-5377-8edd-5fbd8ff4b4fa,S003-Q034,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,37,0.4009627103805542,False
+S003,S003-Q044,bd2dd48b-5c6b-516a-9bdc-e2e5cdb84c9c,S003-Q040,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,22,0.44993263483047485,False
+S003,S003-Q049,2316a391-e779-530b-ac2f-055182347d32,S003-Q043,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,24,0.4596657454967499,False
+S003,S003-Q052,bd2dd48b-5c6b-516a-9bdc-e2e5cdb84c9c,S003-Q040,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,9,0.5820356607437134,False
+S003,S003-Q052,cc3a667e-ea49-5490-bb5c-5a4d9db97e6f,S003-Q045,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,36,0.5231874585151672,False
+S003,S003-Q055,cc3a667e-ea49-5490-bb5c-5a4d9db97e6f,S003-Q045,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,50,0.37348854541778564,False
+S003,S003-Q055,9409734e-8235-5011-8c1a-60ed15ad9024,S003-Q051,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,8,0.46663036942481995,False
+S003,S003-Q056,59d896c1-0734-53cf-821a-5728dd5fe548,S003-Q050,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,31,0.42623037099838257,False
+S003,S003-Q063,83b39f0f-a1ea-5e54-98aa-d61af4aee5f9,S003-Q057,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,14,0.4297247529029846,False
+S003,S003-Q065,92bbf5d0-665d-52fa-92dd-d73231b6a2f4,S003-Q053,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,31,0.3913128972053528,False
+S003,S003-Q065,ad470150-cd72-5d94-9d96-467573c4b92b,S003-Q058,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,33,0.38522157073020935,False
+S003,S003-Q066,3e1cec0a-77e2-5463-865e-1f49b78e966c,S003-Q056,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,4,0.4304228127002716,True
+S003,S003-Q066,e6b075df-0710-53c0-a850-a6bc715553b6,S003-Q062,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,40,0.3276005983352661,False
+S003,S003-Q070,6e93a473-ae4a-524c-aee1-43aafd7f6bb0,S003-Q064,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,6,0.41459009051322937,False
+S003,S003-Q077,21f9ae05-f6a0-5cc5-af10-142d014dcf11,S003-Q067,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,3,0.6059979200363159,True
+S003,S003-Q077,96af7f08-1678-5164-9e1e-935a577a7d1b,S003-Q071,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,70,0.4838414788246155,False
+S003,S003-Q077,2fdaac5c-103c-5100-8480-7d15511a3658,S003-Q073,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,13,0.5801041126251221,False
+S003,S003-Q078,70584af0-da6d-5ee7-9e7c-ad3f962ef545,S003-Q066,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,8,0.5034887790679932,False
+S003,S003-Q078,96af7f08-1678-5164-9e1e-935a577a7d1b,S003-Q071,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,70,0.4027945399284363,False
+S003,S003-Q084,15caa01c-5d97-5da1-93ca-bbb8a8cf5f22,S003-Q078,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,65,0.591045081615448,False
+S003,S003-Q088,15caa01c-5d97-5da1-93ca-bbb8a8cf5f22,S003-Q078,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,77,0.46810898184776306,False
+S003,S003-Q088,dc75d4a6-dbec-512b-bed7-4048466382c6,S003-Q084,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,49,0.5106473565101624,False
+S003,S003-Q091,68d070f4-4242-579d-b5a8-83f3dc6283b3,S003-Q079,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,27,0.4808177947998047,False
+S003,S003-Q091,dc75d4a6-dbec-512b-bed7-4048466382c6,S003-Q084,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,4,0.5210728645324707,True
+S003,S003-Q091,ff75fe78-c1af-5b7a-a243-9648b6132a06,S003-Q085,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,8,0.510424792766571,False
+S004,S004-Q007,9de4c8e1-1f2d-56af-8e3f-eaed84f7c238,S004-Q001,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,2,0.34884530305862427,True
+S004,S004-Q011,9de4c8e1-1f2d-56af-8e3f-eaed84f7c238,S004-Q001,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,6,0.5032122135162354,False
+S004,S004-Q011,75c0a8f8-fa8f-5fdb-89db-f1e0f0f43bb4,S004-Q007,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,1,0.6697134971618652,True
+S004,S004-Q013,9de4c8e1-1f2d-56af-8e3f-eaed84f7c238,S004-Q001,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,8,0.5841161012649536,False
+S004,S004-Q013,d876eb51-66ba-5437-955a-25c3f405ef2f,S004-Q006,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,3,0.6438204050064087,True
+S004,S004-Q014,a60bbf7a-8108-58fc-8b4a-1356764282aa,S004-Q008,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,2,0.5726079940795898,True
+S004,S004-Q021,112af49e-d51f-599c-ad67-5cc18432f1a8,S004-Q015,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,11,0.692194402217865,False
+S004,S004-Q022,1404aa4a-3c7a-565e-8e67-9f834683b3b2,S004-Q012,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,2,0.700154185295105,True
+S004,S004-Q022,1e8809d9-9426-51b9-9e17-039093174440,S004-Q018,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,5,0.6944718956947327,True
+S004,S004-Q026,7567fc91-4210-59bc-ac74-0cc3060edc83,S004-Q014,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,20,0.7142355442047119,False
+S004,S004-Q026,fadb48cb-a45f-5f46-8f39-e18bd7dff4f1,S004-Q019,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,9,0.7604069709777832,False
+S004,S004-Q028,f642437d-2d3c-5b95-a7f6-29f2e68c0a13,S004-Q022,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,6,0.8024743795394897,False
+S004,S004-Q033,73b2fb55-c036-52ca-842e-cc784d317c61,S004-Q023,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,11,0.6472818851470947,False
+S004,S004-Q033,dad4c589-bd44-5d61-917f-9435b971db4d,S004-Q029,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,19,0.6189760565757751,False
+S004,S004-Q035,dad4c589-bd44-5d61-917f-9435b971db4d,S004-Q029,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,5,0.5476755499839783,True
+S004,S004-Q039,c022f180-c519-52a7-9c70-3f15928609b5,S004-Q027,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,5,0.5342302918434143,True
+S004,S004-Q039,594016a4-b321-5143-a8c6-3923fed20111,S004-Q032,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,21,0.4840504825115204,False
+S004,S004-Q042,c61777d3-f94f-5655-9b6b-9d6cdc28c303,S004-Q036,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,8,0.4934537708759308,False
+S004,S004-Q044,094486b7-1e86-5360-8005-66c6886152c2,S004-Q034,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,40,0.28102946281433105,False
+S004,S004-Q044,682aecdf-197a-5dc6-b88d-886b08ffb500,S004-Q040,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,14,0.36668771505355835,False
+S004,S004-Q049,08c5243c-c754-5bb1-b020-dfbf21f542d7,S004-Q043,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,38,0.4834826588630676,False
+S004,S004-Q052,682aecdf-197a-5dc6-b88d-886b08ffb500,S004-Q040,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,12,0.6159033179283142,False
+S004,S004-Q052,b229284b-6a2b-5cfb-a8c8-0ccc1bd72603,S004-Q045,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,38,0.5637668371200562,False
+S004,S004-Q055,b229284b-6a2b-5cfb-a8c8-0ccc1bd72603,S004-Q045,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,49,0.46873435378074646,False
+S004,S004-Q055,90248870-b2cb-59d2-a707-79d09f366d8a,S004-Q051,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,43,0.48429518938064575,False
+S004,S004-Q056,adc1eeb8-b0f8-5877-88cf-abdd23798b3a,S004-Q050,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,39,0.5155000686645508,False
+S004,S004-Q063,2c5547ce-bd04-536c-8b2d-e09ae5633e53,S004-Q057,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,2,0.5229606032371521,True
+S004,S004-Q065,ca05266e-320c-5081-9d2d-f7c8689c58a9,S004-Q053,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,20,0.4201849699020386,False
+S004,S004-Q065,28de896e-9356-58a4-a8c5-c3efe7770f57,S004-Q058,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,6,0.44664403796195984,False
+S004,S004-Q066,52990abe-a81c-5937-b506-8a88315cc3c0,S004-Q056,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,12,0.3909291923046112,False
+S004,S004-Q066,57ef23a9-5ba4-568c-9cc1-4c5e9a47ec7a,S004-Q062,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,42,0.33652129769325256,False
+S004,S004-Q070,2e530daf-4b7a-5b20-9fe7-9c23daee4af6,S004-Q064,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,32,0.43173936009407043,False
+S005,S005-Q007,73dd18d4-5dac-5f27-ac96-83de10de4633,S005-Q001,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,2,0.4711209535598755,True
+S005,S005-Q011,73dd18d4-5dac-5f27-ac96-83de10de4633,S005-Q001,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,7,0.4023247957229614,False
+S005,S005-Q011,9c806b54-004f-57bf-8755-c4a0eebd929e,S005-Q007,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,2,0.4531308710575104,True
+S005,S005-Q013,73dd18d4-5dac-5f27-ac96-83de10de4633,S005-Q001,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,9,0.41829434037208557,False
+S005,S005-Q013,6e436632-8d73-58b8-a746-7cbc36ffe10f,S005-Q006,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,1,0.5017253160476685,True
+S005,S005-Q014,c64751d6-21c8-5c09-87da-48f940293661,S005-Q008,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,3,0.4594978094100952,True
+S005,S005-Q021,5095d8f5-e975-5011-976e-e587c31560f2,S005-Q015,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,11,0.5081462264060974,False
+S005,S005-Q022,bcb24496-086a-528b-a09e-86bae79fa560,S005-Q012,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,1,0.6334472894668579,True
+S005,S005-Q022,c16509f9-dd00-5e11-9acf-ecc8f08ad424,S005-Q018,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,16,0.5099823474884033,False
+S005,S005-Q026,87d6b0ff-8b24-5176-ba24-dbc110c6e1d5,S005-Q014,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,4,0.6175693273544312,True
+S005,S005-Q026,daf8b285-37ac-5e07-a640-74fc9322fe21,S005-Q019,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,17,0.5549681186676025,False
+S005,S005-Q028,102b7fa7-9564-5e73-98e7-41fde776fa99,S005-Q022,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,7,0.5747470259666443,False
+S005,S005-Q033,407824ab-fd2c-5a7b-ac60-4e9d2ed5311e,S005-Q023,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,6,0.5896957516670227,False
+S005,S005-Q033,52954b6d-4823-5e0a-955d-8a3b24df0a30,S005-Q029,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,2,0.6193385124206543,True
+S005,S005-Q035,52954b6d-4823-5e0a-955d-8a3b24df0a30,S005-Q029,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,18,0.5682905912399292,False
+S005,S005-Q039,e0f6fcfc-3a3a-5dbe-8aa0-d690b2179326,S005-Q027,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,32,0.3987696170806885,False
+S005,S005-Q039,a9136ff5-7fca-58fe-8907-08b361042647,S005-Q032,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,1,0.5428324937820435,True
+S005,S005-Q042,19b9c9f1-754d-5322-831d-a2b5bbc632f9,S005-Q036,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,3,0.6224579811096191,True
+S005,S005-Q044,53a0c2bd-e2e0-5a10-8976-c6a159c1cd78,S005-Q034,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,27,0.5472586154937744,False
+S005,S005-Q044,009ec1d2-83f6-5755-bd7a-e5a92eda1890,S005-Q040,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,16,0.5634528398513794,False
+S005,S005-Q049,d0b649b9-d683-5ad9-a5a6-64c75b0bc996,S005-Q043,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,3,0.5986030101776123,True
+S005,S005-Q052,009ec1d2-83f6-5755-bd7a-e5a92eda1890,S005-Q040,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,5,0.5705037713050842,True
+S005,S005-Q052,c50cce28-4618-514d-bc83-20a57b6f5562,S005-Q045,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,29,0.5134086012840271,False
+S005,S005-Q055,c50cce28-4618-514d-bc83-20a57b6f5562,S005-Q045,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,14,0.49585020542144775,False
+S005,S005-Q055,cc845b3c-bd6e-511e-8bf1-44f5e08cf54a,S005-Q051,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,3,0.5418193936347961,True
+S005,S005-Q056,749bba84-be69-55e2-98a1-a9617e473fb0,S005-Q050,原 Production Add Prompt + 上下文引用解析后检索,原 Production Add Prompt,上下文引用解析后检索,38,0.4685676693916321,False
+S001,S001-Q007,2631e802-75be-5089-9418-baece6a717cf,S001-Q001,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,3,0.3706693649291992,True
+S001,S001-Q011,2631e802-75be-5089-9418-baece6a717cf,S001-Q001,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,5,0.4743606448173523,True
+S001,S001-Q011,dc12b285-c21d-5cfe-84a2-d016fce5ffe6,S001-Q007,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,2,0.5208567380905151,True
+S001,S001-Q013,2631e802-75be-5089-9418-baece6a717cf,S001-Q001,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,9,0.4052826762199402,False
+S001,S001-Q013,9b4b60a1-f0f9-5368-b4ce-b441752321bb,S001-Q006,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,1,0.47844916582107544,True
+S001,S001-Q014,f99dbe58-f286-568d-b1fe-f1ebe59c0e0a,S001-Q008,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,1,0.6852206587791443,True
+S001,S001-Q021,f1228bac-12d1-520f-9787-52a8cdcd49db,S001-Q015,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,11,0.5221859812736511,False
+S001,S001-Q022,34fa3574-894f-575c-b9b0-0a183473746e,S001-Q012,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,17,0.5013545155525208,False
+S001,S001-Q022,55e7e466-3b1c-5014-85fc-2a14618ce254,S001-Q018,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,8,0.5454917550086975,False
+S001,S001-Q026,289ba3d6-8b24-5c77-8df9-7af211ee1007,S001-Q014,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,16,0.4409469962120056,False
+S001,S001-Q026,88e975b7-0f5a-5f5c-98ce-e461dcab93b8,S001-Q019,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,8,0.48002174496650696,False
+S001,S001-Q028,44777fdf-abd5-5570-b0aa-8e3f1cb44000,S001-Q022,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,2,0.5074282884597778,True
+S001,S001-Q033,d5c03971-3795-5256-a75f-b3921d61a92d,S001-Q023,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,5,0.4968814253807068,True
+S001,S001-Q033,b4497adc-7393-57c0-8917-ce3372fbd151,S001-Q029,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,25,0.4351491928100586,False
+S001,S001-Q035,b4497adc-7393-57c0-8917-ce3372fbd151,S001-Q029,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,25,0.3902859091758728,False
+S001,S001-Q039,31eb0f30-7b80-5d07-8ba6-bc6a6a24cb62,S001-Q027,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,4,0.49745485186576843,True
+S001,S001-Q039,c107828c-a741-55f6-8e0c-446cfbdba215,S001-Q032,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,27,0.4134416878223419,False
+S001,S001-Q042,0ec56d0d-4e11-511a-9b98-5f6bddfc2dcc,S001-Q036,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,15,0.5043781995773315,False
+S001,S001-Q044,32b5d492-2df9-5ed9-ac46-caca5c87097c,S001-Q034,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,9,0.4163743555545807,False
+S001,S001-Q044,4054aab2-0aa7-5019-b341-077265511add,S001-Q040,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,27,0.34786006808280945,False
+S001,S001-Q049,de592e81-e050-536b-8909-32866c85f6c2,S001-Q043,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,10,0.4498288929462433,False
+S002,S002-Q007,f70d87dd-c4b9-59de-a761-869308b1818b,S002-Q001,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,3,0.3790791630744934,True
+S002,S002-Q011,f70d87dd-c4b9-59de-a761-869308b1818b,S002-Q001,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,4,0.37672513723373413,True
+S002,S002-Q011,03c3981b-3b09-56ca-a545-043c8ff0d240,S002-Q007,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,1,0.3995116651058197,True
+S002,S002-Q013,f70d87dd-c4b9-59de-a761-869308b1818b,S002-Q001,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,8,0.37150537967681885,False
+S002,S002-Q013,a6c0000c-f234-59a1-b6e5-1283680d9b77,S002-Q006,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,4,0.41154593229293823,True
+S002,S002-Q014,37d568b0-90c6-5481-b7d9-e0101fd95e52,S002-Q008,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,8,0.46951448917388916,False
+S002,S002-Q021,691ce2a8-c4c3-51f3-8cb7-32f42cdee99e,S002-Q015,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,8,0.6662358641624451,False
+S002,S002-Q022,4d8b4bb3-4a1f-538c-af07-cc0ce19ea796,S002-Q012,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,6,0.7326748371124268,False
+S002,S002-Q022,b304ab57-b911-5070-88ba-fca4f39a37e8,S002-Q018,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,17,0.6677062511444092,False
+S002,S002-Q026,00ce1b35-d357-53e0-a42e-a8f97d4a07f0,S002-Q014,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,5,0.7024127244949341,True
+S002,S002-Q026,e64218f2-62ce-555a-ba53-f3fd1214e0f7,S002-Q019,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,11,0.6805136203765869,False
+S002,S002-Q028,42756865-0f8f-5dcc-a050-6ecec5b828ce,S002-Q022,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,2,0.6501091718673706,True
+S002,S002-Q033,79860bb6-6010-5ca0-ac81-f4327e2bff44,S002-Q023,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,1,0.7559446096420288,True
+S002,S002-Q033,893b3ae9-1f94-5436-8c6d-54e200693867,S002-Q029,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,18,0.7082333564758301,False
+S002,S002-Q035,893b3ae9-1f94-5436-8c6d-54e200693867,S002-Q029,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,9,0.7011176943778992,False
+S002,S002-Q039,0dd982c7-f7b2-5ac0-8c16-56d44bbe4330,S002-Q027,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,13,0.6904821991920471,False
+S002,S002-Q039,78a623b8-bff9-5b45-b990-24d74e714f9b,S002-Q032,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,1,0.7253895998001099,True
+S002,S002-Q042,5c22c135-b86e-56a3-83eb-7484d1183dca,S002-Q036,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,2,0.7254946827888489,True
+S002,S002-Q044,57b8caa3-b46e-50f2-a65a-bb244543b1c3,S002-Q034,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,40,0.6190553903579712,False
+S002,S002-Q044,647fce0c-6320-5a98-819d-50dff3300582,S002-Q040,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,11,0.7124402523040771,False
+S002,S002-Q049,57600f18-283a-5f61-bf9e-7a48d4f8d3c5,S002-Q043,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,4,0.6960676908493042,True
+S002,S002-Q052,647fce0c-6320-5a98-819d-50dff3300582,S002-Q040,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,5,0.5303038358688354,True
+S002,S002-Q052,d728a292-3080-5624-89ff-d8e05d09e8ca,S002-Q045,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,8,0.5046631693840027,False
+S002,S002-Q055,d728a292-3080-5624-89ff-d8e05d09e8ca,S002-Q045,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,9,0.515006422996521,False
+S002,S002-Q055,2e583969-bc65-5074-a7fe-0424438cd092,S002-Q051,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,8,0.515408456325531,False
+S002,S002-Q056,e40ec65e-2907-515a-b1dd-3bec39109106,S002-Q050,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,38,0.33858561515808105,False
+S002,S002-Q063,3549589e-05fe-5631-9385-5379f8dd4396,S002-Q057,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,36,0.3540847897529602,False
+S002,S002-Q065,a2f4bee5-f836-545e-8197-d79f3f2d284c,S002-Q053,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,3,0.5271225571632385,True
+S002,S002-Q065,7cf76f8c-3ecc-5aa0-8867-9b1934ccb270,S002-Q058,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,19,0.4661399722099304,False
+S002,S002-Q066,166328f1-a89c-5b18-8a53-02ac909e0849,S002-Q056,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,2,0.5402913689613342,True
+S002,S002-Q066,323c7c4f-02b6-5801-9c72-3623423fb3c6,S002-Q062,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,35,0.4365690052509308,False
+S002,S002-Q070,95dce1c8-76eb-5c10-b622-b77e03c00526,S002-Q064,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,38,0.3976735770702362,False
+S003,S003-Q007,d84b52e5-9dec-53d0-8a9d-ddef9f5bd919,S003-Q001,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,3,0.3164888620376587,True
+S003,S003-Q011,d84b52e5-9dec-53d0-8a9d-ddef9f5bd919,S003-Q001,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,6,0.44274434447288513,False
+S003,S003-Q011,aacabfac-ac8e-5c81-8f0b-9adc0eeeef33,S003-Q007,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,2,0.5117702484130859,True
+S003,S003-Q013,d84b52e5-9dec-53d0-8a9d-ddef9f5bd919,S003-Q001,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,8,0.45804861187934875,False
+S003,S003-Q013,914dcda3-55d6-504a-9159-f6f54938f31f,S003-Q006,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,1,0.5152491927146912,True
+S003,S003-Q014,22322d48-4d17-5d2e-8760-ab1acaeb9f0a,S003-Q008,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,1,0.5293975472450256,True
+S003,S003-Q021,1b59ffe6-5fba-511e-b39a-6529e998d6ca,S003-Q015,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,7,0.6349101066589355,False
+S003,S003-Q022,4b59a558-4eb8-5c30-a40b-2e1cc9df12a2,S003-Q012,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,1,0.5957953333854675,True
+S003,S003-Q022,bd6d22da-10ea-5784-b308-d3f5d1f57469,S003-Q018,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,11,0.49347788095474243,False
+S003,S003-Q026,cee54426-e3ab-5ae2-aaab-81de729e05f3,S003-Q014,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,10,0.557929277420044,False
+S003,S003-Q026,bd0dc9f1-4c0c-5c9f-b9c0-5a7b5051b7f2,S003-Q019,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,11,0.5566901564598083,False
+S003,S003-Q028,9ca9c523-e56d-58df-aa6b-c54a80e3dbb5,S003-Q022,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,5,0.45705682039260864,True
+S003,S003-Q033,c96d749e-7c02-5289-ab48-fd03586dd5b1,S003-Q023,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,14,0.4774661362171173,False
+S003,S003-Q033,1b535a84-9ae4-50ee-bbda-1d7ba186183e,S003-Q029,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,18,0.47094783186912537,False
+S003,S003-Q035,1b535a84-9ae4-50ee-bbda-1d7ba186183e,S003-Q029,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,21,0.47931545972824097,False
+S003,S003-Q039,4ed05884-3478-5a91-a63f-3067fd41956d,S003-Q027,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,18,0.477265864610672,False
+S003,S003-Q039,c94687e6-820c-5c03-a774-40d03e0f70be,S003-Q032,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,32,0.4354611933231354,False
+S003,S003-Q042,82bf5c46-13d0-5fb7-9826-308047a68fc7,S003-Q036,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,12,0.49608755111694336,False
+S003,S003-Q044,ae9f0678-a87f-5377-8edd-5fbd8ff4b4fa,S003-Q034,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,34,0.39966991543769836,False
+S003,S003-Q044,bd2dd48b-5c6b-516a-9bdc-e2e5cdb84c9c,S003-Q040,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,20,0.4479284882545471,False
+S003,S003-Q049,2316a391-e779-530b-ac2f-055182347d32,S003-Q043,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,30,0.3788144290447235,False
+S003,S003-Q052,bd2dd48b-5c6b-516a-9bdc-e2e5cdb84c9c,S003-Q040,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,24,0.38133710622787476,False
+S003,S003-Q052,cc3a667e-ea49-5490-bb5c-5a4d9db97e6f,S003-Q045,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,23,0.3814467191696167,False
+S003,S003-Q055,cc3a667e-ea49-5490-bb5c-5a4d9db97e6f,S003-Q045,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,43,0.3806881904602051,False
+S003,S003-Q055,9409734e-8235-5011-8c1a-60ed15ad9024,S003-Q051,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,20,0.43204325437545776,False
+S003,S003-Q056,59d896c1-0734-53cf-821a-5728dd5fe548,S003-Q050,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,37,0.36451956629753113,False
+S003,S003-Q063,83b39f0f-a1ea-5e54-98aa-d61af4aee5f9,S003-Q057,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,6,0.4425692856311798,False
+S003,S003-Q065,92bbf5d0-665d-52fa-92dd-d73231b6a2f4,S003-Q053,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,35,0.38050416111946106,False
+S003,S003-Q065,ad470150-cd72-5d94-9d96-467573c4b92b,S003-Q058,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,26,0.3933488130569458,False
+S003,S003-Q066,3e1cec0a-77e2-5463-865e-1f49b78e966c,S003-Q056,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,15,0.3899281322956085,False
+S003,S003-Q066,e6b075df-0710-53c0-a850-a6bc715553b6,S003-Q062,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,10,0.4024888575077057,False
+S003,S003-Q070,6e93a473-ae4a-524c-aee1-43aafd7f6bb0,S003-Q064,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,6,0.43000271916389465,False
+S003,S003-Q077,21f9ae05-f6a0-5cc5-af10-142d014dcf11,S003-Q067,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,13,0.43532422184944153,False
+S003,S003-Q077,96af7f08-1678-5164-9e1e-935a577a7d1b,S003-Q071,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,72,0.3107285797595978,False
+S003,S003-Q077,2fdaac5c-103c-5100-8480-7d15511a3658,S003-Q073,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,34,0.3912389874458313,False
+S003,S003-Q078,70584af0-da6d-5ee7-9e7c-ad3f962ef545,S003-Q066,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,7,0.510893702507019,False
+S003,S003-Q078,96af7f08-1678-5164-9e1e-935a577a7d1b,S003-Q071,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,66,0.41628777980804443,False
+S003,S003-Q084,15caa01c-5d97-5da1-93ca-bbb8a8cf5f22,S003-Q078,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,30,0.5018811225891113,False
+S003,S003-Q088,15caa01c-5d97-5da1-93ca-bbb8a8cf5f22,S003-Q078,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,38,0.4012828767299652,False
+S003,S003-Q088,dc75d4a6-dbec-512b-bed7-4048466382c6,S003-Q084,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,32,0.41005414724349976,False
+S003,S003-Q091,68d070f4-4242-579d-b5a8-83f3dc6283b3,S003-Q079,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,20,0.48855865001678467,False
+S003,S003-Q091,dc75d4a6-dbec-512b-bed7-4048466382c6,S003-Q084,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,11,0.5046439170837402,False
+S003,S003-Q091,ff75fe78-c1af-5b7a-a243-9648b6132a06,S003-Q085,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,4,0.5340899229049683,True
+S004,S004-Q007,9de4c8e1-1f2d-56af-8e3f-eaed84f7c238,S004-Q001,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,2,0.37490904331207275,True
+S004,S004-Q011,9de4c8e1-1f2d-56af-8e3f-eaed84f7c238,S004-Q001,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,6,0.4743211269378662,False
+S004,S004-Q011,75c0a8f8-fa8f-5fdb-89db-f1e0f0f43bb4,S004-Q007,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,1,0.6333749890327454,True
+S004,S004-Q013,9de4c8e1-1f2d-56af-8e3f-eaed84f7c238,S004-Q001,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,7,0.6002863645553589,False
+S004,S004-Q013,d876eb51-66ba-5437-955a-25c3f405ef2f,S004-Q006,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,2,0.6334671974182129,True
+S004,S004-Q014,a60bbf7a-8108-58fc-8b4a-1356764282aa,S004-Q008,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,3,0.5026149153709412,True
+S004,S004-Q021,112af49e-d51f-599c-ad67-5cc18432f1a8,S004-Q015,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,13,0.6965059041976929,False
+S004,S004-Q022,1404aa4a-3c7a-565e-8e67-9f834683b3b2,S004-Q012,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,13,0.6386723518371582,False
+S004,S004-Q022,1e8809d9-9426-51b9-9e17-039093174440,S004-Q018,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,15,0.6312108039855957,False
+S004,S004-Q026,7567fc91-4210-59bc-ac74-0cc3060edc83,S004-Q014,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,20,0.582581102848053,False
+S004,S004-Q026,fadb48cb-a45f-5f46-8f39-e18bd7dff4f1,S004-Q019,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,19,0.6125531196594238,False
+S004,S004-Q028,f642437d-2d3c-5b95-a7f6-29f2e68c0a13,S004-Q022,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,14,0.6557570099830627,False
+S004,S004-Q033,73b2fb55-c036-52ca-842e-cc784d317c61,S004-Q023,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,4,0.4901234209537506,True
+S004,S004-Q033,dad4c589-bd44-5d61-917f-9435b971db4d,S004-Q029,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,17,0.4585805833339691,False
+S004,S004-Q035,dad4c589-bd44-5d61-917f-9435b971db4d,S004-Q029,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,5,0.4865438938140869,True
+S004,S004-Q039,c022f180-c519-52a7-9c70-3f15928609b5,S004-Q027,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,14,0.3143801689147949,False
+S004,S004-Q039,594016a4-b321-5143-a8c6-3923fed20111,S004-Q032,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,26,0.29088911414146423,False
+S004,S004-Q042,c61777d3-f94f-5655-9b6b-9d6cdc28c303,S004-Q036,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,8,0.49932917952537537,False
+S004,S004-Q044,094486b7-1e86-5360-8005-66c6886152c2,S004-Q034,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,37,0.31753334403038025,False
+S004,S004-Q044,682aecdf-197a-5dc6-b88d-886b08ffb500,S004-Q040,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,11,0.36034199595451355,False
+S004,S004-Q049,08c5243c-c754-5bb1-b020-dfbf21f542d7,S004-Q043,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,17,0.4661025106906891,False
+S004,S004-Q052,682aecdf-197a-5dc6-b88d-886b08ffb500,S004-Q040,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,17,0.4466339945793152,False
+S004,S004-Q052,b229284b-6a2b-5cfb-a8c8-0ccc1bd72603,S004-Q045,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,22,0.43547937273979187,False
+S004,S004-Q055,b229284b-6a2b-5cfb-a8c8-0ccc1bd72603,S004-Q045,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,43,0.41158631443977356,False
+S004,S004-Q055,90248870-b2cb-59d2-a707-79d09f366d8a,S004-Q051,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,7,0.47655990719795227,False
+S004,S004-Q056,adc1eeb8-b0f8-5877-88cf-abdd23798b3a,S004-Q050,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,26,0.4213412404060364,False
+S004,S004-Q063,2c5547ce-bd04-536c-8b2d-e09ae5633e53,S004-Q057,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,1,0.5163111686706543,True
+S004,S004-Q065,ca05266e-320c-5081-9d2d-f7c8689c58a9,S004-Q053,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,33,0.39716920256614685,False
+S004,S004-Q065,28de896e-9356-58a4-a8c5-c3efe7770f57,S004-Q058,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,48,0.3712315559387207,False
+S004,S004-Q066,52990abe-a81c-5937-b506-8a88315cc3c0,S004-Q056,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,6,0.41216692328453064,False
+S004,S004-Q066,57ef23a9-5ba4-568c-9cc1-4c5e9a47ec7a,S004-Q062,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,24,0.37012651562690735,False
+S004,S004-Q070,2e530daf-4b7a-5b20-9fe7-9c23daee4af6,S004-Q064,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,21,0.44576650857925415,False
+S005,S005-Q007,73dd18d4-5dac-5f27-ac96-83de10de4633,S005-Q001,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,2,0.49146386981010437,True
+S005,S005-Q011,73dd18d4-5dac-5f27-ac96-83de10de4633,S005-Q001,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,6,0.4159493148326874,False
+S005,S005-Q011,9c806b54-004f-57bf-8755-c4a0eebd929e,S005-Q007,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,3,0.46531540155410767,True
+S005,S005-Q013,73dd18d4-5dac-5f27-ac96-83de10de4633,S005-Q001,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,8,0.43459606170654297,False
+S005,S005-Q013,6e436632-8d73-58b8-a746-7cbc36ffe10f,S005-Q006,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,1,0.5287674069404602,True
+S005,S005-Q014,c64751d6-21c8-5c09-87da-48f940293661,S005-Q008,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,3,0.4579867124557495,True
+S005,S005-Q021,5095d8f5-e975-5011-976e-e587c31560f2,S005-Q015,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,11,0.5038416981697083,False
+S005,S005-Q022,bcb24496-086a-528b-a09e-86bae79fa560,S005-Q012,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,9,0.5895946621894836,False
+S005,S005-Q022,c16509f9-dd00-5e11-9acf-ecc8f08ad424,S005-Q018,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,13,0.571935772895813,False
+S005,S005-Q026,87d6b0ff-8b24-5176-ba24-dbc110c6e1d5,S005-Q014,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,3,0.5560086369514465,True
+S005,S005-Q026,daf8b285-37ac-5e07-a640-74fc9322fe21,S005-Q019,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,6,0.5423535108566284,False
+S005,S005-Q028,102b7fa7-9564-5e73-98e7-41fde776fa99,S005-Q022,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,17,0.37124618887901306,False
+S005,S005-Q033,407824ab-fd2c-5a7b-ac60-4e9d2ed5311e,S005-Q023,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,2,0.608260452747345,True
+S005,S005-Q033,52954b6d-4823-5e0a-955d-8a3b24df0a30,S005-Q029,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,3,0.6059892773628235,True
+S005,S005-Q035,52954b6d-4823-5e0a-955d-8a3b24df0a30,S005-Q029,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,17,0.5139577984809875,False
+S005,S005-Q039,e0f6fcfc-3a3a-5dbe-8aa0-d690b2179326,S005-Q027,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,34,0.4089116156101227,False
+S005,S005-Q039,a9136ff5-7fca-58fe-8907-08b361042647,S005-Q032,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,9,0.5181123614311218,False
+S005,S005-Q042,19b9c9f1-754d-5322-831d-a2b5bbc632f9,S005-Q036,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,28,0.4796275496482849,False
+S005,S005-Q044,53a0c2bd-e2e0-5a10-8976-c6a159c1cd78,S005-Q034,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,29,0.5287794470787048,False
+S005,S005-Q044,009ec1d2-83f6-5755-bd7a-e5a92eda1890,S005-Q040,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,19,0.5607632994651794,False
+S005,S005-Q049,d0b649b9-d683-5ad9-a5a6-64c75b0bc996,S005-Q043,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,5,0.5803362131118774,True
+S005,S005-Q052,009ec1d2-83f6-5755-bd7a-e5a92eda1890,S005-Q040,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,5,0.5960173010826111,True
+S005,S005-Q052,c50cce28-4618-514d-bc83-20a57b6f5562,S005-Q045,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,28,0.5175114274024963,False
+S005,S005-Q055,c50cce28-4618-514d-bc83-20a57b6f5562,S005-Q045,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,19,0.49516239762306213,False
+S005,S005-Q055,cc845b3c-bd6e-511e-8bf1-44f5e08cf54a,S005-Q051,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,2,0.5543037056922913,True
+S005,S005-Q056,749bba84-be69-55e2-98a1-a9617e473fb0,S005-Q050,保守调优 Add Prompt + 原始问题直接检索,保守调优 Add Prompt,原始问题直接检索,38,0.47621339559555054,False
+S001,S001-Q007,2631e802-75be-5089-9418-baece6a717cf,S001-Q001,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,3,0.4140026271343231,True
+S001,S001-Q011,2631e802-75be-5089-9418-baece6a717cf,S001-Q001,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,5,0.4743606448173523,True
+S001,S001-Q011,dc12b285-c21d-5cfe-84a2-d016fce5ffe6,S001-Q007,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,2,0.5208567380905151,True
+S001,S001-Q013,2631e802-75be-5089-9418-baece6a717cf,S001-Q001,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,9,0.5266386866569519,False
+S001,S001-Q013,9b4b60a1-f0f9-5368-b4ce-b441752321bb,S001-Q006,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,2,0.6415037512779236,True
+S001,S001-Q014,f99dbe58-f286-568d-b1fe-f1ebe59c0e0a,S001-Q008,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,3,0.6817960143089294,True
+S001,S001-Q021,f1228bac-12d1-520f-9787-52a8cdcd49db,S001-Q015,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,10,0.5983035564422607,False
+S001,S001-Q022,34fa3574-894f-575c-b9b0-0a183473746e,S001-Q012,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,18,0.5208207368850708,False
+S001,S001-Q022,55e7e466-3b1c-5014-85fc-2a14618ce254,S001-Q018,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,8,0.5753136873245239,False
+S001,S001-Q026,289ba3d6-8b24-5c77-8df9-7af211ee1007,S001-Q014,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,9,0.5715339183807373,False
+S001,S001-Q026,88e975b7-0f5a-5f5c-98ce-e461dcab93b8,S001-Q019,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,13,0.5517419576644897,False
+S001,S001-Q028,44777fdf-abd5-5570-b0aa-8e3f1cb44000,S001-Q022,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,2,0.5074282884597778,True
+S001,S001-Q033,d5c03971-3795-5256-a75f-b3921d61a92d,S001-Q023,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,4,0.5503478646278381,True
+S001,S001-Q033,b4497adc-7393-57c0-8917-ce3372fbd151,S001-Q029,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,26,0.45708268880844116,False
+S001,S001-Q035,b4497adc-7393-57c0-8917-ce3372fbd151,S001-Q029,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,27,0.3947472870349884,False
+S001,S001-Q039,31eb0f30-7b80-5d07-8ba6-bc6a6a24cb62,S001-Q027,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,4,0.49745485186576843,True
+S001,S001-Q039,c107828c-a741-55f6-8e0c-446cfbdba215,S001-Q032,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,27,0.4134416878223419,False
+S001,S001-Q042,0ec56d0d-4e11-511a-9b98-5f6bddfc2dcc,S001-Q036,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,15,0.5043781995773315,False
+S001,S001-Q044,32b5d492-2df9-5ed9-ac46-caca5c87097c,S001-Q034,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,9,0.4163743555545807,False
+S001,S001-Q044,4054aab2-0aa7-5019-b341-077265511add,S001-Q040,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,27,0.34786006808280945,False
+S001,S001-Q049,de592e81-e050-536b-8909-32866c85f6c2,S001-Q043,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,7,0.5923226475715637,False
+S002,S002-Q007,f70d87dd-c4b9-59de-a761-869308b1818b,S002-Q001,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,3,0.379079133272171,True
+S002,S002-Q011,f70d87dd-c4b9-59de-a761-869308b1818b,S002-Q001,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,4,0.3767251968383789,True
+S002,S002-Q011,03c3981b-3b09-56ca-a545-043c8ff0d240,S002-Q007,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,1,0.3995116353034973,True
+S002,S002-Q013,f70d87dd-c4b9-59de-a761-869308b1818b,S002-Q001,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,8,0.3715054988861084,False
+S002,S002-Q013,a6c0000c-f234-59a1-b6e5-1283680d9b77,S002-Q006,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,4,0.4115460216999054,True
+S002,S002-Q014,37d568b0-90c6-5481-b7d9-e0101fd95e52,S002-Q008,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,8,0.46951451897621155,False
+S002,S002-Q021,691ce2a8-c4c3-51f3-8cb7-32f42cdee99e,S002-Q015,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,8,0.6662358045578003,False
+S002,S002-Q022,4d8b4bb3-4a1f-538c-af07-cc0ce19ea796,S002-Q012,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,6,0.739381730556488,False
+S002,S002-Q022,b304ab57-b911-5070-88ba-fca4f39a37e8,S002-Q018,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,15,0.6822366714477539,False
+S002,S002-Q026,00ce1b35-d357-53e0-a42e-a8f97d4a07f0,S002-Q014,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,5,0.7024127244949341,True
+S002,S002-Q026,e64218f2-62ce-555a-ba53-f3fd1214e0f7,S002-Q019,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,11,0.6805135607719421,False
+S002,S002-Q028,42756865-0f8f-5dcc-a050-6ecec5b828ce,S002-Q022,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,1,0.7705181837081909,True
+S002,S002-Q033,79860bb6-6010-5ca0-ac81-f4327e2bff44,S002-Q023,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,1,0.755944550037384,True
+S002,S002-Q033,893b3ae9-1f94-5436-8c6d-54e200693867,S002-Q029,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,18,0.7082334756851196,False
+S002,S002-Q035,893b3ae9-1f94-5436-8c6d-54e200693867,S002-Q029,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,10,0.7250179052352905,False
+S002,S002-Q039,0dd982c7-f7b2-5ac0-8c16-56d44bbe4330,S002-Q027,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,13,0.6904820799827576,False
+S002,S002-Q039,78a623b8-bff9-5b45-b990-24d74e714f9b,S002-Q032,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,1,0.7253895998001099,True
+S002,S002-Q042,5c22c135-b86e-56a3-83eb-7484d1183dca,S002-Q036,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,1,0.7584133148193359,True
+S002,S002-Q044,57b8caa3-b46e-50f2-a65a-bb244543b1c3,S002-Q034,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,40,0.619055449962616,False
+S002,S002-Q044,647fce0c-6320-5a98-819d-50dff3300582,S002-Q040,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,11,0.7124403715133667,False
+S002,S002-Q049,57600f18-283a-5f61-bf9e-7a48d4f8d3c5,S002-Q043,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,4,0.696067750453949,True
+S002,S002-Q052,647fce0c-6320-5a98-819d-50dff3300582,S002-Q040,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,5,0.5303038358688354,True
+S002,S002-Q052,d728a292-3080-5624-89ff-d8e05d09e8ca,S002-Q045,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,8,0.5046631693840027,False
+S002,S002-Q055,d728a292-3080-5624-89ff-d8e05d09e8ca,S002-Q045,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,9,0.5150065422058105,False
+S002,S002-Q055,2e583969-bc65-5074-a7fe-0424438cd092,S002-Q051,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,8,0.5154085159301758,False
+S002,S002-Q056,e40ec65e-2907-515a-b1dd-3bec39109106,S002-Q050,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,38,0.33858558535575867,False
+S002,S002-Q063,3549589e-05fe-5631-9385-5379f8dd4396,S002-Q057,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,53,0.5395122170448303,False
+S002,S002-Q065,a2f4bee5-f836-545e-8197-d79f3f2d284c,S002-Q053,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,6,0.6012962460517883,False
+S002,S002-Q065,7cf76f8c-3ecc-5aa0-8867-9b1934ccb270,S002-Q058,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,24,0.5496081709861755,False
+S002,S002-Q066,166328f1-a89c-5b18-8a53-02ac909e0849,S002-Q056,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,1,0.576759397983551,True
+S002,S002-Q066,323c7c4f-02b6-5801-9c72-3623423fb3c6,S002-Q062,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,29,0.49651187658309937,False
+S002,S002-Q070,95dce1c8-76eb-5c10-b622-b77e03c00526,S002-Q064,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,38,0.39767345786094666,False
+S003,S003-Q007,d84b52e5-9dec-53d0-8a9d-ddef9f5bd919,S003-Q001,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,3,0.3164888322353363,True
+S003,S003-Q011,d84b52e5-9dec-53d0-8a9d-ddef9f5bd919,S003-Q001,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,6,0.44274434447288513,False
+S003,S003-Q011,aacabfac-ac8e-5c81-8f0b-9adc0eeeef33,S003-Q007,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,2,0.5117703080177307,True
+S003,S003-Q013,d84b52e5-9dec-53d0-8a9d-ddef9f5bd919,S003-Q001,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,8,0.47947025299072266,False
+S003,S003-Q013,914dcda3-55d6-504a-9159-f6f54938f31f,S003-Q006,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,1,0.5558633208274841,True
+S003,S003-Q014,22322d48-4d17-5d2e-8760-ab1acaeb9f0a,S003-Q008,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,1,0.5293975472450256,True
+S003,S003-Q021,1b59ffe6-5fba-511e-b39a-6529e998d6ca,S003-Q015,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,13,0.6262314319610596,False
+S003,S003-Q022,4b59a558-4eb8-5c30-a40b-2e1cc9df12a2,S003-Q012,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,1,0.6672435998916626,True
+S003,S003-Q022,bd6d22da-10ea-5784-b308-d3f5d1f57469,S003-Q018,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,9,0.5310497283935547,False
+S003,S003-Q026,cee54426-e3ab-5ae2-aaab-81de729e05f3,S003-Q014,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,8,0.5962075591087341,False
+S003,S003-Q026,bd0dc9f1-4c0c-5c9f-b9c0-5a7b5051b7f2,S003-Q019,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,10,0.5935114622116089,False
+S003,S003-Q028,9ca9c523-e56d-58df-aa6b-c54a80e3dbb5,S003-Q022,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,4,0.5380226373672485,True
+S003,S003-Q033,c96d749e-7c02-5289-ab48-fd03586dd5b1,S003-Q023,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,7,0.5730836987495422,False
+S003,S003-Q033,1b535a84-9ae4-50ee-bbda-1d7ba186183e,S003-Q029,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,15,0.5522305369377136,False
+S003,S003-Q035,1b535a84-9ae4-50ee-bbda-1d7ba186183e,S003-Q029,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,16,0.5323229432106018,False
+S003,S003-Q039,4ed05884-3478-5a91-a63f-3067fd41956d,S003-Q027,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,25,0.5578792691230774,False
+S003,S003-Q039,c94687e6-820c-5c03-a774-40d03e0f70be,S003-Q032,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,26,0.5466096997261047,False
+S003,S003-Q042,82bf5c46-13d0-5fb7-9826-308047a68fc7,S003-Q036,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,12,0.49608761072158813,False
+S003,S003-Q044,ae9f0678-a87f-5377-8edd-5fbd8ff4b4fa,S003-Q034,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,34,0.39966994524002075,False
+S003,S003-Q044,bd2dd48b-5c6b-516a-9bdc-e2e5cdb84c9c,S003-Q040,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,20,0.4479285478591919,False
+S003,S003-Q049,2316a391-e779-530b-ac2f-055182347d32,S003-Q043,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,29,0.45371314883232117,False
+S003,S003-Q052,bd2dd48b-5c6b-516a-9bdc-e2e5cdb84c9c,S003-Q040,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,14,0.5601553320884705,False
+S003,S003-Q052,cc3a667e-ea49-5490-bb5c-5a4d9db97e6f,S003-Q045,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,36,0.5150182843208313,False
+S003,S003-Q055,cc3a667e-ea49-5490-bb5c-5a4d9db97e6f,S003-Q045,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,43,0.3806881010532379,False
+S003,S003-Q055,9409734e-8235-5011-8c1a-60ed15ad9024,S003-Q051,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,20,0.4320432245731354,False
+S003,S003-Q056,59d896c1-0734-53cf-821a-5728dd5fe548,S003-Q050,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,42,0.4008229970932007,False
+S003,S003-Q063,83b39f0f-a1ea-5e54-98aa-d61af4aee5f9,S003-Q057,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,6,0.4425692558288574,False
+S003,S003-Q065,92bbf5d0-665d-52fa-92dd-d73231b6a2f4,S003-Q053,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,35,0.3805041015148163,False
+S003,S003-Q065,ad470150-cd72-5d94-9d96-467573c4b92b,S003-Q058,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,26,0.3933488726615906,False
+S003,S003-Q066,3e1cec0a-77e2-5463-865e-1f49b78e966c,S003-Q056,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,9,0.38315141201019287,False
+S003,S003-Q066,e6b075df-0710-53c0-a850-a6bc715553b6,S003-Q062,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,8,0.38928377628326416,False
+S003,S003-Q070,6e93a473-ae4a-524c-aee1-43aafd7f6bb0,S003-Q064,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,6,0.43000274896621704,False
+S003,S003-Q077,21f9ae05-f6a0-5cc5-af10-142d014dcf11,S003-Q067,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,5,0.6078578233718872,True
+S003,S003-Q077,96af7f08-1678-5164-9e1e-935a577a7d1b,S003-Q071,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,65,0.4991541802883148,False
+S003,S003-Q077,2fdaac5c-103c-5100-8480-7d15511a3658,S003-Q073,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,42,0.5384144186973572,False
+S003,S003-Q078,70584af0-da6d-5ee7-9e7c-ad3f962ef545,S003-Q066,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,7,0.5108937621116638,False
+S003,S003-Q078,96af7f08-1678-5164-9e1e-935a577a7d1b,S003-Q071,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,66,0.4162878394126892,False
+S003,S003-Q084,15caa01c-5d97-5da1-93ca-bbb8a8cf5f22,S003-Q078,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,17,0.636529803276062,False
+S003,S003-Q088,15caa01c-5d97-5da1-93ca-bbb8a8cf5f22,S003-Q078,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,25,0.5295486450195312,False
+S003,S003-Q088,dc75d4a6-dbec-512b-bed7-4048466382c6,S003-Q084,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,65,0.49669134616851807,False
+S003,S003-Q091,68d070f4-4242-579d-b5a8-83f3dc6283b3,S003-Q079,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,20,0.48855870962142944,False
+S003,S003-Q091,dc75d4a6-dbec-512b-bed7-4048466382c6,S003-Q084,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,11,0.5046439170837402,False
+S003,S003-Q091,ff75fe78-c1af-5b7a-a243-9648b6132a06,S003-Q085,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,4,0.5340898633003235,True
+S004,S004-Q007,9de4c8e1-1f2d-56af-8e3f-eaed84f7c238,S004-Q001,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,2,0.37490910291671753,True
+S004,S004-Q011,9de4c8e1-1f2d-56af-8e3f-eaed84f7c238,S004-Q001,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,6,0.5310639142990112,False
+S004,S004-Q011,75c0a8f8-fa8f-5fdb-89db-f1e0f0f43bb4,S004-Q007,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,1,0.6913610100746155,True
+S004,S004-Q013,9de4c8e1-1f2d-56af-8e3f-eaed84f7c238,S004-Q001,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,8,0.6154209971427917,False
+S004,S004-Q013,d876eb51-66ba-5437-955a-25c3f405ef2f,S004-Q006,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,2,0.6554051041603088,True
+S004,S004-Q014,a60bbf7a-8108-58fc-8b4a-1356764282aa,S004-Q008,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,3,0.5513310432434082,True
+S004,S004-Q021,112af49e-d51f-599c-ad67-5cc18432f1a8,S004-Q015,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,13,0.6965058445930481,False
+S004,S004-Q022,1404aa4a-3c7a-565e-8e67-9f834683b3b2,S004-Q012,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,10,0.6790378093719482,False
+S004,S004-Q022,1e8809d9-9426-51b9-9e17-039093174440,S004-Q018,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,13,0.66231769323349,False
+S004,S004-Q026,7567fc91-4210-59bc-ac74-0cc3060edc83,S004-Q014,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,17,0.7369031310081482,False
+S004,S004-Q026,fadb48cb-a45f-5f46-8f39-e18bd7dff4f1,S004-Q019,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,13,0.7474054098129272,False
+S004,S004-Q028,f642437d-2d3c-5b95-a7f6-29f2e68c0a13,S004-Q022,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,4,0.8038788437843323,True
+S004,S004-Q033,73b2fb55-c036-52ca-842e-cc784d317c61,S004-Q023,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,12,0.6328045129776001,False
+S004,S004-Q033,dad4c589-bd44-5d61-917f-9435b971db4d,S004-Q029,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,14,0.6261664032936096,False
+S004,S004-Q035,dad4c589-bd44-5d61-917f-9435b971db4d,S004-Q029,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,3,0.5611273646354675,True
+S004,S004-Q039,c022f180-c519-52a7-9c70-3f15928609b5,S004-Q027,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,19,0.49760642647743225,False
+S004,S004-Q039,594016a4-b321-5143-a8c6-3923fed20111,S004-Q032,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,13,0.5192219614982605,False
+S004,S004-Q042,c61777d3-f94f-5655-9b6b-9d6cdc28c303,S004-Q036,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,8,0.4993290901184082,False
+S004,S004-Q044,094486b7-1e86-5360-8005-66c6886152c2,S004-Q034,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,37,0.31753334403038025,False
+S004,S004-Q044,682aecdf-197a-5dc6-b88d-886b08ffb500,S004-Q040,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,11,0.3603420555591583,False
+S004,S004-Q049,08c5243c-c754-5bb1-b020-dfbf21f542d7,S004-Q043,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,35,0.5027838945388794,False
+S004,S004-Q052,682aecdf-197a-5dc6-b88d-886b08ffb500,S004-Q040,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,15,0.6108616590499878,False
+S004,S004-Q052,b229284b-6a2b-5cfb-a8c8-0ccc1bd72603,S004-Q045,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,37,0.5639153718948364,False
+S004,S004-Q055,b229284b-6a2b-5cfb-a8c8-0ccc1bd72603,S004-Q045,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,44,0.48587390780448914,False
+S004,S004-Q055,90248870-b2cb-59d2-a707-79d09f366d8a,S004-Q051,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,8,0.5526915788650513,False
+S004,S004-Q056,adc1eeb8-b0f8-5877-88cf-abdd23798b3a,S004-Q050,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,32,0.5240386724472046,False
+S004,S004-Q063,2c5547ce-bd04-536c-8b2d-e09ae5633e53,S004-Q057,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,1,0.5163112878799438,True
+S004,S004-Q065,ca05266e-320c-5081-9d2d-f7c8689c58a9,S004-Q053,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,33,0.39716923236846924,False
+S004,S004-Q065,28de896e-9356-58a4-a8c5-c3efe7770f57,S004-Q058,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,48,0.3712315559387207,False
+S004,S004-Q066,52990abe-a81c-5937-b506-8a88315cc3c0,S004-Q056,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,6,0.4121669828891754,False
+S004,S004-Q066,57ef23a9-5ba4-568c-9cc1-4c5e9a47ec7a,S004-Q062,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,24,0.37012651562690735,False
+S004,S004-Q070,2e530daf-4b7a-5b20-9fe7-9c23daee4af6,S004-Q064,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,21,0.4457664489746094,False
+S005,S005-Q007,73dd18d4-5dac-5f27-ac96-83de10de4633,S005-Q001,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,2,0.49146395921707153,True
+S005,S005-Q011,73dd18d4-5dac-5f27-ac96-83de10de4633,S005-Q001,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,6,0.4159492254257202,False
+S005,S005-Q011,9c806b54-004f-57bf-8755-c4a0eebd929e,S005-Q007,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,3,0.46531540155410767,True
+S005,S005-Q013,73dd18d4-5dac-5f27-ac96-83de10de4633,S005-Q001,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,8,0.43459609150886536,False
+S005,S005-Q013,6e436632-8d73-58b8-a746-7cbc36ffe10f,S005-Q006,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,1,0.528767466545105,True
+S005,S005-Q014,c64751d6-21c8-5c09-87da-48f940293661,S005-Q008,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,3,0.4579868018627167,True
+S005,S005-Q021,5095d8f5-e975-5011-976e-e587c31560f2,S005-Q015,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,11,0.5038416981697083,False
+S005,S005-Q022,bcb24496-086a-528b-a09e-86bae79fa560,S005-Q012,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,9,0.5895946025848389,False
+S005,S005-Q022,c16509f9-dd00-5e11-9acf-ecc8f08ad424,S005-Q018,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,13,0.571935772895813,False
+S005,S005-Q026,87d6b0ff-8b24-5176-ba24-dbc110c6e1d5,S005-Q014,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,4,0.6185029745101929,True
+S005,S005-Q026,daf8b285-37ac-5e07-a640-74fc9322fe21,S005-Q019,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,15,0.5717160701751709,False
+S005,S005-Q028,102b7fa7-9564-5e73-98e7-41fde776fa99,S005-Q022,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,8,0.5894004106521606,False
+S005,S005-Q033,407824ab-fd2c-5a7b-ac60-4e9d2ed5311e,S005-Q023,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,2,0.6227489709854126,True
+S005,S005-Q033,52954b6d-4823-5e0a-955d-8a3b24df0a30,S005-Q029,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,3,0.61201012134552,True
+S005,S005-Q035,52954b6d-4823-5e0a-955d-8a3b24df0a30,S005-Q029,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,9,0.5904514193534851,False
+S005,S005-Q039,e0f6fcfc-3a3a-5dbe-8aa0-d690b2179326,S005-Q027,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,34,0.40891146659851074,False
+S005,S005-Q039,a9136ff5-7fca-58fe-8907-08b361042647,S005-Q032,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,9,0.5181121826171875,False
+S005,S005-Q042,19b9c9f1-754d-5322-831d-a2b5bbc632f9,S005-Q036,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,31,0.5095226764678955,False
+S005,S005-Q044,53a0c2bd-e2e0-5a10-8976-c6a159c1cd78,S005-Q034,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,29,0.5395908951759338,False
+S005,S005-Q044,009ec1d2-83f6-5755-bd7a-e5a92eda1890,S005-Q040,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,18,0.5686289668083191,False
+S005,S005-Q049,d0b649b9-d683-5ad9-a5a6-64c75b0bc996,S005-Q043,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,5,0.5803361535072327,True
+S005,S005-Q052,009ec1d2-83f6-5755-bd7a-e5a92eda1890,S005-Q040,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,5,0.5960174202919006,True
+S005,S005-Q052,c50cce28-4618-514d-bc83-20a57b6f5562,S005-Q045,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,28,0.5175114274024963,False
+S005,S005-Q055,c50cce28-4618-514d-bc83-20a57b6f5562,S005-Q045,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,19,0.4951624274253845,False
+S005,S005-Q055,cc845b3c-bd6e-511e-8bf1-44f5e08cf54a,S005-Q051,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,2,0.5543037056922913,True
+S005,S005-Q056,749bba84-be69-55e2-98a1-a9617e473fb0,S005-Q050,保守调优 Add Prompt + 上下文引用解析后检索,保守调优 Add Prompt,上下文引用解析后检索,38,0.4762135148048401,False

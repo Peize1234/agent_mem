@@ -1,0 +1,10 @@
+{
+  "model": "BAAI/bge-small-zh-v1.5",
+  "batch_name": "conservative-tuned-pages-S001-S005",
+  "content_hash": "b3e524120c947b20a94f58e9c90afdaad866dc10cf512d6afd8113d61597837a",
+  "item_count": 333,
+  "dimension": 512,
+  "build_ms": 4060.3019800000766,
+  "item_latency_ms": {},
+  "cache_hit": false
+}
