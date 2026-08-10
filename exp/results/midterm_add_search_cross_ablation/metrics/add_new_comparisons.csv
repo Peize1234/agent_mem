@@ -1,0 +1,3 @@
+﻿comparison,promoted_gold,demoted_gold,net_gold_gain,rescued_queries,hurt_queries,extreme_demotion_top5_to_beyond20,extreme_promotion_beyond20_to_top5
+NewAdd vs OldAdd under Search-Baseline,14,20,-6,10,15,4,1
+NewAdd vs OldAdd under Search-P2,10,21,-11,7,16,4,1

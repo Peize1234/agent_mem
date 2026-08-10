@@ -1,0 +1,16 @@
+{
+  "hash_contract": "SHA256 of exact UTF-8 file bytes",
+  "frozen_before_first_llm_call": true,
+  "A1": {
+    "file": "Add_A1_task_first.txt",
+    "sha256": "7d7d84c6170c263d5eefacf656102de7fc63911d600144489a2db18e5f497482"
+  },
+  "A2": {
+    "file": "Add_A2_task_dependency.txt",
+    "sha256": "77ae1ca0e815cba42842dec7e9532527479423c5124a5ca89068c4f83446bfa4"
+  },
+  "A3": {
+    "file": "Add_A3_old_lite.txt",
+    "sha256": "d66ae1178b94991960020cffd7e5aa2fdbb98ab30aa0abccc78308deb28adde7"
+  }
+}

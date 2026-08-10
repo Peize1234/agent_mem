@@ -1,0 +1,178 @@
+{
+  "experiment_name": "midterm_add_summary_search_query_cross_ablation",
+  "sessions": [
+    "S001",
+    "S002",
+    "S003",
+    "S004",
+    "S005"
+  ],
+  "session_count": 5,
+  "evaluation_query_count": 99,
+  "eligible_gold_count": 154,
+  "page_count": 333,
+  "add_old_prompt_sha256": "ea093defcdfb8b185928337ff8d7383e118dc7edab8f58c176af7f220fcf185e",
+  "add_new_prompt_sha256": "91f0af043b1856de584b1b29e69e03f4b5f6f2cc7e0a06c0fbb31e97e6561224",
+  "add_new_prompt_sha256_after_llm": "91f0af043b1856de584b1b29e69e03f4b5f6f2cc7e0a06c0fbb31e97e6561224",
+  "add_new_prompt_frozen_before_first_llm_call": true,
+  "prompt_adaptation_after_results": false,
+  "add_new_input_contract": "current User + current Assistant only",
+  "add_new_forbidden_inputs": [
+    "previous dialogue",
+    "Session summary",
+    "other Pages",
+    "Gold",
+    "required_context",
+    "retrieval result/score",
+    "P2 resolved query",
+    "future dialogue",
+    "benchmark label"
+  ],
+  "summary_model": "deepseek-v4-flash",
+  "thinking_mode": "disabled",
+  "temperature": 0.1,
+  "top_p": 0.1,
+  "top_k": 1,
+  "production_source_model_configs": {
+    "S001": {
+      "model": "deepseek-v4-flash",
+      "temperature": 0.1,
+      "thinking_mode": "disabled"
+    },
+    "S002": {
+      "model": "deepseek-v4-flash",
+      "temperature": 0.1,
+      "thinking_mode": "disabled"
+    },
+    "S003": {
+      "model": "deepseek-v4-flash",
+      "temperature": 0.1,
+      "thinking_mode": "disabled"
+    },
+    "S004": {
+      "model": "deepseek-v4-flash",
+      "temperature": 0.1,
+      "thinking_mode": "disabled"
+    },
+    "S005": {
+      "model": "deepseek-v4-flash",
+      "temperature": 0.1,
+      "thinking_mode": "disabled"
+    }
+  },
+  "add_new_successful_model_output_count": 333,
+  "add_new_llm_api_attempt_count": 336,
+  "retry_count": 3,
+  "provider_precondition_rejected_count": 0,
+  "production_compatible_keyword_truncation_count": 1,
+  "keyword_persistence_contract": "production-compatible first 8 model-provided keywords",
+  "old_page_embedding_reused_count": 333,
+  "new_page_embedding_count": 333,
+  "new_page_embedding_current_run_cache_hit": true,
+  "embedding_model": "BAAI/bge-small-zh-v1.5",
+  "embedding_dimension": 512,
+  "new_page_embedding_content_hash": "3f402aac3024cf890da1e98b68a93780b01e6469ff779de7ae812f537c325de1",
+  "page_embedding_mode": "add",
+  "page_formatter": "<summary>\\nKeywords: <comma-space joined keywords>\\nUser: <original_user_query>",
+  "search_baseline_query_count": 99,
+  "search_p2_query_count": 99,
+  "search_baseline_new_llm_calls": 0,
+  "search_p2_new_llm_calls": 0,
+  "search_baseline_query_embedding_reused_count": 99,
+  "search_p2_query_embedding_reused_count": 99,
+  "search_baseline_embedding_contract": "original_query only",
+  "search_p2_embedding_contract": "frozen P2 resolved_query only",
+  "retrieval_method": "per-Session dense cosine",
+  "full_session_rerun": false,
+  "source_turn_set_changed": false,
+  "eligible_gold_changed": false,
+  "visible_page_ids_changed": false,
+  "page_regeneration": "Add-New experimental summary/keywords only; no production Page or Session mutation",
+  "validations": {
+    "A": {
+      "status": "PASS",
+      "micro_r5": 0.3246753246753247,
+      "macro_r5": 0.3367359868813357
+    },
+    "B": {
+      "status": "PASS",
+      "micro_r5": 0.35064935064935066,
+      "macro_r5": 0.3601371496720334
+    },
+    "C": {
+      "status": "PASS",
+      "old_source_turn_count": 333,
+      "planned_new_count": 333,
+      "new_source_turn_count": 333
+    },
+    "D": {
+      "status": "PASS",
+      "query_count": 99,
+      "mapping_hash": "f3c4c5d3de50a362bfd0179868decfb00524cf35dc7fda14f90c5738a68b558e",
+      "old_mapping_hash": "f3c4c5d3de50a362bfd0179868decfb00524cf35dc7fda14f90c5738a68b558e",
+      "new_mapping_hash": "f3c4c5d3de50a362bfd0179868decfb00524cf35dc7fda14f90c5738a68b558e"
+    },
+    "E": {
+      "status": "PASS",
+      "eligible_gold_count": 154,
+      "mapping_hash": "26a2f9f7a7bd693193177ca94e85a4418bd61330702140f67b6cb2d1d0d5d009",
+      "old_mapping_hash": "26a2f9f7a7bd693193177ca94e85a4418bd61330702140f67b6cb2d1d0d5d009",
+      "new_mapping_hash": "26a2f9f7a7bd693193177ca94e85a4418bd61330702140f67b6cb2d1d0d5d009"
+    },
+    "F": {
+      "status": "PASS",
+      "query_count": 99,
+      "contract": "embedding text equals original_query byte-for-byte"
+    },
+    "G": {
+      "status": "PASS",
+      "query_count": 99,
+      "contract": "text hash validated against frozen P2 embedding cache"
+    },
+    "H": {
+      "status": "PASS",
+      "input_fields": [
+        "CURRENT_USER",
+        "CURRENT_ASSISTANT"
+      ],
+      "excluded_fields": [
+        "previous dialogue",
+        "Gold",
+        "required_context",
+        "Page",
+        "retrieval results",
+        "retrieval scores",
+        "P2 resolved query",
+        "future dialogue"
+      ]
+    }
+  },
+  "validations_a_through_h_all_pass": true,
+  "empty_summary_count": 0,
+  "empty_summary_source_turn_ids": [],
+  "potential_unsupported_count": 1,
+  "comparison_metrics": [
+    {
+      "comparison": "NewAdd vs OldAdd under Search-Baseline",
+      "promoted_gold": 14,
+      "demoted_gold": 20,
+      "net_gold_gain": -6,
+      "rescued_queries": 10,
+      "hurt_queries": 15,
+      "extreme_demotion_top5_to_beyond20": 4,
+      "extreme_promotion_beyond20_to_top5": 1
+    },
+    {
+      "comparison": "NewAdd vs OldAdd under Search-P2",
+      "promoted_gold": 10,
+      "demoted_gold": 21,
+      "net_gold_gain": -11,
+      "rescued_queries": 7,
+      "hurt_queries": 16,
+      "extreme_demotion_top5_to_beyond20": 4,
+      "extreme_promotion_beyond20_to_top5": 1
+    }
+  ],
+  "search_p2_gain_on_old_add_r5": 0.025974025974025983,
+  "search_p2_gain_on_new_add_r5": -0.006493506493506496
+}

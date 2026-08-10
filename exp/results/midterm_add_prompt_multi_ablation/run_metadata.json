@@ -1,0 +1,309 @@
+{
+  "experiment_name": "midterm_add_prompt_multi_candidate_ablation",
+  "session_count": 5,
+  "page_count": 333,
+  "evaluation_query_count": 99,
+  "eligible_gold_count": 154,
+  "prompt_sha256_before_first_llm_call": {
+    "Old": "ea093defcdfb8b185928337ff8d7383e118dc7edab8f58c176af7f220fcf185e",
+    "A1": "7d7d84c6170c263d5eefacf656102de7fc63911d600144489a2db18e5f497482",
+    "A2": "77ae1ca0e815cba42842dec7e9532527479423c5124a5ca89068c4f83446bfa4",
+    "A3": "d66ae1178b94991960020cffd7e5aa2fdbb98ab30aa0abccc78308deb28adde7"
+  },
+  "prompt_sha256_after_generation": {
+    "Old": "ea093defcdfb8b185928337ff8d7383e118dc7edab8f58c176af7f220fcf185e",
+    "A1": "7d7d84c6170c263d5eefacf656102de7fc63911d600144489a2db18e5f497482",
+    "A2": "77ae1ca0e815cba42842dec7e9532527479423c5124a5ca89068c4f83446bfa4",
+    "A3": "d66ae1178b94991960020cffd7e5aa2fdbb98ab30aa0abccc78308deb28adde7"
+  },
+  "prompts_frozen": true,
+  "prompt_adaptation_after_results": false,
+  "input_contract": "CURRENT_USER + CURRENT_ASSISTANT only",
+  "summary_model": "deepseek-v4-flash",
+  "thinking_mode": "disabled",
+  "temperature": 0.1,
+  "top_p": 0.1,
+  "top_k": 1,
+  "generation": {
+    "A1": {
+      "successful_output_count": 333,
+      "actual_api_attempts": 333,
+      "retry_count": 0,
+      "provider_precondition_rejected_count": 0,
+      "cache_hit_count": 0,
+      "failed_cache_row_count": 0,
+      "keyword_truncation_count": 0,
+      "cache_path": "/home/peize/Code/htzq/mem0/exp/results/midterm_add_prompt_multi_ablation/cache/A1_summary_llm.jsonl"
+    },
+    "A2": {
+      "successful_output_count": 333,
+      "actual_api_attempts": 666,
+      "retry_count": 333,
+      "provider_precondition_rejected_count": 333,
+      "cache_hit_count": 0,
+      "failed_cache_row_count": 0,
+      "keyword_truncation_count": 0,
+      "cache_path": "/home/peize/Code/htzq/mem0/exp/results/midterm_add_prompt_multi_ablation/cache/A2_summary_llm.jsonl"
+    },
+    "A3": {
+      "successful_output_count": 333,
+      "actual_api_attempts": 333,
+      "retry_count": 0,
+      "provider_precondition_rejected_count": 0,
+      "cache_hit_count": 0,
+      "failed_cache_row_count": 0,
+      "keyword_truncation_count": 0,
+      "cache_path": "/home/peize/Code/htzq/mem0/exp/results/midterm_add_prompt_multi_ablation/cache/A3_summary_llm.jsonl"
+    }
+  },
+  "old_summary_llm_calls": 0,
+  "old_page_embedding_reused": 333,
+  "new_page_embeddings": {
+    "A1": 333,
+    "A2": 333,
+    "A3": 333
+  },
+  "embedding_metadata": {
+    "A1": {
+      "model": "BAAI/bge-small-zh-v1.5",
+      "batch_name": "add-A1-pages-S001-S005",
+      "content_hash": "0014800d350c9d98ce8f84ae6c65e0f93cd0fd324370d9ca9bd6b0a79f9cd58d",
+      "item_count": 333,
+      "dimension": 512,
+      "build_ms": 2395.2576649999173,
+      "item_latency_ms": {},
+      "cache_hit": false
+    },
+    "A2": {
+      "model": "BAAI/bge-small-zh-v1.5",
+      "batch_name": "add-A2-pages-S001-S005",
+      "content_hash": "285111f187b1cee8ba1f5416faf3ff32403211cafaeb84f109eb419def055949",
+      "item_count": 333,
+      "dimension": 512,
+      "build_ms": 1837.5750499999413,
+      "item_latency_ms": {},
+      "cache_hit": false
+    },
+    "A3": {
+      "model": "BAAI/bge-small-zh-v1.5",
+      "batch_name": "add-A3-pages-S001-S005",
+      "content_hash": "c67ff1f1c123504caf74261b7d344657ada3e4729377e403b7e8ba7db27421ba",
+      "item_count": 333,
+      "dimension": 512,
+      "build_ms": 1893.0242030000954,
+      "item_latency_ms": {},
+      "cache_hit": false
+    }
+  },
+  "embedding_model": "BAAI/bge-small-zh-v1.5",
+  "embedding_mode": "add",
+  "dimension": 512,
+  "baseline_query_embedding_reused": 99,
+  "p2_query_embedding_reused": 99,
+  "baseline_new_llm_calls": 0,
+  "p2_new_llm_calls": 0,
+  "full_session_rerun": false,
+  "source_turn_set_changed": false,
+  "eligible_gold_changed": false,
+  "visible_page_ids_changed": false,
+  "validation_A_J": {
+    "A": {
+      "status": "PASS",
+      "actual": [
+        0.3246753246753247,
+        0.3367359868813357,
+        0.525974025974026,
+        0.7467532467532467,
+        0.2948787273272229,
+        14.571428571428571
+      ],
+      "expected": [
+        0.3246753246753247,
+        0.3367359868813357,
+        0.525974025974026,
+        0.7467532467532467,
+        0.2948787273272229,
+        14.571428571428571
+      ]
+    },
+    "B": {
+      "status": "PASS",
+      "actual": [
+        0.35064935064935066,
+        0.3601371496720334,
+        0.525974025974026,
+        0.7597402597402597,
+        0.30458163138396327,
+        14.551948051948052
+      ],
+      "expected": [
+        0.35064935064935066,
+        0.3601371496720334,
+        0.525974025974026,
+        0.7597402597402597,
+        0.30458163138396327,
+        14.551948051948052
+      ]
+    },
+    "D": {
+      "status": "PASS",
+      "evaluation_query_count": 99
+    },
+    "E": {
+      "status": "PASS",
+      "eligible_gold_count": 154
+    },
+    "G": {
+      "status": "PASS",
+      "contract": "Search-Baseline text assigned directly from original_query",
+      "query_count": 99
+    },
+    "H": {
+      "status": "PASS",
+      "contract": "P2 text content hash validated against frozen embedding cache"
+    },
+    "I": {
+      "status": "PASS",
+      "input_field_names": [
+        "CURRENT_USER",
+        "CURRENT_ASSISTANT"
+      ],
+      "forbidden_inputs_excluded": true
+    },
+    "J": {
+      "status": "PASS",
+      "before": {
+        "A1": "7d7d84c6170c263d5eefacf656102de7fc63911d600144489a2db18e5f497482",
+        "A2": "77ae1ca0e815cba42842dec7e9532527479423c5124a5ca89068c4f83446bfa4",
+        "A3": "d66ae1178b94991960020cffd7e5aa2fdbb98ab30aa0abccc78308deb28adde7"
+      },
+      "after": {
+        "A1": "7d7d84c6170c263d5eefacf656102de7fc63911d600144489a2db18e5f497482",
+        "A2": "77ae1ca0e815cba42842dec7e9532527479423c5124a5ca89068c4f83446bfa4",
+        "A3": "d66ae1178b94991960020cffd7e5aa2fdbb98ab30aa0abccc78308deb28adde7"
+      }
+    },
+    "C": {
+      "status": "PASS",
+      "counts": {
+        "Old": 333,
+        "A1": 333,
+        "A2": 333,
+        "A3": 333
+      }
+    },
+    "F": {
+      "status": "PASS",
+      "mapping_hashes": {
+        "Old": "f3c4c5d3de50a362bfd0179868decfb00524cf35dc7fda14f90c5738a68b558e",
+        "A1": "f3c4c5d3de50a362bfd0179868decfb00524cf35dc7fda14f90c5738a68b558e",
+        "A2": "f3c4c5d3de50a362bfd0179868decfb00524cf35dc7fda14f90c5738a68b558e",
+        "A3": "f3c4c5d3de50a362bfd0179868decfb00524cf35dc7fda14f90c5738a68b558e"
+      }
+    }
+  },
+  "validation_A_J_all_pass": true,
+  "search_p2_gain_r5": {
+    "Old": 0.025974025974025983,
+    "A1": 0.0,
+    "A2": -0.006493506493506496,
+    "A3": 0.019480519480519487
+  },
+  "audit_summary": {
+    "Old": {
+      "task_explicit_rate": 0.9369369369369369,
+      "task_partial_rate": 0.06306306306306306,
+      "task_missing_rate": 0.0,
+      "task_keyword_coverage": 1.0,
+      "dependency_preservation_rate": 0.513677811550152,
+      "dependency_keyword_coverage": 0.1762917933130699,
+      "task_result_bound_rate": 0.924924924924925,
+      "cross_task_collision_rate": 0.0
+    },
+    "A1": {
+      "task_explicit_rate": 0.933933933933934,
+      "task_partial_rate": 0.06606606606606606,
+      "task_missing_rate": 0.0,
+      "task_keyword_coverage": 1.0,
+      "dependency_preservation_rate": 0.6443768996960486,
+      "dependency_keyword_coverage": 0.45592705167173253,
+      "task_result_bound_rate": 0.8888888888888888,
+      "cross_task_collision_rate": 0.0
+    },
+    "A2": {
+      "task_explicit_rate": 0.9429429429429429,
+      "task_partial_rate": 0.057057057057057055,
+      "task_missing_rate": 0.0,
+      "task_keyword_coverage": 1.0,
+      "dependency_preservation_rate": 0.9969604863221885,
+      "dependency_keyword_coverage": 0.9756838905775076,
+      "task_result_bound_rate": 0.9039039039039038,
+      "cross_task_collision_rate": 0.0
+    },
+    "A3": {
+      "task_explicit_rate": 0.93993993993994,
+      "task_partial_rate": 0.06006006006006006,
+      "task_missing_rate": 0.0,
+      "task_keyword_coverage": 1.0,
+      "dependency_preservation_rate": 0.6139817629179332,
+      "dependency_keyword_coverage": 0.3860182370820669,
+      "task_result_bound_rate": 0.9159159159159159,
+      "cross_task_collision_rate": 0.0
+    }
+  },
+  "duplicate_summary": {
+    "Old": {
+      "page_count": 333,
+      "unique_summary_count": 333,
+      "exact_duplicate_page_count": 0,
+      "duplicate_group_count": 0,
+      "largest_duplicate_group_size": 1,
+      "normalized_unique_count": 333,
+      "normalized_duplicate_group_count": 0,
+      "largest_normalized_duplicate_group": 1,
+      "cross_task_collision_page_count": 0,
+      "cross_task_collision_rate": 0.0
+    },
+    "A1": {
+      "page_count": 333,
+      "unique_summary_count": 332,
+      "exact_duplicate_page_count": 2,
+      "duplicate_group_count": 1,
+      "largest_duplicate_group_size": 2,
+      "normalized_unique_count": 332,
+      "normalized_duplicate_group_count": 1,
+      "largest_normalized_duplicate_group": 2,
+      "cross_task_collision_page_count": 0,
+      "cross_task_collision_rate": 0.0
+    },
+    "A2": {
+      "page_count": 333,
+      "unique_summary_count": 333,
+      "exact_duplicate_page_count": 0,
+      "duplicate_group_count": 0,
+      "largest_duplicate_group_size": 1,
+      "normalized_unique_count": 333,
+      "normalized_duplicate_group_count": 0,
+      "largest_normalized_duplicate_group": 1,
+      "cross_task_collision_page_count": 0,
+      "cross_task_collision_rate": 0.0
+    },
+    "A3": {
+      "page_count": 333,
+      "unique_summary_count": 333,
+      "exact_duplicate_page_count": 0,
+      "duplicate_group_count": 0,
+      "largest_duplicate_group_size": 1,
+      "normalized_unique_count": 333,
+      "normalized_duplicate_group_count": 0,
+      "largest_normalized_duplicate_group": 1,
+      "cross_task_collision_page_count": 0,
+      "cross_task_collision_rate": 0.0
+    }
+  },
+  "fidelity_potential_unsupported_count": {
+    "A1": 21,
+    "A2": 40,
+    "A3": 29
+  }
+}

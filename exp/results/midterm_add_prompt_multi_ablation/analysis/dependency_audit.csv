@@ -1,0 +1,334 @@
+﻿session_id,source_turn_id,has_dependency_signal,dependency_type,Old_preserved,Old_keyword_covered,A1_preserved,A1_keyword_covered,A2_preserved,A2_keyword_covered,A3_preserved,A3_keyword_covered
+S001,S001-Q001,False,[],,,,,,,,
+S001,S001-Q002,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",False,False,False,False,True,True,False,False
+S001,S001-Q003,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,False,False
+S001,S001-Q004,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,False,False
+S001,S001-Q005,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,False,False
+S001,S001-Q006,True,"[""EARLIER_CONTEXT"", ""CONTINUATION"", ""REVISION""]",True,False,True,True,True,True,False,False
+S001,S001-Q007,True,"[""PREVIOUS_TURN""]",True,False,True,False,True,True,True,False
+S001,S001-Q008,True,"[""EARLIER_CONTEXT""]",False,False,True,False,True,True,False,False
+S001,S001-Q009,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",False,False,False,False,True,True,True,False
+S001,S001-Q010,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",True,False,False,False,True,True,True,False
+S001,S001-Q011,True,"[""EARLIER_CONTEXT""]",False,False,False,False,True,True,False,False
+S001,S001-Q012,True,"[""PREVIOUS_TURN"", ""REVISION""]",True,False,True,True,True,True,True,True
+S001,S001-Q013,True,"[""PREVIOUS_TURN""]",True,False,False,False,True,True,True,False
+S001,S001-Q014,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",False,False,False,False,True,True,True,False
+S001,S001-Q015,True,"[""EARLIER_CONTEXT""]",False,False,True,False,True,True,False,False
+S001,S001-Q016,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,False,False
+S001,S001-Q017,True,"[""EARLIER_CONTEXT"", ""REVISION""]",True,True,True,True,True,True,True,True
+S001,S001-Q018,True,"[""PREVIOUS_TURN""]",True,True,True,True,True,True,True,True
+S001,S001-Q019,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,True,True,True,True,True,True,True
+S001,S001-Q020,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",False,False,True,False,True,True,False,False
+S001,S001-Q021,True,"[""PREVIOUS_TURN""]",True,False,False,False,True,True,True,False
+S001,S001-Q022,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,False,False
+S001,S001-Q023,True,"[""PREVIOUS_TURN""]",True,False,True,False,True,True,False,False
+S001,S001-Q024,True,"[""CONTINUATION""]",False,False,False,False,True,True,True,False
+S001,S001-Q025,True,"[""PREVIOUS_TURN""]",False,False,True,True,True,True,False,False
+S001,S001-Q026,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",False,False,True,False,True,True,False,False
+S001,S001-Q027,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,False,False
+S001,S001-Q028,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",True,True,True,True,True,True,True,True
+S001,S001-Q029,True,"[""PREVIOUS_TURN"", ""REVISION""]",False,False,True,True,True,True,True,True
+S001,S001-Q030,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,True,True,True,True,True,True,True
+S001,S001-Q031,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT""]",False,False,False,False,True,True,True,False
+S001,S001-Q032,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,False,False
+S001,S001-Q033,True,"[""PREVIOUS_TURN""]",False,False,True,False,True,True,False,False
+S001,S001-Q034,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",False,False,False,False,True,True,False,False
+S001,S001-Q035,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,False,True,True,True,True,True,True
+S001,S001-Q036,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",True,False,True,False,True,True,True,False
+S001,S001-Q037,True,"[""EARLIER_CONTEXT""]",False,True,True,True,True,True,True,True
+S001,S001-Q038,True,"[""PREVIOUS_TURN""]",False,False,True,True,True,True,True,True
+S001,S001-Q039,True,"[""EARLIER_CONTEXT""]",False,False,True,False,True,True,False,False
+S001,S001-Q040,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",True,False,True,False,True,True,True,False
+S001,S001-Q041,True,"[""EARLIER_CONTEXT""]",False,False,True,True,True,True,True,False
+S001,S001-Q042,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",True,False,True,False,True,True,False,False
+S001,S001-Q043,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,True,False
+S001,S001-Q044,True,"[""PREVIOUS_TURN""]",False,False,True,True,True,True,False,False
+S001,S001-Q045,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",True,False,False,False,True,True,False,False
+S001,S001-Q046,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""CONTINUATION"", ""REVISION""]",True,False,True,True,True,True,True,True
+S001,S001-Q047,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,True,True,True,True,True,True,True
+S002,S002-Q001,False,[],,,,,,,,
+S002,S002-Q002,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",True,False,False,False,True,False,False,False
+S002,S002-Q003,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,False,False,False
+S002,S002-Q004,True,"[""PREVIOUS_TURN"", ""REVISION""]",True,False,True,True,True,True,True,True
+S002,S002-Q005,True,"[""PREVIOUS_TURN""]",False,False,True,True,True,True,False,False
+S002,S002-Q006,True,"[""EARLIER_CONTEXT"", ""REVISION""]",False,False,True,True,True,True,True,False
+S002,S002-Q007,True,"[""PREVIOUS_TURN""]",True,False,True,False,True,True,True,False
+S002,S002-Q008,True,"[""EARLIER_CONTEXT""]",False,False,False,False,True,True,True,False
+S002,S002-Q009,True,"[""EARLIER_CONTEXT"", ""CONTINUATION"", ""REVISION""]",True,False,True,True,True,True,True,True
+S002,S002-Q010,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,False,False
+S002,S002-Q011,True,"[""EARLIER_CONTEXT""]",False,False,True,False,True,True,True,False
+S002,S002-Q012,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,False,False
+S002,S002-Q013,True,"[""PREVIOUS_TURN""]",True,False,False,False,True,True,True,False
+S002,S002-Q014,True,"[""PREVIOUS_TURN""]",False,False,True,False,True,True,False,False
+S002,S002-Q015,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",True,False,False,False,True,True,False,False
+S002,S002-Q016,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""CONTINUATION"", ""REVISION""]",True,False,True,True,True,True,True,True
+S002,S002-Q017,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,True,True,True,True,True,True,True
+S002,S002-Q018,True,"[""EARLIER_CONTEXT""]",False,False,True,False,True,True,True,True
+S002,S002-Q019,True,"[""PREVIOUS_TURN""]",False,False,True,False,True,True,False,False
+S002,S002-Q020,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",True,False,False,False,True,True,True,False
+S002,S002-Q021,True,"[""EARLIER_CONTEXT""]",False,False,False,False,True,True,False,False
+S002,S002-Q022,True,"[""PREVIOUS_TURN"", ""REVISION""]",True,True,True,True,True,True,True,True
+S002,S002-Q023,True,"[""PREVIOUS_TURN""]",True,False,False,False,True,True,True,False
+S002,S002-Q024,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",False,False,True,True,True,True,False,False
+S002,S002-Q025,True,"[""EARLIER_CONTEXT""]",False,False,False,False,True,True,False,False
+S002,S002-Q026,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,False,False
+S002,S002-Q027,True,"[""EARLIER_CONTEXT"", ""REVISION""]",True,False,True,True,True,True,True,True
+S002,S002-Q028,True,"[""PREVIOUS_TURN""]",True,False,True,True,True,True,True,True
+S002,S002-Q029,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,True,True,True,True,True,True,True
+S002,S002-Q030,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",False,False,True,True,True,True,True,False
+S002,S002-Q031,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,True,False
+S002,S002-Q032,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,False,False
+S002,S002-Q033,True,"[""PREVIOUS_TURN""]",True,False,True,True,True,False,True,False
+S002,S002-Q034,True,"[""CONTINUATION""]",False,False,False,False,True,True,False,False
+S002,S002-Q035,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,False,False
+S002,S002-Q036,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",False,False,True,False,True,True,False,False
+S002,S002-Q037,True,"[""PREVIOUS_TURN""]",False,False,True,False,True,True,False,False
+S002,S002-Q038,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",True,True,True,True,True,True,True,True
+S002,S002-Q039,True,"[""PREVIOUS_TURN"", ""REVISION""]",False,False,True,False,True,True,True,True
+S002,S002-Q040,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,True,True,True,True,True,True,True
+S002,S002-Q041,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT""]",True,False,True,True,True,True,True,False
+S002,S002-Q042,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,False,False
+S002,S002-Q043,True,"[""PREVIOUS_TURN""]",True,False,True,False,True,True,False,False
+S002,S002-Q044,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",False,False,False,False,True,True,False,False
+S002,S002-Q045,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,False,True,True,True,True,True,True
+S002,S002-Q046,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",True,False,True,False,True,True,True,True
+S002,S002-Q047,True,"[""EARLIER_CONTEXT""]",False,False,True,True,True,True,True,True
+S002,S002-Q048,True,"[""PREVIOUS_TURN""]",False,False,True,True,True,True,True,True
+S002,S002-Q049,True,"[""EARLIER_CONTEXT""]",False,False,True,False,True,True,False,False
+S002,S002-Q050,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",False,False,True,False,True,True,True,False
+S002,S002-Q051,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""CONTINUATION""]",False,False,True,True,True,True,True,False
+S002,S002-Q052,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""CONTINUATION""]",True,True,True,True,True,True,True,True
+S002,S002-Q053,True,"[""EARLIER_CONTEXT""]",True,True,False,True,True,True,True,False
+S002,S002-Q054,True,"[""PREVIOUS_TURN"", ""REVISION""]",True,False,True,True,True,True,True,True
+S002,S002-Q055,True,"[""EARLIER_CONTEXT"", ""REVISION""]",True,False,True,False,True,True,True,False
+S002,S002-Q056,True,"[""CONTINUATION""]",True,False,True,False,True,True,False,False
+S002,S002-Q057,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,False,True,True,True,True,True,True
+S002,S002-Q058,True,"[""PREVIOUS_TURN"", ""REVISION""]",True,True,True,True,True,True,True,True
+S002,S002-Q059,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT""]",True,False,True,False,True,True,True,False
+S002,S002-Q060,True,"[""PREVIOUS_TURN""]",False,False,True,True,True,True,False,False
+S002,S002-Q061,True,"[""EARLIER_CONTEXT"", ""REVISION""]",True,True,True,True,True,True,True,True
+S002,S002-Q062,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,False,False,False,True,True,True,False
+S002,S002-Q063,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,False,True,True,True,True,True,True
+S002,S002-Q064,True,"[""PREVIOUS_TURN"", ""REVISION""]",True,False,True,False,True,True,True,False
+S002,S002-Q065,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",False,False,True,False,True,True,False,False
+S002,S002-Q066,True,"[""PREVIOUS_TURN""]",True,False,True,False,True,True,True,False
+S002,S002-Q067,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,True,False
+S002,S002-Q068,True,"[""EARLIER_CONTEXT""]",False,False,True,True,True,True,False,False
+S002,S002-Q069,True,"[""PREVIOUS_TURN""]",False,False,True,False,True,True,False,False
+S002,S002-Q070,True,"[""CONTINUATION"", ""REVISION""]",True,False,True,False,True,True,True,False
+S003,S003-Q001,False,[],,,,,,,,
+S003,S003-Q002,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",False,False,True,True,True,True,False,False
+S003,S003-Q003,True,"[""PREVIOUS_TURN""]",True,False,False,False,True,True,False,True
+S003,S003-Q004,True,"[""PREVIOUS_TURN""]",False,False,True,True,True,True,True,True
+S003,S003-Q005,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",False,False,False,False,True,True,False,True
+S003,S003-Q006,True,"[""EARLIER_CONTEXT"", ""REVISION""]",False,False,True,True,True,True,True,False
+S003,S003-Q007,True,"[""PREVIOUS_TURN""]",True,False,True,True,True,True,False,True
+S003,S003-Q008,True,"[""EARLIER_CONTEXT""]",False,False,True,True,True,True,True,True
+S003,S003-Q009,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",False,False,False,True,True,True,False,False
+S003,S003-Q010,True,"[""PREVIOUS_TURN""]",True,False,False,False,True,True,False,False
+S003,S003-Q011,True,"[""EARLIER_CONTEXT"", ""REVISION""]",True,True,True,True,True,True,True,True
+S003,S003-Q012,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,True,True
+S003,S003-Q013,True,"[""PREVIOUS_TURN""]",False,False,True,True,True,True,True,False
+S003,S003-Q014,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",True,False,False,False,True,True,True,False
+S003,S003-Q015,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,False,False
+S003,S003-Q016,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""CONTINUATION"", ""REVISION""]",True,False,True,True,True,True,True,True
+S003,S003-Q017,True,"[""EARLIER_CONTEXT""]",False,True,True,True,True,True,True,True
+S003,S003-Q018,True,"[""PREVIOUS_TURN""]",False,False,True,True,True,True,True,True
+S003,S003-Q019,True,"[""EARLIER_CONTEXT""]",False,False,True,False,True,True,False,False
+S003,S003-Q020,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",False,False,True,True,True,True,True,True
+S003,S003-Q021,True,"[""PREVIOUS_TURN""]",True,False,True,True,True,True,True,True
+S003,S003-Q022,True,"[""PREVIOUS_TURN""]",False,False,True,True,True,True,False,False
+S003,S003-Q023,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",False,False,False,False,True,True,False,True
+S003,S003-Q024,True,"[""CONTINUATION""]",False,False,False,False,True,True,True,False
+S003,S003-Q025,True,"[""PREVIOUS_TURN""]",False,False,False,True,True,True,False,False
+S003,S003-Q026,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",False,False,True,True,True,True,False,True
+S003,S003-Q027,True,"[""PREVIOUS_TURN"", ""CONTINUATION"", ""REVISION""]",True,True,True,True,True,True,True,True
+S003,S003-Q028,True,"[""EARLIER_CONTEXT""]",True,True,True,True,True,True,True,True
+S003,S003-Q029,True,"[""PREVIOUS_TURN"", ""REVISION""]",True,True,True,True,True,True,True,True
+S003,S003-Q030,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT""]",True,False,True,False,True,True,True,True
+S003,S003-Q031,True,"[""EARLIER_CONTEXT""]",False,False,False,False,True,True,False,False
+S003,S003-Q032,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,True,False
+S003,S003-Q033,True,"[""PREVIOUS_TURN""]",True,False,False,False,True,True,True,False
+S003,S003-Q034,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""CONTINUATION"", ""REVISION""]",True,False,True,True,True,True,True,True
+S003,S003-Q035,True,"[""EARLIER_CONTEXT""]",False,False,False,False,True,True,True,True
+S003,S003-Q036,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,True,True
+S003,S003-Q037,True,"[""EARLIER_CONTEXT""]",False,False,False,True,True,True,False,False
+S003,S003-Q038,True,"[""PREVIOUS_TURN""]",True,True,True,True,True,True,True,True
+S003,S003-Q039,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,True,True,True,True,True,True,True
+S003,S003-Q040,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",False,False,True,False,True,True,True,True
+S003,S003-Q041,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",True,False,True,False,True,True,True,False
+S003,S003-Q042,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,False,False
+S003,S003-Q043,True,"[""PREVIOUS_TURN""]",True,False,False,False,True,True,True,True
+S003,S003-Q044,True,"[""PREVIOUS_TURN""]",True,False,False,True,True,True,False,False
+S003,S003-Q045,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",True,False,False,False,True,True,False,False
+S003,S003-Q046,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,False,True,True,True,True,True,True
+S003,S003-Q047,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,True,True,True,True,True,True,True
+S003,S003-Q048,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT""]",True,True,True,False,True,True,True,True
+S003,S003-Q049,True,"[""PREVIOUS_TURN""]",False,False,True,False,True,True,False,True
+S003,S003-Q050,True,"[""PREVIOUS_TURN""]",False,True,False,False,True,True,False,False
+S003,S003-Q051,True,"[""EARLIER_CONTEXT"", ""REVISION""]",True,True,True,True,True,True,True,True
+S003,S003-Q052,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,False,True,True,True,True,True,True
+S003,S003-Q053,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,False,True,True,True,True,True,True
+S003,S003-Q054,True,"[""PREVIOUS_TURN"", ""REVISION""]",False,False,True,True,True,True,True,False
+S003,S003-Q055,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",True,False,True,False,True,True,False,False
+S003,S003-Q056,True,"[""PREVIOUS_TURN""]",True,False,True,True,True,True,True,True
+S003,S003-Q057,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,True,False
+S003,S003-Q058,True,"[""EARLIER_CONTEXT""]",False,False,True,True,True,True,False,True
+S003,S003-Q059,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",True,False,False,True,True,True,False,True
+S003,S003-Q060,True,"[""PREVIOUS_TURN"", ""REVISION""]",True,False,True,True,True,True,True,True
+S003,S003-Q061,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""CONTINUATION""]",False,False,True,True,True,True,True,False
+S003,S003-Q062,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT""]",True,True,True,True,True,True,True,True
+S003,S003-Q063,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",True,True,False,True,True,True,False,True
+S003,S003-Q064,True,"[""PREVIOUS_TURN"", ""REVISION""]",True,False,True,True,True,True,True,False
+S003,S003-Q065,True,"[""EARLIER_CONTEXT"", ""REVISION""]",True,True,True,True,True,True,True,True
+S003,S003-Q066,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",True,False,False,False,True,True,True,True
+S003,S003-Q067,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,True,True,True,True,True,True,True
+S003,S003-Q068,True,"[""PREVIOUS_TURN"", ""REVISION""]",True,False,True,True,True,True,True,True
+S003,S003-Q069,True,"[""EARLIER_CONTEXT""]",True,False,True,False,True,True,False,False
+S003,S003-Q070,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,False,True,True,True,True,True,True
+S003,S003-Q071,True,"[""EARLIER_CONTEXT"", ""REVISION""]",True,True,True,True,True,True,True,True
+S003,S003-Q072,True,"[""PREVIOUS_TURN""]",True,False,True,True,True,True,True,True
+S003,S003-Q073,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",True,False,True,False,True,True,True,False
+S003,S003-Q074,True,"[""EARLIER_CONTEXT""]",False,False,False,True,True,True,False,True
+S003,S003-Q075,True,"[""PREVIOUS_TURN"", ""REVISION""]",True,True,True,True,True,True,True,True
+S003,S003-Q076,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,True,True,True,True,True,True,True
+S003,S003-Q077,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",True,False,True,False,True,True,False,False
+S003,S003-Q078,True,"[""EARLIER_CONTEXT""]",False,False,False,False,True,True,False,False
+S003,S003-Q079,True,"[""PREVIOUS_TURN""]",True,False,True,True,True,True,True,False
+S003,S003-Q080,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",True,False,True,False,True,True,True,True
+S003,S003-Q081,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",False,False,True,False,True,True,True,True
+S003,S003-Q082,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,False,False
+S003,S003-Q083,True,"[""PREVIOUS_TURN"", ""REVISION""]",True,True,True,True,True,True,True,True
+S003,S003-Q084,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT""]",True,False,True,True,True,True,True,True
+S003,S003-Q085,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,False,False
+S003,S003-Q086,True,"[""PREVIOUS_TURN"", ""CONTINUATION"", ""REVISION""]",True,True,True,True,True,True,True,True
+S003,S003-Q087,True,"[""EARLIER_CONTEXT"", ""REVISION""]",False,True,True,True,True,True,True,True
+S003,S003-Q088,True,"[""EARLIER_CONTEXT"", ""REVISION""]",True,False,True,True,True,True,True,False
+S003,S003-Q089,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,False,False
+S003,S003-Q090,True,"[""PREVIOUS_TURN""]",True,False,True,False,True,True,True,True
+S004,S004-Q001,True,"[""CONTINUATION""]",True,False,False,False,True,False,False,False
+S004,S004-Q002,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",False,False,False,False,True,False,False,False
+S004,S004-Q003,True,"[""PREVIOUS_TURN"", ""REVISION""]",True,False,True,True,True,True,True,True
+S004,S004-Q004,True,"[""PREVIOUS_TURN""]",True,False,False,False,True,True,True,False
+S004,S004-Q005,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,False,False
+S004,S004-Q006,True,"[""EARLIER_CONTEXT"", ""REVISION""]",True,False,True,True,True,True,True,True
+S004,S004-Q007,True,"[""PREVIOUS_TURN""]",True,False,True,True,True,True,True,False
+S004,S004-Q008,True,"[""EARLIER_CONTEXT"", ""REVISION""]",True,False,True,True,True,True,True,True
+S004,S004-Q009,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",False,False,False,False,True,True,True,False
+S004,S004-Q010,True,"[""PREVIOUS_TURN""]",False,False,False,False,False,True,False,False
+S004,S004-Q011,True,"[""PREVIOUS_TURN""]",True,False,True,True,True,True,True,False
+S004,S004-Q012,True,"[""PREVIOUS_TURN""]",True,False,False,False,True,True,True,False
+S004,S004-Q013,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,True,True
+S004,S004-Q014,True,"[""CONTINUATION""]",False,False,False,False,True,True,False,False
+S004,S004-Q015,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",True,False,True,True,True,True,False,False
+S004,S004-Q016,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",False,False,True,False,True,True,False,False
+S004,S004-Q017,True,"[""PREVIOUS_TURN""]",False,False,True,True,True,True,True,False
+S004,S004-Q018,True,"[""EARLIER_CONTEXT""]",True,True,True,True,True,True,True,True
+S004,S004-Q019,True,"[""PREVIOUS_TURN"", ""CONTINUATION"", ""REVISION""]",True,False,True,True,True,True,True,True
+S004,S004-Q020,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT""]",True,False,True,False,True,True,False,False
+S004,S004-Q021,True,"[""EARLIER_CONTEXT"", ""REVISION""]",True,True,True,True,True,True,True,True
+S004,S004-Q022,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,False,False
+S004,S004-Q023,True,"[""PREVIOUS_TURN""]",True,False,True,False,True,True,False,False
+S004,S004-Q024,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",False,False,False,False,True,True,True,False
+S004,S004-Q025,True,"[""PREVIOUS_TURN""]",False,False,False,True,True,True,False,False
+S004,S004-Q026,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""CONTINUATION"", ""REVISION""]",True,False,True,True,True,True,True,True
+S004,S004-Q027,True,"[""EARLIER_CONTEXT""]",False,False,True,True,True,True,True,True
+S004,S004-Q028,True,"[""PREVIOUS_TURN""]",False,False,True,True,True,True,True,True
+S004,S004-Q029,True,"[""EARLIER_CONTEXT""]",False,False,True,False,True,True,False,False
+S004,S004-Q030,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",False,False,True,False,True,True,True,True
+S004,S004-Q031,True,"[""EARLIER_CONTEXT""]",False,False,False,False,True,True,False,False
+S004,S004-Q032,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,False,False
+S004,S004-Q033,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",True,False,False,False,True,True,False,False
+S004,S004-Q034,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",False,False,False,False,True,False,False,False
+S004,S004-Q035,True,"[""EARLIER_CONTEXT""]",False,False,True,False,True,True,False,False
+S004,S004-Q036,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,False,False
+S004,S004-Q037,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",False,False,False,True,True,True,False,False
+S004,S004-Q038,True,"[""PREVIOUS_TURN""]",True,False,True,True,True,True,True,True
+S004,S004-Q039,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,True,True,True,True,True,True,True
+S004,S004-Q040,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""CONTINUATION""]",True,False,True,False,True,True,False,True
+S004,S004-Q041,True,"[""EARLIER_CONTEXT""]",False,False,True,False,True,True,True,False
+S004,S004-Q042,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,False,False
+S004,S004-Q043,True,"[""PREVIOUS_TURN""]",True,False,False,False,True,True,True,False
+S004,S004-Q044,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,True,True,True,True,True,True,True
+S004,S004-Q045,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",False,False,False,False,True,True,False,False
+S004,S004-Q046,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,False,True,True,True,True,True,True
+S004,S004-Q047,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,True,True,True,True,True,True,True
+S004,S004-Q048,True,"[""EARLIER_CONTEXT""]",False,False,True,False,True,True,False,False
+S004,S004-Q049,True,"[""PREVIOUS_TURN""]",False,False,True,False,True,True,False,False
+S004,S004-Q050,True,"[""PREVIOUS_TURN""]",True,False,False,False,True,True,False,False
+S004,S004-Q051,True,"[""EARLIER_CONTEXT"", ""CONTINUATION"", ""REVISION""]",True,True,True,True,True,True,True,True
+S004,S004-Q052,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",False,False,False,False,True,True,True,False
+S004,S004-Q053,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,False,True,True,True,True,True,False
+S004,S004-Q054,True,"[""PREVIOUS_TURN"", ""REVISION""]",True,False,True,True,True,True,True,False
+S004,S004-Q055,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",False,False,True,False,True,True,True,False
+S004,S004-Q056,True,"[""PREVIOUS_TURN""]",True,False,True,False,True,True,True,False
+S004,S004-Q057,True,"[""PREVIOUS_TURN"", ""REVISION""]",True,True,True,True,True,True,True,True
+S004,S004-Q058,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT""]",True,False,True,False,True,True,True,True
+S004,S004-Q059,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,True,True
+S004,S004-Q060,True,"[""PREVIOUS_TURN"", ""REVISION""]",True,False,True,False,True,True,True,False
+S004,S004-Q061,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""CONTINUATION""]",False,False,True,True,True,True,True,False
+S004,S004-Q062,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,True,True,True,True,True,True,True
+S004,S004-Q063,True,"[""EARLIER_CONTEXT""]",True,True,True,True,True,True,True,True
+S004,S004-Q064,True,"[""PREVIOUS_TURN"", ""REVISION""]",True,True,True,True,True,True,True,False
+S004,S004-Q065,True,"[""EARLIER_CONTEXT"", ""REVISION""]",True,False,True,True,True,True,True,False
+S004,S004-Q066,True,"[""CONTINUATION""]",False,False,False,False,True,True,False,False
+S004,S004-Q067,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,False,True,True,True,True,True,False
+S004,S004-Q068,True,"[""PREVIOUS_TURN"", ""REVISION""]",True,True,True,True,True,True,True,False
+S004,S004-Q069,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",False,False,True,False,True,True,True,False
+S004,S004-Q070,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,False,False
+S004,S004-Q071,True,"[""EARLIER_CONTEXT""]",False,False,True,True,True,True,True,False
+S005,S005-Q001,False,[],,,,,,,,
+S005,S005-Q002,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",False,False,False,False,True,True,False,False
+S005,S005-Q003,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,False,False,False
+S005,S005-Q004,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",True,False,True,False,True,True,True,False
+S005,S005-Q005,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,False,False
+S005,S005-Q006,True,"[""EARLIER_CONTEXT"", ""REVISION""]",True,False,True,True,True,True,True,False
+S005,S005-Q007,True,"[""PREVIOUS_TURN""]",True,False,True,False,True,True,True,False
+S005,S005-Q008,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",False,False,True,False,True,True,True,False
+S005,S005-Q009,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",False,False,False,False,True,True,True,False
+S005,S005-Q010,True,"[""PREVIOUS_TURN"", ""REVISION""]",True,True,True,True,True,True,True,True
+S005,S005-Q011,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT""]",False,False,True,False,True,True,True,False
+S005,S005-Q012,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,False,False,False
+S005,S005-Q013,True,"[""PREVIOUS_TURN""]",True,False,False,False,True,True,True,False
+S005,S005-Q014,True,"[""PREVIOUS_TURN""]",True,False,False,True,True,True,False,False
+S005,S005-Q015,True,"[""EARLIER_CONTEXT"", ""CONTINUATION"", ""REVISION""]",True,True,True,True,True,True,True,True
+S005,S005-Q016,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,False,True,True,True,True,True,True
+S005,S005-Q017,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,True,True,True,True,True,True,True
+S005,S005-Q018,True,"[""EARLIER_CONTEXT""]",False,False,True,False,True,True,False,False
+S005,S005-Q019,True,"[""PREVIOUS_TURN""]",False,False,True,False,True,True,False,False
+S005,S005-Q020,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,False,False
+S005,S005-Q021,True,"[""EARLIER_CONTEXT""]",False,False,False,False,True,True,False,False
+S005,S005-Q022,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",True,False,False,False,True,True,False,False
+S005,S005-Q023,True,"[""PREVIOUS_TURN""]",True,False,False,False,True,True,True,False
+S005,S005-Q024,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",False,False,False,False,True,True,True,False
+S005,S005-Q025,True,"[""EARLIER_CONTEXT""]",True,False,False,False,True,True,False,False
+S005,S005-Q026,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",False,False,True,False,True,True,False,False
+S005,S005-Q027,True,"[""EARLIER_CONTEXT""]",False,False,False,False,True,True,False,False
+S005,S005-Q028,True,"[""PREVIOUS_TURN"", ""REVISION""]",True,True,True,True,True,True,True,True
+S005,S005-Q029,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,True,True,True,True,True,True,True
+S005,S005-Q030,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",False,False,True,False,True,True,True,True
+S005,S005-Q031,True,"[""PREVIOUS_TURN""]",True,False,True,True,True,True,True,False
+S005,S005-Q032,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,False,False
+S005,S005-Q033,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""REVISION""]",True,False,True,True,True,True,True,True
+S005,S005-Q034,True,"[""CONTINUATION""]",False,False,False,False,True,True,False,False
+S005,S005-Q035,True,"[""PREVIOUS_TURN""]",False,False,False,True,True,True,False,False
+S005,S005-Q036,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",False,False,True,True,True,True,False,False
+S005,S005-Q037,True,"[""PREVIOUS_TURN""]",True,False,True,False,True,True,False,False
+S005,S005-Q038,True,"[""EARLIER_CONTEXT""]",True,True,True,True,True,True,True,True
+S005,S005-Q039,True,"[""PREVIOUS_TURN"", ""REVISION""]",False,False,True,True,True,True,True,True
+S005,S005-Q040,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",True,False,True,False,True,True,True,False
+S005,S005-Q041,True,"[""EARLIER_CONTEXT""]",False,False,False,False,True,True,True,False
+S005,S005-Q042,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,False,False
+S005,S005-Q043,True,"[""PREVIOUS_TURN""]",True,False,True,False,True,True,False,False
+S005,S005-Q044,True,"[""EARLIER_CONTEXT"", ""CONTINUATION""]",False,False,False,False,True,True,False,False
+S005,S005-Q045,True,"[""PREVIOUS_TURN""]",False,False,False,False,True,True,False,False
+S005,S005-Q046,True,"[""PREVIOUS_TURN"", ""CONTINUATION"", ""REVISION""]",True,False,True,True,True,True,True,True
+S005,S005-Q047,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT""]",True,True,True,True,True,True,True,True
+S005,S005-Q048,True,"[""PREVIOUS_TURN""]",False,False,True,False,True,True,True,False
+S005,S005-Q049,True,"[""EARLIER_CONTEXT""]",False,False,True,False,True,True,True,False
+S005,S005-Q050,True,"[""PREVIOUS_TURN"", ""CONTINUATION""]",False,False,True,False,True,True,True,False
+S005,S005-Q051,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT"", ""CONTINUATION"", ""REVISION""]",True,False,True,True,True,True,True,True
+S005,S005-Q052,True,"[""PREVIOUS_TURN"", ""EARLIER_CONTEXT""]",True,True,True,True,True,True,True,True
+S005,S005-Q053,True,"[""EARLIER_CONTEXT""]",True,True,True,True,True,True,True,True
+S005,S005-Q054,True,"[""PREVIOUS_TURN"", ""REVISION""]",True,True,True,True,True,True,True,False
+S005,S005-Q055,True,"[""EARLIER_CONTEXT"", ""REVISION""]",True,False,True,False,True,True,True,False
