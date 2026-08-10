@@ -1,0 +1,48 @@
+{
+  "原始问题直接检索": {
+    "demoted_by_candidate": {
+      "最小改动 Add Prompt": 15,
+      "多检索入口保留 Add Prompt": 15,
+      "任务 + 证据链保留 Add Prompt": 15
+    },
+    "demoted_union": 21,
+    "demoted_by_all_three": 8,
+    "all_three_query_gold_keys": [
+      "S001-Q026|88e975b7-0f5a-5f5c-98ce-e461dcab93b8",
+      "S002-Q049|57600f18-283a-5f61-bf9e-7a48d4f8d3c5",
+      "S002-Q052|d728a292-3080-5624-89ff-d8e05d09e8ca",
+      "S002-Q055|d728a292-3080-5624-89ff-d8e05d09e8ca",
+      "S003-Q039|4ed05884-3478-5a91-a63f-3067fd41956d",
+      "S004-Q033|73b2fb55-c036-52ca-842e-cc784d317c61",
+      "S004-Q063|2c5547ce-bd04-536c-8b2d-e09ae5633e53",
+      "S005-Q039|a9136ff5-7fca-58fe-8907-08b361042647"
+    ],
+    "pairwise_overlap": {
+      "最小改动 Add Prompt ∩ 多检索入口保留 Add Prompt": 10,
+      "最小改动 Add Prompt ∩ 任务 + 证据链保留 Add Prompt": 12,
+      "多检索入口保留 Add Prompt ∩ 任务 + 证据链保留 Add Prompt": 10
+    }
+  },
+  "上下文引用解析后检索": {
+    "demoted_by_candidate": {
+      "最小改动 Add Prompt": 14,
+      "多检索入口保留 Add Prompt": 15,
+      "任务 + 证据链保留 Add Prompt": 16
+    },
+    "demoted_union": 22,
+    "demoted_by_all_three": 6,
+    "all_three_query_gold_keys": [
+      "S002-Q049|57600f18-283a-5f61-bf9e-7a48d4f8d3c5",
+      "S002-Q052|d728a292-3080-5624-89ff-d8e05d09e8ca",
+      "S002-Q055|d728a292-3080-5624-89ff-d8e05d09e8ca",
+      "S004-Q039|c022f180-c519-52a7-9c70-3f15928609b5",
+      "S004-Q063|2c5547ce-bd04-536c-8b2d-e09ae5633e53",
+      "S005-Q039|a9136ff5-7fca-58fe-8907-08b361042647"
+    ],
+    "pairwise_overlap": {
+      "最小改动 Add Prompt ∩ 多检索入口保留 Add Prompt": 8,
+      "最小改动 Add Prompt ∩ 任务 + 证据链保留 Add Prompt": 11,
+      "多检索入口保留 Add Prompt ∩ 任务 + 证据链保留 Add Prompt": 10
+    }
+  }
+}

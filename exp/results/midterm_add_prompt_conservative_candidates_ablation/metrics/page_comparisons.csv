@@ -1,0 +1,7 @@
+﻿候选 Add Prompt,统一基线,Query 检索方式,Promoted Gold,Demoted Gold,Net Gold gain,Rescued Queries,Hurt Queries,Extreme demotion,Extreme promotion
+最小改动 Add Prompt,原 Production Add Prompt,原始问题直接检索,9,15,-6,6,14,1,0
+最小改动 Add Prompt,原 Production Add Prompt,上下文引用解析后检索,10,14,-4,7,13,1,0
+多检索入口保留 Add Prompt,原 Production Add Prompt,原始问题直接检索,11,15,-4,5,10,0,0
+多检索入口保留 Add Prompt,原 Production Add Prompt,上下文引用解析后检索,6,15,-9,3,11,2,0
+任务 + 证据链保留 Add Prompt,原 Production Add Prompt,原始问题直接检索,10,15,-5,6,12,0,2
+任务 + 证据链保留 Add Prompt,原 Production Add Prompt,上下文引用解析后检索,5,16,-11,3,13,0,1

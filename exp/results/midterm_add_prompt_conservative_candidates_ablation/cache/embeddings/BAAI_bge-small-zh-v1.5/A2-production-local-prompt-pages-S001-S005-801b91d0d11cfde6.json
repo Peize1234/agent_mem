@@ -1,0 +1,10 @@
+{
+  "model": "BAAI/bge-small-zh-v1.5",
+  "batch_name": "A2-production-local-prompt-pages-S001-S005",
+  "content_hash": "801b91d0d11cfde62d76f872506c1bcc768fbeae72a9dd11a5e95c11597d6e15",
+  "item_count": 333,
+  "dimension": 512,
+  "build_ms": 3282.0846530012204,
+  "item_latency_ms": {},
+  "cache_hit": false
+}

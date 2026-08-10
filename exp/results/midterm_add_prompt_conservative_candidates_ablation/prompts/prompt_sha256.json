@@ -1,0 +1,20 @@
+{
+  "frozen_before_first_llm_call": true,
+  "hash_contract": "SHA256 of exact UTF-8 file bytes",
+  "原 Production Add Prompt": {
+    "file": "Original_Production_Add_Prompt.txt",
+    "sha256": "ea093defcdfb8b185928337ff8d7383e118dc7edab8f58c176af7f220fcf185e"
+  },
+  "最小改动 Add Prompt": {
+    "file": "Minimal_Change_Add_Prompt.txt",
+    "sha256": "ce9d08c3123bc1dabf2d11c14bb1fa87af89907247195f7c31799e4530fd7cdb"
+  },
+  "多检索入口保留 Add Prompt": {
+    "file": "Multi_Retrieval_Entry_Add_Prompt.txt",
+    "sha256": "7368aafd2fa2f49cf70320351293264eee7a07a8fb98aa5dd22070ad4af82373"
+  },
+  "任务 + 证据链保留 Add Prompt": {
+    "file": "Task_Evidence_Chain_Add_Prompt.txt",
+    "sha256": "dd73ac0973f7ab6831ea6a76176daed9e4af911101d9494d95e078524d5501bc"
+  }
+}

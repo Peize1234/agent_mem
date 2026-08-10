@@ -1,0 +1,598 @@
+{
+  "experiment_name": "midterm_add_prompt_conservative_candidates_ablation",
+  "session_count": 5,
+  "page_count": 333,
+  "evaluation_query_count": 99,
+  "eligible_gold_count": 154,
+  "human_facing_variant_labels": {
+    "Old": "原 Production Add Prompt",
+    "A1": "最小改动 Add Prompt",
+    "A2": "多检索入口保留 Add Prompt",
+    "A3": "任务 + 证据链保留 Add Prompt"
+  },
+  "human_facing_search_labels": {
+    "Baseline": "原始问题直接检索",
+    "P2": "上下文引用解析后检索"
+  },
+  "prompt_sha256_before_first_llm_call": {
+    "Old": "ea093defcdfb8b185928337ff8d7383e118dc7edab8f58c176af7f220fcf185e",
+    "A1": "ce9d08c3123bc1dabf2d11c14bb1fa87af89907247195f7c31799e4530fd7cdb",
+    "A2": "7368aafd2fa2f49cf70320351293264eee7a07a8fb98aa5dd22070ad4af82373",
+    "A3": "dd73ac0973f7ab6831ea6a76176daed9e4af911101d9494d95e078524d5501bc"
+  },
+  "prompt_sha256_after_generation": {
+    "Old": "ea093defcdfb8b185928337ff8d7383e118dc7edab8f58c176af7f220fcf185e",
+    "A1": "ce9d08c3123bc1dabf2d11c14bb1fa87af89907247195f7c31799e4530fd7cdb",
+    "A2": "7368aafd2fa2f49cf70320351293264eee7a07a8fb98aa5dd22070ad4af82373",
+    "A3": "dd73ac0973f7ab6831ea6a76176daed9e4af911101d9494d95e078524d5501bc"
+  },
+  "prompt_frozen": true,
+  "prompts_are_local_additions_to_current_Production": true,
+  "input_contract": "exact Production User + Assistant raw dialogue only",
+  "output_contract": {
+    "summary": "string",
+    "keywords": "Production persistence keeps first 8"
+  },
+  "page_formatter": "<summary>\\nKeywords: <comma-space joined keywords>\\nUser: <original_user>",
+  "same_formatter_function_for_all_variants": true,
+  "summary_model": "deepseek-v4-flash",
+  "thinking_mode": "disabled",
+  "temperature": 0.1,
+  "top_p": 0.1,
+  "top_k": 1,
+  "generation": {
+    "最小改动 Add Prompt": {
+      "successful_output_count": 333,
+      "actual_api_attempts": 333,
+      "retry_count": 0,
+      "provider_precondition_rejected_count": 0,
+      "cache_hit_count": 333,
+      "raw_keyword_truncation_count": 214,
+      "cache_path": "/home/peize/Code/htzq/mem0/exp/results/midterm_add_prompt_conservative_candidates_ablation/cache/A1_summary_llm.jsonl"
+    },
+    "多检索入口保留 Add Prompt": {
+      "successful_output_count": 333,
+      "actual_api_attempts": 333,
+      "retry_count": 0,
+      "provider_precondition_rejected_count": 0,
+      "cache_hit_count": 333,
+      "raw_keyword_truncation_count": 301,
+      "cache_path": "/home/peize/Code/htzq/mem0/exp/results/midterm_add_prompt_conservative_candidates_ablation/cache/A2_summary_llm.jsonl"
+    },
+    "任务 + 证据链保留 Add Prompt": {
+      "successful_output_count": 333,
+      "actual_api_attempts": 333,
+      "retry_count": 0,
+      "provider_precondition_rejected_count": 0,
+      "cache_hit_count": 333,
+      "raw_keyword_truncation_count": 282,
+      "cache_path": "/home/peize/Code/htzq/mem0/exp/results/midterm_add_prompt_conservative_candidates_ablation/cache/A3_summary_llm.jsonl"
+    }
+  },
+  "Production_new_LLM_calls": 0,
+  "Search_new_LLM_calls": 0,
+  "Production_Page_embeddings_reused": 333,
+  "new_Page_embedding_items": {
+    "最小改动 Add Prompt": 333,
+    "多检索入口保留 Add Prompt": 333,
+    "任务 + 证据链保留 Add Prompt": 333
+  },
+  "embedding_metadata": {
+    "最小改动 Add Prompt": {
+      "model": "BAAI/bge-small-zh-v1.5",
+      "batch_name": "A1-production-local-prompt-pages-S001-S005",
+      "content_hash": "037a9fe269512a8c34ca830c042f37ffe8d0975addc518fcf248572fa33c0b8d",
+      "item_count": 333,
+      "dimension": 512,
+      "build_ms": 3691.5882540015446,
+      "item_latency_ms": {},
+      "cache_hit": true
+    },
+    "多检索入口保留 Add Prompt": {
+      "model": "BAAI/bge-small-zh-v1.5",
+      "batch_name": "A2-production-local-prompt-pages-S001-S005",
+      "content_hash": "801b91d0d11cfde62d76f872506c1bcc768fbeae72a9dd11a5e95c11597d6e15",
+      "item_count": 333,
+      "dimension": 512,
+      "build_ms": 3282.0846530012204,
+      "item_latency_ms": {},
+      "cache_hit": true
+    },
+    "任务 + 证据链保留 Add Prompt": {
+      "model": "BAAI/bge-small-zh-v1.5",
+      "batch_name": "A3-production-local-prompt-pages-S001-S005",
+      "content_hash": "4e6aff314b87d050adb74e5e6e7ded5019baf9fda5f3d0cbf5790e42db7040f0",
+      "item_count": 333,
+      "dimension": 512,
+      "build_ms": 3410.249060998467,
+      "item_latency_ms": {},
+      "cache_hit": true
+    }
+  },
+  "embedding_model": "BAAI/bge-small-zh-v1.5",
+  "embedding_mode": "add",
+  "dimension": 512,
+  "Baseline_Query_embeddings_reused": 99,
+  "Resolved_Query_embeddings_reused": 99,
+  "full_session_rerun": false,
+  "source_turn_set_changed": false,
+  "eligible_gold_changed": false,
+  "visible_page_ids_changed": false,
+  "query_text_changed": false,
+  "validation": {
+    "Production + original query reproduction": {
+      "status": "PASS",
+      "actual": [
+        0.3246753246753247,
+        0.3367359868813357,
+        0.525974025974026,
+        0.7467532467532467,
+        0.2948787273272229,
+        14.571428571428571
+      ],
+      "expected": [
+        0.3246753246753247,
+        0.3367359868813357,
+        0.525974025974026,
+        0.7467532467532467,
+        0.2948787273272229,
+        14.571428571428571
+      ]
+    },
+    "Production + resolved query reproduction": {
+      "status": "PASS",
+      "actual": [
+        0.35064935064935066,
+        0.3601371496720334,
+        0.525974025974026,
+        0.7597402597402597,
+        0.30458163138396327,
+        14.551948051948052
+      ],
+      "expected": [
+        0.35064935064935066,
+        0.3601371496720334,
+        0.525974025974026,
+        0.7597402597402597,
+        0.30458163138396327,
+        14.551948051948052
+      ]
+    },
+    "frozen coverage": {
+      "status": "PASS",
+      "page_count": 333,
+      "query_count": 99,
+      "eligible_gold_count": 154
+    },
+    "visible Page IDs": {
+      "status": "PASS",
+      "mapping_sha256": "2f540d58198a7555d9d6b64b2a82302d4f40b36d0f00e968d1b98b08f2514fb1"
+    },
+    "query texts and vectors": {
+      "status": "PASS",
+      "original_query_contract": "original_query exactly",
+      "resolved_query_contract": "frozen reference-resolution P2 query exactly"
+    },
+    "single Production formatter": {
+      "status": "PASS",
+      "formatter": "<summary>\\nKeywords: <comma-space joined keywords>\\nUser: <original_user>"
+    },
+    "single-turn Add input": {
+      "status": "PASS",
+      "fields": [
+        "CURRENT_USER",
+        "CURRENT_ASSISTANT"
+      ]
+    },
+    "all Prompt candidates frozen": {
+      "status": "PASS",
+      "sha256": {
+        "Old": "ea093defcdfb8b185928337ff8d7383e118dc7edab8f58c176af7f220fcf185e",
+        "A1": "ce9d08c3123bc1dabf2d11c14bb1fa87af89907247195f7c31799e4530fd7cdb",
+        "A2": "7368aafd2fa2f49cf70320351293264eee7a07a8fb98aa5dd22070ad4af82373",
+        "A3": "dd73ac0973f7ab6831ea6a76176daed9e4af911101d9494d95e078524d5501bc"
+      }
+    },
+    "new LLM scope": {
+      "status": "PASS",
+      "Production_calls": 0,
+      "Search_calls": 0,
+      "candidate_expected_outputs": 999
+    },
+    "Prompt SHA256 unchanged after all generations": {
+      "status": "PASS",
+      "before": {
+        "Old": "ea093defcdfb8b185928337ff8d7383e118dc7edab8f58c176af7f220fcf185e",
+        "A1": "ce9d08c3123bc1dabf2d11c14bb1fa87af89907247195f7c31799e4530fd7cdb",
+        "A2": "7368aafd2fa2f49cf70320351293264eee7a07a8fb98aa5dd22070ad4af82373",
+        "A3": "dd73ac0973f7ab6831ea6a76176daed9e4af911101d9494d95e078524d5501bc"
+      },
+      "after": {
+        "Old": "ea093defcdfb8b185928337ff8d7383e118dc7edab8f58c176af7f220fcf185e",
+        "A1": "ce9d08c3123bc1dabf2d11c14bb1fa87af89907247195f7c31799e4530fd7cdb",
+        "A2": "7368aafd2fa2f49cf70320351293264eee7a07a8fb98aa5dd22070ad4af82373",
+        "A3": "dd73ac0973f7ab6831ea6a76176daed9e4af911101d9494d95e078524d5501bc"
+      }
+    },
+    "Page source turn identity and shared formatter": {
+      "status": "PASS",
+      "source_turn_counts": {
+        "Old": 333,
+        "A1": 333,
+        "A2": 333,
+        "A3": 333
+      }
+    }
+  },
+  "validation_all_pass": true,
+  "tokenizer_truncation_summary": {
+    "原 Production Add Prompt": {
+      "tokenizer_class": "BertTokenizer",
+      "tokenizer_model_max_length": 512,
+      "sentence_transformer_max_seq_length": 512,
+      "effective_max_length": 512,
+      "special_tokens_single": 2,
+      "content_token_budget": 510,
+      "truncation_enabled_by_sentence_transformer": true,
+      "truncation_strategy": "longest_first (single sequence)",
+      "truncation_side": "right",
+      "padding_side": "right",
+      "token_count_mean": 437.14114114114113,
+      "token_count_median": 432,
+      "token_count_p90": 560.4000000000001,
+      "token_count_p95": 595.8,
+      "token_count_max": 768,
+      "truncated_page_count": 76,
+      "truncated_page_rate": 0.22822822822822822,
+      "user_partially_truncated_page_count": 43,
+      "user_fully_truncated_page_count": 33,
+      "user_partially_or_fully_truncated_page_count": 76,
+      "component_token_definition": "token counts include each field label (Keywords:/User:) but exclude special tokens"
+    },
+    "最小改动 Add Prompt": {
+      "tokenizer_class": "BertTokenizer",
+      "tokenizer_model_max_length": 512,
+      "sentence_transformer_max_seq_length": 512,
+      "effective_max_length": 512,
+      "special_tokens_single": 2,
+      "content_token_budget": 510,
+      "truncation_enabled_by_sentence_transformer": true,
+      "truncation_strategy": "longest_first (single sequence)",
+      "truncation_side": "right",
+      "padding_side": "right",
+      "token_count_mean": 467.8378378378378,
+      "token_count_median": 460,
+      "token_count_p90": 604.6,
+      "token_count_p95": 638.4,
+      "token_count_max": 757,
+      "truncated_page_count": 109,
+      "truncated_page_rate": 0.32732732732732733,
+      "user_partially_truncated_page_count": 40,
+      "user_fully_truncated_page_count": 69,
+      "user_partially_or_fully_truncated_page_count": 109,
+      "component_token_definition": "token counts include each field label (Keywords:/User:) but exclude special tokens"
+    },
+    "多检索入口保留 Add Prompt": {
+      "tokenizer_class": "BertTokenizer",
+      "tokenizer_model_max_length": 512,
+      "sentence_transformer_max_seq_length": 512,
+      "effective_max_length": 512,
+      "special_tokens_single": 2,
+      "content_token_budget": 510,
+      "truncation_enabled_by_sentence_transformer": true,
+      "truncation_strategy": "longest_first (single sequence)",
+      "truncation_side": "right",
+      "padding_side": "right",
+      "token_count_mean": 459.65165165165166,
+      "token_count_median": 450,
+      "token_count_p90": 596.8000000000001,
+      "token_count_p95": 635.9999999999999,
+      "token_count_max": 797,
+      "truncated_page_count": 92,
+      "truncated_page_rate": 0.27627627627627627,
+      "user_partially_truncated_page_count": 41,
+      "user_fully_truncated_page_count": 51,
+      "user_partially_or_fully_truncated_page_count": 92,
+      "component_token_definition": "token counts include each field label (Keywords:/User:) but exclude special tokens"
+    },
+    "任务 + 证据链保留 Add Prompt": {
+      "tokenizer_class": "BertTokenizer",
+      "tokenizer_model_max_length": 512,
+      "sentence_transformer_max_seq_length": 512,
+      "effective_max_length": 512,
+      "special_tokens_single": 2,
+      "content_token_budget": 510,
+      "truncation_enabled_by_sentence_transformer": true,
+      "truncation_strategy": "longest_first (single sequence)",
+      "truncation_side": "right",
+      "padding_side": "right",
+      "token_count_mean": 489.7057057057057,
+      "token_count_median": 479,
+      "token_count_p90": 629.8,
+      "token_count_p95": 660.4,
+      "token_count_max": 821,
+      "truncated_page_count": 123,
+      "truncated_page_rate": 0.36936936936936937,
+      "user_partially_truncated_page_count": 43,
+      "user_fully_truncated_page_count": 80,
+      "user_partially_or_fully_truncated_page_count": 123,
+      "component_token_definition": "token counts include each field label (Keywords:/User:) but exclude special tokens"
+    }
+  },
+  "aggregate_metrics_internal": {
+    "Old_Baseline": {
+      "evaluated_query_count": 99,
+      "eligible_gold_count": 154,
+      "mrr": 0.2948787273272229,
+      "ndcg_at_5": 0.23693173037976822,
+      "mean_gold_rank": 14.571428571428571,
+      "median_gold_rank": 9.0,
+      "max_gold_rank": 75,
+      "recall_at_1": 0.07792207792207792,
+      "macro_recall_at_1": 0.07575757575757576,
+      "recall_at_3": 0.24675324675324675,
+      "macro_recall_at_3": 0.2676767676767677,
+      "recall_at_5": 0.3246753246753247,
+      "macro_recall_at_5": 0.3367003367003367,
+      "recall_at_10": 0.525974025974026,
+      "macro_recall_at_10": 0.5252525252525253,
+      "recall_at_15": 0.6623376623376623,
+      "macro_recall_at_15": 0.6717171717171717,
+      "recall_at_20": 0.7467532467532467,
+      "macro_recall_at_20": 0.7525252525252525,
+      "recall_at_30": 0.8571428571428571,
+      "macro_recall_at_30": 0.8602693602693603,
+      "macro_session_r5": 0.3367359868813357
+    },
+    "Old_P2": {
+      "evaluated_query_count": 99,
+      "eligible_gold_count": 154,
+      "mrr": 0.30458163138396327,
+      "ndcg_at_5": 0.25331484942842847,
+      "mean_gold_rank": 14.551948051948052,
+      "median_gold_rank": 9.0,
+      "max_gold_rank": 77,
+      "recall_at_1": 0.08441558441558442,
+      "macro_recall_at_1": 0.08585858585858586,
+      "recall_at_3": 0.2532467532467532,
+      "macro_recall_at_3": 0.27609427609427606,
+      "recall_at_5": 0.35064935064935066,
+      "macro_recall_at_5": 0.3653198653198653,
+      "recall_at_10": 0.525974025974026,
+      "macro_recall_at_10": 0.5404040404040404,
+      "recall_at_15": 0.6818181818181818,
+      "macro_recall_at_15": 0.6902356902356902,
+      "recall_at_20": 0.7597402597402597,
+      "macro_recall_at_20": 0.7609427609427609,
+      "recall_at_30": 0.8376623376623377,
+      "macro_recall_at_30": 0.8350168350168351,
+      "macro_session_r5": 0.3601371496720334
+    },
+    "A1_Baseline": {
+      "evaluated_query_count": 99,
+      "eligible_gold_count": 154,
+      "mrr": 0.238263006560748,
+      "ndcg_at_5": 0.19131177625564436,
+      "mean_gold_rank": 15.090909090909092,
+      "median_gold_rank": 11.0,
+      "max_gold_rank": 72,
+      "recall_at_1": 0.05194805194805195,
+      "macro_recall_at_1": 0.045454545454545456,
+      "recall_at_3": 0.19480519480519481,
+      "macro_recall_at_3": 0.21212121212121213,
+      "recall_at_5": 0.2857142857142857,
+      "macro_recall_at_5": 0.3013468013468013,
+      "recall_at_10": 0.487012987012987,
+      "macro_recall_at_10": 0.49158249158249157,
+      "recall_at_15": 0.6363636363636364,
+      "macro_recall_at_15": 0.6414141414141414,
+      "recall_at_20": 0.7337662337662337,
+      "macro_recall_at_20": 0.7340067340067341,
+      "recall_at_30": 0.8636363636363636,
+      "macro_recall_at_30": 0.8653198653198654,
+      "macro_session_r5": 0.29611870687452085
+    },
+    "A1_P2": {
+      "evaluated_query_count": 99,
+      "eligible_gold_count": 154,
+      "mrr": 0.2537709745292602,
+      "ndcg_at_5": 0.21503169473818207,
+      "mean_gold_rank": 15.214285714285714,
+      "median_gold_rank": 11.0,
+      "max_gold_rank": 70,
+      "recall_at_1": 0.05844155844155844,
+      "macro_recall_at_1": 0.05555555555555555,
+      "recall_at_3": 0.19480519480519481,
+      "macro_recall_at_3": 0.21043771043771042,
+      "recall_at_5": 0.3246753246753247,
+      "macro_recall_at_5": 0.34175084175084175,
+      "recall_at_10": 0.487012987012987,
+      "macro_recall_at_10": 0.4966329966329966,
+      "recall_at_15": 0.6493506493506493,
+      "macro_recall_at_15": 0.6649831649831649,
+      "recall_at_20": 0.7467532467532467,
+      "macro_recall_at_20": 0.7542087542087542,
+      "recall_at_30": 0.8441558441558441,
+      "macro_recall_at_30": 0.8400673400673401,
+      "macro_session_r5": 0.3320960047704234
+    },
+    "A2_Baseline": {
+      "evaluated_query_count": 99,
+      "eligible_gold_count": 154,
+      "mrr": 0.2684720614550615,
+      "ndcg_at_5": 0.2128732536721274,
+      "mean_gold_rank": 14.655844155844155,
+      "median_gold_rank": 9.0,
+      "max_gold_rank": 66,
+      "recall_at_1": 0.07792207792207792,
+      "macro_recall_at_1": 0.07575757575757576,
+      "recall_at_3": 0.19480519480519481,
+      "macro_recall_at_3": 0.20707070707070707,
+      "recall_at_5": 0.2987012987012987,
+      "macro_recall_at_5": 0.3164983164983165,
+      "recall_at_10": 0.5324675324675324,
+      "macro_recall_at_10": 0.5420875420875421,
+      "recall_at_15": 0.6558441558441559,
+      "macro_recall_at_15": 0.6734006734006734,
+      "recall_at_20": 0.7402597402597403,
+      "macro_recall_at_20": 0.7542087542087542,
+      "recall_at_30": 0.8701298701298701,
+      "macro_recall_at_30": 0.8888888888888888,
+      "macro_session_r5": 0.3090840361189199
+    },
+    "A2_P2": {
+      "evaluated_query_count": 99,
+      "eligible_gold_count": 154,
+      "mrr": 0.2607714785887313,
+      "ndcg_at_5": 0.20434449272844657,
+      "mean_gold_rank": 14.915584415584416,
+      "median_gold_rank": 9.0,
+      "max_gold_rank": 66,
+      "recall_at_1": 0.07142857142857142,
+      "macro_recall_at_1": 0.06565656565656566,
+      "recall_at_3": 0.19480519480519481,
+      "macro_recall_at_3": 0.20707070707070707,
+      "recall_at_5": 0.2922077922077922,
+      "macro_recall_at_5": 0.3114478114478114,
+      "recall_at_10": 0.551948051948052,
+      "macro_recall_at_10": 0.5673400673400674,
+      "recall_at_15": 0.6818181818181818,
+      "macro_recall_at_15": 0.6986531986531987,
+      "recall_at_20": 0.7532467532467533,
+      "macro_recall_at_20": 0.7626262626262627,
+      "recall_at_30": 0.8571428571428571,
+      "macro_recall_at_30": 0.8619528619528619,
+      "macro_session_r5": 0.306264375159724
+    },
+    "A3_Baseline": {
+      "evaluated_query_count": 99,
+      "eligible_gold_count": 154,
+      "mrr": 0.270197678990639,
+      "ndcg_at_5": 0.21272177434414571,
+      "mean_gold_rank": 14.305194805194805,
+      "median_gold_rank": 10.0,
+      "max_gold_rank": 62,
+      "recall_at_1": 0.07142857142857142,
+      "macro_recall_at_1": 0.06565656565656566,
+      "recall_at_3": 0.22077922077922077,
+      "macro_recall_at_3": 0.23737373737373738,
+      "recall_at_5": 0.2922077922077922,
+      "macro_recall_at_5": 0.3114478114478114,
+      "recall_at_10": 0.525974025974026,
+      "macro_recall_at_10": 0.5269360269360269,
+      "recall_at_15": 0.6753246753246753,
+      "macro_recall_at_15": 0.67003367003367,
+      "recall_at_20": 0.7597402597402597,
+      "macro_recall_at_20": 0.7659932659932659,
+      "recall_at_30": 0.8571428571428571,
+      "macro_recall_at_30": 0.877104377104377,
+      "macro_session_r5": 0.2977287247636085
+    },
+    "A3_P2": {
+      "evaluated_query_count": 99,
+      "eligible_gold_count": 154,
+      "mrr": 0.2723478080811073,
+      "ndcg_at_5": 0.2063837543467357,
+      "mean_gold_rank": 14.75974025974026,
+      "median_gold_rank": 9.0,
+      "max_gold_rank": 66,
+      "recall_at_1": 0.07142857142857142,
+      "macro_recall_at_1": 0.0707070707070707,
+      "recall_at_3": 0.2012987012987013,
+      "macro_recall_at_3": 0.21717171717171718,
+      "recall_at_5": 0.2792207792207792,
+      "macro_recall_at_5": 0.29124579124579125,
+      "recall_at_10": 0.5584415584415584,
+      "macro_recall_at_10": 0.5606060606060606,
+      "recall_at_15": 0.6753246753246753,
+      "macro_recall_at_15": 0.6750841750841751,
+      "recall_at_20": 0.7467532467532467,
+      "macro_recall_at_20": 0.7558922558922558,
+      "recall_at_30": 0.8246753246753247,
+      "macro_recall_at_30": 0.8265993265993266,
+      "macro_session_r5": 0.28842639918221313
+    }
+  },
+  "cross_candidate_summary": {
+    "原始问题直接检索": {
+      "demoted_by_candidate": {
+        "最小改动 Add Prompt": 15,
+        "多检索入口保留 Add Prompt": 15,
+        "任务 + 证据链保留 Add Prompt": 15
+      },
+      "demoted_union": 21,
+      "demoted_by_all_three": 8,
+      "all_three_query_gold_keys": [
+        "S001-Q026|88e975b7-0f5a-5f5c-98ce-e461dcab93b8",
+        "S002-Q049|57600f18-283a-5f61-bf9e-7a48d4f8d3c5",
+        "S002-Q052|d728a292-3080-5624-89ff-d8e05d09e8ca",
+        "S002-Q055|d728a292-3080-5624-89ff-d8e05d09e8ca",
+        "S003-Q039|4ed05884-3478-5a91-a63f-3067fd41956d",
+        "S004-Q033|73b2fb55-c036-52ca-842e-cc784d317c61",
+        "S004-Q063|2c5547ce-bd04-536c-8b2d-e09ae5633e53",
+        "S005-Q039|a9136ff5-7fca-58fe-8907-08b361042647"
+      ],
+      "pairwise_overlap": {
+        "最小改动 Add Prompt ∩ 多检索入口保留 Add Prompt": 10,
+        "最小改动 Add Prompt ∩ 任务 + 证据链保留 Add Prompt": 12,
+        "多检索入口保留 Add Prompt ∩ 任务 + 证据链保留 Add Prompt": 10
+      }
+    },
+    "上下文引用解析后检索": {
+      "demoted_by_candidate": {
+        "最小改动 Add Prompt": 14,
+        "多检索入口保留 Add Prompt": 15,
+        "任务 + 证据链保留 Add Prompt": 16
+      },
+      "demoted_union": 22,
+      "demoted_by_all_three": 6,
+      "all_three_query_gold_keys": [
+        "S002-Q049|57600f18-283a-5f61-bf9e-7a48d4f8d3c5",
+        "S002-Q052|d728a292-3080-5624-89ff-d8e05d09e8ca",
+        "S002-Q055|d728a292-3080-5624-89ff-d8e05d09e8ca",
+        "S004-Q039|c022f180-c519-52a7-9c70-3f15928609b5",
+        "S004-Q063|2c5547ce-bd04-536c-8b2d-e09ae5633e53",
+        "S005-Q039|a9136ff5-7fca-58fe-8907-08b361042647"
+      ],
+      "pairwise_overlap": {
+        "最小改动 Add Prompt ∩ 多检索入口保留 Add Prompt": 8,
+        "最小改动 Add Prompt ∩ 任务 + 证据链保留 Add Prompt": 11,
+        "多检索入口保留 Add Prompt ∩ 任务 + 证据链保留 Add Prompt": 10
+      }
+    }
+  },
+  "decisions": {
+    "replacement_rule_frozen_before_results": "候选值得替换 Production 仅当两种 Search 下 Micro/Macro R@5 均不低于 Production，至少一个 Micro R@5 严格提升，且两种 Search 的 net Gold gain 均非负。",
+    "candidate_ranking_rule_frozen_before_results": "候选继续调优优先级在结果生成前固定为：两种 Search 的 Micro R@5 均值、Macro R@5 均值、相对 Production 的合计 net Gold gain、合计 demoted Gold（越少越好），依次排序。",
+    "worth_replacing_Production": {
+      "最小改动 Add Prompt": false,
+      "多检索入口保留 Add Prompt": false,
+      "任务 + 证据链保留 Add Prompt": false
+    },
+    "candidate_ranking": [
+      {
+        "candidate": "最小改动 Add Prompt",
+        "mean_micro_r5": 0.3051948051948052,
+        "mean_macro_r5": 0.3141073558224721,
+        "summed_net_gold_gain": -10,
+        "summed_demoted_gold": 29
+      },
+      {
+        "candidate": "多检索入口保留 Add Prompt",
+        "mean_micro_r5": 0.2954545454545454,
+        "mean_macro_r5": 0.3076742056393219,
+        "summed_net_gold_gain": -13,
+        "summed_demoted_gold": 30
+      },
+      {
+        "candidate": "任务 + 证据链保留 Add Prompt",
+        "mean_micro_r5": 0.2857142857142857,
+        "mean_macro_r5": 0.2930775619729108,
+        "summed_net_gold_gain": -16,
+        "summed_demoted_gold": 31
+      }
+    ],
+    "most_worth_continuing_direction": "最小改动 Add Prompt",
+    "automatic_fourth_prompt_generated": false
+  }
+}
