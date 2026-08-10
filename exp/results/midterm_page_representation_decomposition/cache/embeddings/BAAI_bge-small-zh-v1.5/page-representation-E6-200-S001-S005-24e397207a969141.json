@@ -1,0 +1,10 @@
+{
+  "model": "BAAI/bge-small-zh-v1.5",
+  "batch_name": "page-representation-E6-200-S001-S005",
+  "content_hash": "24e397207a969141bd368c1bc664619f4fab8837196eead627f63deae5aa0995",
+  "item_count": 333,
+  "dimension": 512,
+  "build_ms": 1947.8721209998184,
+  "item_latency_ms": {},
+  "cache_hit": false
+}
