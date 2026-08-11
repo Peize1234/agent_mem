@@ -1,0 +1,4 @@
+﻿Comparison,Promoted Gold,Demoted Gold,Net Gold gain,Rescued Queries,Hurt Queries,Mean Gold rank improvement,Median Gold rank improvement,Top5 rankings identical query count,Top5 rankings identical all queries,候选 Add Prompt
+候选一：关系解析优先，禁止上下文事实扩写 vs 当前前后文 Prompt（主要基线）,10,27,-17,7,23,-3.3766233766233764,-1.5,1,False,候选一：关系解析优先，禁止上下文事实扩写
+候选二：当前轮信息优先 + 一句关系补充 vs 当前前后文 Prompt（主要基线）,9,30,-21,7,24,-4.746753246753247,-3.0,0,False,候选二：当前轮信息优先 + 一句关系补充
+候选三：区分性信息优先，主动抑制重复内容 vs 当前前后文 Prompt（主要基线）,18,30,-12,11,22,-4.279220779220779,-2.0,0,False,候选三：区分性信息优先，主动抑制重复内容

@@ -1,0 +1,255 @@
+{
+  "experiment_name": "midterm_add_context_prompt_candidates",
+  "session_count": 5,
+  "page_count": 333,
+  "evaluation_query_count": 99,
+  "eligible_gold_count": 154,
+  "formatter": "<summary>\\nKeywords: <comma-space joined keywords>",
+  "search": "上下文引用解析后检索（P2）",
+  "embedding_model": "BAAI/bge-small-zh-v1.5",
+  "embedding_mode": "add",
+  "dimension": 512,
+  "summary_model": "deepseek-v4-flash",
+  "thinking_mode": "disabled",
+  "temperature": 0.1,
+  "top_p": 0.1,
+  "top_k": 1,
+  "prompt_sha256_before_first_llm_call": {
+    "CurrentContext": "84c20f8b0a81eb3d84dfd7940eeb6a41e2099119162ce64319906d7e5af6af41",
+    "Candidate1": "906eb92a090d042b70f24f132c29d95d7d6804a0cdb0d2b95eb4eb268763af32",
+    "Candidate2": "c21b8d367c6d15c7112cff0d6f65f1bf3a0847f3209853a9fb636caf913e4203",
+    "Candidate3": "d62aea8b11967822bd0d61ed5662d0123dcc5cd57b80a1db0ea7283bd3a25b43"
+  },
+  "prompt_sha256_after_generation": {
+    "CurrentContext": "84c20f8b0a81eb3d84dfd7940eeb6a41e2099119162ce64319906d7e5af6af41",
+    "Candidate1": "906eb92a090d042b70f24f132c29d95d7d6804a0cdb0d2b95eb4eb268763af32",
+    "Candidate2": "c21b8d367c6d15c7112cff0d6f65f1bf3a0847f3209853a9fb636caf913e4203",
+    "Candidate3": "d62aea8b11967822bd0d61ed5662d0123dcc5cd57b80a1db0ea7283bd3a25b43"
+  },
+  "all_prompts_frozen_before_first_llm_call": true,
+  "generation": {
+    "候选一：关系解析优先，禁止上下文事实扩写": {
+      "successful_output_count": 333,
+      "actual_api_attempts": 333,
+      "retry_count": 0,
+      "provider_precondition_rejected_count": 0,
+      "cache_hit_count": 333,
+      "cache_path": "/home/peize/Code/htzq/mem0/exp/results/midterm_add_context_prompt_candidates/cache/Candidate1_summary_llm.jsonl"
+    },
+    "候选二：当前轮信息优先 + 一句关系补充": {
+      "successful_output_count": 333,
+      "actual_api_attempts": 333,
+      "retry_count": 0,
+      "provider_precondition_rejected_count": 0,
+      "cache_hit_count": 333,
+      "cache_path": "/home/peize/Code/htzq/mem0/exp/results/midterm_add_context_prompt_candidates/cache/Candidate2_summary_llm.jsonl"
+    },
+    "候选三：区分性信息优先，主动抑制重复内容": {
+      "successful_output_count": 333,
+      "actual_api_attempts": 333,
+      "retry_count": 0,
+      "provider_precondition_rejected_count": 0,
+      "cache_hit_count": 333,
+      "cache_path": "/home/peize/Code/htzq/mem0/exp/results/midterm_add_context_prompt_candidates/cache/Candidate3_summary_llm.jsonl"
+    }
+  },
+  "current_context_baseline_llm_calls": 0,
+  "production_reference_llm_calls": 0,
+  "search_p2_llm_calls": 0,
+  "new_candidate_page_embeddings": {
+    "候选一：关系解析优先，禁止上下文事实扩写": 333,
+    "候选二：当前轮信息优先 + 一句关系补充": 333,
+    "候选三：区分性信息优先，主动抑制重复内容": 333
+  },
+  "reference_embedding_metadata": {
+    "ProductionReference": {
+      "model": "BAAI/bge-small-zh-v1.5",
+      "batch_name": "no-user-Production-S001-S005",
+      "content_hash": "0229fd5bfd01750723d348cba37d409fbeebc74168bb29021fdaff904d52d6bb",
+      "item_count": 333,
+      "dimension": 512,
+      "build_ms": 3215.80530600113,
+      "item_latency_ms": {},
+      "cache_hit": true
+    },
+    "CurrentContext": {
+      "model": "BAAI/bge-small-zh-v1.5",
+      "batch_name": "no-user-PreviousAndFollowingContext-S001-S005",
+      "content_hash": "13fd58bbf11217a70e5c98e724780db94fd960d5600f6946024e3632b2c1a2d8",
+      "item_count": 333,
+      "dimension": 512,
+      "build_ms": 3502.114563998475,
+      "item_latency_ms": {},
+      "cache_hit": true
+    }
+  },
+  "candidate_embedding_metadata": {
+    "Candidate1": {
+      "model": "BAAI/bge-small-zh-v1.5",
+      "batch_name": "context-prompt-Candidate1-summary-keywords-S001-S005",
+      "content_hash": "a6b4bd2e967777d8b9156e11d120244d314ecd6fa131214be724425836edb372",
+      "item_count": 333,
+      "dimension": 512,
+      "build_ms": 3576.454174999526,
+      "item_latency_ms": {},
+      "cache_hit": true
+    },
+    "Candidate2": {
+      "model": "BAAI/bge-small-zh-v1.5",
+      "batch_name": "context-prompt-Candidate2-summary-keywords-S001-S005",
+      "content_hash": "126cb7bcadd511b3871862b0aa1f53e8e1f4142fdcc6ce6c5fcebf22234da784",
+      "item_count": 333,
+      "dimension": 512,
+      "build_ms": 2935.2750799989735,
+      "item_latency_ms": {},
+      "cache_hit": true
+    },
+    "Candidate3": {
+      "model": "BAAI/bge-small-zh-v1.5",
+      "batch_name": "context-prompt-Candidate3-summary-keywords-S001-S005",
+      "content_hash": "f14807bdcb8bf416adca5765d62c178b40eda097170538d110d098eb591c9bc4",
+      "item_count": 333,
+      "dimension": 512,
+      "build_ms": 2873.112602999754,
+      "item_latency_ms": {},
+      "cache_hit": true
+    }
+  },
+  "current_turn_focus_summary": [
+    {
+      "Add Prompt": "当前前后文 Prompt（主要基线）",
+      "Page count": 333,
+      "Potential following-task dominance Pages": 2,
+      "Mean current-user coverage": 0.5300670553363778,
+      "Mean best-following-user coverage": 0.1347037739207984,
+      "Pages with following-only task marker": 191
+    },
+    {
+      "Add Prompt": "候选一：关系解析优先，禁止上下文事实扩写",
+      "Page count": 333,
+      "Potential following-task dominance Pages": 176,
+      "Mean current-user coverage": 0.28956054042038093,
+      "Mean best-following-user coverage": 0.34239876910517636,
+      "Pages with following-only task marker": 266
+    },
+    {
+      "Add Prompt": "候选二：当前轮信息优先 + 一句关系补充",
+      "Page count": 333,
+      "Potential following-task dominance Pages": 226,
+      "Mean current-user coverage": 0.21382100621399078,
+      "Mean best-following-user coverage": 0.3968086351571808,
+      "Pages with following-only task marker": 277
+    },
+    {
+      "Add Prompt": "候选三：区分性信息优先，主动抑制重复内容",
+      "Page count": 333,
+      "Potential following-task dominance Pages": 233,
+      "Mean current-user coverage": 0.20341825045781173,
+      "Mean best-following-user coverage": 0.4024922287818733,
+      "Pages with following-only task marker": 287
+    }
+  ],
+  "s002_summary": [
+    {
+      "候选 Add Prompt": "候选一：关系解析优先，禁止上下文事实扩写",
+      "Promoted Gold": 3,
+      "Demoted Gold": 4,
+      "Net": -1,
+      "Rescued Query": 2,
+      "Hurt Query": 3,
+      "Promoted Gold details": [
+        "S002-Q022->S002-Q018 (7→5)",
+        "S002-Q055->S002-Q045 (16→2)",
+        "S002-Q066->S002-Q062 (11→2)"
+      ],
+      "Demoted Gold details": [
+        "S002-Q028->S002-Q022 (2→21)",
+        "S002-Q044->S002-Q040 (4→36)",
+        "S002-Q049->S002-Q043 (4→6)",
+        "S002-Q066->S002-Q056 (1→8)"
+      ]
+    },
+    {
+      "候选 Add Prompt": "候选二：当前轮信息优先 + 一句关系补充",
+      "Promoted Gold": 0,
+      "Demoted Gold": 5,
+      "Net": -5,
+      "Rescued Query": 0,
+      "Hurt Query": 5,
+      "Promoted Gold details": [],
+      "Demoted Gold details": [
+        "S002-Q028->S002-Q022 (2→17)",
+        "S002-Q044->S002-Q040 (4→32)",
+        "S002-Q049->S002-Q043 (4→20)",
+        "S002-Q065->S002-Q053 (1→11)",
+        "S002-Q066->S002-Q056 (1→38)"
+      ]
+    },
+    {
+      "候选 Add Prompt": "候选三：区分性信息优先，主动抑制重复内容",
+      "Promoted Gold": 3,
+      "Demoted Gold": 5,
+      "Net": -2,
+      "Rescued Query": 2,
+      "Hurt Query": 4,
+      "Promoted Gold details": [
+        "S002-Q014->S002-Q008 (6→4)",
+        "S002-Q066->S002-Q062 (11→2)",
+        "S002-Q070->S002-Q064 (11→3)"
+      ],
+      "Demoted Gold details": [
+        "S002-Q028->S002-Q022 (2→16)",
+        "S002-Q033->S002-Q023 (2→24)",
+        "S002-Q044->S002-Q040 (4→35)",
+        "S002-Q049->S002-Q043 (4→24)",
+        "S002-Q066->S002-Q056 (1→27)"
+      ]
+    }
+  ],
+  "input_contract": {
+    "previous": "candidate-own latest up to 3 generated Page summaries + keywords",
+    "current": "evicted source User + Assistant",
+    "following": "exact next 3 QA turns active at eviction",
+    "semantic_context_retrieval": false
+  },
+  "full_session_rerun": false,
+  "source_turn_set_changed": false,
+  "eligible_gold_changed": false,
+  "visible_page_ids_changed": false,
+  "query_changed": false,
+  "production_prompt_changed": false,
+  "validation": {
+    "Current front/back no-User Top5 reproduction": {
+      "status": "PASS",
+      "top5": 0.38311688311688313
+    },
+    "Production no-User reference reproduction": {
+      "status": "PASS",
+      "top5": 0.35714285714285715
+    },
+    "Frozen counts and identity": {
+      "status": "PASS",
+      "page_count": 333,
+      "query_count": 99,
+      "eligible_gold_count": 154
+    },
+    "Frozen P2": {
+      "status": "PASS"
+    },
+    "Identical temporal context IDs": {
+      "status": "PASS",
+      "context_rows": 999
+    },
+    "Eviction leakage": {
+      "status": "PASS"
+    },
+    "Prompt frozen": {
+      "status": "PASS"
+    },
+    "Summary Keywords formatter": {
+      "status": "PASS"
+    }
+  },
+  "validation_all_pass": true,
+  "automatic_fourth_candidate_generated": false
+}

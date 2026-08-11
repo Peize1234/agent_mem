@@ -1,0 +1,133 @@
+﻿候选 Add Prompt,Gold movement,Anchor direction,Anchor category,Anchor instances
+候选一：关系解析优先，禁止上下文事实扩写,DEMOTED,ADDED,DEPENDENCY,16
+候选一：关系解析优先，禁止上下文事实扩写,DEMOTED,ADDED,EVIDENCE_LIMIT,14
+候选一：关系解析优先，禁止上下文事实扩写,DEMOTED,ADDED,INDICATOR,14
+候选一：关系解析优先，禁止上下文事实扩写,DEMOTED,ADDED,JUDGMENT,13
+候选一：关系解析优先，禁止上下文事实扩写,DEMOTED,ADDED,KEYWORD,100
+候选一：关系解析优先，禁止上下文事实扩写,DEMOTED,ADDED,NUMBER,61
+候选一：关系解析优先，禁止上下文事实扩写,DEMOTED,ADDED,RELATION,26
+候选一：关系解析优先，禁止上下文事实扩写,DEMOTED,ADDED,STATE,32
+候选一：关系解析优先，禁止上下文事实扩写,DEMOTED,ADDED,SUBJECT,0
+候选一：关系解析优先，禁止上下文事实扩写,DEMOTED,ADDED,TASK,51
+候选一：关系解析优先，禁止上下文事实扩写,DEMOTED,ADDED,TIME,2
+候选一：关系解析优先，禁止上下文事实扩写,DEMOTED,LOST,DEPENDENCY,26
+候选一：关系解析优先，禁止上下文事实扩写,DEMOTED,LOST,EVIDENCE_LIMIT,37
+候选一：关系解析优先，禁止上下文事实扩写,DEMOTED,LOST,INDICATOR,47
+候选一：关系解析优先，禁止上下文事实扩写,DEMOTED,LOST,JUDGMENT,25
+候选一：关系解析优先，禁止上下文事实扩写,DEMOTED,LOST,KEYWORD,96
+候选一：关系解析优先，禁止上下文事实扩写,DEMOTED,LOST,NUMBER,234
+候选一：关系解析优先，禁止上下文事实扩写,DEMOTED,LOST,RELATION,29
+候选一：关系解析优先，禁止上下文事实扩写,DEMOTED,LOST,STATE,41
+候选一：关系解析优先，禁止上下文事实扩写,DEMOTED,LOST,SUBJECT,0
+候选一：关系解析优先，禁止上下文事实扩写,DEMOTED,LOST,TASK,78
+候选一：关系解析优先，禁止上下文事实扩写,DEMOTED,LOST,TIME,1
+候选一：关系解析优先，禁止上下文事实扩写,PROMOTED,ADDED,DEPENDENCY,2
+候选一：关系解析优先，禁止上下文事实扩写,PROMOTED,ADDED,EVIDENCE_LIMIT,5
+候选一：关系解析优先，禁止上下文事实扩写,PROMOTED,ADDED,INDICATOR,3
+候选一：关系解析优先，禁止上下文事实扩写,PROMOTED,ADDED,JUDGMENT,4
+候选一：关系解析优先，禁止上下文事实扩写,PROMOTED,ADDED,KEYWORD,38
+候选一：关系解析优先，禁止上下文事实扩写,PROMOTED,ADDED,NUMBER,20
+候选一：关系解析优先，禁止上下文事实扩写,PROMOTED,ADDED,RELATION,8
+候选一：关系解析优先，禁止上下文事实扩写,PROMOTED,ADDED,STATE,10
+候选一：关系解析优先，禁止上下文事实扩写,PROMOTED,ADDED,SUBJECT,0
+候选一：关系解析优先，禁止上下文事实扩写,PROMOTED,ADDED,TASK,8
+候选一：关系解析优先，禁止上下文事实扩写,PROMOTED,ADDED,TIME,1
+候选一：关系解析优先，禁止上下文事实扩写,PROMOTED,LOST,DEPENDENCY,9
+候选一：关系解析优先，禁止上下文事实扩写,PROMOTED,LOST,EVIDENCE_LIMIT,13
+候选一：关系解析优先，禁止上下文事实扩写,PROMOTED,LOST,INDICATOR,19
+候选一：关系解析优先，禁止上下文事实扩写,PROMOTED,LOST,JUDGMENT,7
+候选一：关系解析优先，禁止上下文事实扩写,PROMOTED,LOST,KEYWORD,37
+候选一：关系解析优先，禁止上下文事实扩写,PROMOTED,LOST,NUMBER,100
+候选一：关系解析优先，禁止上下文事实扩写,PROMOTED,LOST,RELATION,16
+候选一：关系解析优先，禁止上下文事实扩写,PROMOTED,LOST,STATE,18
+候选一：关系解析优先，禁止上下文事实扩写,PROMOTED,LOST,SUBJECT,0
+候选一：关系解析优先，禁止上下文事实扩写,PROMOTED,LOST,TASK,34
+候选一：关系解析优先，禁止上下文事实扩写,PROMOTED,LOST,TIME,0
+候选三：区分性信息优先，主动抑制重复内容,DEMOTED,ADDED,DEPENDENCY,22
+候选三：区分性信息优先，主动抑制重复内容,DEMOTED,ADDED,EVIDENCE_LIMIT,10
+候选三：区分性信息优先，主动抑制重复内容,DEMOTED,ADDED,INDICATOR,24
+候选三：区分性信息优先，主动抑制重复内容,DEMOTED,ADDED,JUDGMENT,21
+候选三：区分性信息优先，主动抑制重复内容,DEMOTED,ADDED,KEYWORD,122
+候选三：区分性信息优先，主动抑制重复内容,DEMOTED,ADDED,NUMBER,118
+候选三：区分性信息优先，主动抑制重复内容,DEMOTED,ADDED,RELATION,27
+候选三：区分性信息优先，主动抑制重复内容,DEMOTED,ADDED,STATE,30
+候选三：区分性信息优先，主动抑制重复内容,DEMOTED,ADDED,SUBJECT,0
+候选三：区分性信息优先，主动抑制重复内容,DEMOTED,ADDED,TASK,57
+候选三：区分性信息优先，主动抑制重复内容,DEMOTED,ADDED,TIME,0
+候选三：区分性信息优先，主动抑制重复内容,DEMOTED,LOST,DEPENDENCY,28
+候选三：区分性信息优先，主动抑制重复内容,DEMOTED,LOST,EVIDENCE_LIMIT,50
+候选三：区分性信息优先，主动抑制重复内容,DEMOTED,LOST,INDICATOR,59
+候选三：区分性信息优先，主动抑制重复内容,DEMOTED,LOST,JUDGMENT,37
+候选三：区分性信息优先，主动抑制重复内容,DEMOTED,LOST,KEYWORD,116
+候选三：区分性信息优先，主动抑制重复内容,DEMOTED,LOST,NUMBER,311
+候选三：区分性信息优先，主动抑制重复内容,DEMOTED,LOST,RELATION,31
+候选三：区分性信息优先，主动抑制重复内容,DEMOTED,LOST,STATE,53
+候选三：区分性信息优先，主动抑制重复内容,DEMOTED,LOST,SUBJECT,0
+候选三：区分性信息优先，主动抑制重复内容,DEMOTED,LOST,TASK,86
+候选三：区分性信息优先，主动抑制重复内容,DEMOTED,LOST,TIME,25
+候选三：区分性信息优先，主动抑制重复内容,PROMOTED,ADDED,DEPENDENCY,7
+候选三：区分性信息优先，主动抑制重复内容,PROMOTED,ADDED,EVIDENCE_LIMIT,5
+候选三：区分性信息优先，主动抑制重复内容,PROMOTED,ADDED,INDICATOR,13
+候选三：区分性信息优先，主动抑制重复内容,PROMOTED,ADDED,JUDGMENT,17
+候选三：区分性信息优先，主动抑制重复内容,PROMOTED,ADDED,KEYWORD,66
+候选三：区分性信息优先，主动抑制重复内容,PROMOTED,ADDED,NUMBER,43
+候选三：区分性信息优先，主动抑制重复内容,PROMOTED,ADDED,RELATION,17
+候选三：区分性信息优先，主动抑制重复内容,PROMOTED,ADDED,STATE,21
+候选三：区分性信息优先，主动抑制重复内容,PROMOTED,ADDED,SUBJECT,0
+候选三：区分性信息优先，主动抑制重复内容,PROMOTED,ADDED,TASK,28
+候选三：区分性信息优先，主动抑制重复内容,PROMOTED,ADDED,TIME,1
+候选三：区分性信息优先，主动抑制重复内容,PROMOTED,LOST,DEPENDENCY,21
+候选三：区分性信息优先，主动抑制重复内容,PROMOTED,LOST,EVIDENCE_LIMIT,31
+候选三：区分性信息优先，主动抑制重复内容,PROMOTED,LOST,INDICATOR,19
+候选三：区分性信息优先，主动抑制重复内容,PROMOTED,LOST,JUDGMENT,16
+候选三：区分性信息优先，主动抑制重复内容,PROMOTED,LOST,KEYWORD,69
+候选三：区分性信息优先，主动抑制重复内容,PROMOTED,LOST,NUMBER,141
+候选三：区分性信息优先，主动抑制重复内容,PROMOTED,LOST,RELATION,24
+候选三：区分性信息优先，主动抑制重复内容,PROMOTED,LOST,STATE,23
+候选三：区分性信息优先，主动抑制重复内容,PROMOTED,LOST,SUBJECT,0
+候选三：区分性信息优先，主动抑制重复内容,PROMOTED,LOST,TASK,52
+候选三：区分性信息优先，主动抑制重复内容,PROMOTED,LOST,TIME,10
+候选二：当前轮信息优先 + 一句关系补充,DEMOTED,ADDED,DEPENDENCY,31
+候选二：当前轮信息优先 + 一句关系补充,DEMOTED,ADDED,EVIDENCE_LIMIT,12
+候选二：当前轮信息优先 + 一句关系补充,DEMOTED,ADDED,INDICATOR,14
+候选二：当前轮信息优先 + 一句关系补充,DEMOTED,ADDED,JUDGMENT,15
+候选二：当前轮信息优先 + 一句关系补充,DEMOTED,ADDED,KEYWORD,120
+候选二：当前轮信息优先 + 一句关系补充,DEMOTED,ADDED,NUMBER,98
+候选二：当前轮信息优先 + 一句关系补充,DEMOTED,ADDED,RELATION,21
+候选二：当前轮信息优先 + 一句关系补充,DEMOTED,ADDED,STATE,27
+候选二：当前轮信息优先 + 一句关系补充,DEMOTED,ADDED,SUBJECT,0
+候选二：当前轮信息优先 + 一句关系补充,DEMOTED,ADDED,TASK,48
+候选二：当前轮信息优先 + 一句关系补充,DEMOTED,ADDED,TIME,2
+候选二：当前轮信息优先 + 一句关系补充,DEMOTED,LOST,DEPENDENCY,24
+候选二：当前轮信息优先 + 一句关系补充,DEMOTED,LOST,EVIDENCE_LIMIT,39
+候选二：当前轮信息优先 + 一句关系补充,DEMOTED,LOST,INDICATOR,54
+候选二：当前轮信息优先 + 一句关系补充,DEMOTED,LOST,JUDGMENT,33
+候选二：当前轮信息优先 + 一句关系补充,DEMOTED,LOST,KEYWORD,112
+候选二：当前轮信息优先 + 一句关系补充,DEMOTED,LOST,NUMBER,314
+候选二：当前轮信息优先 + 一句关系补充,DEMOTED,LOST,RELATION,31
+候选二：当前轮信息优先 + 一句关系补充,DEMOTED,LOST,STATE,47
+候选二：当前轮信息优先 + 一句关系补充,DEMOTED,LOST,SUBJECT,0
+候选二：当前轮信息优先 + 一句关系补充,DEMOTED,LOST,TASK,74
+候选二：当前轮信息优先 + 一句关系补充,DEMOTED,LOST,TIME,18
+候选二：当前轮信息优先 + 一句关系补充,PROMOTED,ADDED,DEPENDENCY,9
+候选二：当前轮信息优先 + 一句关系补充,PROMOTED,ADDED,EVIDENCE_LIMIT,8
+候选二：当前轮信息优先 + 一句关系补充,PROMOTED,ADDED,INDICATOR,6
+候选二：当前轮信息优先 + 一句关系补充,PROMOTED,ADDED,JUDGMENT,8
+候选二：当前轮信息优先 + 一句关系补充,PROMOTED,ADDED,KEYWORD,30
+候选二：当前轮信息优先 + 一句关系补充,PROMOTED,ADDED,NUMBER,18
+候选二：当前轮信息优先 + 一句关系补充,PROMOTED,ADDED,RELATION,10
+候选二：当前轮信息优先 + 一句关系补充,PROMOTED,ADDED,STATE,16
+候选二：当前轮信息优先 + 一句关系补充,PROMOTED,ADDED,SUBJECT,0
+候选二：当前轮信息优先 + 一句关系补充,PROMOTED,ADDED,TASK,14
+候选二：当前轮信息优先 + 一句关系补充,PROMOTED,ADDED,TIME,0
+候选二：当前轮信息优先 + 一句关系补充,PROMOTED,LOST,DEPENDENCY,8
+候选二：当前轮信息优先 + 一句关系补充,PROMOTED,LOST,EVIDENCE_LIMIT,10
+候选二：当前轮信息优先 + 一句关系补充,PROMOTED,LOST,INDICATOR,7
+候选二：当前轮信息优先 + 一句关系补充,PROMOTED,LOST,JUDGMENT,11
+候选二：当前轮信息优先 + 一句关系补充,PROMOTED,LOST,KEYWORD,29
+候选二：当前轮信息优先 + 一句关系补充,PROMOTED,LOST,NUMBER,53
+候选二：当前轮信息优先 + 一句关系补充,PROMOTED,LOST,RELATION,10
+候选二：当前轮信息优先 + 一句关系补充,PROMOTED,LOST,STATE,10
+候选二：当前轮信息优先 + 一句关系补充,PROMOTED,LOST,SUBJECT,0
+候选二：当前轮信息优先 + 一句关系补充,PROMOTED,LOST,TASK,24
+候选二：当前轮信息优先 + 一句关系补充,PROMOTED,LOST,TIME,5

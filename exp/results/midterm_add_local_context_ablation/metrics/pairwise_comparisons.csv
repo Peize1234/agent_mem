@@ -1,0 +1,4 @@
+﻿Comparison,Before Add 方式,After Add 方式,Promoted Gold,Demoted Gold,Net Gold gain,Rescued Queries,Hurt Queries,Gold rank improvement mean,Gold rank improvement median,Gold rank improvement p25,Gold rank improvement p75,Gold rank improvement min,Gold rank improvement max
+Production Add + 最近上文 vs 原 Production Add（仅当前 User + Assistant）,原 Production Add（仅当前 User + Assistant）,Production Add + 最近上文,11,20,-9,8,15,1.2272727272727273,0.0,-3.0,3.0,-31,43
+Production Add + 最近上文及下文 vs 原 Production Add（仅当前 User + Assistant）,原 Production Add（仅当前 User + Assistant）,Production Add + 最近上文及下文,16,13,3,14,12,3.0974025974025974,0.0,-1.0,5.0,-20,62
+Production Add + 最近上文及下文 vs Production Add + 最近上文,Production Add + 最近上文,Production Add + 最近上文及下文,22,10,12,18,9,1.87012987012987,1.0,-1.0,4.0,-23,29

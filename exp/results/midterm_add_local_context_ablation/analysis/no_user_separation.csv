@@ -1,0 +1,7 @@
+﻿Add 方式,Formatter,Query count,Best Gold - strongest NonGold mean,Best Gold - strongest NonGold median,Positive separation rate
+原 Production Add（仅当前 User + Assistant）,Summary + Keywords + User,99,-0.04830986592504713,-0.04224714636802673,0.13131313131313133
+原 Production Add（仅当前 User + Assistant）,Summary + Keywords,99,-0.04703200706327804,-0.04872560501098633,0.12121212121212122
+Production Add + 最近上文,Summary + Keywords + User,99,-0.04642633807779563,-0.0472378134727478,0.1414141414141414
+Production Add + 最近上文,Summary + Keywords,99,-0.043052207339893685,-0.044888854026794434,0.1414141414141414
+Production Add + 最近上文及下文,Summary + Keywords + User,99,-0.04114354198629206,-0.04225015640258789,0.1414141414141414
+Production Add + 最近上文及下文,Summary + Keywords,99,-0.037641054452067675,-0.03364408016204834,0.15151515151515152

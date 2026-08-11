@@ -1,0 +1,4 @@
+﻿Add 方式,Page count,Mean summary chars,Median summary chars,Mean keywords
+原 Production Add（仅当前 User + Assistant）,333,411.8498498498499,393,7.987987987987988
+Production Add + 最近上文,333,537.5915915915916,525,7.951951951951952
+Production Add + 最近上文及下文,333,559.951951951952,537,7.63063063063063

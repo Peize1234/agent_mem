@@ -1,0 +1,19 @@
+{
+  "all_candidates_frozen_before_first_llm_call": true,
+  "当前前后文 Prompt（主要基线）": {
+    "file": "当前前后文_Prompt_基线.txt",
+    "sha256": "84c20f8b0a81eb3d84dfd7940eeb6a41e2099119162ce64319906d7e5af6af41"
+  },
+  "候选一：关系解析优先，禁止上下文事实扩写": {
+    "file": "候选一_关系解析优先.txt",
+    "sha256": "906eb92a090d042b70f24f132c29d95d7d6804a0cdb0d2b95eb4eb268763af32"
+  },
+  "候选二：当前轮信息优先 + 一句关系补充": {
+    "file": "候选二_当前轮信息优先.txt",
+    "sha256": "c21b8d367c6d15c7112cff0d6f65f1bf3a0847f3209853a9fb636caf913e4203"
+  },
+  "候选三：区分性信息优先，主动抑制重复内容": {
+    "file": "候选三_区分性信息优先.txt",
+    "sha256": "d62aea8b11967822bd0d61ed5662d0123dcc5cd57b80a1db0ea7283bd3a25b43"
+  }
+}

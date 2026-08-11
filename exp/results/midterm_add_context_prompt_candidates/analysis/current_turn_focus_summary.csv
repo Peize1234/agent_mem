@@ -1,0 +1,5 @@
+﻿Add Prompt,Page count,Potential following-task dominance Pages,Mean current-user coverage,Mean best-following-user coverage,Pages with following-only task marker
+当前前后文 Prompt（主要基线）,333,2,0.5300670553363778,0.1347037739207984,191
+候选一：关系解析优先，禁止上下文事实扩写,333,176,0.28956054042038093,0.34239876910517636,266
+候选二：当前轮信息优先 + 一句关系补充,333,226,0.21382100621399078,0.3968086351571808,277
+候选三：区分性信息优先，主动抑制重复内容,333,233,0.20341825045781173,0.4024922287818733,287

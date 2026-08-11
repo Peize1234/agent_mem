@@ -1,0 +1,145 @@
+{
+  "experiment_name": "midterm_add_local_context_controls",
+  "parent_experiment": "/home/peize/Code/htzq/mem0/exp/results/midterm_add_local_context_ablation",
+  "session_count": 5,
+  "page_count": 333,
+  "evaluation_query_count": 99,
+  "eligible_gold_count": 154,
+  "search": "上下文引用解析后检索（P2）",
+  "embedding_model": "BAAI/bge-small-zh-v1.5",
+  "embedding_mode": "add",
+  "dimension": 512,
+  "production_summary_keywords_regenerated": false,
+  "context_summaries_keywords_regenerated": false,
+  "new_llm_calls": 0,
+  "full_session_rerun": false,
+  "query_embeddings_reused": 99,
+  "stored_production_page_vectors_reused": 333,
+  "fresh_production_full_page_embeddings": 333,
+  "new_no_user_page_embeddings": 999,
+  "existing_context_full_vector_cache": {
+    "PreviousContext": {
+      "model": "BAAI/bge-small-zh-v1.5",
+      "batch_name": "PreviousContext-runtime-local-context-S001-S005",
+      "content_hash": "07071dce64fe65d3dbde4c496ad39cc224dc64ca670ff36146fd176f0205fd8f",
+      "item_count": 333,
+      "dimension": 512,
+      "build_ms": 4167.034389000037,
+      "item_latency_ms": {},
+      "cache_hit": true
+    },
+    "PreviousAndFollowingContext": {
+      "model": "BAAI/bge-small-zh-v1.5",
+      "batch_name": "PreviousAndFollowingContext-runtime-local-context-S001-S005",
+      "content_hash": "8d92a5a36600634096f81a0f7a04b09300378427017e98bccb7bfc04324aae0f",
+      "item_count": 333,
+      "dimension": 512,
+      "build_ms": 3614.6436050003103,
+      "item_latency_ms": {},
+      "cache_hit": true
+    }
+  },
+  "control_embedding_metadata": {
+    "FreshProductionFull": {
+      "model": "BAAI/bge-small-zh-v1.5",
+      "batch_name": "production-fresh-full-text-S001-S005",
+      "content_hash": "95e03ad70fbab0d8f89a7e705cebef845bb433432e38c635696c424ecce0bf8a",
+      "item_count": 333,
+      "dimension": 512,
+      "build_ms": 3900.740492001205,
+      "item_latency_ms": {},
+      "cache_hit": true
+    },
+    "NoUser": {
+      "Production": {
+        "model": "BAAI/bge-small-zh-v1.5",
+        "batch_name": "no-user-Production-S001-S005",
+        "content_hash": "0229fd5bfd01750723d348cba37d409fbeebc74168bb29021fdaff904d52d6bb",
+        "item_count": 333,
+        "dimension": 512,
+        "build_ms": 3215.80530600113,
+        "item_latency_ms": {},
+        "cache_hit": true
+      },
+      "PreviousContext": {
+        "model": "BAAI/bge-small-zh-v1.5",
+        "batch_name": "no-user-PreviousContext-S001-S005",
+        "content_hash": "bf036b344c4542bb4e2e48f98e4a33dc425bed6c16c7c343979652ed276733d3",
+        "item_count": 333,
+        "dimension": 512,
+        "build_ms": 3533.7480079979287,
+        "item_latency_ms": {},
+        "cache_hit": true
+      },
+      "PreviousAndFollowingContext": {
+        "model": "BAAI/bge-small-zh-v1.5",
+        "batch_name": "no-user-PreviousAndFollowingContext-S001-S005",
+        "content_hash": "13fd58bbf11217a70e5c98e724780db94fd960d5600f6946024e3632b2c1a2d8",
+        "item_count": 333,
+        "dimension": 512,
+        "build_ms": 3502.114563998475,
+        "item_latency_ms": {},
+        "cache_hit": true
+      }
+    }
+  },
+  "production_vector_reproducibility": {
+    "page_count": 333,
+    "cosine_mean": 0.9999999999995968,
+    "cosine_min": 0.9999999999992403,
+    "cosine_p5": 0.999999999999508,
+    "cosine_p50": 0.9999999999996046,
+    "cosine_p95": 0.9999999999996735,
+    "cosine_max": 0.9999999999997113
+  },
+  "production_reencode_top5_identity": {
+    "Comparison": "Fresh re-encoded Production vs stored Production",
+    "Promoted Gold": 0,
+    "Demoted Gold": 0,
+    "Net Gold gain": 0,
+    "Rescued Queries": 0,
+    "Hurt Queries": 0,
+    "Mean Gold rank improvement": 0.0,
+    "Median Gold rank improvement": 0.0,
+    "Top5 rankings identical query count": 99,
+    "Top5 rankings identical all queries": true
+  },
+  "validation": {
+    "Stored Production P2 reproduction": {
+      "status": "PASS",
+      "micro_r5": 0.35064935064935066,
+      "macro_r5": 0.3601371496720334
+    },
+    "Frozen counts": {
+      "status": "PASS",
+      "page_count": 333,
+      "query_count": 99,
+      "eligible_gold_count": 154
+    },
+    "Frozen Page identity": {
+      "status": "PASS"
+    },
+    "Frozen visibility": {
+      "status": "PASS",
+      "sha256": "2f540d58198a7555d9d6b64b2a82302d4f40b36d0f00e968d1b98b08f2514fb1"
+    },
+    "Frozen P2 Query": {
+      "status": "PASS",
+      "query_count": 99
+    },
+    "No-User deletion-only formatter": {
+      "status": "PASS",
+      "page_count_per_variant": 333
+    },
+    "No new LLM calls": {
+      "status": "PASS",
+      "new_llm_calls": 0
+    }
+  },
+  "validation_all_pass": true,
+  "gold_changed": false,
+  "visible_page_ids_changed": false,
+  "query_changed": false,
+  "prompt_changed": false,
+  "automatic_next_prompt_generated": false
+}

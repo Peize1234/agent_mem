@@ -1,0 +1,10 @@
+{
+  "model": "BAAI/bge-small-zh-v1.5",
+  "batch_name": "context-prompt-Candidate3-summary-keywords-S001-S005",
+  "content_hash": "f14807bdcb8bf416adca5765d62c178b40eda097170538d110d098eb591c9bc4",
+  "item_count": 333,
+  "dimension": 512,
+  "build_ms": 2873.112602999754,
+  "item_latency_ms": {},
+  "cache_hit": false
+}

@@ -1,0 +1,16 @@
+{
+  "frozen_before_first_llm_call": true,
+  "Production_body_is_an_ordered_subsequence_of_context_variants": true,
+  "原 Production Add（仅当前 User + Assistant）": {
+    "file": "Original_Production_Add_Prompt.txt",
+    "sha256": "ea093defcdfb8b185928337ff8d7383e118dc7edab8f58c176af7f220fcf185e"
+  },
+  "Production Add + 最近上文": {
+    "file": "Production_Add_With_Previous_Context.txt",
+    "sha256": "3d8716aa38c3498254fe4fc5e536df69d0c2802353d07439cf49baaa1d36680e"
+  },
+  "Production Add + 最近上文及下文": {
+    "file": "Production_Add_With_Previous_And_Following_Context.txt",
+    "sha256": "84c20f8b0a81eb3d84dfd7940eeb6a41e2099119162ce64319906d7e5af6af41"
+  }
+}

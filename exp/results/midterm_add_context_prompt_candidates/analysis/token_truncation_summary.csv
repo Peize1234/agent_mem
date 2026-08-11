@@ -1,0 +1,6 @@
+﻿Add Prompt,Page count,Mean Summary chars,Mean Summary tokens,Median Summary tokens,P90 Summary tokens,Summary truncated Pages,Keywords fully kept Pages,Keywords partially truncated Pages,Keywords fully truncated Pages,Page truncated Pages
+原 Production Add（参考）,333,411.8498498498499,341.2972972972973,334,463.6,13,301,19,13,32
+当前前后文 Prompt（主要基线）,333,559.951951951952,456.984984984985,436,580.8,97,195,40,98,138
+候选一：关系解析优先，禁止上下文事实扩写,333,397.35435435435437,334.75075075075074,313,429.0,9,320,4,9,13
+候选二：当前轮信息优先 + 一句关系补充,333,410.07507507507506,344.22522522522524,324,429.8,17,312,4,17,21
+候选三：区分性信息优先，主动抑制重复内容,333,379.3693693693694,321.2942942942943,319,408.8,2,329,2,2,4

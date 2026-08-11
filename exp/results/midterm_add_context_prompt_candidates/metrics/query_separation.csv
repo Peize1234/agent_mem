@@ -1,0 +1,6 @@
+﻿Add 方式,Formatter,Query count,Best Gold - strongest NonGold mean,Best Gold - strongest NonGold median,Positive separation rate
+原 Production Add（参考）,Summary + Keywords,99,-0.04703200706327804,-0.04872560501098633,0.12121212121212122
+当前前后文 Prompt（主要基线）,Summary + Keywords,99,-0.037641054452067675,-0.03364408016204834,0.15151515151515152
+候选一：关系解析优先，禁止上下文事实扩写,Summary + Keywords,99,-0.05622908021464492,-0.04820162057876587,0.09090909090909091
+候选二：当前轮信息优先 + 一句关系补充,Summary + Keywords,99,-0.06155405170989759,-0.061446964740753174,0.0707070707070707
+候选三：区分性信息优先，主动抑制重复内容,Summary + Keywords,99,-0.05568799858141427,-0.05240720510482788,0.08080808080808081

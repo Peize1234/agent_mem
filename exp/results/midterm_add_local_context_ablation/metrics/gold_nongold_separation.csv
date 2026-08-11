@@ -1,0 +1,4 @@
+﻿Add 方式,Query 检索方式,Query count,Best Gold - strongest NonGold mean,Best Gold - strongest NonGold median,Positive separation rate,Gold Top5 margin mean,Gold Top5 margin positive rate
+原 Production Add（仅当前 User + Assistant）,上下文引用解析后检索（P2）,99,-0.048309876160188156,-0.04224720597267151,0.13131313131313133,-0.0019419539456415659,0.48484848484848486
+Production Add + 最近上文,上下文引用解析后检索（P2）,99,-0.04642633807779563,-0.0472378134727478,0.1414141414141414,-0.0037047640241757787,0.3838383838383838
+Production Add + 最近上文及下文,上下文引用解析后检索（P2）,99,-0.04114354198629206,-0.04225015640258789,0.1414141414141414,0.0031873385111490884,0.494949494949495

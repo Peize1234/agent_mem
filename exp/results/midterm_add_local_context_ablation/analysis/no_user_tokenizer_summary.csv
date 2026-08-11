@@ -1,0 +1,7 @@
+﻿Add 方式,Formatter,Page count,512-token truncated Pages,Summary truncated Pages,Keywords fully kept Pages,Keywords partially truncated Pages,Keywords fully truncated Pages,User fully kept Pages,User partially truncated Pages,User fully truncated Pages
+原 Production Add（仅当前 User + Assistant）,Summary + Keywords + User,333,76,13,301,19,13,257,43,33
+原 Production Add（仅当前 User + Assistant）,Summary + Keywords,333,32,13,301,19,13,0,0,0
+Production Add + 最近上文,Summary + Keywords + User,333,213,43,231,58,44,120,107,106
+Production Add + 最近上文,Summary + Keywords,333,102,43,231,58,44,0,0,0
+Production Add + 最近上文及下文,Summary + Keywords + User,333,203,97,195,40,98,130,64,139
+Production Add + 最近上文及下文,Summary + Keywords,333,138,97,195,40,98,0,0,0

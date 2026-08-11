@@ -1,0 +1,463 @@
+{
+  "experiment_name": "midterm_add_local_context_ablation",
+  "session_count": 5,
+  "page_count": 333,
+  "evaluation_query_count": 99,
+  "eligible_gold_count": 154,
+  "short_term_capacity_messages": 6,
+  "short_term_capacity_qa_turns": 3,
+  "variant_labels": {
+    "Production": "原 Production Add（仅当前 User + Assistant）",
+    "PreviousContext": "Production Add + 最近上文",
+    "PreviousAndFollowingContext": "Production Add + 最近上文及下文"
+  },
+  "search": "上下文引用解析后检索（P2）",
+  "prompt_sha256_before_first_llm_call": {
+    "Production": "ea093defcdfb8b185928337ff8d7383e118dc7edab8f58c176af7f220fcf185e",
+    "PreviousContext": "3d8716aa38c3498254fe4fc5e536df69d0c2802353d07439cf49baaa1d36680e",
+    "PreviousAndFollowingContext": "84c20f8b0a81eb3d84dfd7940eeb6a41e2099119162ce64319906d7e5af6af41"
+  },
+  "prompt_sha256_after_generation": {
+    "Production": "ea093defcdfb8b185928337ff8d7383e118dc7edab8f58c176af7f220fcf185e",
+    "PreviousContext": "3d8716aa38c3498254fe4fc5e536df69d0c2802353d07439cf49baaa1d36680e",
+    "PreviousAndFollowingContext": "84c20f8b0a81eb3d84dfd7940eeb6a41e2099119162ce64319906d7e5af6af41"
+  },
+  "prompt_frozen": true,
+  "context_contract": {
+    "previous": "same-variant latest up to 3 already-generated Page summary + keywords only",
+    "current": "evicted source User + Assistant",
+    "following": "the exact next 3 QA turns active when source turn was evicted",
+    "semantic_context_retrieval": false
+  },
+  "summary_model": "deepseek-v4-flash",
+  "thinking_mode": "disabled",
+  "temperature": 0.1,
+  "top_p": 0.1,
+  "top_k": 1,
+  "generation": {
+    "Production Add + 最近上文": {
+      "successful_output_count": 333,
+      "actual_api_attempts": 333,
+      "retry_count": 0,
+      "provider_precondition_rejected_count": 0,
+      "cache_hit_count": 333,
+      "cache_path": "/home/peize/Code/htzq/mem0/exp/results/midterm_add_local_context_ablation/cache/PreviousContext_summary_llm.jsonl"
+    },
+    "Production Add + 最近上文及下文": {
+      "successful_output_count": 333,
+      "actual_api_attempts": 333,
+      "retry_count": 0,
+      "provider_precondition_rejected_count": 0,
+      "cache_hit_count": 333,
+      "cache_path": "/home/peize/Code/htzq/mem0/exp/results/midterm_add_local_context_ablation/cache/PreviousAndFollowingContext_summary_llm.jsonl"
+    }
+  },
+  "Production_new_LLM_calls": 0,
+  "Search_P2_new_LLM_calls": 0,
+  "Production_Page_embeddings_reused": 333,
+  "new_Page_embedding_items": {
+    "Production Add + 最近上文": 333,
+    "Production Add + 最近上文及下文": 333
+  },
+  "embedding_metadata": {
+    "Production Add + 最近上文": {
+      "model": "BAAI/bge-small-zh-v1.5",
+      "batch_name": "PreviousContext-runtime-local-context-S001-S005",
+      "content_hash": "07071dce64fe65d3dbde4c496ad39cc224dc64ca670ff36146fd176f0205fd8f",
+      "item_count": 333,
+      "dimension": 512,
+      "build_ms": 4167.034389000037,
+      "item_latency_ms": {},
+      "cache_hit": true
+    },
+    "Production Add + 最近上文及下文": {
+      "model": "BAAI/bge-small-zh-v1.5",
+      "batch_name": "PreviousAndFollowingContext-runtime-local-context-S001-S005",
+      "content_hash": "8d92a5a36600634096f81a0f7a04b09300378427017e98bccb7bfc04324aae0f",
+      "item_count": 333,
+      "dimension": 512,
+      "build_ms": 3614.6436050003103,
+      "item_latency_ms": {},
+      "cache_hit": true
+    }
+  },
+  "embedding_model": "BAAI/bge-small-zh-v1.5",
+  "embedding_mode": "add",
+  "dimension": 512,
+  "P2_Query_embeddings_reused": 99,
+  "full_session_rerun": false,
+  "source_turn_set_changed": false,
+  "eligible_gold_changed": false,
+  "visible_page_ids_changed": false,
+  "query_text_changed": false,
+  "tokenizer_truncation_summary": {
+    "原 Production Add（仅当前 User + Assistant）": {
+      "tokenizer_class": "BertTokenizer",
+      "tokenizer_model_max_length": 512,
+      "sentence_transformer_max_seq_length": 512,
+      "effective_max_length": 512,
+      "special_tokens_single": 2,
+      "content_token_budget": 510,
+      "truncation_enabled_by_sentence_transformer": true,
+      "truncation_strategy": "longest_first (single sequence)",
+      "truncation_side": "right",
+      "padding_side": "right",
+      "token_count_mean": 437.14114114114113,
+      "token_count_median": 432,
+      "token_count_p90": 560.4000000000001,
+      "token_count_p95": 595.8,
+      "token_count_max": 768,
+      "truncated_page_count": 76,
+      "truncated_page_rate": 0.22822822822822822,
+      "user_partially_truncated_page_count": 43,
+      "user_fully_truncated_page_count": 33,
+      "user_partially_or_fully_truncated_page_count": 76,
+      "component_token_definition": "token counts include each field label (Keywords:/User:) but exclude special tokens"
+    },
+    "Production Add + 最近上文": {
+      "tokenizer_class": "BertTokenizer",
+      "tokenizer_model_max_length": 512,
+      "sentence_transformer_max_seq_length": 512,
+      "effective_max_length": 512,
+      "special_tokens_single": 2,
+      "content_token_budget": 510,
+      "truncation_enabled_by_sentence_transformer": true,
+      "truncation_strategy": "longest_first (single sequence)",
+      "truncation_side": "right",
+      "padding_side": "right",
+      "token_count_mean": 538.9219219219219,
+      "token_count_median": 535,
+      "token_count_p90": 634.6,
+      "token_count_p95": 679.7999999999998,
+      "token_count_max": 826,
+      "truncated_page_count": 213,
+      "truncated_page_rate": 0.6396396396396397,
+      "user_partially_truncated_page_count": 107,
+      "user_fully_truncated_page_count": 106,
+      "user_partially_or_fully_truncated_page_count": 213,
+      "component_token_definition": "token counts include each field label (Keywords:/User:) but exclude special tokens"
+    },
+    "Production Add + 最近上文及下文": {
+      "tokenizer_class": "BertTokenizer",
+      "tokenizer_model_max_length": 512,
+      "sentence_transformer_max_seq_length": 512,
+      "effective_max_length": 512,
+      "special_tokens_single": 2,
+      "content_token_budget": 510,
+      "truncation_enabled_by_sentence_transformer": true,
+      "truncation_strategy": "longest_first (single sequence)",
+      "truncation_side": "right",
+      "padding_side": "right",
+      "token_count_mean": 553.105105105105,
+      "token_count_median": 532,
+      "token_count_p90": 678.2,
+      "token_count_p95": 705.8,
+      "token_count_max": 759,
+      "truncated_page_count": 203,
+      "truncated_page_rate": 0.6096096096096096,
+      "user_partially_truncated_page_count": 64,
+      "user_fully_truncated_page_count": 139,
+      "user_partially_or_fully_truncated_page_count": 203,
+      "component_token_definition": "token counts include each field label (Keywords:/User:) but exclude special tokens"
+    }
+  },
+  "context_source_audit_summary": [
+    {
+      "Add 方式": "Production Add + 最近上文",
+      "Anchor category": "DEPENDENCY",
+      "Added beyond current QA": 0,
+      "Available in previous context": 0,
+      "Available only in following context": 0,
+      "Unsupported by any input": 0,
+      "Pages with following-only addition": 0,
+      "Pages with unsupported addition": 0
+    },
+    {
+      "Add 方式": "Production Add + 最近上文",
+      "Anchor category": "EVIDENCE_LIMIT",
+      "Added beyond current QA": 0,
+      "Available in previous context": 0,
+      "Available only in following context": 0,
+      "Unsupported by any input": 0,
+      "Pages with following-only addition": 0,
+      "Pages with unsupported addition": 0
+    },
+    {
+      "Add 方式": "Production Add + 最近上文",
+      "Anchor category": "INDICATOR",
+      "Added beyond current QA": 0,
+      "Available in previous context": 0,
+      "Available only in following context": 0,
+      "Unsupported by any input": 0,
+      "Pages with following-only addition": 0,
+      "Pages with unsupported addition": 0
+    },
+    {
+      "Add 方式": "Production Add + 最近上文",
+      "Anchor category": "JUDGMENT",
+      "Added beyond current QA": 2,
+      "Available in previous context": 0,
+      "Available only in following context": 0,
+      "Unsupported by any input": 2,
+      "Pages with following-only addition": 0,
+      "Pages with unsupported addition": 2
+    },
+    {
+      "Add 方式": "Production Add + 最近上文",
+      "Anchor category": "KEYWORD",
+      "Added beyond current QA": 470,
+      "Available in previous context": 360,
+      "Available only in following context": 0,
+      "Unsupported by any input": 110,
+      "Pages with following-only addition": 0,
+      "Pages with unsupported addition": 95
+    },
+    {
+      "Add 方式": "Production Add + 最近上文",
+      "Anchor category": "NUMBER",
+      "Added beyond current QA": 10,
+      "Available in previous context": 0,
+      "Available only in following context": 0,
+      "Unsupported by any input": 10,
+      "Pages with following-only addition": 0,
+      "Pages with unsupported addition": 4
+    },
+    {
+      "Add 方式": "Production Add + 最近上文",
+      "Anchor category": "RELATION",
+      "Added beyond current QA": 1,
+      "Available in previous context": 1,
+      "Available only in following context": 0,
+      "Unsupported by any input": 0,
+      "Pages with following-only addition": 0,
+      "Pages with unsupported addition": 0
+    },
+    {
+      "Add 方式": "Production Add + 最近上文",
+      "Anchor category": "STATE",
+      "Added beyond current QA": 6,
+      "Available in previous context": 6,
+      "Available only in following context": 0,
+      "Unsupported by any input": 0,
+      "Pages with following-only addition": 0,
+      "Pages with unsupported addition": 0
+    },
+    {
+      "Add 方式": "Production Add + 最近上文",
+      "Anchor category": "SUBJECT",
+      "Added beyond current QA": 0,
+      "Available in previous context": 0,
+      "Available only in following context": 0,
+      "Unsupported by any input": 0,
+      "Pages with following-only addition": 0,
+      "Pages with unsupported addition": 0
+    },
+    {
+      "Add 方式": "Production Add + 最近上文",
+      "Anchor category": "TASK",
+      "Added beyond current QA": 0,
+      "Available in previous context": 0,
+      "Available only in following context": 0,
+      "Unsupported by any input": 0,
+      "Pages with following-only addition": 0,
+      "Pages with unsupported addition": 0
+    },
+    {
+      "Add 方式": "Production Add + 最近上文",
+      "Anchor category": "TIME",
+      "Added beyond current QA": 0,
+      "Available in previous context": 0,
+      "Available only in following context": 0,
+      "Unsupported by any input": 0,
+      "Pages with following-only addition": 0,
+      "Pages with unsupported addition": 0
+    },
+    {
+      "Add 方式": "Production Add + 最近上文",
+      "Anchor category": "ALL",
+      "Added beyond current QA": 489,
+      "Available in previous context": 367,
+      "Available only in following context": 0,
+      "Unsupported by any input": 122,
+      "Pages with following-only addition": 0,
+      "Pages with unsupported addition": 98
+    },
+    {
+      "Add 方式": "Production Add + 最近上文及下文",
+      "Anchor category": "DEPENDENCY",
+      "Added beyond current QA": 0,
+      "Available in previous context": 0,
+      "Available only in following context": 0,
+      "Unsupported by any input": 0,
+      "Pages with following-only addition": 0,
+      "Pages with unsupported addition": 0
+    },
+    {
+      "Add 方式": "Production Add + 最近上文及下文",
+      "Anchor category": "EVIDENCE_LIMIT",
+      "Added beyond current QA": 0,
+      "Available in previous context": 0,
+      "Available only in following context": 0,
+      "Unsupported by any input": 0,
+      "Pages with following-only addition": 0,
+      "Pages with unsupported addition": 0
+    },
+    {
+      "Add 方式": "Production Add + 最近上文及下文",
+      "Anchor category": "INDICATOR",
+      "Added beyond current QA": 0,
+      "Available in previous context": 0,
+      "Available only in following context": 0,
+      "Unsupported by any input": 0,
+      "Pages with following-only addition": 0,
+      "Pages with unsupported addition": 0
+    },
+    {
+      "Add 方式": "Production Add + 最近上文及下文",
+      "Anchor category": "JUDGMENT",
+      "Added beyond current QA": 1,
+      "Available in previous context": 0,
+      "Available only in following context": 1,
+      "Unsupported by any input": 0,
+      "Pages with following-only addition": 1,
+      "Pages with unsupported addition": 0
+    },
+    {
+      "Add 方式": "Production Add + 最近上文及下文",
+      "Anchor category": "KEYWORD",
+      "Added beyond current QA": 549,
+      "Available in previous context": 448,
+      "Available only in following context": 13,
+      "Unsupported by any input": 88,
+      "Pages with following-only addition": 13,
+      "Pages with unsupported addition": 80
+    },
+    {
+      "Add 方式": "Production Add + 最近上文及下文",
+      "Anchor category": "NUMBER",
+      "Added beyond current QA": 15,
+      "Available in previous context": 15,
+      "Available only in following context": 0,
+      "Unsupported by any input": 0,
+      "Pages with following-only addition": 0,
+      "Pages with unsupported addition": 0
+    },
+    {
+      "Add 方式": "Production Add + 最近上文及下文",
+      "Anchor category": "RELATION",
+      "Added beyond current QA": 27,
+      "Available in previous context": 27,
+      "Available only in following context": 0,
+      "Unsupported by any input": 0,
+      "Pages with following-only addition": 0,
+      "Pages with unsupported addition": 0
+    },
+    {
+      "Add 方式": "Production Add + 最近上文及下文",
+      "Anchor category": "STATE",
+      "Added beyond current QA": 35,
+      "Available in previous context": 35,
+      "Available only in following context": 0,
+      "Unsupported by any input": 0,
+      "Pages with following-only addition": 0,
+      "Pages with unsupported addition": 0
+    },
+    {
+      "Add 方式": "Production Add + 最近上文及下文",
+      "Anchor category": "SUBJECT",
+      "Added beyond current QA": 0,
+      "Available in previous context": 0,
+      "Available only in following context": 0,
+      "Unsupported by any input": 0,
+      "Pages with following-only addition": 0,
+      "Pages with unsupported addition": 0
+    },
+    {
+      "Add 方式": "Production Add + 最近上文及下文",
+      "Anchor category": "TASK",
+      "Added beyond current QA": 0,
+      "Available in previous context": 0,
+      "Available only in following context": 0,
+      "Unsupported by any input": 0,
+      "Pages with following-only addition": 0,
+      "Pages with unsupported addition": 0
+    },
+    {
+      "Add 方式": "Production Add + 最近上文及下文",
+      "Anchor category": "TIME",
+      "Added beyond current QA": 0,
+      "Available in previous context": 0,
+      "Available only in following context": 0,
+      "Unsupported by any input": 0,
+      "Pages with following-only addition": 0,
+      "Pages with unsupported addition": 0
+    },
+    {
+      "Add 方式": "Production Add + 最近上文及下文",
+      "Anchor category": "ALL",
+      "Added beyond current QA": 627,
+      "Available in previous context": 525,
+      "Available only in following context": 14,
+      "Unsupported by any input": 88,
+      "Pages with following-only addition": 14,
+      "Pages with unsupported addition": 80
+    }
+  ],
+  "validation": {
+    "Production P2 reproduction": {
+      "status": "PASS",
+      "micro_r5": 0.35064935064935066,
+      "macro_r5": 0.3601371496720334
+    },
+    "frozen coverage": {
+      "status": "PASS",
+      "page_count": 333,
+      "query_count": 99,
+      "eligible_gold_count": 154
+    },
+    "short-term capacity": {
+      "status": "PASS",
+      "messages": 6,
+      "qa_turns": 3
+    },
+    "P2 query frozen": {
+      "status": "PASS",
+      "query_count": 99
+    },
+    "eviction mapping": {
+      "status": "PASS",
+      "validated_page_count": 333
+    },
+    "Prompt frozen": {
+      "status": "PASS",
+      "sha256": {
+        "Production": "ea093defcdfb8b185928337ff8d7383e118dc7edab8f58c176af7f220fcf185e",
+        "PreviousContext": "3d8716aa38c3498254fe4fc5e536df69d0c2802353d07439cf49baaa1d36680e",
+        "PreviousAndFollowingContext": "84c20f8b0a81eb3d84dfd7940eeb6a41e2099119162ce64319906d7e5af6af41"
+      }
+    },
+    "Prompt SHA256 unchanged after generation": {
+      "status": "PASS",
+      "before": {
+        "Production": "ea093defcdfb8b185928337ff8d7383e118dc7edab8f58c176af7f220fcf185e",
+        "PreviousContext": "3d8716aa38c3498254fe4fc5e536df69d0c2802353d07439cf49baaa1d36680e",
+        "PreviousAndFollowingContext": "84c20f8b0a81eb3d84dfd7940eeb6a41e2099119162ce64319906d7e5af6af41"
+      },
+      "after": {
+        "Production": "ea093defcdfb8b185928337ff8d7383e118dc7edab8f58c176af7f220fcf185e",
+        "PreviousContext": "3d8716aa38c3498254fe4fc5e536df69d0c2802353d07439cf49baaa1d36680e",
+        "PreviousAndFollowingContext": "84c20f8b0a81eb3d84dfd7940eeb6a41e2099119162ce64319906d7e5af6af41"
+      }
+    },
+    "context temporal leakage": {
+      "status": "PASS",
+      "context_row_count": 666
+    },
+    "shared Page formatter and identity": {
+      "status": "PASS",
+      "formatter": "<summary>\\nKeywords: <comma-space keywords>\\nUser: <original_user>"
+    }
+  },
+  "validation_all_pass": true,
+  "automatic_next_prompt_generated": false
+}

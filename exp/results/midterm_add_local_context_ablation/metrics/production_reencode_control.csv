@@ -1,0 +1,3 @@
+﻿Add 方式,Formatter,Query 检索方式,Eligible Gold,Top5 recalled Gold,Top5,Macro Top5,Top10,Top20,MRR,Mean Gold Rank
+原 Production Add（仅当前 User + Assistant）,Stored Production embedding,上下文引用解析后检索（P2）,154,54,0.35064935064935066,0.3601371496720334,0.525974025974026,0.7597402597402597,0.30458163138396327,14.551948051948052
+原 Production Add（仅当前 User + Assistant）,Fresh re-encoded Production embedding,上下文引用解析后检索（P2）,154,54,0.35064935064935066,0.3601371496720334,0.525974025974026,0.7597402597402597,0.30458163138396327,14.551948051948052
