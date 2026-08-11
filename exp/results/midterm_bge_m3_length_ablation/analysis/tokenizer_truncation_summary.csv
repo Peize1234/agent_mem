@@ -1,0 +1,5 @@
+﻿config,model,max_length,tokenizer_class,tokenizer_model_max_length,truncation_side,page_count,token_count_mean,token_count_median,token_count_p90,token_count_max,<=512,513-1024,1025-2048,>2048,page_truncated_count,summary_truncated_count,keywords_partially_truncated_count,keywords_fully_truncated_count
+BAAI/bge-small-zh-v1.5，max_length=512（当前基线）,BAAI/bge-small-zh-v1.5,512,BertTokenizer,512,right,333,499.9159159159159,480,624.4000000000001,695,195,138,0,0,138,97,40,98
+BAAI/bge-m3，max_length=512,BAAI/bge-m3,512,XLMRobertaTokenizer,8192,right,333,369.7117117117117,358,460.6,515,332,1,0,0,1,0,1,0
+BAAI/bge-m3，max_length=1024,BAAI/bge-m3,1024,XLMRobertaTokenizer,8192,right,333,369.7117117117117,358,460.6,515,332,1,0,0,0,0,0,0
+BAAI/bge-m3，max_length=2048,BAAI/bge-m3,2048,XLMRobertaTokenizer,8192,right,333,369.7117117117117,358,460.6,515,332,1,0,0,0,0,0,0

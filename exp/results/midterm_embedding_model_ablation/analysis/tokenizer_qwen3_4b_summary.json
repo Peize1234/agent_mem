@@ -1,0 +1,26 @@
+{
+  "model": "Qwen/Qwen3-Embedding-4B",
+  "tokenizer_class": "Qwen2Tokenizer",
+  "tokenizer_native_model_max_length": 131072,
+  "truncation_side": "right",
+  "padding_side": "left",
+  "selected_max_length": 1024,
+  "official_supported_max_length": 32768,
+  "Page": {
+    "count": 333,
+    "mean": 465.2072072072072,
+    "median": 444,
+    "p90": 588.0,
+    "max": 694,
+    "truncated_count": 0
+  },
+  "Query": {
+    "count": 99,
+    "mean": 58.101010101010104,
+    "median": 56,
+    "p90": 76.2,
+    "max": 98,
+    "truncated_count": 0
+  },
+  "query_instruction": "Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery:"
+}

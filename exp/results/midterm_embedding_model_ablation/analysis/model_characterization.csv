@@ -1,0 +1,2 @@
+﻿Model,classification,R@5 delta,R@10 delta,R@20 delta,net_gold
+aspire/acge_text_embedding,OVERALL_DEGRADED_OR_TIED,-0.10389610389610393,-0.058441558441558406,-0.006493506493506551,-16

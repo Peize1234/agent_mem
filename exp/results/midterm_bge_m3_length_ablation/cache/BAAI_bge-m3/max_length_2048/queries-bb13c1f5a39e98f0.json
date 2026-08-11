@@ -1,0 +1,15 @@
+{
+  "model": "BAAI/bge-m3",
+  "config": "M3_2048",
+  "kind": "queries",
+  "max_length": 2048,
+  "content_hash": "bb13c1f5a39e98f023e0ca54b18dddc7be07bf6caa83660ae27c374195c62a2d",
+  "item_count": 99,
+  "dimension": 1024,
+  "build_ms": 2498.5373039962724,
+  "batch_size_requested": 2,
+  "device": "cuda:0",
+  "dense_vector_norm_min": 0.9999998807907104,
+  "dense_vector_norm_max": 1.0000001192092896,
+  "cache_hit": false
+}

@@ -1,0 +1,279 @@
+{
+  "experiment_name": "midterm_bge_m3_length_ablation",
+  "session_count": 5,
+  "page_count": 333,
+  "evaluation_query_count": 99,
+  "eligible_gold_count": 154,
+  "add": "最近上文 + eviction 时真实下文（frozen summary/keywords）",
+  "page_text_contract": "<summary>\\nKeywords: <comma-space joined keywords>",
+  "query_contract": "frozen P2 resolved_query only",
+  "retrieval": "per-Session dense cosine",
+  "models": {
+    "Small512": "BAAI/bge-small-zh-v1.5",
+    "M3_512": "BAAI/bge-m3",
+    "M3_1024": "BAAI/bge-m3",
+    "M3_2048": "BAAI/bge-m3"
+  },
+  "max_lengths": {
+    "Small512": 512,
+    "M3_512": 512,
+    "M3_1024": 1024,
+    "M3_2048": 2048
+  },
+  "m3_official_dense_contract": {
+    "library": "sentence-transformers",
+    "method": "SentenceTransformer('BAAI/bge-m3').encode",
+    "query_instruction": null,
+    "query_and_passage_encoded_with_same_dense_method": true,
+    "normalization": "model-bundled Normalize module",
+    "dimension": 1024,
+    "official_supported_max_length": 8192,
+    "loaded_model_native_max_seq_length": 8192,
+    "loaded_tokenizer_native_model_max_length": 8192,
+    "official_model_card": "https://huggingface.co/BAAI/bge-m3"
+  },
+  "embedding_metadata": {
+    "Small512": {
+      "page": {
+        "model": "BAAI/bge-small-zh-v1.5",
+        "batch_name": "no-user-PreviousAndFollowingContext-S001-S005",
+        "content_hash": "13fd58bbf11217a70e5c98e724780db94fd960d5600f6946024e3632b2c1a2d8",
+        "item_count": 333,
+        "dimension": 512,
+        "build_ms": 3502.114563998475,
+        "item_latency_ms": {},
+        "cache_hit": true
+      },
+      "query": "frozen P2 cache"
+    },
+    "M3_512": {
+      "page": {
+        "model": "BAAI/bge-m3",
+        "config": "M3_512",
+        "kind": "pages",
+        "max_length": 512,
+        "content_hash": "0d17a63fe5222e5a75fdd6fdb28d8c8daef222b5d81ada6cc1daffe2137cb700",
+        "item_count": 333,
+        "dimension": 1024,
+        "build_ms": 55621.50939000276,
+        "batch_size_requested": 2,
+        "device": "cuda:0",
+        "dense_vector_norm_min": 0.9999998807907104,
+        "dense_vector_norm_max": 1.0000001192092896,
+        "cache_hit": true
+      },
+      "query": {
+        "model": "BAAI/bge-m3",
+        "config": "M3_512",
+        "kind": "queries",
+        "max_length": 512,
+        "content_hash": "5b4226f4b261787c2bc9fe6ca04af571b89732bf60f3d332dd442ffa8836ef08",
+        "item_count": 99,
+        "dimension": 1024,
+        "build_ms": 2496.44899800478,
+        "batch_size_requested": 2,
+        "device": "cuda:0",
+        "dense_vector_norm_min": 0.9999998807907104,
+        "dense_vector_norm_max": 1.0000001192092896,
+        "cache_hit": true
+      }
+    },
+    "M3_1024": {
+      "page": {
+        "model": "BAAI/bge-m3",
+        "config": "M3_1024",
+        "kind": "pages",
+        "max_length": 1024,
+        "content_hash": "e8781ba22b20874e634562d345dfef79ebb77b5af43f845d3aa16026e864fa58",
+        "item_count": 333,
+        "dimension": 1024,
+        "build_ms": 54930.78024800343,
+        "batch_size_requested": 2,
+        "device": "cuda:0",
+        "dense_vector_norm_min": 0.9999998807907104,
+        "dense_vector_norm_max": 1.0000001192092896,
+        "cache_hit": true
+      },
+      "query": {
+        "model": "BAAI/bge-m3",
+        "config": "M3_1024",
+        "kind": "queries",
+        "max_length": 1024,
+        "content_hash": "a46702c33fbc15df744f3ab5dde45b0b62fcb9d5534be858cc983b75ad4db509",
+        "item_count": 99,
+        "dimension": 1024,
+        "build_ms": 3042.007913994894,
+        "batch_size_requested": 2,
+        "device": "cuda:0",
+        "dense_vector_norm_min": 0.9999998807907104,
+        "dense_vector_norm_max": 1.0000001192092896,
+        "cache_hit": true
+      }
+    },
+    "M3_2048": {
+      "page": {
+        "model": "BAAI/bge-m3",
+        "config": "M3_2048",
+        "kind": "pages",
+        "max_length": 2048,
+        "content_hash": "dfb8e0dc8e66ba032ffa32366e5e531eff940d4c72e80569df2fe999c2005f2f",
+        "item_count": 333,
+        "dimension": 1024,
+        "build_ms": 55990.92233400006,
+        "batch_size_requested": 2,
+        "device": "cuda:0",
+        "dense_vector_norm_min": 0.9999998807907104,
+        "dense_vector_norm_max": 1.0000001192092896,
+        "cache_hit": true
+      },
+      "query": {
+        "model": "BAAI/bge-m3",
+        "config": "M3_2048",
+        "kind": "queries",
+        "max_length": 2048,
+        "content_hash": "bb13c1f5a39e98f023e0ca54b18dddc7be07bf6caa83660ae27c374195c62a2d",
+        "item_count": 99,
+        "dimension": 1024,
+        "build_ms": 2498.5373039962724,
+        "batch_size_requested": 2,
+        "device": "cuda:0",
+        "dense_vector_norm_min": 0.9999998807907104,
+        "dense_vector_norm_max": 1.0000001192092896,
+        "cache_hit": true
+      }
+    }
+  },
+  "tokenizer_length_distribution": [
+    {
+      "config": "BAAI/bge-small-zh-v1.5，max_length=512（当前基线）",
+      "model": "BAAI/bge-small-zh-v1.5",
+      "max_length": 512,
+      "tokenizer_class": "BertTokenizer",
+      "tokenizer_model_max_length": 512,
+      "truncation_side": "right",
+      "page_count": 333,
+      "token_count_mean": 499.9159159159159,
+      "token_count_median": 480,
+      "token_count_p90": 624.4000000000001,
+      "token_count_max": 695,
+      "<=512": 195,
+      "513-1024": 138,
+      "1025-2048": 0,
+      ">2048": 0,
+      "page_truncated_count": 138,
+      "summary_truncated_count": 97,
+      "keywords_partially_truncated_count": 40,
+      "keywords_fully_truncated_count": 98
+    },
+    {
+      "config": "BAAI/bge-m3，max_length=512",
+      "model": "BAAI/bge-m3",
+      "max_length": 512,
+      "tokenizer_class": "XLMRobertaTokenizer",
+      "tokenizer_model_max_length": 8192,
+      "truncation_side": "right",
+      "page_count": 333,
+      "token_count_mean": 369.7117117117117,
+      "token_count_median": 358,
+      "token_count_p90": 460.6,
+      "token_count_max": 515,
+      "<=512": 332,
+      "513-1024": 1,
+      "1025-2048": 0,
+      ">2048": 0,
+      "page_truncated_count": 1,
+      "summary_truncated_count": 0,
+      "keywords_partially_truncated_count": 1,
+      "keywords_fully_truncated_count": 0
+    },
+    {
+      "config": "BAAI/bge-m3，max_length=1024",
+      "model": "BAAI/bge-m3",
+      "max_length": 1024,
+      "tokenizer_class": "XLMRobertaTokenizer",
+      "tokenizer_model_max_length": 8192,
+      "truncation_side": "right",
+      "page_count": 333,
+      "token_count_mean": 369.7117117117117,
+      "token_count_median": 358,
+      "token_count_p90": 460.6,
+      "token_count_max": 515,
+      "<=512": 332,
+      "513-1024": 1,
+      "1025-2048": 0,
+      ">2048": 0,
+      "page_truncated_count": 0,
+      "summary_truncated_count": 0,
+      "keywords_partially_truncated_count": 0,
+      "keywords_fully_truncated_count": 0
+    },
+    {
+      "config": "BAAI/bge-m3，max_length=2048",
+      "model": "BAAI/bge-m3",
+      "max_length": 2048,
+      "tokenizer_class": "XLMRobertaTokenizer",
+      "tokenizer_model_max_length": 8192,
+      "truncation_side": "right",
+      "page_count": 333,
+      "token_count_mean": 369.7117117117117,
+      "token_count_median": 358,
+      "token_count_p90": 460.6,
+      "token_count_max": 515,
+      "<=512": 332,
+      "513-1024": 1,
+      "1025-2048": 0,
+      ">2048": 0,
+      "page_truncated_count": 0,
+      "summary_truncated_count": 0,
+      "keywords_partially_truncated_count": 0,
+      "keywords_fully_truncated_count": 0
+    }
+  ],
+  "ran_8192": false,
+  "ran_8192_reason": "BGE-M3 tokenizer max Page length is <=1024; no Page exceeds 2048",
+  "new_summary_llm_calls": 0,
+  "experiment_new_page_embedding_count": 999,
+  "experiment_new_query_embedding_count": 297,
+  "summary_regeneration": false,
+  "full_session_rerun": false,
+  "source_turn_set_changed": false,
+  "eligible_gold_changed": false,
+  "visible_page_ids_changed": false,
+  "query_text_changed": false,
+  "validation": {
+    "baseline_59_of_154": {
+      "status": "PASS",
+      "micro_r5": 0.38311688311688313,
+      "top5_gold": 59
+    },
+    "frozen_counts": {
+      "status": "PASS"
+    },
+    "same_page_query_text": {
+      "status": "PASS",
+      "page_text_hash": "c1e43a5231838193fdba8f417cc12d80713126eb77031a13a9852f9f1082bd1b",
+      "query_text_hash": "315e37f0b70e1a0cccdfad7b086ba256717befa4e9579d96d647e9dc742e5c2a"
+    },
+    "same_page_identity": {
+      "status": "PASS"
+    },
+    "visible_scope_and_future_leakage": {
+      "status": "PASS"
+    },
+    "m3_embedding_coverage": {
+      "status": "PASS"
+    },
+    "no_new_llm_calls": {
+      "status": "PASS",
+      "new_llm_calls": 0
+    },
+    "no_summary_regeneration": {
+      "status": "PASS"
+    },
+    "full_session_rerun": {
+      "status": "PASS",
+      "value": false
+    }
+  },
+  "validation_all_pass": true
+}

@@ -1,0 +1,7 @@
+﻿kind,comparison,item_count,exactly_identical_vector_count,cosine_mean,cosine_min
+Page,BAAI/bge-m3，max_length=1024 vs BAAI/bge-m3，max_length=512,333,332,0.9999952871186818,0.9984306105210136
+Page,BAAI/bge-m3，max_length=2048 vs BAAI/bge-m3，max_length=1024,333,333,1.0,0.9999999999999998
+Page,BAAI/bge-m3，max_length=2048 vs BAAI/bge-m3，max_length=512,333,332,0.9999952871186818,0.9984306105210136
+Query,BAAI/bge-m3，max_length=1024 vs BAAI/bge-m3，max_length=512,99,99,1.0,0.9999999999999998
+Query,BAAI/bge-m3，max_length=2048 vs BAAI/bge-m3，max_length=1024,99,99,1.0,0.9999999999999998
+Query,BAAI/bge-m3，max_length=2048 vs BAAI/bge-m3，max_length=512,99,99,1.0,0.9999999999999998

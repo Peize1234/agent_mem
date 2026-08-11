@@ -1,0 +1,1685 @@
+{
+  "selection": {
+    "aspire/acge_text_embedding / PROMOTED": [
+      {
+        "comparison": "aspire/acge_text_embedding vs BAAI/bge-small-zh-v1.5",
+        "session_id": "S003",
+        "query_id": "S003-Q055",
+        "gold_page_id": "cc3a667e-ea49-5490-bb5c-5a4d9db97e6f",
+        "gold_source_turn_id": "S003-Q045",
+        "before_rank": 41,
+        "after_rank": 4,
+        "rank_improvement": 37,
+        "before_score": 0.4069212079048157,
+        "after_score": 0.5068545341491699,
+        "score_difference": 0.09993332624435425,
+        "Model": "aspire/acge_text_embedding",
+        "extreme_movement": "AFTER20_TO_TOP5"
+      },
+      {
+        "comparison": "aspire/acge_text_embedding vs BAAI/bge-small-zh-v1.5",
+        "session_id": "S003",
+        "query_id": "S003-Q044",
+        "gold_page_id": "ae9f0678-a87f-5377-8edd-5fbd8ff4b4fa",
+        "gold_source_turn_id": "S003-Q034",
+        "before_rank": 33,
+        "after_rank": 3,
+        "rank_improvement": 30,
+        "before_score": 0.4599473774433136,
+        "after_score": 0.49466824531555176,
+        "score_difference": 0.03472086787223816,
+        "Model": "aspire/acge_text_embedding",
+        "extreme_movement": "AFTER20_TO_TOP5"
+      },
+      {
+        "comparison": "aspire/acge_text_embedding vs BAAI/bge-small-zh-v1.5",
+        "session_id": "S005",
+        "query_id": "S005-Q056",
+        "gold_page_id": "749bba84-be69-55e2-98a1-a9617e473fb0",
+        "gold_source_turn_id": "S005-Q050",
+        "before_rank": 17,
+        "after_rank": 3,
+        "rank_improvement": 14,
+        "before_score": 0.5247721672058105,
+        "after_score": 0.47513848543167114,
+        "score_difference": -0.049633681774139404,
+        "Model": "aspire/acge_text_embedding",
+        "extreme_movement": ""
+      },
+      {
+        "comparison": "aspire/acge_text_embedding vs BAAI/bge-small-zh-v1.5",
+        "session_id": "S005",
+        "query_id": "S005-Q042",
+        "gold_page_id": "19b9c9f1-754d-5322-831d-a2b5bbc632f9",
+        "gold_source_turn_id": "S005-Q036",
+        "before_rank": 18,
+        "after_rank": 5,
+        "rank_improvement": 13,
+        "before_score": 0.5557105541229248,
+        "after_score": 0.6103695631027222,
+        "score_difference": 0.05465900897979736,
+        "Model": "aspire/acge_text_embedding",
+        "extreme_movement": ""
+      },
+      {
+        "comparison": "aspire/acge_text_embedding vs BAAI/bge-small-zh-v1.5",
+        "session_id": "S002",
+        "query_id": "S002-Q055",
+        "gold_page_id": "2e583969-bc65-5074-a7fe-0424438cd092",
+        "gold_source_turn_id": "S002-Q051",
+        "before_rank": 12,
+        "after_rank": 1,
+        "rank_improvement": 11,
+        "before_score": 0.5007023811340332,
+        "after_score": 0.4801030457019806,
+        "score_difference": -0.020599335432052612,
+        "Model": "aspire/acge_text_embedding",
+        "extreme_movement": ""
+      }
+    ],
+    "aspire/acge_text_embedding / DEMOTED": [
+      {
+        "comparison": "aspire/acge_text_embedding vs BAAI/bge-small-zh-v1.5",
+        "session_id": "S004",
+        "query_id": "S004-Q070",
+        "gold_page_id": "2e530daf-4b7a-5b20-9fe7-9c23daee4af6",
+        "gold_source_turn_id": "S004-Q064",
+        "before_rank": 4,
+        "after_rank": 38,
+        "rank_improvement": -34,
+        "before_score": 0.5201765894889832,
+        "after_score": 0.5128227472305298,
+        "score_difference": -0.007353842258453369,
+        "Model": "aspire/acge_text_embedding",
+        "extreme_movement": "TOP5_TO_AFTER20"
+      },
+      {
+        "comparison": "aspire/acge_text_embedding vs BAAI/bge-small-zh-v1.5",
+        "session_id": "S003",
+        "query_id": "S003-Q056",
+        "gold_page_id": "59d896c1-0734-53cf-821a-5728dd5fe548",
+        "gold_source_turn_id": "S003-Q050",
+        "before_rank": 3,
+        "after_rank": 35,
+        "rank_improvement": -32,
+        "before_score": 0.5221919417381287,
+        "after_score": 0.5564936399459839,
+        "score_difference": 0.034301698207855225,
+        "Model": "aspire/acge_text_embedding",
+        "extreme_movement": "TOP5_TO_AFTER20"
+      },
+      {
+        "comparison": "aspire/acge_text_embedding vs BAAI/bge-small-zh-v1.5",
+        "session_id": "S001",
+        "query_id": "S001-Q044",
+        "gold_page_id": "32b5d492-2df9-5ed9-ac46-caca5c87097c",
+        "gold_source_turn_id": "S001-Q034",
+        "before_rank": 4,
+        "after_rank": 29,
+        "rank_improvement": -25,
+        "before_score": 0.41738826036453247,
+        "after_score": 0.30596494674682617,
+        "score_difference": -0.1114233136177063,
+        "Model": "aspire/acge_text_embedding",
+        "extreme_movement": "TOP5_TO_AFTER20"
+      },
+      {
+        "comparison": "aspire/acge_text_embedding vs BAAI/bge-small-zh-v1.5",
+        "session_id": "S004",
+        "query_id": "S004-Q033",
+        "gold_page_id": "73b2fb55-c036-52ca-842e-cc784d317c61",
+        "gold_source_turn_id": "S004-Q023",
+        "before_rank": 5,
+        "after_rank": 23,
+        "rank_improvement": -18,
+        "before_score": 0.6531623601913452,
+        "after_score": 0.6427116990089417,
+        "score_difference": -0.010450661182403564,
+        "Model": "aspire/acge_text_embedding",
+        "extreme_movement": "TOP5_TO_AFTER20"
+      },
+      {
+        "comparison": "aspire/acge_text_embedding vs BAAI/bge-small-zh-v1.5",
+        "session_id": "S004",
+        "query_id": "S004-Q065",
+        "gold_page_id": "28de896e-9356-58a4-a8c5-c3efe7770f57",
+        "gold_source_turn_id": "S004-Q058",
+        "before_rank": 2,
+        "after_rank": 20,
+        "rank_improvement": -18,
+        "before_score": 0.47814619541168213,
+        "after_score": 0.46682828664779663,
+        "score_difference": -0.011317908763885498,
+        "Model": "aspire/acge_text_embedding",
+        "extreme_movement": ""
+      }
+    ]
+  },
+  "cases": [
+    {
+      "session_id": "S001",
+      "query_id": "S001-Q044",
+      "original_query": "刚才的三层证据中，哪些措辞已经超过事实本身能够支持的强度；把口径限制放在结论里，不要另作假设。",
+      "p2_query": "刚才的三层证据中，哪些措辞已经超过事实本身能够支持的强度；把口径限制放在结论里，不要另作假设。",
+      "gold_page_id": "32b5d492-2df9-5ed9-ac46-caca5c87097c",
+      "gold_source_turn_id": "S001-Q034",
+      "gold_summary": "用户要求将营业收入与资产变化结合，判断资产扩张是否得到规模增长支撑，并指出证据不足时直接说明缺口、不补估计值。助手基于《贵州茅台2025年年度报告或年度报告摘要》（披露日期2026-04-17，来源地址https://static.cninfo.com.cn/finalpage/2026-04-17/1225114731.PDF）确认三年完整财年数据：营业收入2023年1,476.94亿元、2024年1,708.99亿元、2025年1,688.38亿元，同比分别为+15.71%、-1.21%，形态为先升后降；归母股东权益2023年2,156.69亿元、2024年2,331.06亿元、2025年2,446.38亿元，同比分别为+8.09%、+4.95%，形态为连续上升。结论为归母股东权益连续上升但营业收入先升后降，方向不一致，冲突被保留；并计算营业收入/期末总资产的近似周转检查分别为2023年0.542倍、2024年0.572倍、2025年0.556倍，仅用于方向核验。助手强调未取得经营现金流完整三年序列，不能计算现金利润比，也不使用估计值替代；仅基于公开历史信息，不包含预测或情景，具体经营原因未在附注披露前不作归因。",
+      "gold_keywords": [
+        "贵州茅台",
+        "2023-2025",
+        "营业收入",
+        "归母股东权益",
+        "资产扩张",
+        "规模增长",
+        "近似周转",
+        "同比"
+      ],
+      "models": {
+        "BAAI/bge-small-zh-v1.5": {
+          "gold_rank": 4,
+          "gold_score": 0.41738826036453247,
+          "top10": [
+            {
+              "page_id": "31eb0f30-7b80-5d07-8ba6-bc6a6a24cb62",
+              "source_turn_id": "S001-Q027",
+              "score": 0.45116180181503296,
+              "rank": 1
+            },
+            {
+              "page_id": "ec485c25-9d3b-5229-9578-6632bd7bacad",
+              "source_turn_id": "S001-Q037",
+              "score": 0.4426850378513336,
+              "rank": 2
+            },
+            {
+              "page_id": "05b70e73-30bc-59f9-98c1-7b8ae315ffd0",
+              "source_turn_id": "S001-Q035",
+              "score": 0.42633822560310364,
+              "rank": 3
+            },
+            {
+              "page_id": "32b5d492-2df9-5ed9-ac46-caca5c87097c",
+              "source_turn_id": "S001-Q034",
+              "score": 0.41738826036453247,
+              "rank": 4
+            },
+            {
+              "page_id": "6f47beb6-9be8-5a58-be8b-a77a9bbffd9a",
+              "source_turn_id": "S001-Q030",
+              "score": 0.41291484236717224,
+              "rank": 5
+            },
+            {
+              "page_id": "4054aab2-0aa7-5019-b341-077265511add",
+              "source_turn_id": "S001-Q040",
+              "score": 0.41101235151290894,
+              "rank": 6
+            },
+            {
+              "page_id": "fb76b32a-859d-5228-b170-550c026c1646",
+              "source_turn_id": "S001-Q028",
+              "score": 0.41016513109207153,
+              "rank": 7
+            },
+            {
+              "page_id": "e2db6251-93c2-54d2-b811-75ba0665e53c",
+              "source_turn_id": "S001-Q039",
+              "score": 0.403222918510437,
+              "rank": 8
+            },
+            {
+              "page_id": "812b1a36-c36b-58cb-882e-3759ed7c7c58",
+              "source_turn_id": "S001-Q026",
+              "score": 0.401185542345047,
+              "rank": 9
+            },
+            {
+              "page_id": "0ec56d0d-4e11-511a-9b98-5f6bddfc2dcc",
+              "source_turn_id": "S001-Q036",
+              "score": 0.3934606909751892,
+              "rank": 10
+            }
+          ]
+        },
+        "aspire/acge_text_embedding": {
+          "gold_rank": 29,
+          "gold_score": 0.30596494674682617,
+          "top10": [
+            {
+              "page_id": "6f47beb6-9be8-5a58-be8b-a77a9bbffd9a",
+              "source_turn_id": "S001-Q030",
+              "score": 0.3858652710914612,
+              "rank": 1
+            },
+            {
+              "page_id": "fb76b32a-859d-5228-b170-550c026c1646",
+              "source_turn_id": "S001-Q028",
+              "score": 0.3772154748439789,
+              "rank": 2
+            },
+            {
+              "page_id": "88e975b7-0f5a-5f5c-98ce-e461dcab93b8",
+              "source_turn_id": "S001-Q019",
+              "score": 0.3716335892677307,
+              "rank": 3
+            },
+            {
+              "page_id": "adb63a6d-b7bd-5396-8e59-1cb9403d2c73",
+              "source_turn_id": "S001-Q033",
+              "score": 0.3577668070793152,
+              "rank": 4
+            },
+            {
+              "page_id": "31eb0f30-7b80-5d07-8ba6-bc6a6a24cb62",
+              "source_turn_id": "S001-Q027",
+              "score": 0.35760781168937683,
+              "rank": 5
+            },
+            {
+              "page_id": "77cecfad-195f-539e-b105-acf49d23a9c6",
+              "source_turn_id": "S001-Q020",
+              "score": 0.3572643995285034,
+              "rank": 6
+            },
+            {
+              "page_id": "ec485c25-9d3b-5229-9578-6632bd7bacad",
+              "source_turn_id": "S001-Q037",
+              "score": 0.3561561107635498,
+              "rank": 7
+            },
+            {
+              "page_id": "05b70e73-30bc-59f9-98c1-7b8ae315ffd0",
+              "source_turn_id": "S001-Q035",
+              "score": 0.34982818365097046,
+              "rank": 8
+            },
+            {
+              "page_id": "d5c03971-3795-5256-a75f-b3921d61a92d",
+              "source_turn_id": "S001-Q023",
+              "score": 0.34747228026390076,
+              "rank": 9
+            },
+            {
+              "page_id": "e2db6251-93c2-54d2-b811-75ba0665e53c",
+              "source_turn_id": "S001-Q039",
+              "score": 0.3463263511657715,
+              "rank": 10
+            }
+          ]
+        }
+      }
+    },
+    {
+      "session_id": "S002",
+      "query_id": "S002-Q055",
+      "original_query": "修订后重新区分事实、计算与判断，前面各轮的信息有没有被混在一起；把2024年这个中间点也保留下来。",
+      "p2_query": "修订后重新区分事实、计算与判断，前面各轮的信息有没有被混在一起；把2024年这个中间点也保留下来。",
+      "gold_page_id": "2e583969-bc65-5074-a7fe-0424438cd092",
+      "gold_source_turn_id": "S002-Q051",
+      "gold_summary": "用户要求回到最早建立的三年口径，检查其与之前证据分级是否完全一致，并保留指标方向冲突。助手基于《贵州茅台2025年年度报告或年度报告摘要》（披露日期2026-04-17，来源地址https://static.cninfo.com.cn/finalpage/2026-04-17/1225114731.PDF）确认：营业收入2023年1,476.94亿元、2024年1,708.99亿元、2025年1,688.38亿元，同比分别为+15.71%、-1.21%，三年形态为先升后降；归母净利润2023年747.34亿元、2024年862.28亿元、2025年823.20亿元，同比分别为+15.38%、-4.53%，三年形态为先升后降；总资产2023年2,727亿元、2024年2,989.45亿元、2025年3,038.35亿元，同比分别为+9.62%、+1.64%，三年形态为连续上升；归母股东权益2023年2,156.69亿元、2024年2,331.06亿元、2025年2,446.38亿元，同比分别为+8.09%、+4.95%，三年形态为连续上升。结论为：归母净利润与营业收入均呈先升后降，与之前证据分级一致；总资产与归母股东权益连续上升，与利润和收入的先升后降形成错位，但该冲突被保留而非消除。当前证据只能确认存在错位，不能判定为效率问题，因缺少经营现金流与净利润的配对数据，无法计算现金利润比，不推断未披露原因，保留信息缺口；岗位视角为内控审计经理，关注数据链路、控制点与复核责任。",
+      "gold_keywords": [
+        "贵州茅台",
+        "2023-2025",
+        "三年口径",
+        "证据分级",
+        "营业收入",
+        "归母净利润",
+        "先升后降",
+        "冲突保留"
+      ],
+      "models": {
+        "BAAI/bge-small-zh-v1.5": {
+          "gold_rank": 12,
+          "gold_score": 0.5007023811340332,
+          "top10": [
+            {
+              "page_id": "087338a6-fe85-5c9e-9ce5-15a213fa760e",
+              "source_turn_id": "S002-Q037",
+              "score": 0.5581398010253906,
+              "rank": 1
+            },
+            {
+              "page_id": "03cfc256-5474-5a94-b3bd-8ae0e1468cfd",
+              "source_turn_id": "S002-Q046",
+              "score": 0.5505597591400146,
+              "rank": 2
+            },
+            {
+              "page_id": "0dd982c7-f7b2-5ac0-8c16-56d44bbe4330",
+              "source_turn_id": "S002-Q027",
+              "score": 0.524528980255127,
+              "rank": 3
+            },
+            {
+              "page_id": "647fce0c-6320-5a98-819d-50dff3300582",
+              "source_turn_id": "S002-Q040",
+              "score": 0.5242319107055664,
+              "rank": 4
+            },
+            {
+              "page_id": "57600f18-283a-5f61-bf9e-7a48d4f8d3c5",
+              "source_turn_id": "S002-Q043",
+              "score": 0.5107297897338867,
+              "rank": 5
+            },
+            {
+              "page_id": "79860bb6-6010-5ca0-ac81-f4327e2bff44",
+              "source_turn_id": "S002-Q023",
+              "score": 0.510590672492981,
+              "rank": 6
+            },
+            {
+              "page_id": "53002bea-e9ad-5d96-83a5-03522979913a",
+              "source_turn_id": "S002-Q035",
+              "score": 0.5095930695533752,
+              "rank": 7
+            },
+            {
+              "page_id": "2dfdba20-c49c-5149-9993-09aa190738c7",
+              "source_turn_id": "S002-Q042",
+              "score": 0.5089985728263855,
+              "rank": 8
+            },
+            {
+              "page_id": "566e5d08-995e-5a35-9566-2770b6024b5a",
+              "source_turn_id": "S002-Q033",
+              "score": 0.5054994225502014,
+              "rank": 9
+            },
+            {
+              "page_id": "8dcae915-8670-5f3e-802c-be0b10d761fa",
+              "source_turn_id": "S002-Q049",
+              "score": 0.5040552616119385,
+              "rank": 10
+            }
+          ]
+        },
+        "aspire/acge_text_embedding": {
+          "gold_rank": 1,
+          "gold_score": 0.4801030457019806,
+          "top10": [
+            {
+              "page_id": "2e583969-bc65-5074-a7fe-0424438cd092",
+              "source_turn_id": "S002-Q051",
+              "score": 0.4801030457019806,
+              "rank": 1
+            },
+            {
+              "page_id": "893b3ae9-1f94-5436-8c6d-54e200693867",
+              "source_turn_id": "S002-Q029",
+              "score": 0.4795684218406677,
+              "rank": 2
+            },
+            {
+              "page_id": "e64218f2-62ce-555a-ba53-f3fd1214e0f7",
+              "source_turn_id": "S002-Q019",
+              "score": 0.4629570245742798,
+              "rank": 3
+            },
+            {
+              "page_id": "8abb5364-9164-5a46-826a-a0fde69d88a8",
+              "source_turn_id": "S002-Q016",
+              "score": 0.45609140396118164,
+              "rank": 4
+            },
+            {
+              "page_id": "647fce0c-6320-5a98-819d-50dff3300582",
+              "source_turn_id": "S002-Q040",
+              "score": 0.45333999395370483,
+              "rank": 5
+            },
+            {
+              "page_id": "d728a292-3080-5624-89ff-d8e05d09e8ca",
+              "source_turn_id": "S002-Q045",
+              "score": 0.44884032011032104,
+              "rank": 6
+            },
+            {
+              "page_id": "566e5d08-995e-5a35-9566-2770b6024b5a",
+              "source_turn_id": "S002-Q033",
+              "score": 0.44800975918769836,
+              "rank": 7
+            },
+            {
+              "page_id": "0c762a14-8087-5bb0-a22d-c86667c2dabe",
+              "source_turn_id": "S002-Q017",
+              "score": 0.447909951210022,
+              "rank": 8
+            },
+            {
+              "page_id": "0dd982c7-f7b2-5ac0-8c16-56d44bbe4330",
+              "source_turn_id": "S002-Q027",
+              "score": 0.4473479986190796,
+              "rank": 9
+            },
+            {
+              "page_id": "9f1aca79-05a4-5e05-95d1-2323f4c68ed6",
+              "source_turn_id": "S002-Q026",
+              "score": 0.44658195972442627,
+              "rank": 10
+            }
+          ]
+        }
+      }
+    },
+    {
+      "session_id": "S003",
+      "query_id": "S003-Q044",
+      "original_query": "刚才的三层证据中，哪些措辞已经超过事实本身能够支持的强度；把2024年这个中间点也保留下来。",
+      "p2_query": "刚才的三层证据中，哪些措辞已经超过事实本身能够支持的强度；把2024年这个中间点也保留下来。",
+      "gold_page_id": "ae9f0678-a87f-5377-8edd-5fbd8ff4b4fa",
+      "gold_source_turn_id": "S003-Q034",
+      "gold_summary": "用户要求加入扣非净利润，分析利润变化中属于持续经营口径的部分，并指出是否需要修订前文判断。助手基于《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF），固定期间2023-2025三个完整财年，金额单位为亿元。关键数据：扣非归母净利润2023年284.62亿元、2024年369.83亿元、2025年294.46亿元，同比+29.94%、-20.38%，先升后降；归母净利润2023年300.41亿元、2024年402.54亿元、2025年326.19亿元，同比+34.00%、-18.97%，先升后降；经营活动现金流净额2023年1,697.25亿元、2024年1,334.54亿元、2025年591.36亿元，同比-21.37%、-55.69%，连续下降；总资产2023年6,795.48亿元、2024年7,833.56亿元、2025年8,837.3亿元，同比+15.28%、+12.81%，连续上升。助手结论：归母净利润与扣非归母净利润均呈先升后降，总资产连续上升，经营现金流连续下降，构成方向冲突；归母与扣非差额提示非经常性损益影响，但具体项目需附注确认；对反证、尾部风险与监控触发项有直接参考价值，但仅能证明截至2025年完整财年的财务表现及指标间关系，不能单独证明具体经营原因，也不能外推未来。分析以风险委员会委员视角，强调区分事实、计算和判断三层，保留2024年中间点，并明确后续修订需指出改变的是事实层、计算层还是判断层。",
+      "gold_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "扣非净利润",
+        "归母净利润",
+        "持续经营口径",
+        "先升后降",
+        "反证",
+        "尾部风险"
+      ],
+      "models": {
+        "BAAI/bge-small-zh-v1.5": {
+          "gold_rank": 33,
+          "gold_score": 0.4599473774433136,
+          "top10": [
+            {
+              "page_id": "a66c00f0-adb2-544a-954c-97b7393168b0",
+              "source_turn_id": "S003-Q038",
+              "score": 0.5771990418434143,
+              "rank": 1
+            },
+            {
+              "page_id": "cd287a69-0373-5edb-a16a-81be12c7a77e",
+              "source_turn_id": "S003-Q037",
+              "score": 0.5488518476486206,
+              "rank": 2
+            },
+            {
+              "page_id": "fe6436d0-9e94-53f7-ae4c-13a3d82b10ba",
+              "source_turn_id": "S003-Q030",
+              "score": 0.5411847829818726,
+              "rank": 3
+            },
+            {
+              "page_id": "4ed05884-3478-5a91-a63f-3067fd41956d",
+              "source_turn_id": "S003-Q027",
+              "score": 0.5301570296287537,
+              "rank": 4
+            },
+            {
+              "page_id": "49d340b2-23e8-5b2c-abec-13dbe4b21de7",
+              "source_turn_id": "S003-Q010",
+              "score": 0.5294833183288574,
+              "rank": 5
+            },
+            {
+              "page_id": "22322d48-4d17-5d2e-8760-ab1acaeb9f0a",
+              "source_turn_id": "S003-Q008",
+              "score": 0.5261317491531372,
+              "rank": 6
+            },
+            {
+              "page_id": "82bf5c46-13d0-5fb7-9826-308047a68fc7",
+              "source_turn_id": "S003-Q036",
+              "score": 0.5254900455474854,
+              "rank": 7
+            },
+            {
+              "page_id": "1b59ffe6-5fba-511e-b39a-6529e998d6ca",
+              "source_turn_id": "S003-Q015",
+              "score": 0.5252512693405151,
+              "rank": 8
+            },
+            {
+              "page_id": "25fd6ff3-e933-563b-baa2-5722e21d26fc",
+              "source_turn_id": "S003-Q016",
+              "score": 0.5243474841117859,
+              "rank": 9
+            },
+            {
+              "page_id": "de8457cd-4b07-5775-9f5e-95f5d65583a0",
+              "source_turn_id": "S003-Q039",
+              "score": 0.5194610953330994,
+              "rank": 10
+            }
+          ]
+        },
+        "aspire/acge_text_embedding": {
+          "gold_rank": 3,
+          "gold_score": 0.49466824531555176,
+          "top10": [
+            {
+              "page_id": "a66c00f0-adb2-544a-954c-97b7393168b0",
+              "source_turn_id": "S003-Q038",
+              "score": 0.5248199701309204,
+              "rank": 1
+            },
+            {
+              "page_id": "4ed05884-3478-5a91-a63f-3067fd41956d",
+              "source_turn_id": "S003-Q027",
+              "score": 0.4957796335220337,
+              "rank": 2
+            },
+            {
+              "page_id": "ae9f0678-a87f-5377-8edd-5fbd8ff4b4fa",
+              "source_turn_id": "S003-Q034",
+              "score": 0.49466824531555176,
+              "rank": 3
+            },
+            {
+              "page_id": "7a6c2c70-6d05-5a6d-9a53-32d92efee826",
+              "source_turn_id": "S003-Q028",
+              "score": 0.4879372715950012,
+              "rank": 4
+            },
+            {
+              "page_id": "49d340b2-23e8-5b2c-abec-13dbe4b21de7",
+              "source_turn_id": "S003-Q010",
+              "score": 0.47962966561317444,
+              "rank": 5
+            },
+            {
+              "page_id": "3039ff9a-80a9-534e-bac6-7b97cc24a926",
+              "source_turn_id": "S003-Q002",
+              "score": 0.47794586420059204,
+              "rank": 6
+            },
+            {
+              "page_id": "de8457cd-4b07-5775-9f5e-95f5d65583a0",
+              "source_turn_id": "S003-Q039",
+              "score": 0.4770956039428711,
+              "rank": 7
+            },
+            {
+              "page_id": "22322d48-4d17-5d2e-8760-ab1acaeb9f0a",
+              "source_turn_id": "S003-Q008",
+              "score": 0.4734596908092499,
+              "rank": 8
+            },
+            {
+              "page_id": "8319fad1-425d-545c-8ef3-4df0fdc3b11d",
+              "source_turn_id": "S003-Q020",
+              "score": 0.4680197238922119,
+              "rank": 9
+            },
+            {
+              "page_id": "25fd6ff3-e933-563b-baa2-5722e21d26fc",
+              "source_turn_id": "S003-Q016",
+              "score": 0.46772849559783936,
+              "rank": 10
+            }
+          ]
+        }
+      }
+    },
+    {
+      "session_id": "S003",
+      "query_id": "S003-Q055",
+      "original_query": "接着用一个可复算比率检查刚才的基期判断，但不要把近似值当正式指标；先说明能确认的事实，再说还不能确认的原因。",
+      "p2_query": "接着用一个可复算比率检查刚才的基期判断，但不要把近似值当正式指标；先说明能确认的事实，再说还不能确认的原因。",
+      "gold_page_id": "cc3a667e-ea49-5490-bb5c-5a4d9db97e6f",
+      "gold_source_turn_id": "S003-Q045",
+      "gold_summary": "用户要求识别仅凭当前年度报告摘要无法回答的信息缺口，并确保结论能衔接下一轮追问。助手基于《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF），固定期间2023-2025三个完整财年，金额单位为亿元。关键数据：营业收入2023年6,023.15亿元、2024年7,771.02亿元、2025年8,039.65亿元，同比+29.02%、+3.46%，连续上升；归母净利润2023年300.41亿元、2024年402.54亿元、2025年326.19亿元，同比+34.00%、-18.97%，先升后降；扣非归母净利润2023年284.62亿元、2024年369.83亿元、2025年294.46亿元，同比+29.94%、-20.38%，先升后降；经营活动现金流净额2023年1,697.25亿元、2024年1,334.54亿元、2025年591.36亿元，同比-21.37%、-55.69%，连续下降；总资产2023年6,795.48亿元、2024年7,833.56亿元、2025年8,837.3亿元，同比+15.28%、+12.81%，连续上升；归母股东权益2023年1,388.1亿元、2024年1,852.51亿元、2025年2,462.75亿元，同比+33.46%、+32.94%，连续上升。助手结论：营业收入连续上升与归母净利润先升后降构成方向冲突，应保留冲突并缩小结论范围；需分开两段同比，不以首尾差额代替年度路径；具体经营原因未在年报中明确披露，不作确定归因。分析以风险委员会委员视角，强调区分事实、计算和判断三层，保留2024年中间点，并明确后续修订需指出改变的是事实层、计算层还是判断层。",
+      "gold_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "信息缺口",
+        "营业收入",
+        "归母净利润",
+        "先升后降",
+        "连续上升",
+        "冲突保留"
+      ],
+      "models": {
+        "BAAI/bge-small-zh-v1.5": {
+          "gold_rank": 41,
+          "gold_score": 0.4069212079048157,
+          "top10": [
+            {
+              "page_id": "82bf5c46-13d0-5fb7-9826-308047a68fc7",
+              "source_turn_id": "S003-Q036",
+              "score": 0.5272864103317261,
+              "rank": 1
+            },
+            {
+              "page_id": "78d45bb9-9e17-532c-ac94-a233f3897490",
+              "source_turn_id": "S003-Q021",
+              "score": 0.5199640989303589,
+              "rank": 2
+            },
+            {
+              "page_id": "38c8623d-42c1-5db8-ab6e-1f29fd9a82e3",
+              "source_turn_id": "S003-Q047",
+              "score": 0.5069265365600586,
+              "rank": 3
+            },
+            {
+              "page_id": "59d896c1-0734-53cf-821a-5728dd5fe548",
+              "source_turn_id": "S003-Q050",
+              "score": 0.4980573058128357,
+              "rank": 4
+            },
+            {
+              "page_id": "4ed05884-3478-5a91-a63f-3067fd41956d",
+              "source_turn_id": "S003-Q027",
+              "score": 0.4894818365573883,
+              "rank": 5
+            },
+            {
+              "page_id": "cd287a69-0373-5edb-a16a-81be12c7a77e",
+              "source_turn_id": "S003-Q037",
+              "score": 0.4893784523010254,
+              "rank": 6
+            },
+            {
+              "page_id": "3bd00881-7f00-5756-9420-0d2f71ecdc25",
+              "source_turn_id": "S003-Q013",
+              "score": 0.4889126420021057,
+              "rank": 7
+            },
+            {
+              "page_id": "bd0dc9f1-4c0c-5c9f-b9c0-5a7b5051b7f2",
+              "source_turn_id": "S003-Q019",
+              "score": 0.48686832189559937,
+              "rank": 8
+            },
+            {
+              "page_id": "fe6436d0-9e94-53f7-ae4c-13a3d82b10ba",
+              "source_turn_id": "S003-Q030",
+              "score": 0.4835198223590851,
+              "rank": 9
+            },
+            {
+              "page_id": "7a6c2c70-6d05-5a6d-9a53-32d92efee826",
+              "source_turn_id": "S003-Q028",
+              "score": 0.48291102051734924,
+              "rank": 10
+            }
+          ]
+        },
+        "aspire/acge_text_embedding": {
+          "gold_rank": 4,
+          "gold_score": 0.5068545341491699,
+          "top10": [
+            {
+              "page_id": "1b59ffe6-5fba-511e-b39a-6529e998d6ca",
+              "source_turn_id": "S003-Q015",
+              "score": 0.5423530340194702,
+              "rank": 1
+            },
+            {
+              "page_id": "2316a391-e779-530b-ac2f-055182347d32",
+              "source_turn_id": "S003-Q043",
+              "score": 0.527172327041626,
+              "rank": 2
+            },
+            {
+              "page_id": "3bd00881-7f00-5756-9420-0d2f71ecdc25",
+              "source_turn_id": "S003-Q013",
+              "score": 0.5084601044654846,
+              "rank": 3
+            },
+            {
+              "page_id": "cc3a667e-ea49-5490-bb5c-5a4d9db97e6f",
+              "source_turn_id": "S003-Q045",
+              "score": 0.5068545341491699,
+              "rank": 4
+            },
+            {
+              "page_id": "78d45bb9-9e17-532c-ac94-a233f3897490",
+              "source_turn_id": "S003-Q021",
+              "score": 0.5063424110412598,
+              "rank": 5
+            },
+            {
+              "page_id": "4ed05884-3478-5a91-a63f-3067fd41956d",
+              "source_turn_id": "S003-Q027",
+              "score": 0.49734818935394287,
+              "rank": 6
+            },
+            {
+              "page_id": "38c8623d-42c1-5db8-ab6e-1f29fd9a82e3",
+              "source_turn_id": "S003-Q047",
+              "score": 0.4971829354763031,
+              "rank": 7
+            },
+            {
+              "page_id": "82bf5c46-13d0-5fb7-9826-308047a68fc7",
+              "source_turn_id": "S003-Q036",
+              "score": 0.49701640009880066,
+              "rank": 8
+            },
+            {
+              "page_id": "e8774fb1-5e27-5d8f-8399-9a697a3030b4",
+              "source_turn_id": "S003-Q035",
+              "score": 0.49464407563209534,
+              "rank": 9
+            },
+            {
+              "page_id": "ae9f0678-a87f-5377-8edd-5fbd8ff4b4fa",
+              "source_turn_id": "S003-Q034",
+              "score": 0.49331724643707275,
+              "rank": 10
+            }
+          ]
+        }
+      }
+    },
+    {
+      "session_id": "S003",
+      "query_id": "S003-Q056",
+      "original_query": "把上一轮的计算放回证据层级，它属于披露事实还是分析工具；请从当前岗位最关心的证据开始回答。",
+      "p2_query": "把上一轮的计算（营业收入/期末总资产的近似周转检查）放回证据层级，它属于披露事实还是分析工具；请从当前岗位最关心的证据开始回答。",
+      "gold_page_id": "59d896c1-0734-53cf-821a-5728dd5fe548",
+      "gold_source_turn_id": "S003-Q050",
+      "gold_summary": "用户要求基于上一轮结论，综合本章内容，给出来源清楚、计算可复现、表述不过界的结论，并明确要求将两段同比分开，不合成一个趋势词。助手基于《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF），固定期间2023-2025三个完整财年，金额单位为亿元。关键数据：归母股东权益2023年1,388.1亿元、2024年1,852.51亿元、2025年2,462.75亿元，同比+33.46%、+32.94%，连续上升；总资产2023年6,795.48亿元、2024年7,833.56亿元、2025年8,837.3亿元，同比+15.28%、+12.81%，连续上升。助手结论：归母股东权益与总资产均呈连续上升，方向一致，构成相互支持；但仅能证明截至2025年完整财年的财务表现及指标间关系，不能单独证明具体经营原因，也不能外推未来。分析以风险委员会委员视角，强调区分事实、计算和判断三层，保留2024年中间点，并明确后续修订需指出改变的是事实层、计算层还是判断层。",
+      "gold_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "投研摘要",
+        "归母股东权益",
+        "总资产",
+        "连续上升",
+        "两段同比",
+        "风险委员会"
+      ],
+      "models": {
+        "BAAI/bge-small-zh-v1.5": {
+          "gold_rank": 3,
+          "gold_score": 0.5221919417381287,
+          "top10": [
+            {
+              "page_id": "4ed05884-3478-5a91-a63f-3067fd41956d",
+              "source_turn_id": "S003-Q027",
+              "score": 0.5534404516220093,
+              "rank": 1
+            },
+            {
+              "page_id": "78d45bb9-9e17-532c-ac94-a233f3897490",
+              "source_turn_id": "S003-Q021",
+              "score": 0.5273928642272949,
+              "rank": 2
+            },
+            {
+              "page_id": "59d896c1-0734-53cf-821a-5728dd5fe548",
+              "source_turn_id": "S003-Q050",
+              "score": 0.5221919417381287,
+              "rank": 3
+            },
+            {
+              "page_id": "3bd00881-7f00-5756-9420-0d2f71ecdc25",
+              "source_turn_id": "S003-Q013",
+              "score": 0.521436870098114,
+              "rank": 4
+            },
+            {
+              "page_id": "2316a391-e779-530b-ac2f-055182347d32",
+              "source_turn_id": "S003-Q043",
+              "score": 0.5164279937744141,
+              "rank": 5
+            },
+            {
+              "page_id": "a66c00f0-adb2-544a-954c-97b7393168b0",
+              "source_turn_id": "S003-Q038",
+              "score": 0.5153896808624268,
+              "rank": 6
+            },
+            {
+              "page_id": "fe6436d0-9e94-53f7-ae4c-13a3d82b10ba",
+              "source_turn_id": "S003-Q030",
+              "score": 0.513081431388855,
+              "rank": 7
+            },
+            {
+              "page_id": "bd0dc9f1-4c0c-5c9f-b9c0-5a7b5051b7f2",
+              "source_turn_id": "S003-Q019",
+              "score": 0.5120072364807129,
+              "rank": 8
+            },
+            {
+              "page_id": "05e85ae0-3d1a-5b35-8b21-33024859d641",
+              "source_turn_id": "S003-Q033",
+              "score": 0.5105451345443726,
+              "rank": 9
+            },
+            {
+              "page_id": "cb9da70d-c361-5f9e-9f13-d40731425363",
+              "source_turn_id": "S003-Q052",
+              "score": 0.5101214051246643,
+              "rank": 10
+            }
+          ]
+        },
+        "aspire/acge_text_embedding": {
+          "gold_rank": 35,
+          "gold_score": 0.5564936399459839,
+          "top10": [
+            {
+              "page_id": "4ed05884-3478-5a91-a63f-3067fd41956d",
+              "source_turn_id": "S003-Q027",
+              "score": 0.6420388221740723,
+              "rank": 1
+            },
+            {
+              "page_id": "78d45bb9-9e17-532c-ac94-a233f3897490",
+              "source_turn_id": "S003-Q021",
+              "score": 0.6419899463653564,
+              "rank": 2
+            },
+            {
+              "page_id": "2316a391-e779-530b-ac2f-055182347d32",
+              "source_turn_id": "S003-Q043",
+              "score": 0.636931300163269,
+              "rank": 3
+            },
+            {
+              "page_id": "b00efb33-3321-5736-b5b5-c41450d53202",
+              "source_turn_id": "S003-Q048",
+              "score": 0.6290318369865417,
+              "rank": 4
+            },
+            {
+              "page_id": "1b59ffe6-5fba-511e-b39a-6529e998d6ca",
+              "source_turn_id": "S003-Q015",
+              "score": 0.6253767013549805,
+              "rank": 5
+            },
+            {
+              "page_id": "a3d3b3e7-64b2-57ba-8ffc-9f9c741bbb55",
+              "source_turn_id": "S003-Q044",
+              "score": 0.6235058307647705,
+              "rank": 6
+            },
+            {
+              "page_id": "fe6436d0-9e94-53f7-ae4c-13a3d82b10ba",
+              "source_turn_id": "S003-Q030",
+              "score": 0.6214727163314819,
+              "rank": 7
+            },
+            {
+              "page_id": "22322d48-4d17-5d2e-8760-ab1acaeb9f0a",
+              "source_turn_id": "S003-Q008",
+              "score": 0.6202933192253113,
+              "rank": 8
+            },
+            {
+              "page_id": "ae9f0678-a87f-5377-8edd-5fbd8ff4b4fa",
+              "source_turn_id": "S003-Q034",
+              "score": 0.6159748435020447,
+              "rank": 9
+            },
+            {
+              "page_id": "cc3a667e-ea49-5490-bb5c-5a4d9db97e6f",
+              "source_turn_id": "S003-Q045",
+              "score": 0.6106564998626709,
+              "rank": 10
+            }
+          ]
+        }
+      }
+    },
+    {
+      "session_id": "S004",
+      "query_id": "S004-Q033",
+      "original_query": "上一轮的差异具体集中在哪个年度，能否把两段同比分别解释清楚；把结论写得可以回到公开来源复算。",
+      "p2_query": "上一轮的差异（营业收入与归母净利润的增减方向和幅度不匹配）具体集中在哪个年度，能否把两段同比（2024/2023与2025/2024）分别解释清楚；把结论写得可以回到公开来源复算。",
+      "gold_page_id": "73b2fb55-c036-52ca-842e-cc784d317c61",
+      "gold_source_turn_id": "S004-Q023",
+      "gold_summary": "用户基于上一轮确认的资产和权益原数，询问近似杠杆变化能说明什么、不能说明什么，并要求先给结论再说明三年依据。助手基于《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF），确认2023-2025年三年口径一致，指出经营活动现金流净额（2023年1,697.25亿元、2024年1,334.54亿元、2025年591.36亿元，同比-21.37%、-55.69%）连续下降，扣非归母净利润（2023年284.62亿元、2024年369.83亿元、2025年294.46亿元，同比+29.94%、-20.38%）先升后降，两者方向不同，冲突应保留为经营画像的一部分。结论：该组合仅能确认截至2025年完整财年的财务表现及指标间关系，不能单独证明具体经营原因，不归因未披露原因，不预测未来。",
+      "gold_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "近似杠杆",
+        "经营活动现金流净额",
+        "扣非归母净利润",
+        "年度报告"
+      ],
+      "models": {
+        "BAAI/bge-small-zh-v1.5": {
+          "gold_rank": 5,
+          "gold_score": 0.6531623601913452,
+          "top10": [
+            {
+              "page_id": "d876eb51-66ba-5437-955a-25c3f405ef2f",
+              "source_turn_id": "S004-Q006",
+              "score": 0.6682225465774536,
+              "rank": 1
+            },
+            {
+              "page_id": "f642437d-2d3c-5b95-a7f6-29f2e68c0a13",
+              "source_turn_id": "S004-Q022",
+              "score": 0.6619114875793457,
+              "rank": 2
+            },
+            {
+              "page_id": "e69ec046-4916-5e0b-8917-8f3fc9d8b112",
+              "source_turn_id": "S004-Q004",
+              "score": 0.6561634540557861,
+              "rank": 3
+            },
+            {
+              "page_id": "301ca8db-dd23-5356-b475-b3ed2daf748b",
+              "source_turn_id": "S004-Q026",
+              "score": 0.6544990539550781,
+              "rank": 4
+            },
+            {
+              "page_id": "73b2fb55-c036-52ca-842e-cc784d317c61",
+              "source_turn_id": "S004-Q023",
+              "score": 0.6531623601913452,
+              "rank": 5
+            },
+            {
+              "page_id": "af2f12c2-5599-5bb2-a024-327fc47109bd",
+              "source_turn_id": "S004-Q025",
+              "score": 0.6529227495193481,
+              "rank": 6
+            },
+            {
+              "page_id": "0fb13663-e832-5a6c-8e8b-55cb61f4a77b",
+              "source_turn_id": "S004-Q020",
+              "score": 0.6520165801048279,
+              "rank": 7
+            },
+            {
+              "page_id": "a655a675-0bf0-58db-b487-3e8f7894215e",
+              "source_turn_id": "S004-Q024",
+              "score": 0.6421285271644592,
+              "rank": 8
+            },
+            {
+              "page_id": "9195d3a5-2623-5911-b769-527782545856",
+              "source_turn_id": "S004-Q016",
+              "score": 0.6406386494636536,
+              "rank": 9
+            },
+            {
+              "page_id": "7567fc91-4210-59bc-ac74-0cc3060edc83",
+              "source_turn_id": "S004-Q014",
+              "score": 0.6311911940574646,
+              "rank": 10
+            }
+          ]
+        },
+        "aspire/acge_text_embedding": {
+          "gold_rank": 23,
+          "gold_score": 0.6427116990089417,
+          "top10": [
+            {
+              "page_id": "301ca8db-dd23-5356-b475-b3ed2daf748b",
+              "source_turn_id": "S004-Q026",
+              "score": 0.7540438175201416,
+              "rank": 1
+            },
+            {
+              "page_id": "d876eb51-66ba-5437-955a-25c3f405ef2f",
+              "source_turn_id": "S004-Q006",
+              "score": 0.7275164723396301,
+              "rank": 2
+            },
+            {
+              "page_id": "e69ec046-4916-5e0b-8917-8f3fc9d8b112",
+              "source_turn_id": "S004-Q004",
+              "score": 0.7202812433242798,
+              "rank": 3
+            },
+            {
+              "page_id": "9195d3a5-2623-5911-b769-527782545856",
+              "source_turn_id": "S004-Q016",
+              "score": 0.7160189747810364,
+              "rank": 4
+            },
+            {
+              "page_id": "e45c4d60-1608-5524-b2df-3c2b4e8007c5",
+              "source_turn_id": "S004-Q003",
+              "score": 0.7078402042388916,
+              "rank": 5
+            },
+            {
+              "page_id": "c022f180-c519-52a7-9c70-3f15928609b5",
+              "source_turn_id": "S004-Q027",
+              "score": 0.7031920552253723,
+              "rank": 6
+            },
+            {
+              "page_id": "af2f12c2-5599-5bb2-a024-327fc47109bd",
+              "source_turn_id": "S004-Q025",
+              "score": 0.696529746055603,
+              "rank": 7
+            },
+            {
+              "page_id": "a655a675-0bf0-58db-b487-3e8f7894215e",
+              "source_turn_id": "S004-Q024",
+              "score": 0.694037675857544,
+              "rank": 8
+            },
+            {
+              "page_id": "0fb13663-e832-5a6c-8e8b-55cb61f4a77b",
+              "source_turn_id": "S004-Q020",
+              "score": 0.6906853914260864,
+              "rank": 9
+            },
+            {
+              "page_id": "f3e1812a-c8a3-560c-8424-84d252ae452f",
+              "source_turn_id": "S004-Q002",
+              "score": 0.6806272268295288,
+              "rank": 10
+            }
+          ]
+        }
+      }
+    },
+    {
+      "session_id": "S004",
+      "query_id": "S004-Q065",
+      "original_query": "修订后重新区分事实、计算与判断，前面各轮的信息有没有被混在一起；先说明能确认的事实，再说还不能确认的原因。",
+      "p2_query": "修订后重新区分事实、计算与判断，前面各轮的信息有没有被混在一起；先说明能确认的事实，再说还不能确认的原因。",
+      "gold_page_id": "28de896e-9356-58a4-a8c5-c3efe7770f57",
+      "gold_source_turn_id": "S004-Q058",
+      "gold_summary": "用户要求将管理问询视角与上一轮证据分级衔接，说明若管理层不同意风险判断时最具体的追问应指向何处。助手基于《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF），确认三年口径一致，指出扣非归母净利润（2023年284.62亿元、2024年369.83亿元、2025年294.46亿元，同比+29.94%、-20.38%）呈先升后降，归母股东权益（2023年1,388.1亿元、2024年1,852.51亿元、2025年2,462.75亿元，同比+33.46%、+32.94%）呈连续上升，作为主结论；同时保留经营活动现金流净额（2023年1,697.25亿元、2024年1,334.54亿元、2025年591.36亿元，同比-21.37%、-55.69%）连续下降等冲突指标。结论：不简单评价好坏，而是描述指标方向、拐点及组合含义；可复算的三年原数和同比作为高确定性事实保留，具体经营原因未在年报中明确披露，不作确定归因，不预测未来。该结论承接前文证据分级、反证检验和基期选择，并作为后续管理问询和投研摘要的基础。",
+      "gold_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "管理问询",
+        "扣非归母净利润",
+        "归母股东权益",
+        "证据分级",
+        "年度报告"
+      ],
+      "models": {
+        "BAAI/bge-small-zh-v1.5": {
+          "gold_rank": 2,
+          "gold_score": 0.47814619541168213,
+          "top10": [
+            {
+              "page_id": "bead4a59-825d-5fae-97c6-57173fa22a57",
+              "source_turn_id": "S004-Q047",
+              "score": 0.5154166221618652,
+              "rank": 1
+            },
+            {
+              "page_id": "28de896e-9356-58a4-a8c5-c3efe7770f57",
+              "source_turn_id": "S004-Q058",
+              "score": 0.47814619541168213,
+              "rank": 2
+            },
+            {
+              "page_id": "af2f12c2-5599-5bb2-a024-327fc47109bd",
+              "source_turn_id": "S004-Q025",
+              "score": 0.47812822461128235,
+              "rank": 3
+            },
+            {
+              "page_id": "1e8809d9-9426-51b9-9e17-039093174440",
+              "source_turn_id": "S004-Q018",
+              "score": 0.4727303683757782,
+              "rank": 4
+            },
+            {
+              "page_id": "dad4c589-bd44-5d61-917f-9435b971db4d",
+              "source_turn_id": "S004-Q029",
+              "score": 0.46633070707321167,
+              "rank": 5
+            },
+            {
+              "page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+              "source_turn_id": "S004-Q043",
+              "score": 0.46556711196899414,
+              "rank": 6
+            },
+            {
+              "page_id": "efa76ffd-7a27-50b3-8489-bff781ea4539",
+              "source_turn_id": "S004-Q044",
+              "score": 0.463715523481369,
+              "rank": 7
+            },
+            {
+              "page_id": "878d53f1-01f1-5c71-a049-a27cb9acec6e",
+              "source_turn_id": "S004-Q052",
+              "score": 0.4625228941440582,
+              "rank": 8
+            },
+            {
+              "page_id": "73b2fb55-c036-52ca-842e-cc784d317c61",
+              "source_turn_id": "S004-Q023",
+              "score": 0.4622765779495239,
+              "rank": 9
+            },
+            {
+              "page_id": "301ca8db-dd23-5356-b475-b3ed2daf748b",
+              "source_turn_id": "S004-Q026",
+              "score": 0.4604031443595886,
+              "rank": 10
+            }
+          ]
+        },
+        "aspire/acge_text_embedding": {
+          "gold_rank": 20,
+          "gold_score": 0.46682828664779663,
+          "top10": [
+            {
+              "page_id": "efa76ffd-7a27-50b3-8489-bff781ea4539",
+              "source_turn_id": "S004-Q044",
+              "score": 0.5517048835754395,
+              "rank": 1
+            },
+            {
+              "page_id": "70928294-03f0-58fc-a035-7ff125da827a",
+              "source_turn_id": "S004-Q048",
+              "score": 0.5399911403656006,
+              "rank": 2
+            },
+            {
+              "page_id": "ca05266e-320c-5081-9d2d-f7c8689c58a9",
+              "source_turn_id": "S004-Q053",
+              "score": 0.5304545164108276,
+              "rank": 3
+            },
+            {
+              "page_id": "bead4a59-825d-5fae-97c6-57173fa22a57",
+              "source_turn_id": "S004-Q047",
+              "score": 0.5163968205451965,
+              "rank": 4
+            },
+            {
+              "page_id": "5de53dda-376b-5b7c-9542-821346ec2c03",
+              "source_turn_id": "S004-Q060",
+              "score": 0.5090783834457397,
+              "rank": 5
+            },
+            {
+              "page_id": "adc1eeb8-b0f8-5877-88cf-abdd23798b3a",
+              "source_turn_id": "S004-Q050",
+              "score": 0.5057350993156433,
+              "rank": 6
+            },
+            {
+              "page_id": "dad4c589-bd44-5d61-917f-9435b971db4d",
+              "source_turn_id": "S004-Q029",
+              "score": 0.5009417533874512,
+              "rank": 7
+            },
+            {
+              "page_id": "878d53f1-01f1-5c71-a049-a27cb9acec6e",
+              "source_turn_id": "S004-Q052",
+              "score": 0.4933409094810486,
+              "rank": 8
+            },
+            {
+              "page_id": "2c5547ce-bd04-536c-8b2d-e09ae5633e53",
+              "source_turn_id": "S004-Q057",
+              "score": 0.49214011430740356,
+              "rank": 9
+            },
+            {
+              "page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+              "source_turn_id": "S004-Q043",
+              "score": 0.490928053855896,
+              "rank": 10
+            }
+          ]
+        }
+      }
+    },
+    {
+      "session_id": "S004",
+      "query_id": "S004-Q070",
+      "original_query": "沿着上一轮的材料表达，再补全来源、限制和允许后续引用的中间结论；请明确哪些是年报原数、哪些是计算结果。",
+      "p2_query": "沿着上一轮的材料表达，再补全来源、限制和允许后续引用的中间结论；请明确哪些是年报原数、哪些是计算结果。",
+      "gold_page_id": "2e530daf-4b7a-5b20-9fe7-9c23daee4af6",
+      "gold_source_turn_id": "S004-Q064",
+      "gold_summary": "用户要求沿上一轮结论做反向验证，从更早问题中找一项最有力的反证，并强调不要只比较2023年和2025年两个端点。助手基于《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF），确认三年口径一致，指出归母股东权益（2023年1,388.1亿元、2024年1,852.51亿元、2025年2,462.75亿元，同比+33.46%、+32.94%）呈连续上升，扣非归母净利润（2023年284.62亿元、2024年369.83亿元、2025年294.46亿元，同比+29.94%、-20.38%）呈先升后降，作为主结论；同时保留经营活动现金流净额（2023年1,697.25亿元、2024年1,334.54亿元、2025年591.36亿元，同比-21.37%、-55.69%）连续下降等冲突指标。结论：不简单评价好坏，而是描述指标方向、拐点及组合含义；可复算的三年原数和同比作为高确定性事实保留，具体经营原因未在年报中明确披露，不作确定归因，不预测未来。该结论承接前文证据分级、反证检验和基期选择，并作为后续管理问询和投研摘要的基础。",
+      "gold_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "反向验证",
+        "归母股东权益",
+        "扣非归母净利润",
+        "年度报告"
+      ],
+      "models": {
+        "BAAI/bge-small-zh-v1.5": {
+          "gold_rank": 4,
+          "gold_score": 0.5201765894889832,
+          "top10": [
+            {
+              "page_id": "878d53f1-01f1-5c71-a049-a27cb9acec6e",
+              "source_turn_id": "S004-Q052",
+              "score": 0.5399050712585449,
+              "rank": 1
+            },
+            {
+              "page_id": "28de896e-9356-58a4-a8c5-c3efe7770f57",
+              "source_turn_id": "S004-Q058",
+              "score": 0.5245934724807739,
+              "rank": 2
+            },
+            {
+              "page_id": "cdfd9333-0291-5cf2-967a-cfe6225d31dd",
+              "source_turn_id": "S004-Q037",
+              "score": 0.5235893130302429,
+              "rank": 3
+            },
+            {
+              "page_id": "2e530daf-4b7a-5b20-9fe7-9c23daee4af6",
+              "source_turn_id": "S004-Q064",
+              "score": 0.5201765894889832,
+              "rank": 4
+            },
+            {
+              "page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+              "source_turn_id": "S004-Q043",
+              "score": 0.5163916945457458,
+              "rank": 5
+            },
+            {
+              "page_id": "ca05266e-320c-5081-9d2d-f7c8689c58a9",
+              "source_turn_id": "S004-Q053",
+              "score": 0.5115388035774231,
+              "rank": 6
+            },
+            {
+              "page_id": "adc1eeb8-b0f8-5877-88cf-abdd23798b3a",
+              "source_turn_id": "S004-Q050",
+              "score": 0.5111222267150879,
+              "rank": 7
+            },
+            {
+              "page_id": "efa76ffd-7a27-50b3-8489-bff781ea4539",
+              "source_turn_id": "S004-Q044",
+              "score": 0.5106961131095886,
+              "rank": 8
+            },
+            {
+              "page_id": "703822a7-ed06-55d2-95de-006ba6203852",
+              "source_turn_id": "S004-Q038",
+              "score": 0.5098202228546143,
+              "rank": 9
+            },
+            {
+              "page_id": "eb607785-8419-555e-97f7-b48909bc0999",
+              "source_turn_id": "S004-Q066",
+              "score": 0.5068047642707825,
+              "rank": 10
+            }
+          ]
+        },
+        "aspire/acge_text_embedding": {
+          "gold_rank": 38,
+          "gold_score": 0.5128227472305298,
+          "top10": [
+            {
+              "page_id": "ca05266e-320c-5081-9d2d-f7c8689c58a9",
+              "source_turn_id": "S004-Q053",
+              "score": 0.6061100959777832,
+              "rank": 1
+            },
+            {
+              "page_id": "adc1eeb8-b0f8-5877-88cf-abdd23798b3a",
+              "source_turn_id": "S004-Q050",
+              "score": 0.6036630868911743,
+              "rank": 2
+            },
+            {
+              "page_id": "70928294-03f0-58fc-a035-7ff125da827a",
+              "source_turn_id": "S004-Q048",
+              "score": 0.5957808494567871,
+              "rank": 3
+            },
+            {
+              "page_id": "eb607785-8419-555e-97f7-b48909bc0999",
+              "source_turn_id": "S004-Q066",
+              "score": 0.588475227355957,
+              "rank": 4
+            },
+            {
+              "page_id": "52990abe-a81c-5937-b506-8a88315cc3c0",
+              "source_turn_id": "S004-Q056",
+              "score": 0.5787006616592407,
+              "rank": 5
+            },
+            {
+              "page_id": "c022f180-c519-52a7-9c70-3f15928609b5",
+              "source_turn_id": "S004-Q027",
+              "score": 0.5781374573707581,
+              "rank": 6
+            },
+            {
+              "page_id": "efa76ffd-7a27-50b3-8489-bff781ea4539",
+              "source_turn_id": "S004-Q044",
+              "score": 0.5750707387924194,
+              "rank": 7
+            },
+            {
+              "page_id": "2c5547ce-bd04-536c-8b2d-e09ae5633e53",
+              "source_turn_id": "S004-Q057",
+              "score": 0.5725147724151611,
+              "rank": 8
+            },
+            {
+              "page_id": "8c9b465d-a424-5d6b-af1b-4518bf5982de",
+              "source_turn_id": "S004-Q033",
+              "score": 0.5720957517623901,
+              "rank": 9
+            },
+            {
+              "page_id": "878d53f1-01f1-5c71-a049-a27cb9acec6e",
+              "source_turn_id": "S004-Q052",
+              "score": 0.5681995153427124,
+              "rank": 10
+            }
+          ]
+        }
+      }
+    },
+    {
+      "session_id": "S005",
+      "query_id": "S005-Q042",
+      "original_query": "刚才看到资产变化后，再看股东权益，两者的扩张或收缩是否同步；把口径限制放在结论里，不要另作假设。",
+      "p2_query": "刚才看到总资产变化后，再看归母股东权益，总资产与归母股东权益的扩张或收缩是否同步；把口径限制放在结论里，不要另作假设。",
+      "gold_page_id": "19b9c9f1-754d-5322-831d-a2b5bbc632f9",
+      "gold_source_turn_id": "S005-Q036",
+      "gold_summary": "用户要求结合总资产变化判断宁德时代2023-2025年现金表现更像效率问题还是仅能确认存在错位，并先说明可确认事实再说明不能确认原因。助手基于《宁德时代2025年年度报告或年度报告摘要》（披露日期2026-03-10，来源地址https://static.cninfo.com.cn/finalpage/2026-03-10/1225002213.PDF）确认三年数据：营业收入2023年4,009.17亿元、2024年3,620.13亿元、2025年4,237.02亿元，同比分别为-9.70%、+17.04%，呈先降后升；归母净利润2023年441.21亿元、2024年507.45亿元、2025年722.01亿元，同比分别为+15.01%、+42.28%，呈连续上升；总资产2023年7,171.68亿元、2024年7,866.58亿元、2025年9,748.28亿元，同比分别为+9.69%、+23.92%，呈连续上升；归母股东权益2023年1,977.08亿元、2024年2,469.3亿元、2025年3,371.08亿元，同比分别为+24.90%、+36.52%，呈连续上升。结论为归母净利润与总资产均连续上升，两者同向，仅能确认指标间存在同向关系，不能确认具体经营原因；营业收入先降后升与总资产连续上升方向不完全匹配，营业收入/期末总资产近似周转检查分别为2023年0.559倍、2024年0.460倍、2025年0.435倍，提示资产承载效率承压，但仅用于方向核验；经营现金流因缺少完整三年序列无法确认，属于信息缺口。助手强调区分两段同比、不以首尾差额代替年度路径、不将相关关系写成因果，具体经营原因需附注支持。",
+      "gold_keywords": [
+        "宁德时代",
+        "2023-2025",
+        "现金错位",
+        "资产效率",
+        "总资产",
+        "归母净利润",
+        "营业收入",
+        "同比"
+      ],
+      "models": {
+        "BAAI/bge-small-zh-v1.5": {
+          "gold_rank": 18,
+          "gold_score": 0.5557105541229248,
+          "top10": [
+            {
+              "page_id": "ba6febed-3d41-5782-a6a3-193458e4061f",
+              "source_turn_id": "S005-Q037",
+              "score": 0.6228072643280029,
+              "rank": 1
+            },
+            {
+              "page_id": "52954b6d-4823-5e0a-955d-8a3b24df0a30",
+              "source_turn_id": "S005-Q029",
+              "score": 0.6210864186286926,
+              "rank": 2
+            },
+            {
+              "page_id": "407824ab-fd2c-5a7b-ac60-4e9d2ed5311e",
+              "source_turn_id": "S005-Q023",
+              "score": 0.603319525718689,
+              "rank": 3
+            },
+            {
+              "page_id": "53df8e4e-eaee-52cb-b98e-f8b807d39632",
+              "source_turn_id": "S005-Q017",
+              "score": 0.5965557098388672,
+              "rank": 4
+            },
+            {
+              "page_id": "c64751d6-21c8-5c09-87da-48f940293661",
+              "source_turn_id": "S005-Q008",
+              "score": 0.592643141746521,
+              "rank": 5
+            },
+            {
+              "page_id": "3dbf1d5d-2b5b-5024-aede-0c998a2d60d1",
+              "source_turn_id": "S005-Q033",
+              "score": 0.5885162353515625,
+              "rank": 6
+            },
+            {
+              "page_id": "8f6e0be2-3e8c-518c-828b-4c8164c6b2dc",
+              "source_turn_id": "S005-Q016",
+              "score": 0.5831595659255981,
+              "rank": 7
+            },
+            {
+              "page_id": "87d6b0ff-8b24-5176-ba24-dbc110c6e1d5",
+              "source_turn_id": "S005-Q014",
+              "score": 0.582765519618988,
+              "rank": 8
+            },
+            {
+              "page_id": "99505de4-75be-5000-9569-861beeedb502",
+              "source_turn_id": "S005-Q009",
+              "score": 0.5825029611587524,
+              "rank": 9
+            },
+            {
+              "page_id": "fc11c23b-bc92-5e76-ab30-3e7331311d80",
+              "source_turn_id": "S005-Q028",
+              "score": 0.5770609974861145,
+              "rank": 10
+            }
+          ]
+        },
+        "aspire/acge_text_embedding": {
+          "gold_rank": 5,
+          "gold_score": 0.6103695631027222,
+          "top10": [
+            {
+              "page_id": "99505de4-75be-5000-9569-861beeedb502",
+              "source_turn_id": "S005-Q009",
+              "score": 0.6291505098342896,
+              "rank": 1
+            },
+            {
+              "page_id": "6e436632-8d73-58b8-a746-7cbc36ffe10f",
+              "source_turn_id": "S005-Q006",
+              "score": 0.6272902488708496,
+              "rank": 2
+            },
+            {
+              "page_id": "c64751d6-21c8-5c09-87da-48f940293661",
+              "source_turn_id": "S005-Q008",
+              "score": 0.6231010556221008,
+              "rank": 3
+            },
+            {
+              "page_id": "52d2178b-fbd4-5b25-82b4-175c47809c44",
+              "source_turn_id": "S005-Q020",
+              "score": 0.6229697465896606,
+              "rank": 4
+            },
+            {
+              "page_id": "19b9c9f1-754d-5322-831d-a2b5bbc632f9",
+              "source_turn_id": "S005-Q036",
+              "score": 0.6103695631027222,
+              "rank": 5
+            },
+            {
+              "page_id": "ba6febed-3d41-5782-a6a3-193458e4061f",
+              "source_turn_id": "S005-Q037",
+              "score": 0.6051397323608398,
+              "rank": 6
+            },
+            {
+              "page_id": "41c34f0d-b300-523a-8d73-249c1590adcb",
+              "source_turn_id": "S005-Q021",
+              "score": 0.5980284214019775,
+              "rank": 7
+            },
+            {
+              "page_id": "832ae479-4eb3-56ae-a971-8428404182ba",
+              "source_turn_id": "S005-Q024",
+              "score": 0.5976929068565369,
+              "rank": 8
+            },
+            {
+              "page_id": "0696cb56-7c79-5b0c-a622-946183879836",
+              "source_turn_id": "S005-Q026",
+              "score": 0.5975317358970642,
+              "rank": 9
+            },
+            {
+              "page_id": "9c806b54-004f-57bf-8755-c4a0eebd929e",
+              "source_turn_id": "S005-Q007",
+              "score": 0.5969026684761047,
+              "rank": 10
+            }
+          ]
+        }
+      }
+    },
+    {
+      "session_id": "S005",
+      "query_id": "S005-Q056",
+      "original_query": "接着审查表达强度，哪些结论只能说“显示”而不能说“证明”；不要只比较2023年和2025年两个端点。",
+      "p2_query": "接着审查表达强度，哪些结论只能说“显示”而不能说“证明”；不要只比较2023年和2025年两个端点。",
+      "gold_page_id": "749bba84-be69-55e2-98a1-a9617e473fb0",
+      "gold_source_turn_id": "S005-Q050",
+      "gold_summary": "用户要求基于前文已确认的宁德时代2023-2025年财务数据，将资产、权益与经营结果（利润和现金）连接成综合判断，并明确证据不足时直接说明缺口。助手基于《宁德时代2025年年度报告或年度报告摘要》（披露日期2026-03-10，来源地址https://static.cninfo.com.cn/finalpage/2026-03-10/1225002213.PDF）确认三年数据：营业收入2023年4,009.17亿元、2024年3,620.13亿元、2025年4,237.02亿元，同比分别为-9.70%、+17.04%，呈先降后升；归母净利润2023年441.21亿元、2024年507.45亿元、2025年722.01亿元，同比分别为+15.01%、+42.28%，呈连续上升；总资产2023年7,171.68亿元、2024年7,866.58亿元、2025年9,748.28亿元，同比分别为+9.69%、+23.92%，呈连续上升；归母股东权益2023年1,977.08亿元、2024年2,469.3亿元、2025年3,371.08亿元，同比分别为+24.90%、+36.52%，呈连续上升。结论为最可靠的历史判断是归母股东权益连续上升与营业收入先降后升的组合，两者方向不一致，提示资产承载效率承压（营业收入/期末总资产近似周转检查分别为2023年0.559倍、2024年0.460倍、2025年0.435倍，仅用于方向核验）；经营现金流因缺少完整三年序列无法确认，属于信息缺口。助手强调区分两段同比、不以首尾差额代替年度路径、不将相关关系写成因果，具体经营原因需附注支持。",
+      "gold_keywords": [
+        "宁德时代",
+        "2023-2025",
+        "综合判断",
+        "资产权益",
+        "经营结果",
+        "营业收入",
+        "归母股东权益",
+        "同比"
+      ],
+      "models": {
+        "BAAI/bge-small-zh-v1.5": {
+          "gold_rank": 17,
+          "gold_score": 0.5247721672058105,
+          "top10": [
+            {
+              "page_id": "87d6b0ff-8b24-5176-ba24-dbc110c6e1d5",
+              "source_turn_id": "S005-Q014",
+              "score": 0.5994566082954407,
+              "rank": 1
+            },
+            {
+              "page_id": "07ff92b5-e2bb-554e-a0b7-489b7cb6bca5",
+              "source_turn_id": "S005-Q038",
+              "score": 0.5818760991096497,
+              "rank": 2
+            },
+            {
+              "page_id": "52d2178b-fbd4-5b25-82b4-175c47809c44",
+              "source_turn_id": "S005-Q020",
+              "score": 0.5760031938552856,
+              "rank": 3
+            },
+            {
+              "page_id": "53df8e4e-eaee-52cb-b98e-f8b807d39632",
+              "source_turn_id": "S005-Q017",
+              "score": 0.5633721351623535,
+              "rank": 4
+            },
+            {
+              "page_id": "bcb24496-086a-528b-a09e-86bae79fa560",
+              "source_turn_id": "S005-Q012",
+              "score": 0.5555825233459473,
+              "rank": 5
+            },
+            {
+              "page_id": "10de88b7-6d28-5774-a1e3-92fc8ad6843a",
+              "source_turn_id": "S005-Q046",
+              "score": 0.5545645356178284,
+              "rank": 6
+            },
+            {
+              "page_id": "d0b649b9-d683-5ad9-a5a6-64c75b0bc996",
+              "source_turn_id": "S005-Q043",
+              "score": 0.5485243201255798,
+              "rank": 7
+            },
+            {
+              "page_id": "fc11c23b-bc92-5e76-ab30-3e7331311d80",
+              "source_turn_id": "S005-Q028",
+              "score": 0.5438477396965027,
+              "rank": 8
+            },
+            {
+              "page_id": "c3bd2186-8e7b-582d-a301-28889918dae5",
+              "source_turn_id": "S005-Q002",
+              "score": 0.5418810844421387,
+              "rank": 9
+            },
+            {
+              "page_id": "19b9c9f1-754d-5322-831d-a2b5bbc632f9",
+              "source_turn_id": "S005-Q036",
+              "score": 0.541824996471405,
+              "rank": 10
+            }
+          ]
+        },
+        "aspire/acge_text_embedding": {
+          "gold_rank": 3,
+          "gold_score": 0.47513848543167114,
+          "top10": [
+            {
+              "page_id": "87d6b0ff-8b24-5176-ba24-dbc110c6e1d5",
+              "source_turn_id": "S005-Q014",
+              "score": 0.5407612323760986,
+              "rank": 1
+            },
+            {
+              "page_id": "cc845b3c-bd6e-511e-8bf1-44f5e08cf54a",
+              "source_turn_id": "S005-Q051",
+              "score": 0.48916321992874146,
+              "rank": 2
+            },
+            {
+              "page_id": "749bba84-be69-55e2-98a1-a9617e473fb0",
+              "source_turn_id": "S005-Q050",
+              "score": 0.47513848543167114,
+              "rank": 3
+            },
+            {
+              "page_id": "53df8e4e-eaee-52cb-b98e-f8b807d39632",
+              "source_turn_id": "S005-Q017",
+              "score": 0.4726094901561737,
+              "rank": 4
+            },
+            {
+              "page_id": "009ec1d2-83f6-5755-bd7a-e5a92eda1890",
+              "source_turn_id": "S005-Q040",
+              "score": 0.4689328372478485,
+              "rank": 5
+            },
+            {
+              "page_id": "52954b6d-4823-5e0a-955d-8a3b24df0a30",
+              "source_turn_id": "S005-Q029",
+              "score": 0.457295686006546,
+              "rank": 6
+            },
+            {
+              "page_id": "ba6febed-3d41-5782-a6a3-193458e4061f",
+              "source_turn_id": "S005-Q037",
+              "score": 0.4570152163505554,
+              "rank": 7
+            },
+            {
+              "page_id": "fc11c23b-bc92-5e76-ab30-3e7331311d80",
+              "source_turn_id": "S005-Q028",
+              "score": 0.4562230408191681,
+              "rank": 8
+            },
+            {
+              "page_id": "402d80f5-7fb4-57d6-9e5a-0e7faed1ae4f",
+              "source_turn_id": "S005-Q047",
+              "score": 0.4552637040615082,
+              "rank": 9
+            },
+            {
+              "page_id": "c566259c-e8fd-5f66-a294-fb16d575f54b",
+              "source_turn_id": "S005-Q048",
+              "score": 0.4484994113445282,
+              "rank": 10
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

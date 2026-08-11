@@ -1,0 +1,26 @@
+{
+  "model": "aspire/acge_text_embedding",
+  "tokenizer_class": "BertTokenizer",
+  "tokenizer_native_model_max_length": 1024,
+  "truncation_side": "right",
+  "padding_side": "right",
+  "selected_max_length": 1024,
+  "official_supported_max_length": 1024,
+  "Page": {
+    "count": 333,
+    "mean": 501.9159159159159,
+    "median": 482,
+    "p90": 626.4000000000001,
+    "max": 697,
+    "truncated_count": 0
+  },
+  "Query": {
+    "count": 99,
+    "mean": 61.44444444444444,
+    "median": 55,
+    "p90": 85.00000000000001,
+    "max": 115,
+    "truncated_count": 0
+  },
+  "query_instruction": null
+}

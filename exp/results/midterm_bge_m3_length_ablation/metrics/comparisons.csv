@@ -1,0 +1,7 @@
+﻿Comparison,Promoted Gold,Demoted Gold,Net Gold gain,Rescued Queries,Hurt Queries,Mean Gold rank improvement,Median Gold rank improvement,Top5 rankings identical query count,Top5 rankings identical all queries,before_config,after_config
+BGE-M3 512 vs BGE-small 512（模型影响）,20,22,-2,15,17,-0.6558441558441559,0.0,3,False,BAAI/bge-small-zh-v1.5，max_length=512（当前基线）,BAAI/bge-m3，max_length=512
+BGE-M3 1024 vs BGE-small 512,20,22,-2,15,17,-0.6558441558441559,0.0,3,False,BAAI/bge-small-zh-v1.5，max_length=512（当前基线）,BAAI/bge-m3，max_length=1024
+BGE-M3 2048 vs BGE-small 512,20,22,-2,15,17,-0.6558441558441559,0.0,3,False,BAAI/bge-small-zh-v1.5，max_length=512（当前基线）,BAAI/bge-m3，max_length=2048
+BGE-M3 1024 vs BGE-M3 512（长度影响）,0,0,0,0,0,0.0,0.0,99,True,BAAI/bge-m3，max_length=512,BAAI/bge-m3，max_length=1024
+BGE-M3 2048 vs BGE-M3 512（长度影响）,0,0,0,0,0,0.0,0.0,99,True,BAAI/bge-m3，max_length=512,BAAI/bge-m3，max_length=2048
+BGE-M3 2048 vs BGE-M3 1024,0,0,0,0,0,0.0,0.0,99,True,BAAI/bge-m3，max_length=1024,BAAI/bge-m3，max_length=2048

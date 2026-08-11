@@ -1,0 +1,397 @@
+{
+  "experiment_name": "midterm_embedding_model_ablation",
+  "session_count": 5,
+  "page_count": 333,
+  "evaluation_query_count": 99,
+  "eligible_gold_count": 154,
+  "add": "最近上文 + eviction 时真实下文（frozen summary/keywords）",
+  "page_text_contract": "<summary>\\nKeywords: <comma-space joined keywords>",
+  "query_contract": "frozen P2 resolved_query plus official model query instruction when required",
+  "raw_page_text_hash": "c1e43a5231838193fdba8f417cc12d80713126eb77031a13a9852f9f1082bd1b",
+  "raw_p2_query_text_hash": "315e37f0b70e1a0cccdfad7b086ba256717befa4e9579d96d647e9dc742e5c2a",
+  "retrieval": "per-Session normalized dense cosine",
+  "model_contracts": {
+    "youtu": {
+      "key": "youtu",
+      "model_id": "tencent/Youtu-Embedding",
+      "official_url": "https://huggingface.co/tencent/Youtu-Embedding",
+      "query_method": "SentenceTransformer.encode_query",
+      "document_method": "SentenceTransformer.encode_document",
+      "query_prompt": "Instruction: Given a search query, retrieve passages that answer the question \nQuery:",
+      "trust_remote_code": true,
+      "official_max_length": 8192,
+      "preferred_device": "cpu",
+      "official_notes": "2B/2048-d; official query/document methods; right padding; mean pooling excluding instruction"
+    },
+    "conan": {
+      "key": "conan",
+      "model_id": "TencentBAC/Conan-embedding-v2",
+      "official_url": "https://huggingface.co/TencentBAC/Conan-embedding-v2",
+      "query_method": "official authenticated Conan API",
+      "document_method": "official authenticated Conan API",
+      "query_prompt": "",
+      "trust_remote_code": true,
+      "official_max_length": 32768,
+      "preferred_device": "remote-api",
+      "official_notes": "Official repository currently publishes client code only; API requires CONAN_AK and CONAN_SK"
+    },
+    "qwen3_4b": {
+      "key": "qwen3_4b",
+      "model_id": "Qwen/Qwen3-Embedding-4B",
+      "official_url": "https://huggingface.co/Qwen/Qwen3-Embedding-4B",
+      "query_method": "SentenceTransformer.encode(prompt_name='query')",
+      "document_method": "SentenceTransformer.encode",
+      "query_prompt": "Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery:",
+      "trust_remote_code": false,
+      "official_max_length": 32768,
+      "preferred_device": "cpu",
+      "official_notes": "4B/2560-d; official stored query prompt; last-token pooling; left padding"
+    },
+    "acge": {
+      "key": "acge",
+      "model_id": "aspire/acge_text_embedding",
+      "official_url": "https://huggingface.co/aspire/acge_text_embedding",
+      "query_method": "SentenceTransformer.encode",
+      "document_method": "SentenceTransformer.encode",
+      "query_prompt": "",
+      "trust_remote_code": false,
+      "official_max_length": 1024,
+      "preferred_device": "cuda",
+      "official_notes": "Chinese retrieval model; native 1792-d output; no query instruction"
+    }
+  },
+  "model_status": [
+    {
+      "model": "tencent/Youtu-Embedding",
+      "status": "BLOCKED_LOCAL_RESOURCES",
+      "official_contract": {
+        "key": "youtu",
+        "model_id": "tencent/Youtu-Embedding",
+        "official_url": "https://huggingface.co/tencent/Youtu-Embedding",
+        "query_method": "SentenceTransformer.encode_query",
+        "document_method": "SentenceTransformer.encode_document",
+        "query_prompt": "Instruction: Given a search query, retrieve passages that answer the question \nQuery:",
+        "trust_remote_code": true,
+        "official_max_length": 8192,
+        "preferred_device": "cpu",
+        "official_notes": "2B/2048-d; official query/document methods; right padding; mean pooling excluding instruction"
+      },
+      "tokenizer_audit_status": "PASS",
+      "tokenizer": {
+        "model": "tencent/Youtu-Embedding",
+        "tokenizer_class": "TokenizersBackend",
+        "tokenizer_native_model_max_length": 1024,
+        "truncation_side": "left",
+        "padding_side": "right",
+        "selected_max_length": 1024,
+        "official_supported_max_length": 8192,
+        "Page": {
+          "count": 333,
+          "mean": 431.26126126126127,
+          "median": 416,
+          "p90": 539.8,
+          "max": 610,
+          "truncated_count": 0
+        },
+        "Query": {
+          "count": 99,
+          "mean": 65.42424242424242,
+          "median": 61,
+          "p90": 86.2,
+          "max": 116,
+          "truncated_count": 0
+        },
+        "query_instruction": "Instruction: Given a search query, retrieve passages that answer the question \nQuery:"
+      },
+      "reason": "The official 8.98 GiB weights exceed the 4 GiB GPU and leave insufficient headroom on the 11 GiB host for a standards-preserving local run. No quantization/offload substitute was used because that would change the requested official encoding standard.",
+      "page_embedding_count": 0,
+      "query_embedding_count": 0,
+      "elapsed_seconds": 13.545274308999069
+    },
+    {
+      "model": "TencentBAC/Conan-embedding-v2",
+      "status": "BLOCKED_OFFICIAL_ARTIFACT_OR_CREDENTIALS",
+      "reason": "Official Hugging Face repository contains client/example code but no model weights or tokenizer. The official temporary API requires CONAN_AK and CONAN_SK, which are absent.",
+      "official_repository_has_local_weights": false,
+      "official_repository_has_tokenizer": false,
+      "CONAN_AK_present": false,
+      "CONAN_SK_present": false,
+      "tokenizer_audit_status": "NOT_POSSIBLE_NO_OFFICIAL_TOKENIZER",
+      "embedding_count": 0,
+      "api_attempt_count": 0,
+      "official_contract": {
+        "key": "conan",
+        "model_id": "TencentBAC/Conan-embedding-v2",
+        "official_url": "https://huggingface.co/TencentBAC/Conan-embedding-v2",
+        "query_method": "official authenticated Conan API",
+        "document_method": "official authenticated Conan API",
+        "query_prompt": "",
+        "trust_remote_code": true,
+        "official_max_length": 32768,
+        "preferred_device": "remote-api",
+        "official_notes": "Official repository currently publishes client code only; API requires CONAN_AK and CONAN_SK"
+      }
+    },
+    {
+      "model": "Qwen/Qwen3-Embedding-4B",
+      "status": "BLOCKED_LOCAL_RESOURCES",
+      "official_contract": {
+        "key": "qwen3_4b",
+        "model_id": "Qwen/Qwen3-Embedding-4B",
+        "official_url": "https://huggingface.co/Qwen/Qwen3-Embedding-4B",
+        "query_method": "SentenceTransformer.encode(prompt_name='query')",
+        "document_method": "SentenceTransformer.encode",
+        "query_prompt": "Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery:",
+        "trust_remote_code": false,
+        "official_max_length": 32768,
+        "preferred_device": "cpu",
+        "official_notes": "4B/2560-d; official stored query prompt; last-token pooling; left padding"
+      },
+      "tokenizer_audit_status": "PASS",
+      "tokenizer": {
+        "model": "Qwen/Qwen3-Embedding-4B",
+        "tokenizer_class": "Qwen2Tokenizer",
+        "tokenizer_native_model_max_length": 131072,
+        "truncation_side": "right",
+        "padding_side": "left",
+        "selected_max_length": 1024,
+        "official_supported_max_length": 32768,
+        "Page": {
+          "count": 333,
+          "mean": 465.2072072072072,
+          "median": 444,
+          "p90": 588.0,
+          "max": 694,
+          "truncated_count": 0
+        },
+        "Query": {
+          "count": 99,
+          "mean": 58.101010101010104,
+          "median": 56,
+          "p90": 76.2,
+          "max": 98,
+          "truncated_count": 0
+        },
+        "query_instruction": "Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery:"
+      },
+      "reason": "The official 7.49 GiB BF16 weights exceed the 4 GiB GPU. CPU encoding was measured at 183-232 seconds per Page (batch_size=1), projecting roughly 17-21 hours for 333 Pages; the run was stopped after two Pages without changing precision or the benchmark.",
+      "page_embedding_count": 0,
+      "query_embedding_count": 0,
+      "elapsed_seconds": 3.466519191999396,
+      "resource_attempt_count": 1,
+      "weight_download_completed": true,
+      "measured_pages_before_stop": 2,
+      "measured_cpu_seconds_per_page_range": [
+        183,
+        232
+      ]
+    },
+    {
+      "model": "aspire/acge_text_embedding",
+      "status": "COMPLETED",
+      "official_contract": {
+        "key": "acge",
+        "model_id": "aspire/acge_text_embedding",
+        "official_url": "https://huggingface.co/aspire/acge_text_embedding",
+        "query_method": "SentenceTransformer.encode",
+        "document_method": "SentenceTransformer.encode",
+        "query_prompt": "",
+        "trust_remote_code": false,
+        "official_max_length": 1024,
+        "preferred_device": "cuda",
+        "official_notes": "Chinese retrieval model; native 1792-d output; no query instruction"
+      },
+      "tokenizer_audit_status": "PASS",
+      "tokenizer": {
+        "model": "aspire/acge_text_embedding",
+        "tokenizer_class": "BertTokenizer",
+        "tokenizer_native_model_max_length": 1024,
+        "truncation_side": "right",
+        "padding_side": "right",
+        "selected_max_length": 1024,
+        "official_supported_max_length": 1024,
+        "Page": {
+          "count": 333,
+          "mean": 501.9159159159159,
+          "median": 482,
+          "p90": 626.4000000000001,
+          "max": 697,
+          "truncated_count": 0
+        },
+        "Query": {
+          "count": 99,
+          "mean": 61.44444444444444,
+          "median": 55,
+          "p90": 85.00000000000001,
+          "max": 115,
+          "truncated_count": 0
+        },
+        "query_instruction": null
+      },
+      "selected_max_length": 1024,
+      "dimension": 1792,
+      "device": "cuda:0",
+      "page_embedding_count": 333,
+      "query_embedding_count": 99,
+      "cache_hit_artifact_count": 0,
+      "elapsed_seconds": 100.00736488300026
+    }
+  ],
+  "tokenizer_length_audits": [
+    {
+      "model": "BAAI/bge-small-zh-v1.5",
+      "tokenizer_class": "BertTokenizer",
+      "tokenizer_native_model_max_length": 512,
+      "truncation_side": "right",
+      "padding_side": "right",
+      "selected_max_length": 512,
+      "official_supported_max_length": 512,
+      "Page": {
+        "count": 333,
+        "mean": 499.9159159159159,
+        "median": 480,
+        "p90": 624.4000000000001,
+        "max": 695,
+        "truncated_count": 138
+      },
+      "Query": {
+        "count": 99,
+        "mean": 61.44444444444444,
+        "median": 55,
+        "p90": 85.00000000000001,
+        "max": 115,
+        "truncated_count": 0
+      },
+      "query_instruction": null
+    },
+    {
+      "model": "tencent/Youtu-Embedding",
+      "tokenizer_class": "TokenizersBackend",
+      "tokenizer_native_model_max_length": 1024,
+      "truncation_side": "left",
+      "padding_side": "right",
+      "selected_max_length": 1024,
+      "official_supported_max_length": 8192,
+      "Page": {
+        "count": 333,
+        "mean": 431.26126126126127,
+        "median": 416,
+        "p90": 539.8,
+        "max": 610,
+        "truncated_count": 0
+      },
+      "Query": {
+        "count": 99,
+        "mean": 65.42424242424242,
+        "median": 61,
+        "p90": 86.2,
+        "max": 116,
+        "truncated_count": 0
+      },
+      "query_instruction": "Instruction: Given a search query, retrieve passages that answer the question \nQuery:"
+    },
+    {
+      "model": "Qwen/Qwen3-Embedding-4B",
+      "tokenizer_class": "Qwen2Tokenizer",
+      "tokenizer_native_model_max_length": 131072,
+      "truncation_side": "right",
+      "padding_side": "left",
+      "selected_max_length": 1024,
+      "official_supported_max_length": 32768,
+      "Page": {
+        "count": 333,
+        "mean": 465.2072072072072,
+        "median": 444,
+        "p90": 588.0,
+        "max": 694,
+        "truncated_count": 0
+      },
+      "Query": {
+        "count": 99,
+        "mean": 58.101010101010104,
+        "median": 56,
+        "p90": 76.2,
+        "max": 98,
+        "truncated_count": 0
+      },
+      "query_instruction": "Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery:"
+    },
+    {
+      "model": "aspire/acge_text_embedding",
+      "tokenizer_class": "BertTokenizer",
+      "tokenizer_native_model_max_length": 1024,
+      "truncation_side": "right",
+      "padding_side": "right",
+      "selected_max_length": 1024,
+      "official_supported_max_length": 1024,
+      "Page": {
+        "count": 333,
+        "mean": 501.9159159159159,
+        "median": 482,
+        "p90": 626.4000000000001,
+        "max": 697,
+        "truncated_count": 0
+      },
+      "Query": {
+        "count": 99,
+        "mean": 61.44444444444444,
+        "median": 55,
+        "p90": 85.00000000000001,
+        "max": 115,
+        "truncated_count": 0
+      },
+      "query_instruction": null
+    }
+  ],
+  "baseline_embedding_metadata": {
+    "model": "BAAI/bge-small-zh-v1.5",
+    "batch_name": "no-user-PreviousAndFollowingContext-S001-S005",
+    "content_hash": "13fd58bbf11217a70e5c98e724780db94fd960d5600f6946024e3632b2c1a2d8",
+    "item_count": 333,
+    "dimension": 512,
+    "build_ms": 3502.114563998475,
+    "item_latency_ms": {},
+    "cache_hit": true
+  },
+  "new_llm_calls": 0,
+  "summary_regeneration": false,
+  "full_session_rerun": false,
+  "source_turn_set_changed": false,
+  "eligible_gold_changed": false,
+  "visible_page_ids_changed": false,
+  "validation": {
+    "baseline_59_of_154": {
+      "status": "PASS",
+      "micro_r5": 0.38311688311688313
+    },
+    "frozen_counts": {
+      "status": "PASS"
+    },
+    "frozen_page_and_query_text": {
+      "status": "PASS",
+      "page_text_hash": "c1e43a5231838193fdba8f417cc12d80713126eb77031a13a9852f9f1082bd1b",
+      "p2_query_text_hash": "315e37f0b70e1a0cccdfad7b086ba256717befa4e9579d96d647e9dc742e5c2a"
+    },
+    "page_identity": {
+      "status": "PASS"
+    },
+    "visibility_and_future_leakage": {
+      "status": "PASS"
+    },
+    "completed_models_have_zero_truncation": {
+      "status": "PASS"
+    },
+    "no_new_llm_calls": {
+      "status": "PASS",
+      "value": 0
+    },
+    "no_summary_regeneration": {
+      "status": "PASS"
+    },
+    "full_session_rerun": {
+      "status": "PASS",
+      "value": false
+    }
+  },
+  "validation_all_pass_for_completed_models": true
+}

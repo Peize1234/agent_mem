@@ -1,0 +1,13 @@
+{
+  "model": "aspire/acge_text_embedding",
+  "kind": "queries",
+  "content_hash": "6f31b6683537a984ac25406f08d6065e7572a64085c1c54e39ed07132841f9a1",
+  "item_count": 99,
+  "dimension": 1792,
+  "max_length": 1024,
+  "device": "cuda:0",
+  "build_ms": 3291.0940639994806,
+  "encoding_method": "SentenceTransformer.encode",
+  "query_instruction": null,
+  "normalization": "L2 normalized"
+}

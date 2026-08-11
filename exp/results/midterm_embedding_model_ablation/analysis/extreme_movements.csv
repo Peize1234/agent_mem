@@ -1,0 +1,7 @@
+﻿comparison,session_id,query_id,gold_page_id,gold_source_turn_id,before_rank,after_rank,rank_improvement,before_score,after_score,score_difference,Model,extreme_movement
+aspire/acge_text_embedding vs BAAI/bge-small-zh-v1.5,S001,S001-Q044,32b5d492-2df9-5ed9-ac46-caca5c87097c,S001-Q034,4,29,-25,0.41738826036453247,0.30596494674682617,-0.1114233136177063,aspire/acge_text_embedding,TOP5_TO_AFTER20
+aspire/acge_text_embedding vs BAAI/bge-small-zh-v1.5,S003,S003-Q044,ae9f0678-a87f-5377-8edd-5fbd8ff4b4fa,S003-Q034,33,3,30,0.4599473774433136,0.49466824531555176,0.03472086787223816,aspire/acge_text_embedding,AFTER20_TO_TOP5
+aspire/acge_text_embedding vs BAAI/bge-small-zh-v1.5,S003,S003-Q055,cc3a667e-ea49-5490-bb5c-5a4d9db97e6f,S003-Q045,41,4,37,0.4069212079048157,0.5068545341491699,0.09993332624435425,aspire/acge_text_embedding,AFTER20_TO_TOP5
+aspire/acge_text_embedding vs BAAI/bge-small-zh-v1.5,S003,S003-Q056,59d896c1-0734-53cf-821a-5728dd5fe548,S003-Q050,3,35,-32,0.5221919417381287,0.5564936399459839,0.034301698207855225,aspire/acge_text_embedding,TOP5_TO_AFTER20
+aspire/acge_text_embedding vs BAAI/bge-small-zh-v1.5,S004,S004-Q033,73b2fb55-c036-52ca-842e-cc784d317c61,S004-Q023,5,23,-18,0.6531623601913452,0.6427116990089417,-0.010450661182403564,aspire/acge_text_embedding,TOP5_TO_AFTER20
+aspire/acge_text_embedding vs BAAI/bge-small-zh-v1.5,S004,S004-Q070,2e530daf-4b7a-5b20-9fe7-9c23daee4af6,S004-Q064,4,38,-34,0.5201765894889832,0.5128227472305298,-0.007353842258453369,aspire/acge_text_embedding,TOP5_TO_AFTER20

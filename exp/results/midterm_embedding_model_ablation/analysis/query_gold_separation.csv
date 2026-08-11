@@ -1,0 +1,3 @@
+﻿Add 方式,Formatter,Query count,Best Gold - strongest NonGold mean,Best Gold - strongest NonGold median,Positive separation rate,Model
+最近上文 + eviction 时真实下文,Summary + Keywords,99,-0.037641054452067675,-0.03364408016204834,0.15151515151515152,BAAI/bge-small-zh-v1.5
+最近上文 + eviction 时真实下文,Summary + Keywords,99,-0.0521748454281778,-0.05040907859802246,0.10101010101010101,aspire/acge_text_embedding

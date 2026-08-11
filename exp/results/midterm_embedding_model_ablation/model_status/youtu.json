@@ -1,0 +1,47 @@
+{
+  "model": "tencent/Youtu-Embedding",
+  "status": "BLOCKED_LOCAL_RESOURCES",
+  "official_contract": {
+    "key": "youtu",
+    "model_id": "tencent/Youtu-Embedding",
+    "official_url": "https://huggingface.co/tencent/Youtu-Embedding",
+    "query_method": "SentenceTransformer.encode_query",
+    "document_method": "SentenceTransformer.encode_document",
+    "query_prompt": "Instruction: Given a search query, retrieve passages that answer the question \nQuery:",
+    "trust_remote_code": true,
+    "official_max_length": 8192,
+    "preferred_device": "cpu",
+    "official_notes": "2B/2048-d; official query/document methods; right padding; mean pooling excluding instruction"
+  },
+  "tokenizer_audit_status": "PASS",
+  "tokenizer": {
+    "model": "tencent/Youtu-Embedding",
+    "tokenizer_class": "TokenizersBackend",
+    "tokenizer_native_model_max_length": 1024,
+    "truncation_side": "left",
+    "padding_side": "right",
+    "selected_max_length": 1024,
+    "official_supported_max_length": 8192,
+    "Page": {
+      "count": 333,
+      "mean": 431.26126126126127,
+      "median": 416,
+      "p90": 539.8,
+      "max": 610,
+      "truncated_count": 0
+    },
+    "Query": {
+      "count": 99,
+      "mean": 65.42424242424242,
+      "median": 61,
+      "p90": 86.2,
+      "max": 116,
+      "truncated_count": 0
+    },
+    "query_instruction": "Instruction: Given a search query, retrieve passages that answer the question \nQuery:"
+  },
+  "reason": "The official 8.98 GiB weights exceed the 4 GiB GPU and leave insufficient headroom on the 11 GiB host for a standards-preserving local run. No quantization/offload substitute was used because that would change the requested official encoding standard.",
+  "page_embedding_count": 0,
+  "query_embedding_count": 0,
+  "elapsed_seconds": 13.545274308999069
+}

@@ -1,0 +1,8 @@
+﻿Model,audit_status,selected_max_length,Page token mean,Page token median,Page token p90,Page token max,Page truncated,Query token mean,Query token median,Query token p90,Query token max,Query truncated,official_query_instruction
+BAAI/bge-small-zh-v1.5,PASS_EXISTING_512_CONTRACT,512,499.9159159159159,480,624.4000000000001,695,138,61.44444444444444,55,85.00000000000001,115,0,
+tencent/Youtu-Embedding,PASS,1024,431.26126126126127,416,539.8,610,0,65.42424242424242,61,86.2,116,0,"Instruction: Given a search query, retrieve passages that answer the question 
+Query:"
+TencentBAC/Conan-embedding-v2,NOT_POSSIBLE_NO_OFFICIAL_TOKENIZER,,,,,,,,,,,,
+Qwen/Qwen3-Embedding-4B,PASS,1024,465.2072072072072,444,588.0,694,0,58.101010101010104,56,76.2,98,0,"Instruct: Given a web search query, retrieve relevant passages that answer the query
+Query:"
+aspire/acge_text_embedding,PASS,1024,501.9159159159159,482,626.4000000000001,697,0,61.44444444444444,55,85.00000000000001,115,0,

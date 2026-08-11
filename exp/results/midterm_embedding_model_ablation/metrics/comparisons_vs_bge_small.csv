@@ -1,0 +1,2 @@
+﻿Comparison,Promoted Gold,Demoted Gold,Net Gold gain,Rescued Queries,Hurt Queries,Mean Gold rank improvement,Median Gold rank improvement,Top5 rankings identical query count,Top5 rankings identical all queries,Model
+aspire/acge_text_embedding vs BAAI/bge-small-zh-v1.5,14,30,-16,12,23,-2.1818181818181817,0.0,3,False,aspire/acge_text_embedding

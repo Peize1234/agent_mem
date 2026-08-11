@@ -1,0 +1,24 @@
+{
+  "model": "TencentBAC/Conan-embedding-v2",
+  "status": "BLOCKED_OFFICIAL_ARTIFACT_OR_CREDENTIALS",
+  "reason": "Official Hugging Face repository contains client/example code but no model weights or tokenizer. The official temporary API requires CONAN_AK and CONAN_SK, which are absent.",
+  "official_repository_has_local_weights": false,
+  "official_repository_has_tokenizer": false,
+  "CONAN_AK_present": false,
+  "CONAN_SK_present": false,
+  "tokenizer_audit_status": "NOT_POSSIBLE_NO_OFFICIAL_TOKENIZER",
+  "embedding_count": 0,
+  "api_attempt_count": 0,
+  "official_contract": {
+    "key": "conan",
+    "model_id": "TencentBAC/Conan-embedding-v2",
+    "official_url": "https://huggingface.co/TencentBAC/Conan-embedding-v2",
+    "query_method": "official authenticated Conan API",
+    "document_method": "official authenticated Conan API",
+    "query_prompt": "",
+    "trust_remote_code": true,
+    "official_max_length": 32768,
+    "preferred_device": "remote-api",
+    "official_notes": "Official repository currently publishes client code only; API requires CONAN_AK and CONAN_SK"
+  }
+}

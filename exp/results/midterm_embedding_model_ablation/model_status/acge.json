@@ -1,0 +1,50 @@
+{
+  "model": "aspire/acge_text_embedding",
+  "status": "COMPLETED",
+  "official_contract": {
+    "key": "acge",
+    "model_id": "aspire/acge_text_embedding",
+    "official_url": "https://huggingface.co/aspire/acge_text_embedding",
+    "query_method": "SentenceTransformer.encode",
+    "document_method": "SentenceTransformer.encode",
+    "query_prompt": "",
+    "trust_remote_code": false,
+    "official_max_length": 1024,
+    "preferred_device": "cuda",
+    "official_notes": "Chinese retrieval model; native 1792-d output; no query instruction"
+  },
+  "tokenizer_audit_status": "PASS",
+  "tokenizer": {
+    "model": "aspire/acge_text_embedding",
+    "tokenizer_class": "BertTokenizer",
+    "tokenizer_native_model_max_length": 1024,
+    "truncation_side": "right",
+    "padding_side": "right",
+    "selected_max_length": 1024,
+    "official_supported_max_length": 1024,
+    "Page": {
+      "count": 333,
+      "mean": 501.9159159159159,
+      "median": 482,
+      "p90": 626.4000000000001,
+      "max": 697,
+      "truncated_count": 0
+    },
+    "Query": {
+      "count": 99,
+      "mean": 61.44444444444444,
+      "median": 55,
+      "p90": 85.00000000000001,
+      "max": 115,
+      "truncated_count": 0
+    },
+    "query_instruction": null
+  },
+  "selected_max_length": 1024,
+  "dimension": 1792,
+  "device": "cuda:0",
+  "page_embedding_count": 333,
+  "query_embedding_count": 99,
+  "cache_hit_artifact_count": 0,
+  "elapsed_seconds": 100.00736488300026
+}

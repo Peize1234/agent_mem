@@ -1,0 +1,25 @@
+﻿comparison,cohort,eligible_gold_count,promoted_gold,demoted_gold,net_gold_gain,mean_rank_improvement,median_rank_improvement
+BGE-M3 512 vs BGE-small 512（模型影响）,ALL_GOLD,154,20,22,-2,-0.6558441558441559,0.0
+BGE-M3 512 vs BGE-small 512（模型影响）,BGE-small tokenizer >512,66,6,10,-4,-2.5303030303030303,-1.0
+BGE-M3 512 vs BGE-small 512（模型影响）,BGE-small tokenizer <=512,88,14,12,2,0.75,1.0
+BGE-M3 512 vs BGE-small 512（模型影响）,BGE-M3 tokenizer <=512,154,20,22,-2,-0.6558441558441559,0.0
+BGE-M3 1024 vs BGE-small 512,ALL_GOLD,154,20,22,-2,-0.6558441558441559,0.0
+BGE-M3 1024 vs BGE-small 512,BGE-small tokenizer >512,66,6,10,-4,-2.5303030303030303,-1.0
+BGE-M3 1024 vs BGE-small 512,BGE-small tokenizer <=512,88,14,12,2,0.75,1.0
+BGE-M3 1024 vs BGE-small 512,BGE-M3 tokenizer <=512,154,20,22,-2,-0.6558441558441559,0.0
+BGE-M3 2048 vs BGE-small 512,ALL_GOLD,154,20,22,-2,-0.6558441558441559,0.0
+BGE-M3 2048 vs BGE-small 512,BGE-small tokenizer >512,66,6,10,-4,-2.5303030303030303,-1.0
+BGE-M3 2048 vs BGE-small 512,BGE-small tokenizer <=512,88,14,12,2,0.75,1.0
+BGE-M3 2048 vs BGE-small 512,BGE-M3 tokenizer <=512,154,20,22,-2,-0.6558441558441559,0.0
+BGE-M3 1024 vs BGE-M3 512（长度影响）,ALL_GOLD,154,0,0,0,0.0,0.0
+BGE-M3 1024 vs BGE-M3 512（长度影响）,BGE-small tokenizer >512,66,0,0,0,0.0,0.0
+BGE-M3 1024 vs BGE-M3 512（长度影响）,BGE-small tokenizer <=512,88,0,0,0,0.0,0.0
+BGE-M3 1024 vs BGE-M3 512（长度影响）,BGE-M3 tokenizer <=512,154,0,0,0,0.0,0.0
+BGE-M3 2048 vs BGE-M3 512（长度影响）,ALL_GOLD,154,0,0,0,0.0,0.0
+BGE-M3 2048 vs BGE-M3 512（长度影响）,BGE-small tokenizer >512,66,0,0,0,0.0,0.0
+BGE-M3 2048 vs BGE-M3 512（长度影响）,BGE-small tokenizer <=512,88,0,0,0,0.0,0.0
+BGE-M3 2048 vs BGE-M3 512（长度影响）,BGE-M3 tokenizer <=512,154,0,0,0,0.0,0.0
+BGE-M3 2048 vs BGE-M3 1024,ALL_GOLD,154,0,0,0,0.0,0.0
+BGE-M3 2048 vs BGE-M3 1024,BGE-small tokenizer >512,66,0,0,0,0.0,0.0
+BGE-M3 2048 vs BGE-M3 1024,BGE-small tokenizer <=512,88,0,0,0,0.0,0.0
+BGE-M3 2048 vs BGE-M3 1024,BGE-M3 tokenizer <=512,154,0,0,0,0.0,0.0
