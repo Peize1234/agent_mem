@@ -1,0 +1,41 @@
+{
+  "experiment_name": "full_memory_recall_s001_s005_v2",
+  "dataset": "exp/enterprise_finance_memory_sessions_100_v3_realistic_2023_2025.xlsx",
+  "source_qa_reference_dataset": "exp/enterprise_finance_memory_sessions_100_v3_realistic_2023_2025——before.xlsx",
+  "sessions": ["S001", "S002", "S003", "S004", "S005"],
+  "production_memory_config": "exp/benchmark/memory_config.json",
+  "expected": {
+    "session_count": 5,
+    "query_count": 348,
+    "gold_requirement_count": 559,
+    "or_requirement_count": 5,
+    "shortterm_requirement_count": 410,
+    "outside_shortterm_requirement_count": 149,
+    "midterm_page_count": 333,
+    "midterm_evaluation_query_count": 99
+  },
+  "shortterm": {
+    "qa_turns": 3,
+    "top_k": 3
+  },
+  "midterm": {
+    "configuration": "C3: P2 resolved query + recent previous and eviction-time following context + Summary + Keywords",
+    "top_k": [5, 10, 20],
+    "embedding_model": "BAAI/bge-small-zh-v1.5",
+    "device": "cuda",
+    "batch_size": 32,
+    "frozen_checkpoint_loader": "exp.benchmark.run_midterm_dense_bm25_hybrid_checkpoints.checkpoint_inputs"
+  },
+  "longterm": {
+    "mode": "frozen_production_trace",
+    "top_k": 5,
+    "trace_files": {
+      "S001": "exp/results/recall_full_100_sessions_no_thinking/recall_turn_results.jsonl",
+      "S002": "exp/results/midterm_multi_session_validation_no_thinking/source_run_s002_s005/recall_turn_results.jsonl",
+      "S003": "exp/results/midterm_multi_session_validation_no_thinking/source_run_s002_s005/recall_turn_results.jsonl",
+      "S004": "exp/results/midterm_multi_session_validation_no_thinking/source_run_s004_retry/recall_turn_results.jsonl",
+      "S005": "exp/results/midterm_multi_session_validation_no_thinking/source_run_s002_s005/recall_turn_results.jsonl"
+    }
+  },
+  "output_dir": "exp/results/full_memory_recall_s001_s005_v2"
+}

@@ -1,0 +1,172 @@
+{
+  "experiment_name": "full_memory_recall_s001_s005_v2",
+  "dataset": "/home/peize/Code/htzq/mem0/exp/enterprise_finance_memory_sessions_100_v3_realistic_2023_2025.xlsx",
+  "dataset_sha256": "10d07e773464df0e1adf7143b6e7cd136ade506c0d0ff4b61e2ab0951e9c5cfc",
+  "source_qa_sha256": "3b772563cd2a2be57ad9f280c1fb58ddc407f5956971a4c5baa979b6b4922253",
+  "source_qa_reference_dataset": "/home/peize/Code/htzq/mem0/exp/enterprise_finance_memory_sessions_100_v3_realistic_2023_2025——before.xlsx",
+  "source_qa_reference_dataset_sha256": "0451776674b0b29cb9f017461fb128a3847cf538a5f2eb7c215a412b186e4cd0",
+  "production_memory_config": "/home/peize/Code/htzq/mem0/exp/benchmark/memory_config.json",
+  "production_memory_config_sha256": "0e7625385526303d311e42e2122e6a16c374c6ded156812368aea4d49cdc51d4",
+  "settings": {
+    "dataset_path": "/home/peize/Code/htzq/mem0/exp/enterprise_finance_memory_sessions_100_v3_realistic_2023_2025.xlsx",
+    "session_codes": [
+      "S001",
+      "S002",
+      "S003",
+      "S004",
+      "S005"
+    ],
+    "output_dir": "/home/peize/Code/htzq/mem0/exp/results/full_memory_recall_s001_s005_v2",
+    "shortterm_qa_turns": 3,
+    "shortterm_top_k": 3,
+    "midterm_top_k": [
+      5,
+      10,
+      20
+    ],
+    "longterm_top_k": 5,
+    "embedding_model": "BAAI/bge-small-zh-v1.5",
+    "device": "cuda",
+    "batch_size": 32,
+    "expected": {
+      "session_count": 5,
+      "query_count": 348,
+      "gold_requirement_count": 559,
+      "or_requirement_count": 5,
+      "shortterm_requirement_count": 410,
+      "outside_shortterm_requirement_count": 149,
+      "midterm_page_count": 333,
+      "midterm_evaluation_query_count": 99
+    },
+    "longterm_trace_files": {
+      "S001": "/home/peize/Code/htzq/mem0/exp/results/recall_full_100_sessions_no_thinking/recall_turn_results.jsonl",
+      "S002": "/home/peize/Code/htzq/mem0/exp/results/midterm_multi_session_validation_no_thinking/source_run_s002_s005/recall_turn_results.jsonl",
+      "S003": "/home/peize/Code/htzq/mem0/exp/results/midterm_multi_session_validation_no_thinking/source_run_s002_s005/recall_turn_results.jsonl",
+      "S004": "/home/peize/Code/htzq/mem0/exp/results/midterm_multi_session_validation_no_thinking/source_run_s004_retry/recall_turn_results.jsonl",
+      "S005": "/home/peize/Code/htzq/mem0/exp/results/midterm_multi_session_validation_no_thinking/source_run_s002_s005/recall_turn_results.jsonl"
+    },
+    "raw_config": {
+      "experiment_name": "full_memory_recall_s001_s005_v2",
+      "dataset": "exp/enterprise_finance_memory_sessions_100_v3_realistic_2023_2025.xlsx",
+      "source_qa_reference_dataset": "exp/enterprise_finance_memory_sessions_100_v3_realistic_2023_2025——before.xlsx",
+      "sessions": [
+        "S001",
+        "S002",
+        "S003",
+        "S004",
+        "S005"
+      ],
+      "production_memory_config": "exp/benchmark/memory_config.json",
+      "expected": {
+        "session_count": 5,
+        "query_count": 348,
+        "gold_requirement_count": 559,
+        "or_requirement_count": 5,
+        "shortterm_requirement_count": 410,
+        "outside_shortterm_requirement_count": 149,
+        "midterm_page_count": 333,
+        "midterm_evaluation_query_count": 99
+      },
+      "shortterm": {
+        "qa_turns": 3,
+        "top_k": 3
+      },
+      "midterm": {
+        "configuration": "C3: P2 resolved query + recent previous and eviction-time following context + Summary + Keywords",
+        "top_k": [
+          5,
+          10,
+          20
+        ],
+        "embedding_model": "BAAI/bge-small-zh-v1.5",
+        "device": "cuda",
+        "batch_size": 32,
+        "frozen_checkpoint_loader": "exp.benchmark.run_midterm_dense_bm25_hybrid_checkpoints.checkpoint_inputs"
+      },
+      "longterm": {
+        "mode": "frozen_production_trace",
+        "top_k": 5,
+        "trace_files": {
+          "S001": "exp/results/recall_full_100_sessions_no_thinking/recall_turn_results.jsonl",
+          "S002": "exp/results/midterm_multi_session_validation_no_thinking/source_run_s002_s005/recall_turn_results.jsonl",
+          "S003": "exp/results/midterm_multi_session_validation_no_thinking/source_run_s002_s005/recall_turn_results.jsonl",
+          "S004": "exp/results/midterm_multi_session_validation_no_thinking/source_run_s004_retry/recall_turn_results.jsonl",
+          "S005": "exp/results/midterm_multi_session_validation_no_thinking/source_run_s002_s005/recall_turn_results.jsonl"
+        }
+      },
+      "output_dir": "exp/results/full_memory_recall_s001_s005_v2"
+    }
+  },
+  "midterm": {
+    "page_count": 333,
+    "query_count": 99,
+    "v3_eligible_query_count": 97,
+    "excluded_from_midterm_by_or_shortterm_hit": [
+      "S002-Q042",
+      "S005-Q042"
+    ],
+    "old_gold_contract_reproduction": {
+      "gold_at_5": 59,
+      "gold_count": 154,
+      "recall_at_5": 0.38311688311688313
+    },
+    "cache_metadata": {
+      "Production": {
+        "metadata_path": "/home/peize/Code/htzq/mem0/exp/results/midterm_add_local_context_ablation/controls/cache/embeddings/BAAI_bge-small-zh-v1.5/no-user-Production-S001-S005-0229fd5bfd017507.json",
+        "model": "BAAI/bge-small-zh-v1.5",
+        "batch_name": "no-user-Production-S001-S005",
+        "content_hash": "0229fd5bfd01750723d348cba37d409fbeebc74168bb29021fdaff904d52d6bb",
+        "item_count": 333,
+        "dimension": 512,
+        "build_ms": 3215.80530600113,
+        "item_latency_ms": {},
+        "cache_hit": false
+      },
+      "PreviousAndFollowingContext": {
+        "metadata_path": "/home/peize/Code/htzq/mem0/exp/results/midterm_add_local_context_ablation/controls/cache/embeddings/BAAI_bge-small-zh-v1.5/no-user-PreviousAndFollowingContext-S001-S005-13fd58bbf11217a7.json",
+        "model": "BAAI/bge-small-zh-v1.5",
+        "batch_name": "no-user-PreviousAndFollowingContext-S001-S005",
+        "content_hash": "13fd58bbf11217a70e5c98e724780db94fd960d5600f6946024e3632b2c1a2d8",
+        "item_count": 333,
+        "dimension": 512,
+        "build_ms": 3502.114563998475,
+        "item_latency_ms": {},
+        "cache_hit": false
+      }
+    },
+    "embedding_cache_reused": true,
+    "new_embedding_count": 0,
+    "contract": "frozen C3 vectors"
+  },
+  "longterm": {
+    "trace_sha256": {
+      "S001": "b4d2ee8896da289aeb4be67db3be74093d35ff216d233c3dcf37eb99298ac61f",
+      "S002": "f98af18495089261860e37eb5b1243854172e8e69b27e9a6fdff45f2fa39ca99",
+      "S003": "f98af18495089261860e37eb5b1243854172e8e69b27e9a6fdff45f2fa39ca99",
+      "S004": "212ce744f7f00b179740a01fff4c7a492e55f269570aace06e21a87611b6528a",
+      "S005": "f98af18495089261860e37eb5b1243854172e8e69b27e9a6fdff45f2fa39ca99"
+    },
+    "effective_memory_config_sha256": {
+      "S001": "db13724a8de85741d77c132b830d7f17d7b91bb98c11de86e283072d8610a4fd",
+      "S002": "60b188a459d05b608fc80e4e1f498a0589af0b74e5cfecd43b058b043b4ee18c",
+      "S003": "60b188a459d05b608fc80e4e1f498a0589af0b74e5cfecd43b058b043b4ee18c",
+      "S004": "96f1def415572adf51193fe395d4110dc29719e597f704f4f5d340b399d66ac8",
+      "S005": "60b188a459d05b608fc80e4e1f498a0589af0b74e5cfecd43b058b043b4ee18c"
+    },
+    "source": "frozen production retrieval provenance"
+  },
+  "new_llm_calls": 0,
+  "summary_regeneration": false,
+  "full_session_rerun": false,
+  "future_leakage": false,
+  "validation": {
+    "dataset_static_sanity": "PASS",
+    "source_qa_matches_frozen_artifacts": "PASS",
+    "gold_members_are_prior_turns": "PASS",
+    "c3_page_query_source_hashes": "PASS",
+    "c3_59_of_154_old_contract_reproduction": "PASS",
+    "c3_visible_scope": "PASS",
+    "production_longterm_trace_scope": "PASS",
+    "or_group_denominator": "PASS"
+  }
+}

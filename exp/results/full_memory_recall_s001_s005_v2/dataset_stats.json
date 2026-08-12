@@ -1,0 +1,17 @@
+{
+  "session_count": 5,
+  "query_count": 348,
+  "gold_requirement_count": 559,
+  "or_requirement_count": 5,
+  "shortterm_requirement_count": 410,
+  "outside_shortterm_requirement_count": 149,
+  "shortterm_window_qa_turns": 3,
+  "shortterm_top_k": 3,
+  "session_query_counts": {
+    "S001": 50,
+    "S002": 73,
+    "S003": 93,
+    "S004": 74,
+    "S005": 58
+  }
+}
