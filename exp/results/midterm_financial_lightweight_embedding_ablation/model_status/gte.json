@@ -1,0 +1,62 @@
+{
+  "model": "Alibaba-NLP/gte-multilingual-base",
+  "type": "通用",
+  "status": "COMPLETED",
+  "stage": "complete",
+  "official_contract": {
+    "key": "gte",
+    "model_id": "Alibaba-NLP/gte-multilingual-base",
+    "model_type": "通用",
+    "official_url": "https://huggingface.co/Alibaba-NLP/gte-multilingual-base",
+    "query_prefix": "",
+    "document_prefix": "",
+    "query_method": "SentenceTransformer.encode",
+    "document_method": "SentenceTransformer.encode",
+    "trust_remote_code": true,
+    "native_max_length": 8192,
+    "expected_dimension": 768,
+    "cuda_dtype": "float32"
+  },
+  "tokenizer_audit_status": "PASS",
+  "tokenizer": {
+    "Model": "Alibaba-NLP/gte-multilingual-base",
+    "native_max_length": 8192,
+    "used_max_length": 1024,
+    "tokenizer_class": "XLMRobertaTokenizer",
+    "truncation_side": "right",
+    "padding_side": "right",
+    "Page": {
+      "mean": 369.7117117117117,
+      "median": 358,
+      "p90": 460.6,
+      "max": 515,
+      "truncated_count": 0,
+      "truncated_rate": 0.0,
+      "summary_truncated_count": 0,
+      "keywords_fully_kept_count": 333,
+      "keywords_partially_truncated_count": 0,
+      "keywords_fully_truncated_count": 0
+    },
+    "Query": {
+      "mean": 43.07070707070707,
+      "median": 39,
+      "p90": 60.2,
+      "max": 83,
+      "truncated_count": 0,
+      "truncated_rate": 0.0
+    }
+  },
+  "device": "cuda:0",
+  "runtime_compatibility_fix": {
+    "applied": true,
+    "reason": "transformers 5.13 meta-device loading left the official remote-code non-persistent RoPE and position_ids buffers uninitialized",
+    "operation": "re-run upstream _init_rope(config) and recreate torch.arange(max_position_embeddings)",
+    "official_embedding_contract_changed": false
+  },
+  "used_max_length": 1024,
+  "dimension": 768,
+  "page_embedding_count": 333,
+  "query_embedding_count": 99,
+  "cache_hit_artifact_count": 0,
+  "elapsed_seconds": 47.34699004900176
+}

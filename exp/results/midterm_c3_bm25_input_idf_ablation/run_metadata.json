@@ -1,0 +1,198 @@
+{
+  "experiment_name": "midterm_c3_bm25_input_idf_ablation",
+  "configs": [
+    {
+      "key": "H0",
+      "label": "当前 Production Hybrid",
+      "bm25_query": "P2",
+      "bm25_page": "Summary + Keywords",
+      "idf_scope": "visible_pages",
+      "filter_enabled": false
+    },
+    {
+      "key": "H1",
+      "label": "BM25 Query 去噪",
+      "bm25_query": "Original",
+      "bm25_page": "Summary + Keywords",
+      "idf_scope": "visible_pages",
+      "filter_enabled": false
+    },
+    {
+      "key": "H2",
+      "label": "BM25 Page = Keywords Only",
+      "bm25_query": "P2",
+      "bm25_page": "Keywords Only",
+      "idf_scope": "visible_pages",
+      "filter_enabled": false
+    },
+    {
+      "key": "H3",
+      "label": "BM25 stopword / 高频模板词过滤",
+      "bm25_query": "P2",
+      "bm25_page": "Summary + Keywords",
+      "idf_scope": "visible_pages",
+      "filter_enabled": true
+    },
+    {
+      "key": "H4",
+      "label": "Dense Top60 Local-IDF BM25",
+      "bm25_query": "P2",
+      "bm25_page": "Summary + Keywords",
+      "idf_scope": "dense_top60",
+      "filter_enabled": false
+    },
+    {
+      "key": "H5",
+      "label": "Combined",
+      "bm25_query": "Original",
+      "bm25_page": "Keywords Only",
+      "idf_scope": "dense_top60",
+      "filter_enabled": true
+    }
+  ],
+  "dense_backbone": "BAAI/bge-small-zh-v1.5",
+  "dense_query": "frozen P2 resolved query",
+  "dense_page": "frozen C3 Summary + Keywords",
+  "session_count": 5,
+  "page_count": 333,
+  "query_count": 99,
+  "eligible_gold_count": 154,
+  "local_dense_limit": 60,
+  "local_scope_changed_query_count": 14,
+  "H5_zero_raw_bm25_demoted_gold_count": 9,
+  "bm25_filter_tokens": [
+    "的",
+    "和",
+    "与",
+    "在",
+    "了",
+    "是",
+    "把",
+    "也",
+    "中",
+    "请",
+    "回答",
+    "前面",
+    "当前",
+    "刚才",
+    "结合",
+    "如果",
+    "具体",
+    "体现",
+    "怎么",
+    "说明"
+  ],
+  "bm25_filter_sha256": "fbc68c5e1e75448740919f43821b71eb1c46351322bbf044a32a705461540d58",
+  "keywords_only_formatter": "\", \".join(frozen_keywords)",
+  "production_components": {
+    "lemmatization": "mem0.utils.lemmatization.lemmatize_for_bm25(language='zh')",
+    "sparse_encoder": "mem0.utils.bm25_sparse.ChineseBM25SparseEncoder via Qdrant",
+    "idf": "Qdrant sparse Modifier.IDF",
+    "normalization": "get_bm25_params + normalize_bm25",
+    "fusion": "score_and_rank; equal semantic + BM25; entity_boosts={}",
+    "semantic_threshold": 0.1,
+    "finance_dictionary": "/home/peize/Code/htzq/mem0/mem0/configs/finance_bm25_dict.txt"
+  },
+  "component_sha256": {
+    "qdrant": "b2d717ae3c86d009198b15b3b880399109cceba8dd0e6c762f049e537ef69e32",
+    "bm25_sparse": "f51d05678625f600ffd22e75d24e5fcf5e5c26b75b78cc337d2251f6497fccf5",
+    "lemmatization": "df91e2425f184b837ad626b7703e0f2f605d58fcb4388fc5372b7da611c18b93",
+    "scoring": "9a4313fda723ad05cb52278e9ef0b9b5792b71fb3b41ba6318410121022e4527",
+    "finance_dictionary": "fb40d9a0b28d9e85458febdfe1a00acafbb468fa7d28744d99ececbed61658c9"
+  },
+  "page_text_hash": "c1e43a5231838193fdba8f417cc12d80713126eb77031a13a9852f9f1082bd1b",
+  "p2_query_hash": "315e37f0b70e1a0cccdfad7b086ba256717befa4e9579d96d647e9dc742e5c2a",
+  "original_query_hash": "10ce9d33a3b6e0a8436bc19ce1b07a1b7fd90dd124c75700e818b87a45a7a351",
+  "frozen_vector_cache_metadata": {
+    "Production": {
+      "metadata_path": "/home/peize/Code/htzq/mem0/exp/results/midterm_add_local_context_ablation/controls/cache/embeddings/BAAI_bge-small-zh-v1.5/no-user-Production-S001-S005-0229fd5bfd017507.json",
+      "model": "BAAI/bge-small-zh-v1.5",
+      "batch_name": "no-user-Production-S001-S005",
+      "content_hash": "0229fd5bfd01750723d348cba37d409fbeebc74168bb29021fdaff904d52d6bb",
+      "item_count": 333,
+      "dimension": 512,
+      "build_ms": 3215.80530600113,
+      "item_latency_ms": {},
+      "cache_hit": false
+    },
+    "PreviousAndFollowingContext": {
+      "metadata_path": "/home/peize/Code/htzq/mem0/exp/results/midterm_add_local_context_ablation/controls/cache/embeddings/BAAI_bge-small-zh-v1.5/no-user-PreviousAndFollowingContext-S001-S005-13fd58bbf11217a7.json",
+      "model": "BAAI/bge-small-zh-v1.5",
+      "batch_name": "no-user-PreviousAndFollowingContext-S001-S005",
+      "content_hash": "13fd58bbf11217a70e5c98e724780db94fd960d5600f6946024e3632b2c1a2d8",
+      "item_count": 333,
+      "dimension": 512,
+      "build_ms": 3502.114563998475,
+      "item_latency_ms": {},
+      "cache_hit": false
+    }
+  },
+  "cache": {
+    "H0_prior_cache": "/home/peize/Code/htzq/mem0/exp/results/midterm_dense_bm25_hybrid_checkpoints/cache/visible_scope_bm25.jsonl",
+    "H0_cache_hits": 99,
+    "experiment_cache": "/home/peize/Code/htzq/mem0/exp/results/midterm_c3_bm25_input_idf_ablation/cache/bm25_rankings.jsonl",
+    "experiment_cache_hits_this_run": 495,
+    "experiment_cache_builds_this_run": 0
+  },
+  "new_dense_embedding_count": 0,
+  "new_llm_calls": 0,
+  "summary_keywords_regeneration": false,
+  "full_session_rerun": false,
+  "weight_scan": false,
+  "validation": {
+    "dense_C3_59_of_154": {
+      "status": "PASS"
+    },
+    "H0_46_of_154": {
+      "status": "PASS"
+    },
+    "frozen_counts": {
+      "status": "PASS"
+    },
+    "C3_page_hash": {
+      "status": "PASS",
+      "value": "c1e43a5231838193fdba8f417cc12d80713126eb77031a13a9852f9f1082bd1b"
+    },
+    "P2_query_hash": {
+      "status": "PASS",
+      "value": "315e37f0b70e1a0cccdfad7b086ba256717befa4e9579d96d647e9dc742e5c2a"
+    },
+    "original_query_coverage": {
+      "status": "PASS"
+    },
+    "visibility_unchanged": {
+      "status": "PASS"
+    },
+    "local_idf_corpus_exact": {
+      "status": "PASS"
+    },
+    "H0_cache_reused": {
+      "status": "PASS"
+    },
+    "filter_frozen": {
+      "status": "PASS",
+      "sha256": "fbc68c5e1e75448740919f43821b71eb1c46351322bbf044a32a705461540d58"
+    },
+    "new_dense_embeddings": {
+      "status": "PASS",
+      "value": 0
+    },
+    "new_llm_calls": {
+      "status": "PASS",
+      "value": 0
+    },
+    "summary_keywords_regeneration": {
+      "status": "PASS",
+      "value": false
+    },
+    "full_session_rerun": {
+      "status": "PASS",
+      "value": false
+    },
+    "weight_scan": {
+      "status": "PASS",
+      "value": false
+    }
+  },
+  "validation_all_pass": true
+}

@@ -1,0 +1,56 @@
+{
+  "model": "BalyasnyAI/multilingual-e5-base",
+  "type": "金融",
+  "status": "COMPLETED",
+  "stage": "complete",
+  "official_contract": {
+    "key": "balyasny",
+    "model_id": "BalyasnyAI/multilingual-e5-base",
+    "model_type": "金融",
+    "official_url": "https://huggingface.co/BalyasnyAI/multilingual-e5-base",
+    "query_prefix": "query: ",
+    "document_prefix": "passage: ",
+    "query_method": "SentenceTransformer.encode with official query prefix",
+    "document_method": "SentenceTransformer.encode with official passage prefix",
+    "trust_remote_code": false,
+    "native_max_length": 512,
+    "expected_dimension": 768,
+    "cuda_dtype": "float16"
+  },
+  "tokenizer_audit_status": "PASS",
+  "tokenizer": {
+    "Model": "BalyasnyAI/multilingual-e5-base",
+    "native_max_length": 512,
+    "used_max_length": 512,
+    "tokenizer_class": "XLMRobertaTokenizer",
+    "truncation_side": "right",
+    "padding_side": "right",
+    "Page": {
+      "mean": 371.7117117117117,
+      "median": 360,
+      "p90": 462.6,
+      "max": 517,
+      "truncated_count": 1,
+      "truncated_rate": 0.003003003003003003,
+      "summary_truncated_count": 0,
+      "keywords_fully_kept_count": 332,
+      "keywords_partially_truncated_count": 1,
+      "keywords_fully_truncated_count": 0
+    },
+    "Query": {
+      "mean": 46.07070707070707,
+      "median": 42,
+      "p90": 63.2,
+      "max": 86,
+      "truncated_count": 0,
+      "truncated_rate": 0.0
+    }
+  },
+  "device": "cuda:0",
+  "used_max_length": 512,
+  "dimension": 768,
+  "page_embedding_count": 333,
+  "query_embedding_count": 99,
+  "cache_hit_artifact_count": 0,
+  "elapsed_seconds": 187.08885159999772
+}

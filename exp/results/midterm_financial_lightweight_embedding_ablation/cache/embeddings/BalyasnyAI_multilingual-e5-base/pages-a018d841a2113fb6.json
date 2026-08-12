@@ -1,0 +1,11 @@
+{
+  "model": "BalyasnyAI/multilingual-e5-base",
+  "kind": "pages",
+  "content_hash": "a018d841a2113fb670a6677c9a3f8cafe1d2e8ad3ef9b1b6123cda548adc6898",
+  "item_count": 333,
+  "dimension": 768,
+  "max_length": 512,
+  "device": "cuda:0",
+  "dtype": "float16",
+  "build_ms": 88808.86447899684
+}

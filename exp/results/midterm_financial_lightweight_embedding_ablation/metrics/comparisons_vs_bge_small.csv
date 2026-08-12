@@ -1,0 +1,4 @@
+﻿Comparison,Promoted Gold,Demoted Gold,Net Gold gain,Rescued Queries,Hurt Queries,Mean Gold rank improvement,Median Gold rank improvement,Top5 rankings identical query count,Top5 rankings identical all queries,Model,Type
+qcsun/financial-embedding vs BAAI/bge-small-zh-v1.5,22,28,-6,14,24,-1.5844155844155845,0.0,0,False,qcsun/financial-embedding,金融
+BalyasnyAI/multilingual-e5-base vs BAAI/bge-small-zh-v1.5,16,20,-4,11,14,-0.18831168831168832,0.0,3,False,BalyasnyAI/multilingual-e5-base,金融
+Alibaba-NLP/gte-multilingual-base vs BAAI/bge-small-zh-v1.5,16,25,-9,13,20,-1.4285714285714286,0.0,4,False,Alibaba-NLP/gte-multilingual-base,通用

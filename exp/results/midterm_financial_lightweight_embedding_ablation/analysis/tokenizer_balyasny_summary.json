@@ -1,0 +1,28 @@
+{
+  "Model": "BalyasnyAI/multilingual-e5-base",
+  "native_max_length": 512,
+  "used_max_length": 512,
+  "tokenizer_class": "XLMRobertaTokenizer",
+  "truncation_side": "right",
+  "padding_side": "right",
+  "Page": {
+    "mean": 371.7117117117117,
+    "median": 360,
+    "p90": 462.6,
+    "max": 517,
+    "truncated_count": 1,
+    "truncated_rate": 0.003003003003003003,
+    "summary_truncated_count": 0,
+    "keywords_fully_kept_count": 332,
+    "keywords_partially_truncated_count": 1,
+    "keywords_fully_truncated_count": 0
+  },
+  "Query": {
+    "mean": 46.07070707070707,
+    "median": 42,
+    "p90": 63.2,
+    "max": 86,
+    "truncated_count": 0,
+    "truncated_rate": 0.0
+  }
+}

@@ -1,0 +1,274 @@
+{
+  "experiment_name": "midterm_c3_bm25_fusion_weight_ablation",
+  "configs": [
+    {
+      "key": "H5-W50",
+      "bm25_source": "H5",
+      "dense_weight": 0.5,
+      "bm25_weight": 0.5,
+      "zero_fallback": false
+    },
+    {
+      "key": "H5-W60",
+      "bm25_source": "H5",
+      "dense_weight": 0.6,
+      "bm25_weight": 0.4,
+      "zero_fallback": false
+    },
+    {
+      "key": "H5-W70",
+      "bm25_source": "H5",
+      "dense_weight": 0.7,
+      "bm25_weight": 0.3,
+      "zero_fallback": false
+    },
+    {
+      "key": "H5-W80",
+      "bm25_source": "H5",
+      "dense_weight": 0.8,
+      "bm25_weight": 0.2,
+      "zero_fallback": false
+    },
+    {
+      "key": "H5-W90",
+      "bm25_source": "H5",
+      "dense_weight": 0.9,
+      "bm25_weight": 0.1,
+      "zero_fallback": false
+    },
+    {
+      "key": "H5-W95",
+      "bm25_source": "H5",
+      "dense_weight": 0.95,
+      "bm25_weight": 0.05,
+      "zero_fallback": false
+    },
+    {
+      "key": "H5-W100",
+      "bm25_source": "H5",
+      "dense_weight": 1.0,
+      "bm25_weight": 0.0,
+      "zero_fallback": false
+    },
+    {
+      "key": "H1-W80",
+      "bm25_source": "H1",
+      "dense_weight": 0.8,
+      "bm25_weight": 0.2,
+      "zero_fallback": false
+    },
+    {
+      "key": "H1-W90",
+      "bm25_source": "H1",
+      "dense_weight": 0.9,
+      "bm25_weight": 0.1,
+      "zero_fallback": false
+    },
+    {
+      "key": "H1-W95",
+      "bm25_source": "H1",
+      "dense_weight": 0.95,
+      "bm25_weight": 0.05,
+      "zero_fallback": false
+    },
+    {
+      "key": "H5-W90-ZeroFallback",
+      "bm25_source": "H5",
+      "dense_weight": 0.9,
+      "bm25_weight": 0.1,
+      "zero_fallback": true
+    }
+  ],
+  "dense_backbone": "BAAI/bge-small-zh-v1.5",
+  "dense_query": "frozen P2 resolved query",
+  "dense_page": "frozen C3 Summary + Keywords",
+  "bm25_cache_source": "/home/peize/Code/htzq/mem0/exp/results/midterm_c3_bm25_input_idf_ablation/cache/bm25_rankings.jsonl",
+  "bm25_cache_sha256": "1b6aaa2dfee1a65b16e80fd8d2cd76a41fd77956fa7c27239a26062dd783627d",
+  "bm25_cache_rows_reused": {
+    "H1": 99,
+    "H5": 99
+  },
+  "bm25_inputs": {
+    "H1": "Original Query / Summary + Keywords / visible Pages / filter OFF",
+    "H5": "Original Query / Keywords Only / Dense Top60 Local-IDF / filter ON"
+  },
+  "fusion_formula": "dense_weight * dense_score + bm25_weight * normalized_bm25_score",
+  "normalization": "deterministically recomputed from cached raw scores with mem0.utils.scoring.get_bm25_params + normalize_bm25; Gold values validated against prior artifacts",
+  "zero_fallback_formula": "raw_bm25_score == 0 => dense_score; otherwise fixed weighted score",
+  "semantic_threshold": 0.1,
+  "session_count": 5,
+  "page_count": 333,
+  "query_count": 99,
+  "eligible_gold_count": 154,
+  "page_text_hash": "c1e43a5231838193fdba8f417cc12d80713126eb77031a13a9852f9f1082bd1b",
+  "p2_query_hash": "315e37f0b70e1a0cccdfad7b086ba256717befa4e9579d96d647e9dc742e5c2a",
+  "original_query_hash": "10ce9d33a3b6e0a8436bc19ce1b07a1b7fd90dd124c75700e818b87a45a7a351",
+  "H5_r5_monotonic_with_dense_weight": true,
+  "best_fixed_weight": {
+    "Config": "H5-W95",
+    "BM25 Source": "H5",
+    "Dense Weight": 0.95,
+    "BM25 Weight": 0.05,
+    "Zero Fallback": "OFF",
+    "R@5": 0.38311688311688313,
+    "Gold@5": 59,
+    "Macro R@5": 0.39801090382485727,
+    "R@10": 0.5454545454545454,
+    "R@20": 0.8181818181818182,
+    "MRR": 0.3222983077299225,
+    "Mean Gold Rank": 11.603896103896103,
+    "Delta vs Dense": 0.0,
+    "Promoted": 0,
+    "Demoted": 0,
+    "Net": 0,
+    "Rescued Query": 0,
+    "Hurt Query": 0,
+    "Dense Top5 Gold pulled in": 0,
+    "Dense Top5 Gold pushed out": 0
+  },
+  "best_hybrid": {
+    "Config": "H5-W95",
+    "BM25 Source": "H5",
+    "Dense Weight": 0.95,
+    "BM25 Weight": 0.05,
+    "Zero Fallback": "OFF",
+    "R@5": 0.38311688311688313,
+    "Gold@5": 59,
+    "Macro R@5": 0.39801090382485727,
+    "R@10": 0.5454545454545454,
+    "R@20": 0.8181818181818182,
+    "MRR": 0.3222983077299225,
+    "Mean Gold Rank": 11.603896103896103,
+    "Delta vs Dense": 0.0,
+    "Promoted": 0,
+    "Demoted": 0,
+    "Net": 0,
+    "Rescued Query": 0,
+    "Hurt Query": 0,
+    "Dense Top5 Gold pulled in": 0,
+    "Dense Top5 Gold pushed out": 0
+  },
+  "zero_fallback_vs_plain_W90": {
+    "Comparison": "H5-W90-ZeroFallback vs H5-W90",
+    "Promoted Gold": 6,
+    "Demoted Gold": 6,
+    "Net Gold gain": 0,
+    "Rescued Queries": 5,
+    "Hurt Queries": 5,
+    "Mean Gold rank improvement": -0.6948051948051948,
+    "Median Gold rank improvement": 0.0,
+    "Top5 rankings identical query count": 33,
+    "Top5 rankings identical all queries": false
+  },
+  "zero_fallback_diagnostics": {
+    "H5-W90 zero demoted": 3,
+    "fallback zero promoted": 3,
+    "fallback matched demoted": 6
+  },
+  "frozen_vector_cache_metadata": {
+    "Production": {
+      "metadata_path": "/home/peize/Code/htzq/mem0/exp/results/midterm_add_local_context_ablation/controls/cache/embeddings/BAAI_bge-small-zh-v1.5/no-user-Production-S001-S005-0229fd5bfd017507.json",
+      "model": "BAAI/bge-small-zh-v1.5",
+      "batch_name": "no-user-Production-S001-S005",
+      "content_hash": "0229fd5bfd01750723d348cba37d409fbeebc74168bb29021fdaff904d52d6bb",
+      "item_count": 333,
+      "dimension": 512,
+      "build_ms": 3215.80530600113,
+      "item_latency_ms": {},
+      "cache_hit": false
+    },
+    "PreviousAndFollowingContext": {
+      "metadata_path": "/home/peize/Code/htzq/mem0/exp/results/midterm_add_local_context_ablation/controls/cache/embeddings/BAAI_bge-small-zh-v1.5/no-user-PreviousAndFollowingContext-S001-S005-13fd58bbf11217a7.json",
+      "model": "BAAI/bge-small-zh-v1.5",
+      "batch_name": "no-user-PreviousAndFollowingContext-S001-S005",
+      "content_hash": "13fd58bbf11217a70e5c98e724780db94fd960d5600f6946024e3632b2c1a2d8",
+      "item_count": 333,
+      "dimension": 512,
+      "build_ms": 3502.114563998475,
+      "item_latency_ms": {},
+      "cache_hit": false
+    }
+  },
+  "new_llm_calls": 0,
+  "new_dense_embedding_count": 0,
+  "new_bm25_ranking_count": 0,
+  "summary_keywords_regeneration": false,
+  "full_session_rerun": false,
+  "production_scorer_modified": false,
+  "validation": {
+    "dense_59_of_154": {
+      "status": "PASS"
+    },
+    "H5_W50_51_of_154": {
+      "status": "PASS"
+    },
+    "H5_W100_equals_dense": {
+      "status": "PASS"
+    },
+    "H1_W50_cache_reproduction": {
+      "status": "PASS"
+    },
+    "cached_raw_and_normalized_scores": {
+      "status": "PASS"
+    },
+    "frozen_counts": {
+      "status": "PASS"
+    },
+    "page_hash": {
+      "status": "PASS",
+      "value": "c1e43a5231838193fdba8f417cc12d80713126eb77031a13a9852f9f1082bd1b"
+    },
+    "p2_query_hash": {
+      "status": "PASS",
+      "value": "315e37f0b70e1a0cccdfad7b086ba256717befa4e9579d96d647e9dc742e5c2a"
+    },
+    "original_query_hash": {
+      "status": "PASS",
+      "value": "10ce9d33a3b6e0a8436bc19ce1b07a1b7fd90dd124c75700e818b87a45a7a351"
+    },
+    "visibility_and_local_corpus": {
+      "status": "PASS"
+    },
+    "BM25_regeneration": {
+      "status": "PASS",
+      "value": 0
+    },
+    "new_dense_embeddings": {
+      "status": "PASS",
+      "value": 0
+    },
+    "new_llm_calls": {
+      "status": "PASS",
+      "value": 0
+    },
+    "summary_keywords_regeneration": {
+      "status": "PASS",
+      "value": false
+    },
+    "full_session_rerun": {
+      "status": "PASS",
+      "value": false
+    },
+    "production_scorer_modified": {
+      "status": "PASS",
+      "value": false
+    },
+    "fixed_weight_grid_only": {
+      "status": "PASS",
+      "value": [
+        "H5-W50",
+        "H5-W60",
+        "H5-W70",
+        "H5-W80",
+        "H5-W90",
+        "H5-W95",
+        "H5-W100",
+        "H1-W80",
+        "H1-W90",
+        "H1-W95",
+        "H5-W90-ZeroFallback"
+      ]
+    }
+  },
+  "validation_all_pass": true
+}

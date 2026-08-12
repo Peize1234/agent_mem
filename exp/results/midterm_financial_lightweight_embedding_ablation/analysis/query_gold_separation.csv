@@ -1,0 +1,5 @@
+﻿Add 方式,Formatter,Query count,Best Gold - strongest NonGold mean,Best Gold - strongest NonGold median,Positive separation rate,Model,Type
+最近上文 + eviction 时真实下文,Summary + Keywords,99,-0.037641054452067675,-0.03364408016204834,0.15151515151515152,BAAI/bge-small-zh-v1.5,基线
+最近上文 + eviction 时真实下文,Summary + Keywords,99,-0.04825018617239865,-0.04668605327606201,0.15151515151515152,qcsun/financial-embedding,金融
+最近上文 + eviction 时真实下文,Summary + Keywords,99,-0.04694132973449399,-0.04728689789772034,0.1111111111111111,BalyasnyAI/multilingual-e5-base,金融
+最近上文 + eviction 时真实下文,Summary + Keywords,99,-0.0417737349717304,-0.03370952606201172,0.0707070707070707,Alibaba-NLP/gte-multilingual-base,通用

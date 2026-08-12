@@ -1,0 +1,5 @@
+﻿Checkpoint,Comparison,Promoted Gold,Demoted Gold,Net Gold gain,Rescued Queries,Hurt Queries,Mean Gold rank improvement,Median Gold rank improvement,Top5 rankings identical query count,Top5 rankings identical all queries
+C0,C0 Hybrid vs Dense,11,22,-11,7,19,-0.37012987012987014,-1.0,3,False
+C1,C1 Hybrid vs Dense,11,23,-12,7,19,-0.43506493506493504,-1.0,3,False
+C2,C2 Hybrid vs Dense,9,21,-12,7,17,-0.6298701298701299,0.0,5,False
+C3,C3 Hybrid vs Dense,12,25,-13,8,23,-0.33766233766233766,-1.0,5,False

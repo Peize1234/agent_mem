@@ -1,0 +1,2 @@
+﻿Retrieval,Task Weight,Fact Weight,Relation Weight,Eligible Gold,Gold@5,Micro R@5,Macro R@5,R@10,R@20,MRR,Mean Gold Rank,Promoted vs C3,Demoted vs C3,Net vs C3,Rescued Query,Hurt Query
+Task / Fact / Relation Multi-vector,0.4,0.4,0.2,154,52,0.33766233766233766,0.34018868728171053,0.5584415584415584,0.7662337662337663,0.30967923089224775,12.331168831168831,14,21,-7,10,18

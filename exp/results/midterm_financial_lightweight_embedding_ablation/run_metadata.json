@@ -1,0 +1,447 @@
+{
+  "experiment_name": "midterm_financial_lightweight_embedding_ablation",
+  "session_count": 5,
+  "page_count": 333,
+  "evaluation_query_count": 99,
+  "eligible_gold_count": 154,
+  "add": "最近上文 + eviction 时真实下文",
+  "page_contract": "Summary + Keywords (without Raw User), plus only official model passage prefix when required",
+  "query_contract": "frozen P2 resolved query, plus only official model query prefix/method when required",
+  "raw_page_text_hash": "c1e43a5231838193fdba8f417cc12d80713126eb77031a13a9852f9f1082bd1b",
+  "raw_query_text_hash": "315e37f0b70e1a0cccdfad7b086ba256717befa4e9579d96d647e9dc742e5c2a",
+  "retrieval": "normalized dense cosine per Session",
+  "official_contracts": {
+    "financial": {
+      "key": "financial",
+      "model_id": "qcsun/financial-embedding",
+      "model_type": "金融",
+      "official_url": "https://huggingface.co/qcsun/financial-embedding",
+      "query_prefix": "",
+      "document_prefix": "",
+      "query_method": "SentenceTransformer.encode",
+      "document_method": "SentenceTransformer.encode",
+      "trust_remote_code": false,
+      "native_max_length": 8192,
+      "expected_dimension": 1024,
+      "cuda_dtype": "float16"
+    },
+    "balyasny": {
+      "key": "balyasny",
+      "model_id": "BalyasnyAI/multilingual-e5-base",
+      "model_type": "金融",
+      "official_url": "https://huggingface.co/BalyasnyAI/multilingual-e5-base",
+      "query_prefix": "query: ",
+      "document_prefix": "passage: ",
+      "query_method": "SentenceTransformer.encode with official query prefix",
+      "document_method": "SentenceTransformer.encode with official passage prefix",
+      "trust_remote_code": false,
+      "native_max_length": 512,
+      "expected_dimension": 768,
+      "cuda_dtype": "float16"
+    },
+    "gte": {
+      "key": "gte",
+      "model_id": "Alibaba-NLP/gte-multilingual-base",
+      "model_type": "通用",
+      "official_url": "https://huggingface.co/Alibaba-NLP/gte-multilingual-base",
+      "query_prefix": "",
+      "document_prefix": "",
+      "query_method": "SentenceTransformer.encode",
+      "document_method": "SentenceTransformer.encode",
+      "trust_remote_code": true,
+      "native_max_length": 8192,
+      "expected_dimension": 768,
+      "cuda_dtype": "float32"
+    },
+    "embeddinggemma": {
+      "key": "embeddinggemma",
+      "model_id": "google/embeddinggemma-300m",
+      "model_type": "通用",
+      "official_url": "https://huggingface.co/google/embeddinggemma-300m",
+      "query_prefix": "<model stored encode_query prompt>",
+      "document_prefix": "<model stored encode_document prompt>",
+      "query_method": "SentenceTransformer.encode_query",
+      "document_method": "SentenceTransformer.encode_document",
+      "trust_remote_code": false,
+      "native_max_length": 2048,
+      "expected_dimension": 768,
+      "cuda_dtype": "bfloat16"
+    }
+  },
+  "model_status": [
+    {
+      "model": "qcsun/financial-embedding",
+      "type": "金融",
+      "status": "COMPLETED",
+      "stage": "complete",
+      "official_contract": {
+        "key": "financial",
+        "model_id": "qcsun/financial-embedding",
+        "model_type": "金融",
+        "official_url": "https://huggingface.co/qcsun/financial-embedding",
+        "query_prefix": "",
+        "document_prefix": "",
+        "query_method": "SentenceTransformer.encode",
+        "document_method": "SentenceTransformer.encode",
+        "trust_remote_code": false,
+        "native_max_length": 8192,
+        "expected_dimension": 1024,
+        "cuda_dtype": "float16"
+      },
+      "tokenizer_audit_status": "PASS",
+      "tokenizer": {
+        "Model": "qcsun/financial-embedding",
+        "native_max_length": 8192,
+        "used_max_length": 1024,
+        "tokenizer_class": "XLMRobertaTokenizer",
+        "truncation_side": "right",
+        "padding_side": "right",
+        "Page": {
+          "mean": 377.2522522522523,
+          "median": 363,
+          "p90": 465.8,
+          "max": 524,
+          "truncated_count": 0,
+          "truncated_rate": 0.0,
+          "summary_truncated_count": 0,
+          "keywords_fully_kept_count": 333,
+          "keywords_partially_truncated_count": 0,
+          "keywords_fully_truncated_count": 0
+        },
+        "Query": {
+          "mean": 43.07070707070707,
+          "median": 39,
+          "p90": 60.2,
+          "max": 83,
+          "truncated_count": 0,
+          "truncated_rate": 0.0
+        }
+      },
+      "device": "cuda:0",
+      "used_max_length": 1024,
+      "dimension": 1024,
+      "page_embedding_count": 333,
+      "query_embedding_count": 99,
+      "cache_hit_artifact_count": 0,
+      "elapsed_seconds": 452.6288643809967
+    },
+    {
+      "model": "BalyasnyAI/multilingual-e5-base",
+      "type": "金融",
+      "status": "COMPLETED",
+      "stage": "complete",
+      "official_contract": {
+        "key": "balyasny",
+        "model_id": "BalyasnyAI/multilingual-e5-base",
+        "model_type": "金融",
+        "official_url": "https://huggingface.co/BalyasnyAI/multilingual-e5-base",
+        "query_prefix": "query: ",
+        "document_prefix": "passage: ",
+        "query_method": "SentenceTransformer.encode with official query prefix",
+        "document_method": "SentenceTransformer.encode with official passage prefix",
+        "trust_remote_code": false,
+        "native_max_length": 512,
+        "expected_dimension": 768,
+        "cuda_dtype": "float16"
+      },
+      "tokenizer_audit_status": "PASS",
+      "tokenizer": {
+        "Model": "BalyasnyAI/multilingual-e5-base",
+        "native_max_length": 512,
+        "used_max_length": 512,
+        "tokenizer_class": "XLMRobertaTokenizer",
+        "truncation_side": "right",
+        "padding_side": "right",
+        "Page": {
+          "mean": 371.7117117117117,
+          "median": 360,
+          "p90": 462.6,
+          "max": 517,
+          "truncated_count": 1,
+          "truncated_rate": 0.003003003003003003,
+          "summary_truncated_count": 0,
+          "keywords_fully_kept_count": 332,
+          "keywords_partially_truncated_count": 1,
+          "keywords_fully_truncated_count": 0
+        },
+        "Query": {
+          "mean": 46.07070707070707,
+          "median": 42,
+          "p90": 63.2,
+          "max": 86,
+          "truncated_count": 0,
+          "truncated_rate": 0.0
+        }
+      },
+      "device": "cuda:0",
+      "used_max_length": 512,
+      "dimension": 768,
+      "page_embedding_count": 333,
+      "query_embedding_count": 99,
+      "cache_hit_artifact_count": 0,
+      "elapsed_seconds": 187.08885159999772
+    },
+    {
+      "model": "Alibaba-NLP/gte-multilingual-base",
+      "type": "通用",
+      "status": "COMPLETED",
+      "stage": "complete",
+      "official_contract": {
+        "key": "gte",
+        "model_id": "Alibaba-NLP/gte-multilingual-base",
+        "model_type": "通用",
+        "official_url": "https://huggingface.co/Alibaba-NLP/gte-multilingual-base",
+        "query_prefix": "",
+        "document_prefix": "",
+        "query_method": "SentenceTransformer.encode",
+        "document_method": "SentenceTransformer.encode",
+        "trust_remote_code": true,
+        "native_max_length": 8192,
+        "expected_dimension": 768,
+        "cuda_dtype": "float32"
+      },
+      "tokenizer_audit_status": "PASS",
+      "tokenizer": {
+        "Model": "Alibaba-NLP/gte-multilingual-base",
+        "native_max_length": 8192,
+        "used_max_length": 1024,
+        "tokenizer_class": "XLMRobertaTokenizer",
+        "truncation_side": "right",
+        "padding_side": "right",
+        "Page": {
+          "mean": 369.7117117117117,
+          "median": 358,
+          "p90": 460.6,
+          "max": 515,
+          "truncated_count": 0,
+          "truncated_rate": 0.0,
+          "summary_truncated_count": 0,
+          "keywords_fully_kept_count": 333,
+          "keywords_partially_truncated_count": 0,
+          "keywords_fully_truncated_count": 0
+        },
+        "Query": {
+          "mean": 43.07070707070707,
+          "median": 39,
+          "p90": 60.2,
+          "max": 83,
+          "truncated_count": 0,
+          "truncated_rate": 0.0
+        }
+      },
+      "device": "cuda:0",
+      "runtime_compatibility_fix": {
+        "applied": true,
+        "reason": "transformers 5.13 meta-device loading left the official remote-code non-persistent RoPE and position_ids buffers uninitialized",
+        "operation": "re-run upstream _init_rope(config) and recreate torch.arange(max_position_embeddings)",
+        "official_embedding_contract_changed": false
+      },
+      "used_max_length": 1024,
+      "dimension": 768,
+      "page_embedding_count": 333,
+      "query_embedding_count": 99,
+      "cache_hit_artifact_count": 0,
+      "elapsed_seconds": 47.34699004900176
+    },
+    {
+      "model": "google/embeddinggemma-300m",
+      "type": "通用",
+      "status": "BLOCKED_GATED_REPOSITORY",
+      "stage": "tokenizer_load",
+      "official_contract": {
+        "key": "embeddinggemma",
+        "model_id": "google/embeddinggemma-300m",
+        "model_type": "通用",
+        "official_url": "https://huggingface.co/google/embeddinggemma-300m",
+        "query_prefix": "<model stored encode_query prompt>",
+        "document_prefix": "<model stored encode_document prompt>",
+        "query_method": "SentenceTransformer.encode_query",
+        "document_method": "SentenceTransformer.encode_document",
+        "trust_remote_code": false,
+        "native_max_length": 2048,
+        "expected_dimension": 768,
+        "cuda_dtype": "bfloat16"
+      },
+      "exception_type": "OSError",
+      "reason": "You are trying to access a gated repo.\nMake sure to have access to it at https://huggingface.co/google/embeddinggemma-300m.\n401 Client Error. (Request ID: Root=1-6a7a961a-7667426e451438f85bfa1528;b44ceae2-d81a-4a31-8e28-1e5e11d0a509)\n\nCannot access gated repo for url https://huggingface.co/google/embeddinggemma-300m/resolve/main/config.json.\nAccess to model google/embeddinggemma-300m is restricted. You must have access to it and be authenticated to access it. Please log in.",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/huggingface_hub/utils/_http.py\", line 795, in hf_raise_for_status\n    response.raise_for_status()\n  File \"/home/peize/.local/lib/python3.10/site-packages/httpx/_models.py\", line 829, in raise_for_status\n    raise HTTPStatusError(message, request=request, response=self)\nhttpx.HTTPStatusError: Client error '401 Unauthorized' for url 'https://huggingface.co/google/embeddinggemma-300m/resolve/main/config.json'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/transformers/utils/hub.py\", line 437, in cached_files\n    hf_hub_download(\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/huggingface_hub/utils/_validators.py\", line 88, in _inner_fn\n    return fn(*args, **kwargs)\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/huggingface_hub/file_download.py\", line 1018, in hf_hub_download\n    return _hf_hub_download_to_cache_dir(\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/huggingface_hub/file_download.py\", line 1170, in _hf_hub_download_to_cache_dir\n    _raise_on_head_call_error(head_call_error, force_download, local_files_only)\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/huggingface_hub/file_download.py\", line 1869, in _raise_on_head_call_error\n    raise head_call_error\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/huggingface_hub/file_download.py\", line 1712, in _get_metadata_or_catch_error\n    metadata = get_hf_file_metadata(\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/huggingface_hub/utils/_validators.py\", line 88, in _inner_fn\n    return fn(*args, **kwargs)\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/huggingface_hub/file_download.py\", line 1620, in get_hf_file_metadata\n    response = _httpx_follow_relative_redirects_with_backoff(\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/huggingface_hub/utils/_http.py\", line 726, in _httpx_follow_relative_redirects_with_backoff\n    hf_raise_for_status(response)\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/huggingface_hub/utils/_http.py\", line 821, in hf_raise_for_status\n    raise _format(GatedRepoError, message, response, repo_type=repo_type, repo_id=repo_id) from e\nhuggingface_hub.errors.GatedRepoError: 401 Client Error. (Request ID: Root=1-6a7a961a-304ae3340b7084c56d2d676f;8bfcb970-00b1-4eb1-bdeb-e551fcbcc58e)\n\nCannot access gated repo for url https://huggingface.co/google/embeddinggemma-300m/resolve/main/config.json.\nAccess to model google/embeddinggemma-300m is restricted. You must have access to it and be authenticated to access it. Please log in.\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/transformers/models/auto/tokenization_auto.py\", line 746, in from_pretrained\n    config = AutoConfig.from_pretrained(\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/transformers/models/auto/configuration_auto.py\", line 376, in from_pretrained\n    config_dict, unused_kwargs = PreTrainedConfig.get_config_dict(pretrained_model_name_or_path, **kwargs)\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/transformers/configuration_utils.py\", line 705, in get_config_dict\n    config_dict, kwargs = cls._get_config_dict(pretrained_model_name_or_path, **kwargs)\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/transformers/configuration_utils.py\", line 760, in _get_config_dict\n    resolved_config_file = cached_file(\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/transformers/utils/hub.py\", line 293, in cached_file\n    file = cached_files(path_or_repo_id=path_or_repo_id, filenames=[filename], **kwargs)\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/transformers/utils/hub.py\", line 503, in cached_files\n    raise OSError(\nOSError: You are trying to access a gated repo.\nMake sure to have access to it at https://huggingface.co/google/embeddinggemma-300m.\n401 Client Error. (Request ID: Root=1-6a7a961a-304ae3340b7084c56d2d676f;8bfcb970-00b1-4eb1-bdeb-e551fcbcc58e)\n\nCannot access gated repo for url https://huggingface.co/google/embeddinggemma-300m/resolve/main/config.json.\nAccess to model google/embeddinggemma-300m is restricted. You must have access to it and be authenticated to access it. Please log in.\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/huggingface_hub/utils/_http.py\", line 795, in hf_raise_for_status\n    response.raise_for_status()\n  File \"/home/peize/.local/lib/python3.10/site-packages/httpx/_models.py\", line 829, in raise_for_status\n    raise HTTPStatusError(message, request=request, response=self)\nhttpx.HTTPStatusError: Client error '401 Unauthorized' for url 'https://huggingface.co/google/embeddinggemma-300m/resolve/main/config.json'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/transformers/utils/hub.py\", line 437, in cached_files\n    hf_hub_download(\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/huggingface_hub/utils/_validators.py\", line 88, in _inner_fn\n    return fn(*args, **kwargs)\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/huggingface_hub/file_download.py\", line 1018, in hf_hub_download\n    return _hf_hub_download_to_cache_dir(\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/huggingface_hub/file_download.py\", line 1170, in _hf_hub_download_to_cache_dir\n    _raise_on_head_call_error(head_call_error, force_download, local_files_only)\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/huggingface_hub/file_download.py\", line 1869, in _raise_on_head_call_error\n    raise head_call_error\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/huggingface_hub/file_download.py\", line 1712, in _get_metadata_or_catch_error\n    metadata = get_hf_file_metadata(\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/huggingface_hub/utils/_validators.py\", line 88, in _inner_fn\n    return fn(*args, **kwargs)\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/huggingface_hub/file_download.py\", line 1620, in get_hf_file_metadata\n    response = _httpx_follow_relative_redirects_with_backoff(\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/huggingface_hub/utils/_http.py\", line 726, in _httpx_follow_relative_redirects_with_backoff\n    hf_raise_for_status(response)\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/huggingface_hub/utils/_http.py\", line 821, in hf_raise_for_status\n    raise _format(GatedRepoError, message, response, repo_type=repo_type, repo_id=repo_id) from e\nhuggingface_hub.errors.GatedRepoError: 401 Client Error. (Request ID: Root=1-6a7a961a-7667426e451438f85bfa1528;b44ceae2-d81a-4a31-8e28-1e5e11d0a509)\n\nCannot access gated repo for url https://huggingface.co/google/embeddinggemma-300m/resolve/main/config.json.\nAccess to model google/embeddinggemma-300m is restricted. You must have access to it and be authenticated to access it. Please log in.\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/home/peize/Code/htzq/mem0/exp/benchmark/run_midterm_financial_lightweight_embedding_ablation.py\", line 372, in run_worker\n    tokenizer = AutoTokenizer.from_pretrained(spec.model_id, trust_remote_code=spec.trust_remote_code)\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/transformers/models/auto/tokenization_auto.py\", line 750, in from_pretrained\n    config = PreTrainedConfig.from_pretrained(pretrained_model_name_or_path, **kwargs)\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/transformers/configuration_utils.py\", line 664, in from_pretrained\n    config_dict, kwargs = cls.get_config_dict(pretrained_model_name_or_path, **kwargs)\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/transformers/configuration_utils.py\", line 705, in get_config_dict\n    config_dict, kwargs = cls._get_config_dict(pretrained_model_name_or_path, **kwargs)\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/transformers/configuration_utils.py\", line 760, in _get_config_dict\n    resolved_config_file = cached_file(\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/transformers/utils/hub.py\", line 293, in cached_file\n    file = cached_files(path_or_repo_id=path_or_repo_id, filenames=[filename], **kwargs)\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/transformers/utils/hub.py\", line 503, in cached_files\n    raise OSError(\nOSError: You are trying to access a gated repo.\nMake sure to have access to it at https://huggingface.co/google/embeddinggemma-300m.\n401 Client Error. (Request ID: Root=1-6a7a961a-7667426e451438f85bfa1528;b44ceae2-d81a-4a31-8e28-1e5e11d0a509)\n\nCannot access gated repo for url https://huggingface.co/google/embeddinggemma-300m/resolve/main/config.json.\nAccess to model google/embeddinggemma-300m is restricted. You must have access to it and be authenticated to access it. Please log in.\n",
+      "elapsed_seconds": 1.4608845050024684,
+      "tokenizer_audit_status": "NOT_POSSIBLE_GATED_REPOSITORY"
+    }
+  ],
+  "runtime_versions": {
+    "python": "3.10.20 (main, Jun 11 2026, 15:17:37) [GCC 14.3.0]",
+    "torch": "2.12.1+cu130",
+    "transformers": "5.13.0",
+    "sentence_transformers": "5.6.0"
+  },
+  "baseline_embedding_metadata": {
+    "model": "BAAI/bge-small-zh-v1.5",
+    "batch_name": "no-user-PreviousAndFollowingContext-S001-S005",
+    "content_hash": "13fd58bbf11217a70e5c98e724780db94fd960d5600f6946024e3632b2c1a2d8",
+    "item_count": 333,
+    "dimension": 512,
+    "build_ms": 3502.114563998475,
+    "item_latency_ms": {},
+    "cache_hit": true
+  },
+  "tokenizer_audits": [
+    {
+      "Model": "BAAI/bge-small-zh-v1.5",
+      "native_max_length": 512,
+      "used_max_length": 512,
+      "tokenizer_class": "BertTokenizer",
+      "truncation_side": "right",
+      "padding_side": "right",
+      "Page": {
+        "mean": 499.9159159159159,
+        "median": 480,
+        "p90": 624.4000000000001,
+        "max": 695,
+        "truncated_count": 138,
+        "truncated_rate": 0.4144144144144144,
+        "summary_truncated_count": 97,
+        "keywords_fully_kept_count": 195,
+        "keywords_partially_truncated_count": 40,
+        "keywords_fully_truncated_count": 98
+      },
+      "Query": {
+        "mean": 61.44444444444444,
+        "median": 55,
+        "p90": 85.00000000000001,
+        "max": 115,
+        "truncated_count": 0,
+        "truncated_rate": 0.0
+      }
+    },
+    {
+      "Model": "qcsun/financial-embedding",
+      "native_max_length": 8192,
+      "used_max_length": 1024,
+      "tokenizer_class": "XLMRobertaTokenizer",
+      "truncation_side": "right",
+      "padding_side": "right",
+      "Page": {
+        "mean": 377.2522522522523,
+        "median": 363,
+        "p90": 465.8,
+        "max": 524,
+        "truncated_count": 0,
+        "truncated_rate": 0.0,
+        "summary_truncated_count": 0,
+        "keywords_fully_kept_count": 333,
+        "keywords_partially_truncated_count": 0,
+        "keywords_fully_truncated_count": 0
+      },
+      "Query": {
+        "mean": 43.07070707070707,
+        "median": 39,
+        "p90": 60.2,
+        "max": 83,
+        "truncated_count": 0,
+        "truncated_rate": 0.0
+      }
+    },
+    {
+      "Model": "BalyasnyAI/multilingual-e5-base",
+      "native_max_length": 512,
+      "used_max_length": 512,
+      "tokenizer_class": "XLMRobertaTokenizer",
+      "truncation_side": "right",
+      "padding_side": "right",
+      "Page": {
+        "mean": 371.7117117117117,
+        "median": 360,
+        "p90": 462.6,
+        "max": 517,
+        "truncated_count": 1,
+        "truncated_rate": 0.003003003003003003,
+        "summary_truncated_count": 0,
+        "keywords_fully_kept_count": 332,
+        "keywords_partially_truncated_count": 1,
+        "keywords_fully_truncated_count": 0
+      },
+      "Query": {
+        "mean": 46.07070707070707,
+        "median": 42,
+        "p90": 63.2,
+        "max": 86,
+        "truncated_count": 0,
+        "truncated_rate": 0.0
+      }
+    },
+    {
+      "Model": "Alibaba-NLP/gte-multilingual-base",
+      "native_max_length": 8192,
+      "used_max_length": 1024,
+      "tokenizer_class": "XLMRobertaTokenizer",
+      "truncation_side": "right",
+      "padding_side": "right",
+      "Page": {
+        "mean": 369.7117117117117,
+        "median": 358,
+        "p90": 460.6,
+        "max": 515,
+        "truncated_count": 0,
+        "truncated_rate": 0.0,
+        "summary_truncated_count": 0,
+        "keywords_fully_kept_count": 333,
+        "keywords_partially_truncated_count": 0,
+        "keywords_fully_truncated_count": 0
+      },
+      "Query": {
+        "mean": 43.07070707070707,
+        "median": 39,
+        "p90": 60.2,
+        "max": 83,
+        "truncated_count": 0,
+        "truncated_rate": 0.0
+      }
+    }
+  ],
+  "new_llm_calls": 0,
+  "summary_regeneration": false,
+  "full_session_rerun": false,
+  "validation": {
+    "baseline_59_of_154": {
+      "status": "PASS",
+      "value": 0.38311688311688313
+    },
+    "frozen_counts": {
+      "status": "PASS"
+    },
+    "frozen_text_hashes": {
+      "status": "PASS",
+      "Page": "c1e43a5231838193fdba8f417cc12d80713126eb77031a13a9852f9f1082bd1b",
+      "P2 Query": "315e37f0b70e1a0cccdfad7b086ba256717befa4e9579d96d647e9dc742e5c2a"
+    },
+    "page_identity": {
+      "status": "PASS"
+    },
+    "visibility_and_future_leakage": {
+      "status": "PASS"
+    },
+    "completed_long_models_zero_truncation": {
+      "status": "PASS"
+    },
+    "completed_model_tokenizer_audits": {
+      "status": "PASS"
+    },
+    "all_requested_model_outcomes_recorded": {
+      "status": "PASS"
+    },
+    "no_new_llm_calls": {
+      "status": "PASS",
+      "value": 0
+    },
+    "no_summary_regeneration": {
+      "status": "PASS"
+    },
+    "full_session_rerun": {
+      "status": "PASS",
+      "value": false
+    }
+  },
+  "validation_all_pass_for_completed_models": true,
+  "all_requested_models_completed": false
+}

@@ -1,0 +1,28 @@
+{
+  "Model": "Alibaba-NLP/gte-multilingual-base",
+  "native_max_length": 8192,
+  "used_max_length": 1024,
+  "tokenizer_class": "XLMRobertaTokenizer",
+  "truncation_side": "right",
+  "padding_side": "right",
+  "Page": {
+    "mean": 369.7117117117117,
+    "median": 358,
+    "p90": 460.6,
+    "max": 515,
+    "truncated_count": 0,
+    "truncated_rate": 0.0,
+    "summary_truncated_count": 0,
+    "keywords_fully_kept_count": 333,
+    "keywords_partially_truncated_count": 0,
+    "keywords_fully_truncated_count": 0
+  },
+  "Query": {
+    "mean": 43.07070707070707,
+    "median": 39,
+    "p90": 60.2,
+    "max": 83,
+    "truncated_count": 0,
+    "truncated_rate": 0.0
+  }
+}

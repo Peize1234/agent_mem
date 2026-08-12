@@ -1,0 +1,56 @@
+{
+  "model": "qcsun/financial-embedding",
+  "type": "金融",
+  "status": "COMPLETED",
+  "stage": "complete",
+  "official_contract": {
+    "key": "financial",
+    "model_id": "qcsun/financial-embedding",
+    "model_type": "金融",
+    "official_url": "https://huggingface.co/qcsun/financial-embedding",
+    "query_prefix": "",
+    "document_prefix": "",
+    "query_method": "SentenceTransformer.encode",
+    "document_method": "SentenceTransformer.encode",
+    "trust_remote_code": false,
+    "native_max_length": 8192,
+    "expected_dimension": 1024,
+    "cuda_dtype": "float16"
+  },
+  "tokenizer_audit_status": "PASS",
+  "tokenizer": {
+    "Model": "qcsun/financial-embedding",
+    "native_max_length": 8192,
+    "used_max_length": 1024,
+    "tokenizer_class": "XLMRobertaTokenizer",
+    "truncation_side": "right",
+    "padding_side": "right",
+    "Page": {
+      "mean": 377.2522522522523,
+      "median": 363,
+      "p90": 465.8,
+      "max": 524,
+      "truncated_count": 0,
+      "truncated_rate": 0.0,
+      "summary_truncated_count": 0,
+      "keywords_fully_kept_count": 333,
+      "keywords_partially_truncated_count": 0,
+      "keywords_fully_truncated_count": 0
+    },
+    "Query": {
+      "mean": 43.07070707070707,
+      "median": 39,
+      "p90": 60.2,
+      "max": 83,
+      "truncated_count": 0,
+      "truncated_rate": 0.0
+    }
+  },
+  "device": "cuda:0",
+  "used_max_length": 1024,
+  "dimension": 1024,
+  "page_embedding_count": 333,
+  "query_embedding_count": 99,
+  "cache_hit_artifact_count": 0,
+  "elapsed_seconds": 452.6288643809967
+}

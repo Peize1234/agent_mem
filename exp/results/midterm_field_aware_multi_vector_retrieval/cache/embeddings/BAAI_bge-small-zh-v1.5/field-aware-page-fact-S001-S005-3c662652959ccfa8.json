@@ -1,0 +1,10 @@
+{
+  "model": "BAAI/bge-small-zh-v1.5",
+  "batch_name": "field-aware-page-fact-S001-S005",
+  "content_hash": "3c662652959ccfa8e1c952a0a79f1ab1328dcaa229fb657e8db857407a56a13e",
+  "item_count": 333,
+  "dimension": 512,
+  "build_ms": 2104.6396660094615,
+  "item_latency_ms": {},
+  "cache_hit": false
+}

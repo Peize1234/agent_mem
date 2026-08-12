@@ -1,0 +1,5 @@
+﻿Model,Type,Characterization,Micro R@5 delta,R@10 delta,R@20 delta,MRR delta
+BAAI/bge-small-zh-v1.5,基线,当前基线,0.0,0.0,0.0,0.0
+qcsun/financial-embedding,金融,Top5 与宽召回整体退化,-0.038961038961038974,-0.01948051948051943,-0.051948051948051965,-0.007489016040443164
+BalyasnyAI/multilingual-e5-base,金融,仅 R@20 宽召回增强，Top5 前排区分能力下降,-0.025974025974025983,0.0,0.02597402597402587,-0.020011640735517033
+Alibaba-NLP/gte-multilingual-base,通用,宽召回增强但 Top5 前排区分能力下降,-0.05844155844155846,0.051948051948051965,-0.006493506493506551,-0.06350421545938073

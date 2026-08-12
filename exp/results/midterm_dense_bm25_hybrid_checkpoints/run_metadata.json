@@ -1,0 +1,200 @@
+{
+  "experiment_name": "midterm_dense_bm25_hybrid_checkpoints",
+  "checkpoint_specs": [
+    {
+      "key": "C0",
+      "label": "C0 — Original Query + Production Summary + Keywords + User",
+      "query_variant": "Search-Baseline",
+      "page_variant": "ProductionFull",
+      "expected_dense_r5": 0.3246753246753247,
+      "expected_dense_gold5": 50
+    },
+    {
+      "key": "C1",
+      "label": "C1 — P2 Query + Production Summary + Keywords + User",
+      "query_variant": "Search-P2",
+      "page_variant": "ProductionFull",
+      "expected_dense_r5": 0.35064935064935066,
+      "expected_dense_gold5": 54
+    },
+    {
+      "key": "C2",
+      "label": "C2 — P2 Query + Production Summary + Keywords",
+      "query_variant": "Search-P2",
+      "page_variant": "ProductionNoUser",
+      "expected_dense_r5": 0.35714285714285715,
+      "expected_dense_gold5": 55
+    },
+    {
+      "key": "C3",
+      "label": "C3 — P2 Query + 最近上文及 eviction 下文 Summary + Keywords",
+      "query_variant": "Search-P2",
+      "page_variant": "ContextNoUser",
+      "expected_dense_r5": 0.38311688311688313,
+      "expected_dense_gold5": 59
+    }
+  ],
+  "session_count": 5,
+  "page_count": 333,
+  "evaluation_query_count": 99,
+  "eligible_gold_count": 154,
+  "dense_backbone": "BAAI/bge-small-zh-v1.5",
+  "bm25_language": "zh",
+  "page_and_query_contracts": {
+    "C0": {
+      "query_text_hash": "083693b2302d81deba5eb1388995feb62f89c47ba7c52ca3d0501d5c50b0d2ed",
+      "page_text_hash": "f8f582ee891d3b3789d5570693ddf9dc407675923357671e529d689bf5dab9f0",
+      "query_variant": "Search-Baseline",
+      "page_variant": "ProductionFull"
+    },
+    "C1": {
+      "query_text_hash": "52795d86c28aecd86021e64baa1fd87db4ba16892b917ff0440e5a270a8a6921",
+      "page_text_hash": "f8f582ee891d3b3789d5570693ddf9dc407675923357671e529d689bf5dab9f0",
+      "query_variant": "Search-P2",
+      "page_variant": "ProductionFull"
+    },
+    "C2": {
+      "query_text_hash": "52795d86c28aecd86021e64baa1fd87db4ba16892b917ff0440e5a270a8a6921",
+      "page_text_hash": "8ea3255eeb101909830dced765c25254f8a9a74cfd0335ed3abd034275ec5a09",
+      "query_variant": "Search-P2",
+      "page_variant": "ProductionNoUser"
+    },
+    "C3": {
+      "query_text_hash": "52795d86c28aecd86021e64baa1fd87db4ba16892b917ff0440e5a270a8a6921",
+      "page_text_hash": "98c524d500102d64f68799a5b024d0651d3557371abab60508cd00f690df056d",
+      "query_variant": "Search-P2",
+      "page_variant": "ContextNoUser"
+    }
+  },
+  "production_hybrid_contract": {
+    "query_preprocessing": "lemmatize_for_bm25(query, language='zh')",
+    "document_preprocessing": "lemmatize_for_bm25(page_text, language='zh')",
+    "encoder": "ChineseBM25SparseEncoder via Qdrant(bm25_language='zh')",
+    "qdrant_sparse_modifier": "Modifier.IDF",
+    "bm25_normalization": "get_bm25_params + normalize_bm25",
+    "fusion": "score_and_rank; semantic + normalized BM25; entity_boosts={}",
+    "threshold": 0.1,
+    "overfetch": "max(limit * 4, 60)",
+    "top5_internal_limit": 60,
+    "top10_internal_limit": 60,
+    "top20_internal_limit": 80,
+    "weight_scan": false,
+    "bm25_only_evaluation": false,
+    "entity_boost": false,
+    "reranker": false
+  },
+  "idf_visibility_contract": "one temporary Qdrant sparse collection per checkpoint/query, containing exactly visible_page_ids",
+  "component_paths": {
+    "qdrant": "/home/peize/Code/htzq/mem0/mem0/vector_stores/qdrant.py",
+    "bm25_sparse": "/home/peize/Code/htzq/mem0/mem0/utils/bm25_sparse.py",
+    "lemmatization": "/home/peize/Code/htzq/mem0/mem0/utils/lemmatization.py",
+    "scoring": "/home/peize/Code/htzq/mem0/mem0/utils/scoring.py",
+    "finance_dictionary": "/home/peize/Code/htzq/mem0/mem0/configs/finance_bm25_dict.txt"
+  },
+  "component_sha256": {
+    "qdrant": "b2d717ae3c86d009198b15b3b880399109cceba8dd0e6c762f049e537ef69e32",
+    "bm25_sparse": "f51d05678625f600ffd22e75d24e5fcf5e5c26b75b78cc337d2251f6497fccf5",
+    "lemmatization": "df91e2425f184b837ad626b7703e0f2f605d58fcb4388fc5372b7da611c18b93",
+    "scoring": "9a4313fda723ad05cb52278e9ef0b9b5792b71fb3b41ba6318410121022e4527",
+    "finance_dictionary": "fb40d9a0b28d9e85458febdfe1a00acafbb468fa7d28744d99ececbed61658c9"
+  },
+  "runtime_versions": {
+    "qdrant-client": "1.18.0",
+    "jieba": "0.42.1",
+    "mmh3": "5.2.1"
+  },
+  "frozen_vector_cache_metadata": {
+    "Production": {
+      "metadata_path": "/home/peize/Code/htzq/mem0/exp/results/midterm_add_local_context_ablation/controls/cache/embeddings/BAAI_bge-small-zh-v1.5/no-user-Production-S001-S005-0229fd5bfd017507.json",
+      "model": "BAAI/bge-small-zh-v1.5",
+      "batch_name": "no-user-Production-S001-S005",
+      "content_hash": "0229fd5bfd01750723d348cba37d409fbeebc74168bb29021fdaff904d52d6bb",
+      "item_count": 333,
+      "dimension": 512,
+      "build_ms": 3215.80530600113,
+      "item_latency_ms": {},
+      "cache_hit": false
+    },
+    "PreviousAndFollowingContext": {
+      "metadata_path": "/home/peize/Code/htzq/mem0/exp/results/midterm_add_local_context_ablation/controls/cache/embeddings/BAAI_bge-small-zh-v1.5/no-user-PreviousAndFollowingContext-S001-S005-13fd58bbf11217a7.json",
+      "model": "BAAI/bge-small-zh-v1.5",
+      "batch_name": "no-user-PreviousAndFollowingContext-S001-S005",
+      "content_hash": "13fd58bbf11217a70e5c98e724780db94fd960d5600f6946024e3632b2c1a2d8",
+      "item_count": 333,
+      "dimension": 512,
+      "build_ms": 3502.114563998475,
+      "item_latency_ms": {},
+      "cache_hit": false
+    }
+  },
+  "bm25_cache": {
+    "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_dense_bm25_hybrid_checkpoints/cache/visible_scope_bm25.jsonl",
+    "cache_hits_this_run": 396,
+    "new_visible_scope_indexes_this_run": 0
+  },
+  "new_dense_embedding_count": 0,
+  "new_llm_calls": 0,
+  "summary_regeneration": false,
+  "full_session_rerun": false,
+  "validation": {
+    "dense_C0_32.47": {
+      "status": "PASS"
+    },
+    "dense_C1_35.06": {
+      "status": "PASS"
+    },
+    "dense_C2_35.71": {
+      "status": "PASS"
+    },
+    "dense_C3_59_of_154": {
+      "status": "PASS"
+    },
+    "frozen_counts": {
+      "status": "PASS"
+    },
+    "page_identity": {
+      "status": "PASS"
+    },
+    "visible_page_ids": {
+      "status": "PASS"
+    },
+    "future_leakage": {
+      "status": "PASS"
+    },
+    "C3_page_hash": {
+      "status": "PASS",
+      "value": "c1e43a5231838193fdba8f417cc12d80713126eb77031a13a9852f9f1082bd1b"
+    },
+    "P2_query_hash": {
+      "status": "PASS",
+      "value": "315e37f0b70e1a0cccdfad7b086ba256717befa4e9579d96d647e9dc742e5c2a"
+    },
+    "production_components": {
+      "status": "PASS",
+      "modules": [
+        "mem0.vector_stores.qdrant.Qdrant",
+        "mem0.utils.lemmatization.lemmatize_for_bm25",
+        "mem0.utils.scoring.get_bm25_params",
+        "mem0.utils.scoring.normalize_bm25",
+        "mem0.utils.scoring.score_and_rank"
+      ]
+    },
+    "no_new_dense_embeddings": {
+      "status": "PASS",
+      "value": 0
+    },
+    "new_llm_calls": {
+      "status": "PASS",
+      "value": 0
+    },
+    "summary_regeneration": {
+      "status": "PASS",
+      "value": false
+    },
+    "full_session_rerun": {
+      "status": "PASS",
+      "value": false
+    }
+  },
+  "validation_all_pass": true
+}
