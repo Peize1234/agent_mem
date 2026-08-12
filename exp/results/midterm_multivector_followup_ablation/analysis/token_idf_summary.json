@@ -1,0 +1,164 @@
+{
+  "query_token_row_count": 4165,
+  "filtered_token_row_count": 1504,
+  "query_with_at_least_one_filtered_token_count": 99,
+  "filter_reason_counts": {
+    "WHITESPACE_OR_EMPTY": 90,
+    "KEPT": 2661,
+    "PUNCTUATION": 487,
+    "DF_RATIO_GE_0.8": 828,
+    "SPECIAL_TOKEN": 99
+  },
+  "high_df_filtered_token_occurrences_top30": [
+    {
+      "token": "归",
+      "decoded": "归",
+      "occurrences": 58
+    },
+    {
+      "token": "母",
+      "decoded": "母",
+      "occurrences": 58
+    },
+    {
+      "token": "的",
+      "decoded": "的",
+      "occurrences": 50
+    },
+    {
+      "token": "结论",
+      "decoded": "结论",
+      "occurrences": 41
+    },
+    {
+      "token": "年",
+      "decoded": "年",
+      "occurrences": 38
+    },
+    {
+      "token": "净利润",
+      "decoded": "净利润",
+      "occurrences": 35
+    },
+    {
+      "token": "连续",
+      "decoded": "连续",
+      "occurrences": 29
+    },
+    {
+      "token": "和",
+      "decoded": "和",
+      "occurrences": 24
+    },
+    {
+      "token": "先",
+      "decoded": "先",
+      "occurrences": 23
+    },
+    {
+      "token": "三年",
+      "decoded": "三年",
+      "occurrences": 22
+    },
+    {
+      "token": "经营",
+      "decoded": "经营",
+      "occurrences": 19
+    },
+    {
+      "token": "后",
+      "decoded": "后",
+      "occurrences": 19
+    },
+    {
+      "token": "资产",
+      "decoded": "资产",
+      "occurrences": 19
+    },
+    {
+      "token": "降",
+      "decoded": "降",
+      "occurrences": 16
+    },
+    {
+      "token": "升",
+      "decoded": "升",
+      "occurrences": 14
+    },
+    {
+      "token": "上升",
+      "decoded": "上升",
+      "occurrences": 14
+    },
+    {
+      "token": "收入",
+      "decoded": "收入",
+      "occurrences": 13
+    },
+    {
+      "token": "总",
+      "decoded": "总",
+      "occurrences": 13
+    },
+    {
+      "token": "来源",
+      "decoded": "来源",
+      "occurrences": 13
+    },
+    {
+      "token": "披露",
+      "decoded": "披露",
+      "occurrences": 13
+    },
+    {
+      "token": "营业",
+      "decoded": "营业",
+      "occurrences": 12
+    },
+    {
+      "token": "20",
+      "decoded": "20",
+      "occurrences": 12
+    },
+    {
+      "token": "分",
+      "decoded": "分",
+      "occurrences": 12
+    },
+    {
+      "token": "2025",
+      "decoded": "2025",
+      "occurrences": 11
+    },
+    {
+      "token": "确认",
+      "decoded": "确认",
+      "occurrences": 11
+    },
+    {
+      "token": "或",
+      "decoded": "或",
+      "occurrences": 10
+    },
+    {
+      "token": "贵州",
+      "decoded": "贵州",
+      "occurrences": 10
+    },
+    {
+      "token": "茅",
+      "decoded": "茅",
+      "occurrences": 10
+    },
+    {
+      "token": "台",
+      "decoded": "台",
+      "occurrences": 10
+    },
+    {
+      "token": "同比",
+      "decoded": "同比",
+      "occurrences": 9
+    }
+  ]
+}

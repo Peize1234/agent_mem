@@ -1,0 +1,183 @@
+{
+  "experiment_name": "MidTerm small zero-shot reranker ablation",
+  "created_at_epoch": 1786519812.8401732,
+  "benchmark": {
+    "sessions": [
+      "S001",
+      "S002",
+      "S003",
+      "S004",
+      "S005"
+    ],
+    "query_count": 99,
+    "page_count": 333,
+    "eligible_gold_count": 154,
+    "visibility_sha256": "2f540d58198a7555d9d6b64b2a82302d4f40b36d0f00e968d1b98b08f2514fb1",
+    "query_texts_sha256": "52795d86c28aecd86021e64baa1fd87db4ba16892b917ff0440e5a270a8a6921",
+    "page_texts_sha256": "98c524d500102d64f68799a5b024d0651d3557371abab60508cd00f690df056d",
+    "candidate_top20_sha256": "016d9a397591571e7103159757db5659bedfbed95a252c7c19ddfa11f8d1547d"
+  },
+  "c3": {
+    "dense_model": "BAAI/bge-small-zh-v1.5",
+    "query": "frozen P2 resolved_query",
+    "page": "frozen C3 Summary + Keywords",
+    "candidate_k": 20,
+    "metrics": {
+      "evaluated_query_count": 99,
+      "eligible_gold_count": 154,
+      "mrr": 0.31992059520313865,
+      "ndcg_at_5": 0.27080671632629255,
+      "mean_gold_rank": 11.545454545454545,
+      "median_gold_rank": 8.0,
+      "max_gold_rank": 54,
+      "recall_at_1": 0.09740259740259741,
+      "macro_recall_at_1": 0.08585858585858586,
+      "recall_at_3": 0.24675324675324675,
+      "macro_recall_at_3": 0.2609427609427609,
+      "recall_at_5": 0.38311688311688313,
+      "macro_recall_at_5": 0.40235690235690236,
+      "recall_at_10": 0.5454545454545454,
+      "macro_recall_at_10": 0.563973063973064,
+      "recall_at_15": 0.7402597402597403,
+      "macro_recall_at_15": 0.7558922558922558,
+      "recall_at_20": 0.8181818181818182,
+      "macro_recall_at_20": 0.8350168350168351,
+      "recall_at_30": 0.935064935064935,
+      "macro_recall_at_30": 0.9461279461279462,
+      "macro_session_r5": 0.39801090382485727
+    }
+  },
+  "reranker_contract": {
+    "flow": "C3 Dense Top20 -> reranker -> Top5; C3 order outside Top20",
+    "batch_size": 1,
+    "max_length": 512,
+    "dtype": "float16",
+    "normalization": "none; rank by each model official CrossEncoder relevance output",
+    "dense_reranker_fusion": false,
+    "cpu_offload": false,
+    "quantization": false,
+    "bm25": false
+  },
+  "qwen_instruction": {
+    "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_small_reranker_ablation/prompts/Qwen3_memory_dependency_instruction.txt",
+    "sha256_before_first_inference": "8071366745b8a080a26f767faafeea3cfe38b71da2af3486332874c7b7b776b5",
+    "sha256_after_generation": "8071366745b8a080a26f767faafeea3cfe38b71da2af3486332874c7b7b776b5"
+  },
+  "models": {
+    "BAAI/bge-reranker-v2-m3": {
+      "model": "BAAI/bge-reranker-v2-m3",
+      "model_revision": "953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e",
+      "status": "ERROR",
+      "failure_stage": "load_or_inference",
+      "error_type": "KeyboardInterrupt",
+      "error": "",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/peize/Code/htzq/mem0/exp/benchmark/run_midterm_small_reranker_ablation.py\", line 425, in run_model\n    score = score_pair(model, spec, str(pair[\"query_text\"]), str(pair[\"page_text\"]))\n  File \"/home/peize/Code/htzq/mem0/exp/benchmark/run_midterm_small_reranker_ablation.py\", line 332, in score_pair\n    values = model.predict([(query, page)], **kwargs)\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/torch/utils/_contextlib.py\", line 124, in decorate_context\n    return func(*args, **kwargs)\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/sentence_transformers/util/decorators.py\", line 41, in wrapper\n    return func(*args, **kwargs)\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/sentence_transformers/util/decorators.py\", line 185, in wrapper\n    return func(self, *args, **kwargs)\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/sentence_transformers/cross_encoder/model.py\", line 712, in predict\n    pred_scores = np.asarray([score.cpu().detach().float().numpy() for score in pred_scores])\n  File \"/home/peize/anaconda3/envs/MemoryOS/lib/python3.10/site-packages/sentence_transformers/cross_encoder/model.py\", line 712, in <listcomp>\n    pred_scores = np.asarray([score.cpu().detach().float().numpy() for score in pred_scores])\nKeyboardInterrupt\n",
+      "device": "cuda",
+      "dtype": "float16",
+      "batch_size": 1,
+      "max_length": 512,
+      "quantization": "none",
+      "cpu_offload": false,
+      "run_seconds": 817.8797756779968,
+      "peak_cuda_memory_bytes": 1155706368
+    }
+  },
+  "hardware": {
+    "available": true,
+    "device_name": "NVIDIA GeForce GTX 1650",
+    "total_memory_bytes": 4294639616,
+    "total_memory_gib": 3.99969482421875,
+    "torch_version": "2.12.1+cu130",
+    "cuda_version": "13.0"
+  },
+  "checkpoint_cache": {
+    "Production": {
+      "metadata_path": "/home/peize/Code/htzq/mem0/exp/results/midterm_add_local_context_ablation/controls/cache/embeddings/BAAI_bge-small-zh-v1.5/no-user-Production-S001-S005-0229fd5bfd017507.json",
+      "model": "BAAI/bge-small-zh-v1.5",
+      "batch_name": "no-user-Production-S001-S005",
+      "content_hash": "0229fd5bfd01750723d348cba37d409fbeebc74168bb29021fdaff904d52d6bb",
+      "item_count": 333,
+      "dimension": 512,
+      "build_ms": 3215.80530600113,
+      "item_latency_ms": {},
+      "cache_hit": false
+    },
+    "PreviousAndFollowingContext": {
+      "metadata_path": "/home/peize/Code/htzq/mem0/exp/results/midterm_add_local_context_ablation/controls/cache/embeddings/BAAI_bge-small-zh-v1.5/no-user-PreviousAndFollowingContext-S001-S005-13fd58bbf11217a7.json",
+      "model": "BAAI/bge-small-zh-v1.5",
+      "batch_name": "no-user-PreviousAndFollowingContext-S001-S005",
+      "content_hash": "13fd58bbf11217a70e5c98e724780db94fd960d5600f6946024e3632b2c1a2d8",
+      "item_count": 333,
+      "dimension": 512,
+      "build_ms": 3502.114563998475,
+      "item_latency_ms": {},
+      "cache_hit": false
+    }
+  },
+  "new_llm_calls": 0,
+  "new_embedding_count": 0,
+  "full_session_rerun": false,
+  "summary_regeneration": false,
+  "validations": {
+    "query_count": {
+      "status": "PASS",
+      "actual": 99
+    },
+    "page_count": {
+      "status": "PASS",
+      "actual": 333
+    },
+    "eligible_gold": {
+      "status": "PASS",
+      "actual": 154
+    },
+    "c3_baseline": {
+      "status": "PASS",
+      "micro_r5": 0.38311688311688313,
+      "gold_at_5": 59
+    },
+    "p2_query_coverage": {
+      "status": "PASS",
+      "query_texts_sha256": "315e37f0b70e1a0cccdfad7b086ba256717befa4e9579d96d647e9dc742e5c2a",
+      "expected_sha256": "315e37f0b70e1a0cccdfad7b086ba256717befa4e9579d96d647e9dc742e5c2a"
+    },
+    "c3_page_coverage": {
+      "status": "PASS",
+      "page_texts_sha256": "c1e43a5231838193fdba8f417cc12d80713126eb77031a13a9852f9f1082bd1b",
+      "expected_sha256": "c1e43a5231838193fdba8f417cc12d80713126eb77031a13a9852f9f1082bd1b",
+      "raw_user_in_page": false
+    },
+    "top20_candidate_source": {
+      "status": "PASS",
+      "pair_count": 1700,
+      "candidate_k": 20,
+      "candidate_hash": "016d9a397591571e7103159757db5659bedfbed95a252c7c19ddfa11f8d1547d"
+    },
+    "visibility": {
+      "status": "PASS",
+      "mapping_sha256": "2f540d58198a7555d9d6b64b2a82302d4f40b36d0f00e968d1b98b08f2514fb1"
+    },
+    "future_leakage": {
+      "status": "PASS"
+    },
+    "no_llm": {
+      "status": "PASS",
+      "new_llm_calls": 0
+    },
+    "no_new_embedding": {
+      "status": "PASS",
+      "new_embedding_count": 0
+    },
+    "instruction_frozen": {
+      "status": "PASS",
+      "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_small_reranker_ablation/prompts/Qwen3_memory_dependency_instruction.txt",
+      "sha256_before_first_inference": "8071366745b8a080a26f767faafeea3cfe38b71da2af3486332874c7b7b776b5",
+      "sha256_after_generation": "8071366745b8a080a26f767faafeea3cfe38b71da2af3486332874c7b7b776b5"
+    },
+    "mem0_unmodified": {
+      "status": "PASS",
+      "before": [],
+      "after": []
+    }
+  }
+}

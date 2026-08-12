@@ -1,0 +1,15 @@
+{
+  "frozen_before_first_llm_call": true,
+  "base_prompt_sha256": {
+    "add": "84c20f8b0a81eb3d84dfd7940eeb6a41e2099119162ce64319906d7e5af6af41",
+    "search": "175bff40baf459596b5cb8ec0443c411898c3b75f1e884e443c5a3af79fd25f0"
+  },
+  "v2_prompt_sha256": {
+    "add": "51751adaf62da401f8d280bb5d101e6d459b84dd7183aa864f3b1a62080266c7",
+    "search": "0ef73bc179d13661b3206a03d7c344142d046a1db4e7d8b47ba55086adb284ef"
+  },
+  "source_paths": {
+    "add": "/home/peize/Code/htzq/mem0/exp/results/midterm_add_local_context_ablation/prompts/Production_Add_With_Previous_And_Following_Context.txt",
+    "search": "/home/peize/Code/htzq/mem0/exp/results/reference_resolution_prompt_ablation/prompts/P2_slot_bounded.txt"
+  }
+}

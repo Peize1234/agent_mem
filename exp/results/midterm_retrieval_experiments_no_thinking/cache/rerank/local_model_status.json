@@ -1,6 +1,0 @@
-{
-  "status": "AVAILABLE",
-  "model": "BAAI/bge-reranker-base",
-  "load_ms": 29007.943247001094,
-  "device": "cuda"
-}

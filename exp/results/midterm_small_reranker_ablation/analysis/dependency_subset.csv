@@ -1,0 +1,2 @@
+﻿Model,Dependency Query Count,Eligible Gold,Gold@5,R@5,selection_contract
+C3 BGE-small Dense,95,149,58,0.38926174496644295,deterministic original-query discourse/dependency marker regex; no Gold/rank used

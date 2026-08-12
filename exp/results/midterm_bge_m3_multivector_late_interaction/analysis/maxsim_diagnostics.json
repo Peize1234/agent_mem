@@ -1,0 +1,42 @@
+{
+  "visible_page_count": {
+    "min": 3,
+    "max": 87,
+    "mean": 34.2020202020202,
+    "queries_above_top60": 14
+  },
+  "pure_top5_outside_c3_top60": {
+    "page_count": 0,
+    "query_count": 0,
+    "details": []
+  },
+  "pure_vs_top60_rerank": {
+    "page_rank_difference_count": 370,
+    "query_top5_set_difference_count": 0,
+    "query_top20_set_difference_count": 2
+  },
+  "page_token_length_vs_maxsim_pearson": {
+    "query_count": 99,
+    "mean": -0.14766465468368253,
+    "median": -0.192830661342906,
+    "p10": -0.46767987132457717,
+    "p90": 0.2817870780451108
+  },
+  "selected_token_gold_minus_competing_maxsim": {
+    "DEMOTED": {
+      "count": 40,
+      "mean": -0.09077795073390008,
+      "median": -0.0847979485988617
+    },
+    "HARD_NEGATIVE": {
+      "count": 40,
+      "mean": -0.11874374821782112,
+      "median": -0.09124583005905151
+    },
+    "PROMOTED": {
+      "count": 40,
+      "mean": -0.002141030877828598,
+      "median": -0.0009626150131225586
+    }
+  }
+}

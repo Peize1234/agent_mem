@@ -1,0 +1,3 @@
+﻿Model,Status,Micro R@5,Gold@5,Eligible Gold,Macro R@5,R@10,R@20,MRR,Mean Gold Rank,Promoted Gold,Demoted Gold,Net Gold gain,Rescued Queries,Hurt Queries,Preserved C3 Top5 Gold,C3 rank 6-20 -> reranker Top5 Gold,C3 rank <=5 -> reranker >5 Gold
+C3 BGE-small Dense,SUCCESS,0.38311688311688313,59,154,0.39801090382485727,0.5454545454545454,0.8181818181818182,0.31992059520313865,11.545454545454545,0,0,0,0,0,59,0,0
+BAAI/bge-reranker-v2-m3,ERROR,,,,,,,,,,,,,,,,

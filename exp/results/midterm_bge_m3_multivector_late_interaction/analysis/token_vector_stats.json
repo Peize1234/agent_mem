@@ -1,0 +1,42 @@
+{
+  "Query": {
+    "kind": "Query",
+    "max_length": 1024,
+    "raw_token_count": {
+      "count": 99,
+      "mean": 43.07070707070707,
+      "median": 39,
+      "p90": 60.2,
+      "max": 83
+    },
+    "multi_vector_count": {
+      "count": 99,
+      "mean": 42.07070707070707,
+      "median": 38,
+      "p90": 59.2,
+      "max": 82
+    },
+    "truncation_count": 0,
+    "all_texts_have_multiple_vectors": true
+  },
+  "Page": {
+    "kind": "Page",
+    "max_length": 1024,
+    "raw_token_count": {
+      "count": 333,
+      "mean": 369.7117117117117,
+      "median": 358,
+      "p90": 460.6,
+      "max": 515
+    },
+    "multi_vector_count": {
+      "count": 333,
+      "mean": 368.7117117117117,
+      "median": 357,
+      "p90": 459.6,
+      "max": 514
+    },
+    "truncation_count": 0,
+    "all_texts_have_multiple_vectors": true
+  }
+}

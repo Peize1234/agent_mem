@@ -1,0 +1,20 @@
+{
+  "Page": {
+    "item_count": 333,
+    "total_vector_count": 156075,
+    "mean_vector_count": 468.6936936936937,
+    "median_vector_count": 480,
+    "p90_vector_count": 510.0,
+    "max_vector_count": 510,
+    "truncation_count": 138
+  },
+  "Query": {
+    "item_count": 99,
+    "total_vector_count": 5885,
+    "mean_vector_count": 59.44444444444444,
+    "median_vector_count": 53,
+    "p90_vector_count": 83.00000000000001,
+    "max_vector_count": 113,
+    "truncation_count": 0
+  }
+}

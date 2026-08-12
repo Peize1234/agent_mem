@@ -1,0 +1,1 @@
+Determine whether the candidate historical memory contains information actually needed to answer the current query. Prioritize historical dependency, referenced prior conclusions, evidence continuity, and required context over general topical similarity.

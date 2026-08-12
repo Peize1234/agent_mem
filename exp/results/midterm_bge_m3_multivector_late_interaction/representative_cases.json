@@ -1,0 +1,4532 @@
+{
+  "cases": [
+    {
+      "case_type": "PROMOTED",
+      "session_id": "S004",
+      "query_id": "S004-Q044",
+      "original_query": "刚才的三层证据中，哪些措辞已经超过事实本身能够支持的强度；如果前面的判断需要修订，请直接指出。",
+      "frozen_p2_query": "刚才的三层证据中，哪些措辞已经超过事实本身能够支持的强度；如果前面的判断需要修订，请直接指出。",
+      "gold_page_id": "682aecdf-197a-5dc6-b88d-886b08ffb500",
+      "gold_source_turn_id": "S004-Q040",
+      "gold_summary": "用户要求将前文关于比亚迪的盈利分析接回整体画像，给出不超过公开证据边界的结论，并说明与上一问的关系。助手基于《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF），确认三年口径一致，指出扣非归母净利润（2023年284.62亿元、2024年369.83亿元、2025年294.46亿元，同比+29.94%、-20.38%）呈先升后降，归母股东权益（2023年1,388.1亿元、2024年1,852.51亿元、2025年2,462.75亿元，同比+33.46%、+32.94%）呈连续上升。结论：不简单评价好坏，而是描述指标方向、拐点及组合含义；可复算的三年原数和同比作为高确定性事实保留，具体经营原因未在年报中明确披露，不作确定归因，不预测未来。该结论承接前文基期选择和反证修订，并作为后续来源追溯和口径检查的基础。",
+      "gold_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "盈利分析",
+        "扣非归母净利润",
+        "归母股东权益",
+        "整体画像",
+        "公开证据边界",
+        "年度报告"
+      ],
+      "competing_page_id": "dad4c589-bd44-5d61-917f-9435b971db4d",
+      "competing_source_turn_id": "S004-Q029",
+      "competing_summary": "用户要求将前文资产和权益变化转化为可向管理层核实的问询问题，并先说明可确认事实、再说明不能确认原因，以比亚迪2023-2025年三年数据为例。助手基于《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF），确认三年口径一致，指出经营活动现金流净额（2023年1,697.25亿元、2024年1,334.54亿元、2025年591.36亿元，同比-21.37%、-55.69%）连续下降，扣非归母净利润（2023年284.62亿元、2024年369.83亿元、2025年294.46亿元，同比+29.94%、-20.38%）先升后降。结论：可确认三年数值、同比方向、首尾差额及指标间关系；不能确认具体经营原因，需查阅附注；管理层问询应指向具体年度、指标和披露位置，不预设原因。",
+      "competing_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "管理层问询",
+        "经营活动现金流净额",
+        "扣非归母净利润",
+        "年度报告"
+      ],
+      "gold_scores": {
+        "C3": {
+          "rank": 28,
+          "score": 0.3380138576030731,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 2,
+          "score": 0.4720795750617981,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 3,
+          "score": 0.47690021991729736,
+          "maxsim_score": 0.47690021991729736
+        },
+        "M2": {
+          "rank": 3,
+          "score": 0.47690021991729736,
+          "maxsim_score": 0.47690021991729736
+        }
+      },
+      "competing_scores": {
+        "C3": {
+          "rank": 8,
+          "score": 0.4209802746772766,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 1,
+          "score": 0.5092723369598389,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 1,
+          "score": 0.47833311557769775,
+          "maxsim_score": 0.47833311557769775
+        },
+        "M2": {
+          "rank": 1,
+          "score": 0.47833311557769775,
+          "maxsim_score": 0.47833311557769775
+        }
+      },
+      "token_level_matches": [
+        {
+          "query_id": "S004-Q044",
+          "page_id": "682aecdf-197a-5dc6-b88d-886b08ffb500",
+          "page_role": "GOLD",
+          "query_token_index": 2,
+          "query_token_id": 113325,
+          "query_token": "的三",
+          "query_decoded": "的三",
+          "best_page_token_index": 83,
+          "best_page_token_id": 42700,
+          "best_page_token": "三年",
+          "best_page_decoded": "三年",
+          "maxsim": 0.43915829062461853
+        },
+        {
+          "query_id": "S004-Q044",
+          "page_id": "682aecdf-197a-5dc6-b88d-886b08ffb500",
+          "page_role": "GOLD",
+          "query_token_index": 4,
+          "query_token_id": 99857,
+          "query_token": "证据",
+          "query_decoded": "证据",
+          "best_page_token_index": 21,
+          "best_page_token_id": 99857,
+          "best_page_token": "证据",
+          "best_page_decoded": "证据",
+          "maxsim": 0.5853531956672668
+        },
+        {
+          "query_id": "S004-Q044",
+          "page_id": "682aecdf-197a-5dc6-b88d-886b08ffb500",
+          "page_role": "GOLD",
+          "query_token_index": 8,
+          "query_token_id": 172961,
+          "query_token": "措",
+          "query_decoded": "措",
+          "best_page_token_index": 21,
+          "best_page_token_id": 99857,
+          "best_page_token": "证据",
+          "best_page_decoded": "证据",
+          "maxsim": 0.41877052187919617
+        },
+        {
+          "query_id": "S004-Q044",
+          "page_id": "682aecdf-197a-5dc6-b88d-886b08ffb500",
+          "page_role": "GOLD",
+          "query_token_index": 10,
+          "query_token_id": 3990,
+          "query_token": "已经",
+          "query_decoded": "已经",
+          "best_page_token_index": 247,
+          "best_page_token_id": 174979,
+          "best_page_token": "修订",
+          "best_page_decoded": "修订",
+          "maxsim": 0.4373951554298401
+        },
+        {
+          "query_id": "S004-Q044",
+          "page_id": "682aecdf-197a-5dc6-b88d-886b08ffb500",
+          "page_role": "GOLD",
+          "query_token_index": 11,
+          "query_token_id": 18292,
+          "query_token": "超过",
+          "query_decoded": "超过",
+          "best_page_token_index": 19,
+          "best_page_token_id": 172930,
+          "best_page_token": "不超过",
+          "best_page_decoded": "不超过",
+          "maxsim": 0.45564377307891846
+        },
+        {
+          "query_id": "S004-Q044",
+          "page_id": "682aecdf-197a-5dc6-b88d-886b08ffb500",
+          "page_role": "GOLD",
+          "query_token_index": 13,
+          "query_token_id": 25998,
+          "query_token": "本身",
+          "query_decoded": "本身",
+          "best_page_token_index": 211,
+          "best_page_token_id": 65064,
+          "best_page_token": "事实",
+          "best_page_decoded": "事实",
+          "maxsim": 0.4542906880378723
+        },
+        {
+          "query_id": "S004-Q044",
+          "page_id": "682aecdf-197a-5dc6-b88d-886b08ffb500",
+          "page_role": "GOLD",
+          "query_token_index": 14,
+          "query_token_id": 7150,
+          "query_token": "能够",
+          "query_decoded": "能够",
+          "best_page_token_index": 19,
+          "best_page_token_id": 172930,
+          "best_page_token": "不超过",
+          "best_page_decoded": "不超过",
+          "maxsim": 0.4433048367500305
+        },
+        {
+          "query_id": "S004-Q044",
+          "page_id": "682aecdf-197a-5dc6-b88d-886b08ffb500",
+          "page_role": "GOLD",
+          "query_token_index": 24,
+          "query_token_id": 174979,
+          "query_token": "修订",
+          "query_decoded": "修订",
+          "best_page_token_index": 247,
+          "best_page_token_id": 174979,
+          "best_page_token": "修订",
+          "best_page_decoded": "修订",
+          "maxsim": 0.5985616445541382
+        },
+        {
+          "query_id": "S004-Q044",
+          "page_id": "dad4c589-bd44-5d61-917f-9435b971db4d",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 2,
+          "query_token_id": 113325,
+          "query_token": "的三",
+          "query_decoded": "的三",
+          "best_page_token_index": 196,
+          "best_page_token_id": 42700,
+          "best_page_token": "三年",
+          "best_page_decoded": "三年",
+          "maxsim": 0.4472050666809082
+        },
+        {
+          "query_id": "S004-Q044",
+          "page_id": "dad4c589-bd44-5d61-917f-9435b971db4d",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 4,
+          "query_token_id": 99857,
+          "query_token": "证据",
+          "query_decoded": "证据",
+          "best_page_token_index": 27,
+          "best_page_token_id": 65064,
+          "best_page_token": "事实",
+          "best_page_decoded": "事实",
+          "maxsim": 0.4110376834869385
+        },
+        {
+          "query_id": "S004-Q044",
+          "page_id": "dad4c589-bd44-5d61-917f-9435b971db4d",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 8,
+          "query_token_id": 172961,
+          "query_token": "措",
+          "query_decoded": "措",
+          "best_page_token_index": 99,
+          "best_page_token_id": 3524,
+          "best_page_token": "口",
+          "best_page_decoded": "口",
+          "maxsim": 0.44137242436408997
+        },
+        {
+          "query_id": "S004-Q044",
+          "page_id": "dad4c589-bd44-5d61-917f-9435b971db4d",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 10,
+          "query_token_id": 3990,
+          "query_token": "已经",
+          "query_decoded": "已经",
+          "best_page_token_index": 212,
+          "best_page_token_id": 5292,
+          "best_page_token": "不能",
+          "best_page_decoded": "不能",
+          "maxsim": 0.42746928334236145
+        },
+        {
+          "query_id": "S004-Q044",
+          "page_id": "dad4c589-bd44-5d61-917f-9435b971db4d",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 11,
+          "query_token_id": 18292,
+          "query_token": "超过",
+          "query_decoded": "超过",
+          "best_page_token_index": 24,
+          "best_page_token_id": 37090,
+          "best_page_token": "说明",
+          "best_page_decoded": "说明",
+          "maxsim": 0.42204469442367554
+        },
+        {
+          "query_id": "S004-Q044",
+          "page_id": "dad4c589-bd44-5d61-917f-9435b971db4d",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 13,
+          "query_token_id": 25998,
+          "query_token": "本身",
+          "query_decoded": "本身",
+          "best_page_token_index": 27,
+          "best_page_token_id": 65064,
+          "best_page_token": "事实",
+          "best_page_decoded": "事实",
+          "maxsim": 0.4338425397872925
+        },
+        {
+          "query_id": "S004-Q044",
+          "page_id": "dad4c589-bd44-5d61-917f-9435b971db4d",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 14,
+          "query_token_id": 7150,
+          "query_token": "能够",
+          "query_decoded": "能够",
+          "best_page_token_index": 31,
+          "best_page_token_id": 5292,
+          "best_page_token": "不能",
+          "best_page_decoded": "不能",
+          "maxsim": 0.47827547788619995
+        },
+        {
+          "query_id": "S004-Q044",
+          "page_id": "dad4c589-bd44-5d61-917f-9435b971db4d",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 24,
+          "query_token_id": 174979,
+          "query_token": "修订",
+          "query_decoded": "修订",
+          "best_page_token_index": 16,
+          "best_page_token_id": 224127,
+          "best_page_token": "核实",
+          "best_page_decoded": "核实",
+          "maxsim": 0.414157509803772
+        }
+      ]
+    },
+    {
+      "case_type": "PROMOTED",
+      "session_id": "S002",
+      "query_id": "S002-Q066",
+      "original_query": "把上一轮的计算放回证据层级，它属于披露事实还是分析工具；先说明能确认的事实，再说还不能确认的原因。",
+      "frozen_p2_query": "把上一轮的计算（营业收入/期末总资产的近似周转检查）放回证据层级，它属于披露事实还是分析工具；先说明能确认的事实，再说还不能确认的原因。",
+      "gold_page_id": "323c7c4f-02b6-5801-9c72-3623423fb3c6",
+      "gold_source_turn_id": "S002-Q062",
+      "gold_summary": "用户询问上一轮反例与主结论的冲突是口径问题还是指标不同步，并要求证据不足时直接说明缺口。助手基于《贵州茅台2025年年度报告或年度报告摘要》（披露日期2026-04-17，来源地址https://static.cninfo.com.cn/finalpage/2026-04-17/1225114731.PDF）确认：营业收入2023年1,476.94亿元、2024年1,708.99亿元、2025年1,688.38亿元，同比分别为+15.71%、-1.21%，三年形态为先升后降；归母净利润2023年747.34亿元、2024年862.28亿元、2025年823.20亿元，同比分别为+15.38%、-4.53%，三年形态为先升后降。结论为：营业收入与归母净利润均先升后降（2024年为拐点），二者同向，冲突并非口径问题，而是指标本身同步；总资产与归母股东权益连续上升，与收入利润形成错位；营业收入/期末总资产的近似周转检查分别为2023年0.542倍、2024年0.572倍、2025年0.556倍，仅用于方向核验；当前证据只能确认存在错位，不能判定为效率问题，因缺少经营现金流与净利润的配对数据，无法计算现金利润比，不推断未披露原因，保留信息缺口；岗位视角为内控审计经理，关注数据链路、控制点与复核责任。",
+      "gold_keywords": [
+        "贵州茅台",
+        "2023-2025",
+        "冲突调和",
+        "营业收入",
+        "归母净利润",
+        "先升后降",
+        "信息缺口"
+      ],
+      "competing_page_id": "d04ea023-63be-523c-b994-bdc3c3fd0ae4",
+      "competing_source_turn_id": "S002-Q055",
+      "competing_summary": "用户要求修订后重新区分事实、计算与判断，检查前面各轮信息是否被混在一起，并保留2024年作为中间拐点。助手基于《贵州茅台2025年年度报告或年度报告摘要》（披露日期2026-04-17，来源地址https://static.cninfo.com.cn/finalpage/2026-04-17/1225114731.PDF）确认：营业收入2023年1,476.94亿元、2024年1,708.99亿元、2025年1,688.38亿元，同比分别为+15.71%、-1.21%，三年形态为先升后降；归母净利润2023年747.34亿元、2024年862.28亿元、2025年823.20亿元，同比分别为+15.38%、-4.53%，三年形态为先升后降；总资产2023年2,727亿元、2024年2,989.45亿元、2025年3,038.35亿元，同比分别为+9.62%、+1.64%，三年形态为连续上升；归母股东权益2023年2,156.69亿元、2024年2,331.06亿元、2025年2,446.38亿元，同比分别为+8.09%、+4.95%，三年形态为连续上升。结论为：营业收入与归母净利润均先升后降（2024年为拐点），而总资产与归母股东权益连续上升，资产扩张未得到规模增长同步支撑，形成错位；营业收入/期末总资产的近似周转检查分别为2023年0.542倍、2024年0.572倍、2025年0.556倍，仅用于方向核验；当前证据只能确认存在错位，不能判定为效率问题，因缺少经营现金流与净利润的配对数据，无法计算现金利润比，不推断未披露原因，保留信息缺口；岗位视角为内控审计经理，关注数据链路、控制点与复核责任。",
+      "competing_keywords": [
+        "贵州茅台",
+        "2023-2025",
+        "证据分级",
+        "事实计算判断",
+        "2024拐点",
+        "营业收入",
+        "归母净利润",
+        "先升后降"
+      ],
+      "gold_scores": {
+        "C3": {
+          "rank": 11,
+          "score": 0.5550165176391602,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 4,
+          "score": 0.6249976754188538,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 4,
+          "score": 0.6104725003242493,
+          "maxsim_score": 0.6104725003242493
+        },
+        "M2": {
+          "rank": 4,
+          "score": 0.6104725003242493,
+          "maxsim_score": 0.6104725003242493
+        }
+      },
+      "competing_scores": {
+        "C3": {
+          "rank": 6,
+          "score": 0.5920742750167847,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 3,
+          "score": 0.6420970559120178,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 2,
+          "score": 0.6291641592979431,
+          "maxsim_score": 0.6291641592979431
+        },
+        "M2": {
+          "rank": 2,
+          "score": 0.6291641592979431,
+          "maxsim_score": 0.6291641592979431
+        }
+      },
+      "token_level_matches": [
+        {
+          "query_id": "S002-Q066",
+          "page_id": "323c7c4f-02b6-5801-9c72-3623423fb3c6",
+          "page_role": "GOLD",
+          "query_token_index": 7,
+          "query_token_id": 128180,
+          "query_token": "营业",
+          "query_decoded": "营业",
+          "best_page_token_index": 178,
+          "best_page_token_id": 128180,
+          "best_page_token": "营业",
+          "best_page_decoded": "营业",
+          "maxsim": 0.7217795848846436
+        },
+        {
+          "query_id": "S002-Q066",
+          "page_id": "323c7c4f-02b6-5801-9c72-3623423fb3c6",
+          "page_role": "GOLD",
+          "query_token_index": 8,
+          "query_token_id": 16306,
+          "query_token": "收入",
+          "query_decoded": "收入",
+          "best_page_token_index": 354,
+          "best_page_token_id": 16306,
+          "best_page_token": "收入",
+          "best_page_decoded": "收入",
+          "maxsim": 0.6932480335235596
+        },
+        {
+          "query_id": "S002-Q066",
+          "page_id": "323c7c4f-02b6-5801-9c72-3623423fb3c6",
+          "page_role": "GOLD",
+          "query_token_index": 10,
+          "query_token_id": 4118,
+          "query_token": "期",
+          "query_decoded": "期",
+          "best_page_token_index": 43,
+          "best_page_token_id": 17526,
+          "best_page_token": "年度",
+          "best_page_decoded": "年度",
+          "maxsim": 0.49641478061676025
+        },
+        {
+          "query_id": "S002-Q066",
+          "page_id": "323c7c4f-02b6-5801-9c72-3623423fb3c6",
+          "page_role": "GOLD",
+          "query_token_index": 12,
+          "query_token_id": 7051,
+          "query_token": "总",
+          "query_decoded": "总",
+          "best_page_token_index": 235,
+          "best_page_token_id": 7051,
+          "best_page_token": "总",
+          "best_page_decoded": "总",
+          "maxsim": 0.6068273186683655
+        },
+        {
+          "query_id": "S002-Q066",
+          "page_id": "323c7c4f-02b6-5801-9c72-3623423fb3c6",
+          "page_role": "GOLD",
+          "query_token_index": 13,
+          "query_token_id": 32310,
+          "query_token": "资产",
+          "query_decoded": "资产",
+          "best_page_token_index": 236,
+          "best_page_token_id": 32310,
+          "best_page_token": "资产",
+          "best_page_decoded": "资产",
+          "maxsim": 0.70247483253479
+        },
+        {
+          "query_id": "S002-Q066",
+          "page_id": "323c7c4f-02b6-5801-9c72-3623423fb3c6",
+          "page_role": "GOLD",
+          "query_token_index": 17,
+          "query_token_id": 6271,
+          "query_token": "周",
+          "query_decoded": "周",
+          "best_page_token_index": 240,
+          "best_page_token_id": 6271,
+          "best_page_token": "周",
+          "best_page_decoded": "周",
+          "maxsim": 0.7006412148475647
+        },
+        {
+          "query_id": "S002-Q066",
+          "page_id": "323c7c4f-02b6-5801-9c72-3623423fb3c6",
+          "page_role": "GOLD",
+          "query_token_index": 18,
+          "query_token_id": 11359,
+          "query_token": "转",
+          "query_decoded": "转",
+          "best_page_token_index": 9,
+          "best_page_token_id": 160498,
+          "best_page_token": "结论",
+          "best_page_decoded": "结论",
+          "maxsim": 0.5019794702529907
+        },
+        {
+          "query_id": "S002-Q066",
+          "page_id": "323c7c4f-02b6-5801-9c72-3623423fb3c6",
+          "page_role": "GOLD",
+          "query_token_index": 23,
+          "query_token_id": 99857,
+          "query_token": "证据",
+          "query_decoded": "证据",
+          "best_page_token_index": 23,
+          "best_page_token_id": 99857,
+          "best_page_token": "证据",
+          "best_page_decoded": "证据",
+          "maxsim": 0.7087479829788208
+        },
+        {
+          "query_id": "S002-Q066",
+          "page_id": "d04ea023-63be-523c-b994-bdc3c3fd0ae4",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 7,
+          "query_token_id": 128180,
+          "query_token": "营业",
+          "query_decoded": "营业",
+          "best_page_token_index": 276,
+          "best_page_token_id": 128180,
+          "best_page_token": "营业",
+          "best_page_decoded": "营业",
+          "maxsim": 0.7085373401641846
+        },
+        {
+          "query_id": "S002-Q066",
+          "page_id": "d04ea023-63be-523c-b994-bdc3c3fd0ae4",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 8,
+          "query_token_id": 16306,
+          "query_token": "收入",
+          "query_decoded": "收入",
+          "best_page_token_index": 453,
+          "best_page_token_id": 16306,
+          "best_page_token": "收入",
+          "best_page_decoded": "收入",
+          "maxsim": 0.7063155770301819
+        },
+        {
+          "query_id": "S002-Q066",
+          "page_id": "d04ea023-63be-523c-b994-bdc3c3fd0ae4",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 10,
+          "query_token_id": 4118,
+          "query_token": "期",
+          "query_decoded": "期",
+          "best_page_token_index": 322,
+          "best_page_token_id": 4118,
+          "best_page_token": "期",
+          "best_page_decoded": "期",
+          "maxsim": 0.5860239267349243
+        },
+        {
+          "query_id": "S002-Q066",
+          "page_id": "d04ea023-63be-523c-b994-bdc3c3fd0ae4",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 12,
+          "query_token_id": 7051,
+          "query_token": "总",
+          "query_decoded": "总",
+          "best_page_token_index": 296,
+          "best_page_token_id": 7051,
+          "best_page_token": "总",
+          "best_page_decoded": "总",
+          "maxsim": 0.6350849270820618
+        },
+        {
+          "query_id": "S002-Q066",
+          "page_id": "d04ea023-63be-523c-b994-bdc3c3fd0ae4",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 13,
+          "query_token_id": 32310,
+          "query_token": "资产",
+          "query_decoded": "资产",
+          "best_page_token_index": 306,
+          "best_page_token_id": 32310,
+          "best_page_token": "资产",
+          "best_page_decoded": "资产",
+          "maxsim": 0.6947439312934875
+        },
+        {
+          "query_id": "S002-Q066",
+          "page_id": "d04ea023-63be-523c-b994-bdc3c3fd0ae4",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 17,
+          "query_token_id": 6271,
+          "query_token": "周",
+          "query_decoded": "周",
+          "best_page_token_index": 329,
+          "best_page_token_id": 6271,
+          "best_page_token": "周",
+          "best_page_decoded": "周",
+          "maxsim": 0.6822201013565063
+        },
+        {
+          "query_id": "S002-Q066",
+          "page_id": "d04ea023-63be-523c-b994-bdc3c3fd0ae4",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 18,
+          "query_token_id": 11359,
+          "query_token": "转",
+          "query_decoded": "转",
+          "best_page_token_index": 8,
+          "best_page_token_id": 65064,
+          "best_page_token": "事实",
+          "best_page_decoded": "事实",
+          "maxsim": 0.5503990650177002
+        },
+        {
+          "query_id": "S002-Q066",
+          "page_id": "d04ea023-63be-523c-b994-bdc3c3fd0ae4",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 23,
+          "query_token_id": 99857,
+          "query_token": "证据",
+          "query_decoded": "证据",
+          "best_page_token_index": 437,
+          "best_page_token_id": 99857,
+          "best_page_token": "证据",
+          "best_page_decoded": "证据",
+          "maxsim": 0.7189464569091797
+        }
+      ]
+    },
+    {
+      "case_type": "PROMOTED",
+      "session_id": "S003",
+      "query_id": "S003-Q052",
+      "original_query": "刚才的反例与主结论冲突在哪里，是口径问题还是指标本来就不同步；如果前面的判断需要修订，请直接指出。",
+      "frozen_p2_query": "刚才的反例（归母净利润呈先升后降）与主结论（营业收入呈连续上升）冲突在哪里，是口径问题还是指标本来就不同步；如果前面的判断（营业收入呈连续上升，归母净利润呈先升后降）需要修订，请直接指出。",
+      "gold_page_id": "bd2dd48b-5c6b-516a-9bdc-e2e5cdb84c9c",
+      "gold_source_turn_id": "S003-Q040",
+      "gold_summary": "用户要求将盈利分析接回整体画像，给出不超过公开证据边界的结论，并保留指标方向冲突。助手基于《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF），固定期间2023-2025三个完整财年，金额单位为亿元。关键数据：归母净利润2023年300.41亿元、2024年402.54亿元、2025年326.19亿元，同比+34.00%、-18.97%，先升后降；总资产2023年6,795.48亿元、2024年7,833.56亿元、2025年8,837.3亿元，同比+15.28%、+12.81%，连续上升。助手结论：归母净利润先升后降与总资产连续上升构成方向冲突，应保留冲突并缩小结论范围；需分开两段同比，不以首尾差额代替年度路径；具体经营原因未在年报中明确披露，不作确定归因。分析以风险委员会委员视角，强调区分事实、计算和判断三层，保留2024年中间点，并明确后续修订需指出改变的是事实层、计算层还是判断层。",
+      "gold_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "盈利分析",
+        "归母净利润",
+        "总资产",
+        "先升后降",
+        "连续上升",
+        "冲突保留"
+      ],
+      "competing_page_id": "de8457cd-4b07-5775-9f5e-95f5d65583a0",
+      "competing_source_turn_id": "S003-Q039",
+      "competing_summary": "用户要求结合上一轮反证，对之前关于比亚迪2023-2025年财务表现的表述进行降级或修正，并强调不要只比较2023年和2025年两个端点。助手基于《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF），固定期间2023-2025三个完整财年，金额单位为亿元。关键数据：营业收入2023年6,023.15亿元、2024年7,771.02亿元、2025年8,039.65亿元，同比+29.02%、+3.46%，连续上升；归母净利润2023年300.41亿元、2024年402.54亿元、2025年326.19亿元，同比+34.00%、-18.97%，先升后降。助手结论：营业收入连续上升与归母净利润先升后降构成方向冲突，应保留冲突并缩小结论范围；需分开两段同比，不以首尾差额代替年度路径；具体经营原因未在年报中明确披露，不作确定归因。分析以风险委员会委员视角，强调区分事实、计算和判断三层，保留2024年中间点，并明确后续修订需指出改变的是事实层、计算层还是判断层。",
+      "competing_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "表述降级",
+        "营业收入",
+        "归母净利润",
+        "连续上升",
+        "先升后降",
+        "反证"
+      ],
+      "gold_scores": {
+        "C3": {
+          "rank": 10,
+          "score": 0.5986801981925964,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 3,
+          "score": 0.7086988091468811,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 3,
+          "score": 0.6742299795150757,
+          "maxsim_score": 0.6742299795150757
+        },
+        "M2": {
+          "rank": 3,
+          "score": 0.6742299795150757,
+          "maxsim_score": 0.6742299795150757
+        }
+      },
+      "competing_scores": {
+        "C3": {
+          "rank": 29,
+          "score": 0.539979875087738,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 1,
+          "score": 0.7179511189460754,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 1,
+          "score": 0.6929935216903687,
+          "maxsim_score": 0.6929935216903687
+        },
+        "M2": {
+          "rank": 1,
+          "score": 0.6929935216903687,
+          "maxsim_score": 0.6929935216903687
+        }
+      },
+      "token_level_matches": [
+        {
+          "query_id": "S003-Q052",
+          "page_id": "bd2dd48b-5c6b-516a-9bdc-e2e5cdb84c9c",
+          "page_role": "GOLD",
+          "query_token_index": 3,
+          "query_token_id": 7606,
+          "query_token": "反",
+          "query_decoded": "反",
+          "best_page_token_index": 192,
+          "best_page_token_id": 109466,
+          "best_page_token": "冲突",
+          "best_page_decoded": "冲突",
+          "maxsim": 0.5787026882171631
+        },
+        {
+          "query_id": "S003-Q052",
+          "page_id": "bd2dd48b-5c6b-516a-9bdc-e2e5cdb84c9c",
+          "page_role": "GOLD",
+          "query_token_index": 4,
+          "query_token_id": 13506,
+          "query_token": "例",
+          "query_decoded": "例",
+          "best_page_token_index": 17,
+          "best_page_token_id": 160498,
+          "best_page_token": "结论",
+          "best_page_decoded": "结论",
+          "maxsim": 0.5757648944854736
+        },
+        {
+          "query_id": "S003-Q052",
+          "page_id": "bd2dd48b-5c6b-516a-9bdc-e2e5cdb84c9c",
+          "page_role": "GOLD",
+          "query_token_index": 19,
+          "query_token_id": 128180,
+          "query_token": "营业",
+          "query_decoded": "营业",
+          "best_page_token_index": 4,
+          "best_page_token_id": 107949,
+          "best_page_token": "盈利",
+          "best_page_decoded": "盈利",
+          "maxsim": 0.6356554627418518
+        },
+        {
+          "query_id": "S003-Q052",
+          "page_id": "bd2dd48b-5c6b-516a-9bdc-e2e5cdb84c9c",
+          "page_role": "GOLD",
+          "query_token_index": 25,
+          "query_token_id": 109466,
+          "query_token": "冲突",
+          "query_decoded": "冲突",
+          "best_page_token_index": 23,
+          "best_page_token_id": 109466,
+          "best_page_token": "冲突",
+          "best_page_decoded": "冲突",
+          "maxsim": 0.7936556339263916
+        },
+        {
+          "query_id": "S003-Q052",
+          "page_id": "bd2dd48b-5c6b-516a-9bdc-e2e5cdb84c9c",
+          "page_role": "GOLD",
+          "query_token_index": 29,
+          "query_token_id": 3524,
+          "query_token": "口",
+          "query_decoded": "口",
+          "best_page_token_index": 234,
+          "best_page_token_id": 36762,
+          "best_page_token": "归",
+          "best_page_decoded": "归",
+          "maxsim": 0.48949959874153137
+        },
+        {
+          "query_id": "S003-Q052",
+          "page_id": "bd2dd48b-5c6b-516a-9bdc-e2e5cdb84c9c",
+          "page_role": "GOLD",
+          "query_token_index": 30,
+          "query_token_id": 111456,
+          "query_token": "径",
+          "query_decoded": "径",
+          "best_page_token_index": 23,
+          "best_page_token_id": 109466,
+          "best_page_token": "冲突",
+          "best_page_decoded": "冲突",
+          "maxsim": 0.5695541501045227
+        },
+        {
+          "query_id": "S003-Q052",
+          "page_id": "bd2dd48b-5c6b-516a-9bdc-e2e5cdb84c9c",
+          "page_role": "GOLD",
+          "query_token_index": 36,
+          "query_token_id": 101340,
+          "query_token": "同步",
+          "query_decoded": "同步",
+          "best_page_token_index": 23,
+          "best_page_token_id": 109466,
+          "best_page_token": "冲突",
+          "best_page_decoded": "冲突",
+          "maxsim": 0.6926777958869934
+        },
+        {
+          "query_id": "S003-Q052",
+          "page_id": "bd2dd48b-5c6b-516a-9bdc-e2e5cdb84c9c",
+          "page_role": "GOLD",
+          "query_token_index": 59,
+          "query_token_id": 174979,
+          "query_token": "修订",
+          "query_decoded": "修订",
+          "best_page_token_index": 266,
+          "best_page_token_id": 174979,
+          "best_page_token": "修订",
+          "best_page_decoded": "修订",
+          "maxsim": 0.7519922852516174
+        },
+        {
+          "query_id": "S003-Q052",
+          "page_id": "de8457cd-4b07-5775-9f5e-95f5d65583a0",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 3,
+          "query_token_id": 7606,
+          "query_token": "反",
+          "query_decoded": "反",
+          "best_page_token_index": 6,
+          "best_page_token_id": 7606,
+          "best_page_token": "反",
+          "best_page_decoded": "反",
+          "maxsim": 0.7399846315383911
+        },
+        {
+          "query_id": "S003-Q052",
+          "page_id": "de8457cd-4b07-5775-9f5e-95f5d65583a0",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 4,
+          "query_token_id": 13506,
+          "query_token": "例",
+          "query_decoded": "例",
+          "best_page_token_index": 223,
+          "best_page_token_id": 160498,
+          "best_page_token": "结论",
+          "best_page_decoded": "结论",
+          "maxsim": 0.5862078070640564
+        },
+        {
+          "query_id": "S003-Q052",
+          "page_id": "de8457cd-4b07-5775-9f5e-95f5d65583a0",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 19,
+          "query_token_id": 128180,
+          "query_token": "营业",
+          "query_decoded": "营业",
+          "best_page_token_index": 201,
+          "best_page_token_id": 128180,
+          "best_page_token": "营业",
+          "best_page_decoded": "营业",
+          "maxsim": 0.8115474581718445
+        },
+        {
+          "query_id": "S003-Q052",
+          "page_id": "de8457cd-4b07-5775-9f5e-95f5d65583a0",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 25,
+          "query_token_id": 109466,
+          "query_token": "冲突",
+          "query_decoded": "冲突",
+          "best_page_token_index": 215,
+          "best_page_token_id": 109466,
+          "best_page_token": "冲突",
+          "best_page_decoded": "冲突",
+          "maxsim": 0.8122676610946655
+        },
+        {
+          "query_id": "S003-Q052",
+          "page_id": "de8457cd-4b07-5775-9f5e-95f5d65583a0",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 29,
+          "query_token_id": 3524,
+          "query_token": "口",
+          "query_decoded": "口",
+          "best_page_token_index": 316,
+          "best_page_token_id": 5873,
+          "best_page_token": "表",
+          "best_page_decoded": "表",
+          "maxsim": 0.5447114706039429
+        },
+        {
+          "query_id": "S003-Q052",
+          "page_id": "de8457cd-4b07-5775-9f5e-95f5d65583a0",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 30,
+          "query_token_id": 111456,
+          "query_token": "径",
+          "query_decoded": "径",
+          "best_page_token_index": 215,
+          "best_page_token_id": 109466,
+          "best_page_token": "冲突",
+          "best_page_decoded": "冲突",
+          "maxsim": 0.5569655895233154
+        },
+        {
+          "query_id": "S003-Q052",
+          "page_id": "de8457cd-4b07-5775-9f5e-95f5d65583a0",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 36,
+          "query_token_id": 101340,
+          "query_token": "同步",
+          "query_decoded": "同步",
+          "best_page_token_index": 215,
+          "best_page_token_id": 109466,
+          "best_page_token": "冲突",
+          "best_page_decoded": "冲突",
+          "maxsim": 0.6927822828292847
+        },
+        {
+          "query_id": "S003-Q052",
+          "page_id": "de8457cd-4b07-5775-9f5e-95f5d65583a0",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 59,
+          "query_token_id": 174979,
+          "query_token": "修订",
+          "query_decoded": "修订",
+          "best_page_token_index": 289,
+          "best_page_token_id": 174979,
+          "best_page_token": "修订",
+          "best_page_decoded": "修订",
+          "maxsim": 0.7711940407752991
+        }
+      ]
+    },
+    {
+      "case_type": "PROMOTED",
+      "session_id": "S004",
+      "query_id": "S004-Q028",
+      "original_query": "结合刚才的反向检查，当前最值得关注的资产端风险是什么，在比亚迪这组三年数字中具体怎么体现？",
+      "frozen_p2_query": "结合刚才的反向检查（归母净利润呈先升后降，扣非归母净利润呈先升后降），当前最值得关注的资产端风险是什么，在比亚迪这组三年数字中具体怎么体现？",
+      "gold_page_id": "f642437d-2d3c-5b95-a7f6-29f2e68c0a13",
+      "gold_source_turn_id": "S004-Q022",
+      "gold_summary": "用户要求结合上一轮资产变化，检查比亚迪2023-2025年归母股东权益与资产扩张或收缩是否同步，并说明与上一问的关系。助手基于《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF），确认2023-2025年三年口径一致，指出扣非归母净利润呈先升后降（2023年284.62亿元、2024年369.83亿元、2025年294.46亿元，同比+29.94%、-20.38%），归母股东权益呈连续上升（2023年1,388.1亿元、2024年1,852.51亿元、2025年2,462.75亿元，同比+33.46%、+32.94%），两者方向不同，冲突应保留为经营画像的一部分，不能归因未披露原因，不预测未来。",
+      "gold_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "股东权益",
+        "资产同步性",
+        "扣非归母净利润",
+        "归母股东权益",
+        "年度报告"
+      ],
+      "competing_page_id": "75337c00-099c-56d7-ad2c-bd3be6ef4b11",
+      "competing_source_turn_id": "S004-Q010",
+      "competing_summary": "用户要求综合前几轮已确认的比亚迪2023-2025年财务数据，为投资者问答底稿给出最稳妥的阶段性结论。助手以《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF）为来源，确认三年口径一致，并指出：扣非归母净利润先升后降（2023年284.62亿元、2024年369.83亿元、2025年294.46亿元，同比+29.94%、-20.38%），归母股东权益连续上升（2023年1,388.1亿元、2024年1,852.51亿元、2025年2,462.75亿元，同比+33.46%、+32.94%）。结论：最稳妥的阶段性结论是扣非归母净利润先升后降、归母股东权益连续上升，两者方向不同，不能简单评价经营质量，需保留冲突并区分事实、计算与判断；不归因未披露原因，不预测未来。",
+      "competing_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "投资者问答底稿",
+        "扣非归母净利润",
+        "归母股东权益",
+        "阶段性结论",
+        "年度报告"
+      ],
+      "gold_scores": {
+        "C3": {
+          "rank": 8,
+          "score": 0.7841389775276184,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 4,
+          "score": 0.7411869764328003,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 1,
+          "score": 0.7259297370910645,
+          "maxsim_score": 0.7259297370910645
+        },
+        "M2": {
+          "rank": 1,
+          "score": 0.7259297370910645,
+          "maxsim_score": 0.7259297370910645
+        }
+      },
+      "competing_scores": {
+        "C3": {
+          "rank": 2,
+          "score": 0.8046389818191528,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 3,
+          "score": 0.7435739636421204,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 2,
+          "score": 0.7183741927146912,
+          "maxsim_score": 0.7183741927146912
+        },
+        "M2": {
+          "rank": 2,
+          "score": 0.7183741927146912,
+          "maxsim_score": 0.7183741927146912
+        }
+      },
+      "token_level_matches": [
+        {
+          "query_id": "S004-Q028",
+          "page_id": "f642437d-2d3c-5b95-a7f6-29f2e68c0a13",
+          "page_role": "GOLD",
+          "query_token_index": 4,
+          "query_token_id": 7606,
+          "query_token": "反",
+          "query_decoded": "反",
+          "best_page_token_index": 235,
+          "best_page_token_id": 36762,
+          "best_page_token": "归",
+          "best_page_decoded": "归",
+          "maxsim": 0.5948232412338257
+        },
+        {
+          "query_id": "S004-Q028",
+          "page_id": "f642437d-2d3c-5b95-a7f6-29f2e68c0a13",
+          "page_role": "GOLD",
+          "query_token_index": 8,
+          "query_token_id": 36762,
+          "query_token": "归",
+          "query_decoded": "归",
+          "best_page_token_index": 18,
+          "best_page_token_id": 36762,
+          "best_page_token": "归",
+          "best_page_decoded": "归",
+          "maxsim": 0.8197808861732483
+        },
+        {
+          "query_id": "S004-Q028",
+          "page_id": "f642437d-2d3c-5b95-a7f6-29f2e68c0a13",
+          "page_role": "GOLD",
+          "query_token_index": 9,
+          "query_token_id": 15775,
+          "query_token": "母",
+          "query_decoded": "母",
+          "best_page_token_index": 102,
+          "best_page_token_id": 15775,
+          "best_page_token": "母",
+          "best_page_decoded": "母",
+          "maxsim": 0.823599100112915
+        },
+        {
+          "query_id": "S004-Q028",
+          "page_id": "f642437d-2d3c-5b95-a7f6-29f2e68c0a13",
+          "page_role": "GOLD",
+          "query_token_index": 10,
+          "query_token_id": 217441,
+          "query_token": "净利润",
+          "query_decoded": "净利润",
+          "best_page_token_index": 103,
+          "best_page_token_id": 217441,
+          "best_page_token": "净利润",
+          "best_page_decoded": "净利润",
+          "maxsim": 0.8258007764816284
+        },
+        {
+          "query_id": "S004-Q028",
+          "page_id": "f642437d-2d3c-5b95-a7f6-29f2e68c0a13",
+          "page_role": "GOLD",
+          "query_token_index": 17,
+          "query_token_id": 48843,
+          "query_token": "扣",
+          "query_decoded": "扣",
+          "best_page_token_index": 233,
+          "best_page_token_id": 48843,
+          "best_page_token": "扣",
+          "best_page_decoded": "扣",
+          "maxsim": 0.8018881678581238
+        },
+        {
+          "query_id": "S004-Q028",
+          "page_id": "f642437d-2d3c-5b95-a7f6-29f2e68c0a13",
+          "page_role": "GOLD",
+          "query_token_index": 18,
+          "query_token_id": 7688,
+          "query_token": "非",
+          "query_decoded": "非",
+          "best_page_token_index": 100,
+          "best_page_token_id": 7688,
+          "best_page_token": "非",
+          "best_page_decoded": "非",
+          "maxsim": 0.8299996852874756
+        },
+        {
+          "query_id": "S004-Q028",
+          "page_id": "f642437d-2d3c-5b95-a7f6-29f2e68c0a13",
+          "page_role": "GOLD",
+          "query_token_index": 32,
+          "query_token_id": 32310,
+          "query_token": "资产",
+          "query_decoded": "资产",
+          "best_page_token_index": 6,
+          "best_page_token_id": 32310,
+          "best_page_token": "资产",
+          "best_page_decoded": "资产",
+          "maxsim": 0.8036664724349976
+        },
+        {
+          "query_id": "S004-Q028",
+          "page_id": "f642437d-2d3c-5b95-a7f6-29f2e68c0a13",
+          "page_role": "GOLD",
+          "query_token_index": 47,
+          "query_token_id": 12082,
+          "query_token": "怎么",
+          "query_decoded": "怎么",
+          "best_page_token_index": 28,
+          "best_page_token_id": 10409,
+          "best_page_token": "是否",
+          "best_page_decoded": "是否",
+          "maxsim": 0.6823163032531738
+        },
+        {
+          "query_id": "S004-Q028",
+          "page_id": "75337c00-099c-56d7-ad2c-bd3be6ef4b11",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 4,
+          "query_token_id": 7606,
+          "query_token": "反",
+          "query_decoded": "反",
+          "best_page_token_index": 99,
+          "best_page_token_id": 36762,
+          "best_page_token": "归",
+          "best_page_decoded": "归",
+          "maxsim": 0.5684473514556885
+        },
+        {
+          "query_id": "S004-Q028",
+          "page_id": "75337c00-099c-56d7-ad2c-bd3be6ef4b11",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 8,
+          "query_token_id": 36762,
+          "query_token": "归",
+          "query_decoded": "归",
+          "best_page_token_index": 99,
+          "best_page_token_id": 36762,
+          "best_page_token": "归",
+          "best_page_decoded": "归",
+          "maxsim": 0.8216016292572021
+        },
+        {
+          "query_id": "S004-Q028",
+          "page_id": "75337c00-099c-56d7-ad2c-bd3be6ef4b11",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 9,
+          "query_token_id": 15775,
+          "query_token": "母",
+          "query_decoded": "母",
+          "best_page_token_index": 100,
+          "best_page_token_id": 15775,
+          "best_page_token": "母",
+          "best_page_decoded": "母",
+          "maxsim": 0.8174464702606201
+        },
+        {
+          "query_id": "S004-Q028",
+          "page_id": "75337c00-099c-56d7-ad2c-bd3be6ef4b11",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 10,
+          "query_token_id": 217441,
+          "query_token": "净利润",
+          "query_decoded": "净利润",
+          "best_page_token_index": 101,
+          "best_page_token_id": 217441,
+          "best_page_token": "净利润",
+          "best_page_decoded": "净利润",
+          "maxsim": 0.8301985263824463
+        },
+        {
+          "query_id": "S004-Q028",
+          "page_id": "75337c00-099c-56d7-ad2c-bd3be6ef4b11",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 17,
+          "query_token_id": 48843,
+          "query_token": "扣",
+          "query_decoded": "扣",
+          "best_page_token_index": 97,
+          "best_page_token_id": 48843,
+          "best_page_token": "扣",
+          "best_page_decoded": "扣",
+          "maxsim": 0.7888123393058777
+        },
+        {
+          "query_id": "S004-Q028",
+          "page_id": "75337c00-099c-56d7-ad2c-bd3be6ef4b11",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 18,
+          "query_token_id": 7688,
+          "query_token": "非",
+          "query_decoded": "非",
+          "best_page_token_index": 195,
+          "best_page_token_id": 7688,
+          "best_page_token": "非",
+          "best_page_decoded": "非",
+          "maxsim": 0.8441866636276245
+        },
+        {
+          "query_id": "S004-Q028",
+          "page_id": "75337c00-099c-56d7-ad2c-bd3be6ef4b11",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 32,
+          "query_token_id": 32310,
+          "query_token": "资产",
+          "query_decoded": "资产",
+          "best_page_token_index": 101,
+          "best_page_token_id": 217441,
+          "best_page_token": "净利润",
+          "best_page_decoded": "净利润",
+          "maxsim": 0.5865373611450195
+        },
+        {
+          "query_id": "S004-Q028",
+          "page_id": "75337c00-099c-56d7-ad2c-bd3be6ef4b11",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 47,
+          "query_token_id": 12082,
+          "query_token": "怎么",
+          "query_decoded": "怎么",
+          "best_page_token_index": 96,
+          "best_page_token_id": 12,
+          "best_page_token": ":",
+          "best_page_decoded": ":",
+          "maxsim": 0.6336259841918945
+        }
+      ]
+    },
+    {
+      "case_type": "PROMOTED",
+      "session_id": "S005",
+      "query_id": "S005-Q022",
+      "original_query": "刚才看了收入，再看归母净利润，两者的增减方向和幅度匹配吗；把结论写得可以回到公开来源复算。",
+      "frozen_p2_query": "刚才看了收入，再看归母净利润，两者的增减方向和幅度匹配吗；把结论写得可以回到公开来源复算。",
+      "gold_page_id": "bcb24496-086a-528b-a09e-86bae79fa560",
+      "gold_source_turn_id": "S005-Q012",
+      "gold_summary": "用户要求检查宁德时代2023-2025年三年比较数是否存在单位、主体或重述口径差异，并先给结论再说明依据。助手基于《宁德时代2025年年度报告或年度报告摘要》（披露日期2026-03-10，来源地址https://static.cninfo.com.cn/finalpage/2026-03-10/1225002213.PDF）确认：归母净利润2023年441.21亿元、2024年507.45亿元、2025年722.01亿元，同比分别为+15.01%、+42.28%，呈连续上升；总资产2023年7,171.68亿元、2024年7,866.58亿元、2025年9,748.28亿元，同比分别为+9.69%、+23.92%，呈连续上升。结论为两项指标均连续上升，但需区分2023-2024和2024-2025两段同比，不以首尾差额代替年度路径，不将相关关系写成因果，具体经营原因需附注支持。",
+      "gold_keywords": [
+        "宁德时代",
+        "2023-2025",
+        "口径差异",
+        "归母净利润",
+        "总资产",
+        "同比",
+        "年报来源"
+      ],
+      "competing_page_id": "03c1ad0a-b53e-556e-a84e-489e1333b34f",
+      "competing_source_turn_id": "S005-Q004",
+      "competing_summary": "用户基于前文已确认的宁德时代2023-2025年财务数据，询问收入规模与利润表现是否同步，并要求结论可回到公开来源复算。助手基于《宁德时代2025年年度报告或年度报告摘要》（披露日期2026-03-10，来源地址https://static.cninfo.com.cn/finalpage/2026-03-10/1225002213.PDF）提供三年数据：营业收入2023年4,009.17亿元、2024年3,620.13亿元、2025年4,237.02亿元，同比分别为-9.70%、+17.04%，呈先降后升；归母净利润2023年441.21亿元、2024年507.45亿元、2025年722.01亿元，同比分别为+15.01%、+42.28%，呈连续上升；总资产2023年7,171.68亿元、2024年7,866.58亿元、2025年9,748.28亿元，同比分别为+9.69%、+23.92%，呈连续上升；归母股东权益2023年1,977.08亿元、2024年2,469.3亿元、2025年3,371.08亿元，同比分别为+24.90%、+36.52%，呈连续上升。助手结论为归母净利润和总资产均连续上升，营业收入先降后升，收入与利润不同步；强调需区分2023-2024和2024-2025两段同比，不以首尾差额代替年度路径，不将相关关系写成因果，具体经营原因需附注支持。",
+      "competing_keywords": [
+        "宁德时代",
+        "2023-2025",
+        "收入与利润同步性",
+        "营业收入",
+        "归母净利润",
+        "总资产",
+        "同比",
+        "年报来源"
+      ],
+      "gold_scores": {
+        "C3": {
+          "rank": 11,
+          "score": 0.5612436532974243,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 6,
+          "score": 0.6439929604530334,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 4,
+          "score": 0.6244111657142639,
+          "maxsim_score": 0.6244111657142639
+        },
+        "M2": {
+          "rank": 4,
+          "score": 0.6244111657142639,
+          "maxsim_score": 0.6244111657142639
+        }
+      },
+      "competing_scores": {
+        "C3": {
+          "rank": 5,
+          "score": 0.5999425053596497,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 1,
+          "score": 0.6939429044723511,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 1,
+          "score": 0.6701478958129883,
+          "maxsim_score": 0.6701478958129883
+        },
+        "M2": {
+          "rank": 1,
+          "score": 0.6701478958129883,
+          "maxsim_score": 0.6701478958129883
+        }
+      },
+      "token_level_matches": [
+        {
+          "query_id": "S005-Q022",
+          "page_id": "bcb24496-086a-528b-a09e-86bae79fa560",
+          "page_role": "GOLD",
+          "query_token_index": 2,
+          "query_token_id": 40058,
+          "query_token": "看了",
+          "query_decoded": "看了",
+          "best_page_token_index": 3,
+          "best_page_token_id": 28072,
+          "best_page_token": "检查",
+          "best_page_decoded": "检查",
+          "maxsim": 0.6446126699447632
+        },
+        {
+          "query_id": "S005-Q022",
+          "page_id": "bcb24496-086a-528b-a09e-86bae79fa560",
+          "page_role": "GOLD",
+          "query_token_index": 3,
+          "query_token_id": 16306,
+          "query_token": "收入",
+          "query_decoded": "收入",
+          "best_page_token_index": 88,
+          "best_page_token_id": 217441,
+          "best_page_token": "净利润",
+          "best_page_decoded": "净利润",
+          "maxsim": 0.6530702710151672
+        },
+        {
+          "query_id": "S005-Q022",
+          "page_id": "bcb24496-086a-528b-a09e-86bae79fa560",
+          "page_role": "GOLD",
+          "query_token_index": 7,
+          "query_token_id": 36762,
+          "query_token": "归",
+          "query_decoded": "归",
+          "best_page_token_index": 86,
+          "best_page_token_id": 36762,
+          "best_page_token": "归",
+          "best_page_decoded": "归",
+          "maxsim": 0.7492145299911499
+        },
+        {
+          "query_id": "S005-Q022",
+          "page_id": "bcb24496-086a-528b-a09e-86bae79fa560",
+          "page_role": "GOLD",
+          "query_token_index": 8,
+          "query_token_id": 15775,
+          "query_token": "母",
+          "query_decoded": "母",
+          "best_page_token_index": 242,
+          "best_page_token_id": 15775,
+          "best_page_token": "母",
+          "best_page_decoded": "母",
+          "maxsim": 0.7181707620620728
+        },
+        {
+          "query_id": "S005-Q022",
+          "page_id": "bcb24496-086a-528b-a09e-86bae79fa560",
+          "page_role": "GOLD",
+          "query_token_index": 9,
+          "query_token_id": 217441,
+          "query_token": "净利润",
+          "query_decoded": "净利润",
+          "best_page_token_index": 88,
+          "best_page_token_id": 217441,
+          "best_page_token": "净利润",
+          "best_page_decoded": "净利润",
+          "maxsim": 0.7669919729232788
+        },
+        {
+          "query_id": "S005-Q022",
+          "page_id": "bcb24496-086a-528b-a09e-86bae79fa560",
+          "page_role": "GOLD",
+          "query_token_index": 13,
+          "query_token_id": 19426,
+          "query_token": "增",
+          "query_decoded": "增",
+          "best_page_token_index": 114,
+          "best_page_token_id": 21748,
+          "best_page_token": "+1",
+          "best_page_decoded": "+1",
+          "maxsim": 0.5972689390182495
+        },
+        {
+          "query_id": "S005-Q022",
+          "page_id": "bcb24496-086a-528b-a09e-86bae79fa560",
+          "page_role": "GOLD",
+          "query_token_index": 19,
+          "query_token_id": 9131,
+          "query_token": "吗",
+          "query_decoded": "吗",
+          "best_page_token_index": 15,
+          "best_page_token_id": 10409,
+          "best_page_token": "是否",
+          "best_page_decoded": "是否",
+          "maxsim": 0.6547589898109436
+        },
+        {
+          "query_id": "S005-Q022",
+          "page_id": "bcb24496-086a-528b-a09e-86bae79fa560",
+          "page_role": "GOLD",
+          "query_token_index": 25,
+          "query_token_id": 1441,
+          "query_token": "可以",
+          "query_decoded": "可以",
+          "best_page_token_index": 2,
+          "best_page_token_id": 5207,
+          "best_page_token": "要求",
+          "best_page_decoded": "要求",
+          "maxsim": 0.5774003267288208
+        },
+        {
+          "query_id": "S005-Q022",
+          "page_id": "03c1ad0a-b53e-556e-a84e-489e1333b34f",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 2,
+          "query_token_id": 40058,
+          "query_token": "看了",
+          "query_decoded": "看了",
+          "best_page_token_index": 30,
+          "best_page_token_id": 160498,
+          "best_page_token": "结论",
+          "best_page_decoded": "结论",
+          "maxsim": 0.6065179109573364
+        },
+        {
+          "query_id": "S005-Q022",
+          "page_id": "03c1ad0a-b53e-556e-a84e-489e1333b34f",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 3,
+          "query_token_id": 16306,
+          "query_token": "收入",
+          "query_decoded": "收入",
+          "best_page_token_index": 20,
+          "best_page_token_id": 16306,
+          "best_page_token": "收入",
+          "best_page_decoded": "收入",
+          "maxsim": 0.7963313460350037
+        },
+        {
+          "query_id": "S005-Q022",
+          "page_id": "03c1ad0a-b53e-556e-a84e-489e1333b34f",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 7,
+          "query_token_id": 36762,
+          "query_token": "归",
+          "query_decoded": "归",
+          "best_page_token_index": 272,
+          "best_page_token_id": 36762,
+          "best_page_token": "归",
+          "best_page_decoded": "归",
+          "maxsim": 0.7377774119377136
+        },
+        {
+          "query_id": "S005-Q022",
+          "page_id": "03c1ad0a-b53e-556e-a84e-489e1333b34f",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 8,
+          "query_token_id": 15775,
+          "query_token": "母",
+          "query_decoded": "母",
+          "best_page_token_index": 139,
+          "best_page_token_id": 15775,
+          "best_page_token": "母",
+          "best_page_decoded": "母",
+          "maxsim": 0.7129043340682983
+        },
+        {
+          "query_id": "S005-Q022",
+          "page_id": "03c1ad0a-b53e-556e-a84e-489e1333b34f",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 9,
+          "query_token_id": 217441,
+          "query_token": "净利润",
+          "query_decoded": "净利润",
+          "best_page_token_index": 274,
+          "best_page_token_id": 217441,
+          "best_page_token": "净利润",
+          "best_page_decoded": "净利润",
+          "maxsim": 0.7509393692016602
+        },
+        {
+          "query_id": "S005-Q022",
+          "page_id": "03c1ad0a-b53e-556e-a84e-489e1333b34f",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 13,
+          "query_token_id": 19426,
+          "query_token": "增",
+          "query_decoded": "增",
+          "best_page_token_index": 35,
+          "best_page_token_id": 28226,
+          "best_page_token": "复",
+          "best_page_decoded": "复",
+          "maxsim": 0.5895165801048279
+        },
+        {
+          "query_id": "S005-Q022",
+          "page_id": "03c1ad0a-b53e-556e-a84e-489e1333b34f",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 19,
+          "query_token_id": 9131,
+          "query_token": "吗",
+          "query_decoded": "吗",
+          "best_page_token_index": 25,
+          "best_page_token_id": 10409,
+          "best_page_token": "是否",
+          "best_page_decoded": "是否",
+          "maxsim": 0.6776106357574463
+        },
+        {
+          "query_id": "S005-Q022",
+          "page_id": "03c1ad0a-b53e-556e-a84e-489e1333b34f",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 25,
+          "query_token_id": 1441,
+          "query_token": "可以",
+          "query_decoded": "可以",
+          "best_page_token_index": 31,
+          "best_page_token_id": 1403,
+          "best_page_token": "可",
+          "best_page_decoded": "可",
+          "maxsim": 0.6453073024749756
+        }
+      ]
+    },
+    {
+      "case_type": "DEMOTED",
+      "session_id": "S002",
+      "query_id": "S002-Q065",
+      "original_query": "接着用一个可复算比率检查刚才的基期判断，但不要把近似值当正式指标。",
+      "frozen_p2_query": "接着用一个可复算比率检查刚才的基期判断（总资产呈连续上升，归母股东权益呈连续上升），但不要把近似值当正式指标。",
+      "gold_page_id": "a2f4bee5-f836-545e-8197-d79f3f2d284c",
+      "gold_source_turn_id": "S002-Q053",
+      "gold_summary": "用户要求解释证据链中两个指标方向相反时的冲突处理，并明确区分年报原数与计算结果。助手基于《贵州茅台2025年年度报告或年度报告摘要》（披露日期2026-04-17，来源地址https://static.cninfo.com.cn/finalpage/2026-04-17/1225114731.PDF）确认：营业收入2023年1,476.94亿元、2024年1,708.99亿元、2025年1,688.38亿元，同比分别为+15.71%、-1.21%，三年形态为先升后降；归母净利润2023年747.34亿元、2024年862.28亿元、2025年823.20亿元，同比分别为+15.38%、-4.53%，三年形态为先升后降；总资产2023年2,727亿元、2024年2,989.45亿元、2025年3,038.35亿元，同比分别为+9.62%、+1.64%，三年形态为连续上升；归母股东权益2023年2,156.69亿元、2024年2,331.06亿元、2025年2,446.38亿元，同比分别为+8.09%、+4.95%，三年形态为连续上升。结论为：营业收入与归母净利润均先升后降（2024年为拐点），而总资产与归母股东权益连续上升，资产扩张未得到规模增长同步支撑，形成错位；营业收入/期末总资产的近似周转检查分别为2023年0.542倍、2024年0.572倍、2025年0.556倍，仅用于方向核验；当前证据只能确认存在错位，不能判定为效率问题，因缺少经营现金流与净利润的配对数据，无法计算现金利润比，不推断未披露原因，保留信息缺口；岗位视角为内控审计经理，关注数据链路、控制点与复核责任。",
+      "gold_keywords": [
+        "贵州茅台",
+        "2023-2025",
+        "冲突解释",
+        "年报原数",
+        "计算结果",
+        "营业收入",
+        "归母净利润",
+        "总资产"
+      ],
+      "competing_page_id": "3549589e-05fe-5631-9385-5379f8dd4396",
+      "competing_source_turn_id": "S002-Q057",
+      "competing_summary": "用户要求沿前文结论做反向验证，从更早问题中找一项最有力的反证，并区分最新一年边际变化与完整三年路径。助手基于《贵州茅台2025年年度报告或年度报告摘要》（披露日期2026-04-17，来源地址https://static.cninfo.com.cn/finalpage/2026-04-17/1225114731.PDF）确认：归母股东权益2023年2,156.69亿元、2024年2,331.06亿元、2025年2,446.38亿元，同比分别为+8.09%、+4.95%，三年形态为连续上升；总资产2023年2,727亿元、2024年2,989.45亿元、2025年3,038.35亿元，同比分别为+9.62%、+1.64%，三年形态为连续上升。结论为：归母股东权益与总资产均连续上升，二者同向，作为反证与主证据相互支持，但仅覆盖三个财年；营业收入与归母净利润均先升后降（2024年为拐点），与资产权益连续上升形成错位；营业收入/期末总资产的近似周转检查分别为2023年0.542倍、2024年0.572倍、2025年0.556倍，仅用于方向核验；当前证据只能确认存在错位，不能判定为效率问题，因缺少经营现金流与净利润的配对数据，无法计算现金利润比，不推断未披露原因，保留信息缺口；岗位视角为内控审计经理，关注数据链路、控制点与复核责任。",
+      "competing_keywords": [
+        "贵州茅台",
+        "2023-2025",
+        "反向验证",
+        "归母股东权益",
+        "总资产",
+        "连续上升",
+        "反证"
+      ],
+      "gold_scores": {
+        "C3": {
+          "rank": 1,
+          "score": 0.650933027267456,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 24,
+          "score": 0.6093257069587708,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 29,
+          "score": 0.6091257929801941,
+          "maxsim_score": 0.6091257929801941
+        },
+        "M2": {
+          "rank": 29,
+          "score": 0.6091257929801941,
+          "maxsim_score": 0.6091257929801941
+        }
+      },
+      "competing_scores": {
+        "C3": {
+          "rank": 4,
+          "score": 0.633621335029602,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 2,
+          "score": 0.6844198107719421,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 1,
+          "score": 0.672501266002655,
+          "maxsim_score": 0.672501266002655
+        },
+        "M2": {
+          "rank": 1,
+          "score": 0.672501266002655,
+          "maxsim_score": 0.672501266002655
+        }
+      },
+      "token_level_matches": [
+        {
+          "query_id": "S002-Q065",
+          "page_id": "a2f4bee5-f836-545e-8197-d79f3f2d284c",
+          "page_role": "GOLD",
+          "query_token_index": 11,
+          "query_token_id": 9426,
+          "query_token": "基",
+          "query_decoded": "基",
+          "best_page_token_index": 8,
+          "best_page_token_id": 90305,
+          "best_page_token": "指标",
+          "best_page_decoded": "指标",
+          "maxsim": 0.4641823172569275
+        },
+        {
+          "query_id": "S002-Q065",
+          "page_id": "a2f4bee5-f836-545e-8197-d79f3f2d284c",
+          "page_role": "GOLD",
+          "query_token_index": 12,
+          "query_token_id": 4118,
+          "query_token": "期",
+          "query_decoded": "期",
+          "best_page_token_index": 8,
+          "best_page_token_id": 90305,
+          "best_page_token": "指标",
+          "best_page_decoded": "指标",
+          "maxsim": 0.5210496187210083
+        },
+        {
+          "query_id": "S002-Q065",
+          "page_id": "a2f4bee5-f836-545e-8197-d79f3f2d284c",
+          "page_role": "GOLD",
+          "query_token_index": 15,
+          "query_token_id": 7051,
+          "query_token": "总",
+          "query_decoded": "总",
+          "best_page_token_index": 290,
+          "best_page_token_id": 7051,
+          "best_page_token": "总",
+          "best_page_decoded": "总",
+          "maxsim": 0.6960846185684204
+        },
+        {
+          "query_id": "S002-Q065",
+          "page_id": "a2f4bee5-f836-545e-8197-d79f3f2d284c",
+          "page_role": "GOLD",
+          "query_token_index": 16,
+          "query_token_id": 32310,
+          "query_token": "资产",
+          "query_decoded": "资产",
+          "best_page_token_index": 300,
+          "best_page_token_id": 32310,
+          "best_page_token": "资产",
+          "best_page_decoded": "资产",
+          "maxsim": 0.7006360292434692
+        },
+        {
+          "query_id": "S002-Q065",
+          "page_id": "a2f4bee5-f836-545e-8197-d79f3f2d284c",
+          "page_role": "GOLD",
+          "query_token_index": 21,
+          "query_token_id": 36762,
+          "query_token": "归",
+          "query_decoded": "归",
+          "best_page_token_index": 217,
+          "best_page_token_id": 36762,
+          "best_page_token": "归",
+          "best_page_decoded": "归",
+          "maxsim": 0.6777284145355225
+        },
+        {
+          "query_id": "S002-Q065",
+          "page_id": "a2f4bee5-f836-545e-8197-d79f3f2d284c",
+          "page_role": "GOLD",
+          "query_token_index": 22,
+          "query_token_id": 15775,
+          "query_token": "母",
+          "query_decoded": "母",
+          "best_page_token_index": 294,
+          "best_page_token_id": 15775,
+          "best_page_token": "母",
+          "best_page_decoded": "母",
+          "maxsim": 0.6644307374954224
+        },
+        {
+          "query_id": "S002-Q065",
+          "page_id": "a2f4bee5-f836-545e-8197-d79f3f2d284c",
+          "page_role": "GOLD",
+          "query_token_index": 23,
+          "query_token_id": 106341,
+          "query_token": "股东",
+          "query_decoded": "股东",
+          "best_page_token_index": 219,
+          "best_page_token_id": 106341,
+          "best_page_token": "股东",
+          "best_page_decoded": "股东",
+          "maxsim": 0.6969560980796814
+        },
+        {
+          "query_id": "S002-Q065",
+          "page_id": "a2f4bee5-f836-545e-8197-d79f3f2d284c",
+          "page_role": "GOLD",
+          "query_token_index": 24,
+          "query_token_id": 149196,
+          "query_token": "权益",
+          "query_decoded": "权益",
+          "best_page_token_index": 220,
+          "best_page_token_id": 149196,
+          "best_page_token": "权益",
+          "best_page_decoded": "权益",
+          "maxsim": 0.5996642708778381
+        },
+        {
+          "query_id": "S002-Q065",
+          "page_id": "3549589e-05fe-5631-9385-5379f8dd4396",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 11,
+          "query_token_id": 9426,
+          "query_token": "基",
+          "query_decoded": "基",
+          "best_page_token_index": 30,
+          "best_page_token_id": 14591,
+          "best_page_token": "边",
+          "best_page_decoded": "边",
+          "maxsim": 0.504550039768219
+        },
+        {
+          "query_id": "S002-Q065",
+          "page_id": "3549589e-05fe-5631-9385-5379f8dd4396",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 12,
+          "query_token_id": 4118,
+          "query_token": "期",
+          "query_decoded": "期",
+          "best_page_token_index": 92,
+          "best_page_token_id": 106341,
+          "best_page_token": "股东",
+          "best_page_decoded": "股东",
+          "maxsim": 0.5766578912734985
+        },
+        {
+          "query_id": "S002-Q065",
+          "page_id": "3549589e-05fe-5631-9385-5379f8dd4396",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 15,
+          "query_token_id": 7051,
+          "query_token": "总",
+          "query_decoded": "总",
+          "best_page_token_index": 193,
+          "best_page_token_id": 7051,
+          "best_page_token": "总",
+          "best_page_decoded": "总",
+          "maxsim": 0.8021879196166992
+        },
+        {
+          "query_id": "S002-Q065",
+          "page_id": "3549589e-05fe-5631-9385-5379f8dd4396",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 16,
+          "query_token_id": 32310,
+          "query_token": "资产",
+          "query_decoded": "资产",
+          "best_page_token_index": 240,
+          "best_page_token_id": 32310,
+          "best_page_token": "资产",
+          "best_page_decoded": "资产",
+          "maxsim": 0.7695642709732056
+        },
+        {
+          "query_id": "S002-Q065",
+          "page_id": "3549589e-05fe-5631-9385-5379f8dd4396",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 21,
+          "query_token_id": 36762,
+          "query_token": "归",
+          "query_decoded": "归",
+          "best_page_token_index": 188,
+          "best_page_token_id": 36762,
+          "best_page_token": "归",
+          "best_page_decoded": "归",
+          "maxsim": 0.7899092435836792
+        },
+        {
+          "query_id": "S002-Q065",
+          "page_id": "3549589e-05fe-5631-9385-5379f8dd4396",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 22,
+          "query_token_id": 15775,
+          "query_token": "母",
+          "query_decoded": "母",
+          "best_page_token_index": 189,
+          "best_page_token_id": 15775,
+          "best_page_token": "母",
+          "best_page_decoded": "母",
+          "maxsim": 0.7757611274719238
+        },
+        {
+          "query_id": "S002-Q065",
+          "page_id": "3549589e-05fe-5631-9385-5379f8dd4396",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 23,
+          "query_token_id": 106341,
+          "query_token": "股东",
+          "query_decoded": "股东",
+          "best_page_token_index": 92,
+          "best_page_token_id": 106341,
+          "best_page_token": "股东",
+          "best_page_decoded": "股东",
+          "maxsim": 0.7795524597167969
+        },
+        {
+          "query_id": "S002-Q065",
+          "page_id": "3549589e-05fe-5631-9385-5379f8dd4396",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 24,
+          "query_token_id": 149196,
+          "query_token": "权益",
+          "query_decoded": "权益",
+          "best_page_token_index": 191,
+          "best_page_token_id": 149196,
+          "best_page_token": "权益",
+          "best_page_decoded": "权益",
+          "maxsim": 0.7709957361221313
+        }
+      ]
+    },
+    {
+      "case_type": "DEMOTED",
+      "session_id": "S003",
+      "query_id": "S003-Q039",
+      "original_query": "结合刚才的反证，前面有哪些表述需要降级或修正；不要只比较2023年和2025年两个端点。",
+      "frozen_p2_query": "结合刚才的反证（归母股东权益呈连续上升，总资产呈连续上升），前面有哪些表述需要降级或修正；不要只比较2023年和2025年两个端点。",
+      "gold_page_id": "4ed05884-3478-5a91-a63f-3067fd41956d",
+      "gold_source_turn_id": "S003-Q027",
+      "gold_summary": "用户要求从反证、尾部风险与监控触发项角度，判断此前现金证据最直接影响哪项判断，并确保结论可衔接下一轮追问。助手基于《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF），固定期间2023-2025三个完整财年，金额单位为亿元。关键数据：营业收入2023年6,023.15亿元、2024年7,771.02亿元、2025年8,039.65亿元，同比+29.02%、+3.46%，连续上升；归母净利润2023年300.41亿元、2024年402.54亿元、2025年326.19亿元，同比+34.00%、-18.97%，先升后降；扣非归母净利润2023年284.62亿元、2024年369.83亿元、2025年294.46亿元，同比+29.94%、-20.38%，先升后降；经营活动现金流净额2023年1,697.25亿元、2024年1,334.54亿元、2025年591.36亿元，同比-21.37%、-55.69%，连续下降；总资产2023年6,795.48亿元、2024年7,833.56亿元、2025年8,837.3亿元，同比+15.28%、+12.81%，连续上升；归母股东权益2023年1,388.1亿元、2024年1,852.51亿元、2025年2,462.75亿元，同比+33.46%、+32.94%，连续上升。助手结论：营业收入连续上升与归母净利润先升后降的组合，对反证、尾部风险与监控触发项有直接参考价值，但仅能证明截至2025年完整财年的财务表现及指标间关系，不能单独证明具体经营原因，也不能外推未来。分析以风险委员会委员视角，区分事实、计算和判断三层，强调反证、尾部风险与监控触发项，并保留2024年中间点。",
+      "gold_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "现金证据",
+        "反证",
+        "尾部风险",
+        "监控触发项",
+        "营业收入",
+        "归母净利润"
+      ],
+      "competing_page_id": "8319fad1-425d-545c-8ef3-4df0fdc3b11d",
+      "competing_source_turn_id": "S003-Q020",
+      "competing_summary": "用户要求将前文确认的资产、权益与经营结果综合判断，并接回利润和现金分析，从风险委员会委员最关心的证据开始回答。助手基于《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF），固定期间为2023-2025三个完整财年，金额单位为亿元。关键数据：归母股东权益2023年1,388.1亿元、2024年1,852.51亿元、2025年2,462.75亿元，同比分别为+33.46%、+32.94%，连续上升；总资产2023年6,795.48亿元、2024年7,833.56亿元、2025年8,837.3亿元，同比分别为+15.28%、+12.81%，连续上升。助手结论：归母股东权益与总资产均连续上升，方向一致，但仅能证明截至2025年完整财年的财务表现及指标间关系，不能单独证明具体经营原因，也不能外推未来；应区分事实、计算和判断三层，保留反证和缺口，具体原因需附注支持。分析以风险委员会委员视角，强调反证、尾部风险与监控触发项。",
+      "competing_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "综合判断",
+        "归母股东权益",
+        "总资产",
+        "连续上升",
+        "风险委员会",
+        "年报来源"
+      ],
+      "gold_scores": {
+        "C3": {
+          "rank": 2,
+          "score": 0.6725355982780457,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 29,
+          "score": 0.6785324215888977,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 28,
+          "score": 0.635348379611969,
+          "maxsim_score": 0.635348379611969
+        },
+        "M2": {
+          "rank": 28,
+          "score": 0.635348379611969,
+          "maxsim_score": 0.635348379611969
+        }
+      },
+      "competing_scores": {
+        "C3": {
+          "rank": 11,
+          "score": 0.6322751641273499,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 3,
+          "score": 0.7483063340187073,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 1,
+          "score": 0.7051814198493958,
+          "maxsim_score": 0.7051814198493958
+        },
+        "M2": {
+          "rank": 1,
+          "score": 0.7051814198493958,
+          "maxsim_score": 0.7051814198493958
+        }
+      },
+      "token_level_matches": [
+        {
+          "query_id": "S003-Q039",
+          "page_id": "4ed05884-3478-5a91-a63f-3067fd41956d",
+          "page_role": "GOLD",
+          "query_token_index": 4,
+          "query_token_id": 7606,
+          "query_token": "反",
+          "query_decoded": "反",
+          "best_page_token_index": 4,
+          "best_page_token_id": 7606,
+          "best_page_token": "反",
+          "best_page_decoded": "反",
+          "maxsim": 0.7645313739776611
+        },
+        {
+          "query_id": "S003-Q039",
+          "page_id": "4ed05884-3478-5a91-a63f-3067fd41956d",
+          "page_role": "GOLD",
+          "query_token_index": 5,
+          "query_token_id": 21936,
+          "query_token": "证",
+          "query_decoded": "证",
+          "best_page_token_index": 5,
+          "best_page_token_id": 21936,
+          "best_page_token": "证",
+          "best_page_decoded": "证",
+          "maxsim": 0.7589013576507568
+        },
+        {
+          "query_id": "S003-Q039",
+          "page_id": "4ed05884-3478-5a91-a63f-3067fd41956d",
+          "page_role": "GOLD",
+          "query_token_index": 8,
+          "query_token_id": 15775,
+          "query_token": "母",
+          "query_decoded": "母",
+          "best_page_token_index": 318,
+          "best_page_token_id": 15775,
+          "best_page_token": "母",
+          "best_page_decoded": "母",
+          "maxsim": 0.6765796542167664
+        },
+        {
+          "query_id": "S003-Q039",
+          "page_id": "4ed05884-3478-5a91-a63f-3067fd41956d",
+          "page_role": "GOLD",
+          "query_token_index": 9,
+          "query_token_id": 106341,
+          "query_token": "股东",
+          "query_decoded": "股东",
+          "best_page_token_index": 319,
+          "best_page_token_id": 106341,
+          "best_page_token": "股东",
+          "best_page_decoded": "股东",
+          "maxsim": 0.6880978941917419
+        },
+        {
+          "query_id": "S003-Q039",
+          "page_id": "4ed05884-3478-5a91-a63f-3067fd41956d",
+          "page_role": "GOLD",
+          "query_token_index": 10,
+          "query_token_id": 149196,
+          "query_token": "权益",
+          "query_decoded": "权益",
+          "best_page_token_index": 320,
+          "best_page_token_id": 149196,
+          "best_page_token": "权益",
+          "best_page_decoded": "权益",
+          "maxsim": 0.5853900909423828
+        },
+        {
+          "query_id": "S003-Q039",
+          "page_id": "4ed05884-3478-5a91-a63f-3067fd41956d",
+          "page_role": "GOLD",
+          "query_token_index": 15,
+          "query_token_id": 7051,
+          "query_token": "总",
+          "query_decoded": "总",
+          "best_page_token_index": 403,
+          "best_page_token_id": 46396,
+          "best_page_token": "完整",
+          "best_page_decoded": "完整",
+          "maxsim": 0.5788734555244446
+        },
+        {
+          "query_id": "S003-Q039",
+          "page_id": "4ed05884-3478-5a91-a63f-3067fd41956d",
+          "page_role": "GOLD",
+          "query_token_index": 16,
+          "query_token_id": 32310,
+          "query_token": "资产",
+          "query_decoded": "资产",
+          "best_page_token_index": 278,
+          "best_page_token_id": 32310,
+          "best_page_token": "资产",
+          "best_page_decoded": "资产",
+          "maxsim": 0.5936911106109619
+        },
+        {
+          "query_id": "S003-Q039",
+          "page_id": "4ed05884-3478-5a91-a63f-3067fd41956d",
+          "page_role": "GOLD",
+          "query_token_index": 42,
+          "query_token_id": 2391,
+          "query_token": "点",
+          "query_decoded": "点",
+          "best_page_token_index": 89,
+          "best_page_token_id": 24055,
+          "best_page_token": "期间",
+          "best_page_decoded": "期间",
+          "maxsim": 0.5896141529083252
+        },
+        {
+          "query_id": "S003-Q039",
+          "page_id": "8319fad1-425d-545c-8ef3-4df0fdc3b11d",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 4,
+          "query_token_id": 7606,
+          "query_token": "反",
+          "query_decoded": "反",
+          "best_page_token_index": 271,
+          "best_page_token_id": 7606,
+          "best_page_token": "反",
+          "best_page_decoded": "反",
+          "maxsim": 0.722586989402771
+        },
+        {
+          "query_id": "S003-Q039",
+          "page_id": "8319fad1-425d-545c-8ef3-4df0fdc3b11d",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 5,
+          "query_token_id": 21936,
+          "query_token": "证",
+          "query_decoded": "证",
+          "best_page_token_index": 272,
+          "best_page_token_id": 21936,
+          "best_page_token": "证",
+          "best_page_decoded": "证",
+          "maxsim": 0.7272712588310242
+        },
+        {
+          "query_id": "S003-Q039",
+          "page_id": "8319fad1-425d-545c-8ef3-4df0fdc3b11d",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 8,
+          "query_token_id": 15775,
+          "query_token": "母",
+          "query_decoded": "母",
+          "best_page_token_index": 195,
+          "best_page_token_id": 15775,
+          "best_page_token": "母",
+          "best_page_decoded": "母",
+          "maxsim": 0.8031542301177979
+        },
+        {
+          "query_id": "S003-Q039",
+          "page_id": "8319fad1-425d-545c-8ef3-4df0fdc3b11d",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 9,
+          "query_token_id": 106341,
+          "query_token": "股东",
+          "query_decoded": "股东",
+          "best_page_token_index": 196,
+          "best_page_token_id": 106341,
+          "best_page_token": "股东",
+          "best_page_decoded": "股东",
+          "maxsim": 0.7912153005599976
+        },
+        {
+          "query_id": "S003-Q039",
+          "page_id": "8319fad1-425d-545c-8ef3-4df0fdc3b11d",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 10,
+          "query_token_id": 149196,
+          "query_token": "权益",
+          "query_decoded": "权益",
+          "best_page_token_index": 197,
+          "best_page_token_id": 149196,
+          "best_page_token": "权益",
+          "best_page_decoded": "权益",
+          "maxsim": 0.8073700666427612
+        },
+        {
+          "query_id": "S003-Q039",
+          "page_id": "8319fad1-425d-545c-8ef3-4df0fdc3b11d",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 15,
+          "query_token_id": 7051,
+          "query_token": "总",
+          "query_decoded": "总",
+          "best_page_token_index": 199,
+          "best_page_token_id": 7051,
+          "best_page_token": "总",
+          "best_page_decoded": "总",
+          "maxsim": 0.8176202178001404
+        },
+        {
+          "query_id": "S003-Q039",
+          "page_id": "8319fad1-425d-545c-8ef3-4df0fdc3b11d",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 16,
+          "query_token_id": 32310,
+          "query_token": "资产",
+          "query_decoded": "资产",
+          "best_page_token_index": 8,
+          "best_page_token_id": 32310,
+          "best_page_token": "资产",
+          "best_page_decoded": "资产",
+          "maxsim": 0.8110434412956238
+        },
+        {
+          "query_id": "S003-Q039",
+          "page_id": "8319fad1-425d-545c-8ef3-4df0fdc3b11d",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 42,
+          "query_token_id": 2391,
+          "query_token": "点",
+          "query_decoded": "点",
+          "best_page_token_index": 86,
+          "best_page_token_id": 24055,
+          "best_page_token": "期间",
+          "best_page_decoded": "期间",
+          "maxsim": 0.6078189611434937
+        }
+      ]
+    },
+    {
+      "case_type": "DEMOTED",
+      "session_id": "S004",
+      "query_id": "S004-Q056",
+      "original_query": "把上一轮的计算放回证据层级，它属于披露事实还是分析工具；请区分最新一年的边际变化和完整三年路径。",
+      "frozen_p2_query": "把上一轮的计算（归母股东权益与扣非归母净利润的比率拆解）放回证据层级，它属于披露事实还是分析工具；请区分最新一年的边际变化和完整三年路径。",
+      "gold_page_id": "adc1eeb8-b0f8-5877-88cf-abdd23798b3a",
+      "gold_source_turn_id": "S004-Q050",
+      "gold_summary": "用户要求基于前文结论，综合当前章节，给出来源清楚、计算可复现、表述不过界的结论，并保留指标方向不同的冲突。助手基于《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF），确认三年口径一致，指出营业收入（2023年6,023.15亿元、2024年7,771.02亿元、2025年8,039.65亿元，同比+29.02%、+3.46%）和归母股东权益（2023年1,388.1亿元、2024年1,852.51亿元、2025年2,462.75亿元，同比+33.46%、+32.94%）均呈连续上升，作为主结论；同时保留归母净利润（2023年300.41亿元、2024年402.54亿元、2025年326.19亿元，同比+34.00%、-18.97%）和扣非归母净利润（2023年284.62亿元、2024年369.83亿元、2025年294.46亿元，同比+29.94%、-20.38%）呈先升后降，经营活动现金流净额（2023年1,697.25亿元、2024年1,334.54亿元、2025年591.36亿元，同比-21.37%、-55.69%）连续下降等冲突指标。结论：不简单评价好坏，而是描述指标方向、拐点及组合含义；可复算的三年原数和同比作为高确定性事实保留，具体经营原因未在年报中明确披露，不作确定归因，不预测未来。该结论承接前文证据分级、反证检验和风险排序，并作为后续管理问询和投研摘要的基础。",
+      "gold_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "综合结论",
+        "营业收入",
+        "归母股东权益",
+        "归母净利润",
+        "扣非归母净利润",
+        "经营活动现金流净额"
+      ],
+      "competing_page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+      "competing_source_turn_id": "S004-Q043",
+      "competing_summary": "用户要求沿着上一轮的口径检查，将原始披露、派生计算和分析判断分开写清楚，证据不足时直接说明缺口。助手基于《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF），确认三年口径一致，指出归母股东权益（2023年1,388.1亿元、2024年1,852.51亿元、2025年2,462.75亿元，同比+33.46%、+32.94%）连续上升，扣非归母净利润（2023年284.62亿元、2024年369.83亿元、2025年294.46亿元，同比+29.94%、-20.38%）先升后降。结论：不简单评价好坏，而是描述指标方向、拐点及组合含义；可复算的三年原数和同比作为高确定性事实保留，具体经营原因未在年报中明确披露，不作确定归因，不预测未来。该结论承接前文口径检查和来源追溯，并作为后续表述审查和证据分级的基础。",
+      "competing_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "证据分级",
+        "归母股东权益",
+        "扣非归母净利润",
+        "年度报告",
+        "口径检查"
+      ],
+      "gold_scores": {
+        "C3": {
+          "rank": 3,
+          "score": 0.6123521327972412,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 20,
+          "score": 0.6525918245315552,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 25,
+          "score": 0.5724908113479614,
+          "maxsim_score": 0.5724908113479614
+        },
+        "M2": {
+          "rank": 25,
+          "score": 0.5724908113479614,
+          "maxsim_score": 0.5724908113479614
+        }
+      },
+      "competing_scores": {
+        "C3": {
+          "rank": 6,
+          "score": 0.604918360710144,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 1,
+          "score": 0.7295365333557129,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 1,
+          "score": 0.6592414975166321,
+          "maxsim_score": 0.6592414975166321
+        },
+        "M2": {
+          "rank": 1,
+          "score": 0.6592414975166321,
+          "maxsim_score": 0.6592414975166321
+        }
+      },
+      "token_level_matches": [
+        {
+          "query_id": "S004-Q056",
+          "page_id": "adc1eeb8-b0f8-5877-88cf-abdd23798b3a",
+          "page_role": "GOLD",
+          "query_token_index": 7,
+          "query_token_id": 36762,
+          "query_token": "归",
+          "query_decoded": "归",
+          "best_page_token_index": 132,
+          "best_page_token_id": 36762,
+          "best_page_token": "归",
+          "best_page_decoded": "归",
+          "maxsim": 0.7084456086158752
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "adc1eeb8-b0f8-5877-88cf-abdd23798b3a",
+          "page_role": "GOLD",
+          "query_token_index": 8,
+          "query_token_id": 15775,
+          "query_token": "母",
+          "query_decoded": "母",
+          "best_page_token_index": 423,
+          "best_page_token_id": 15775,
+          "best_page_token": "母",
+          "best_page_decoded": "母",
+          "maxsim": 0.6839591264724731
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "adc1eeb8-b0f8-5877-88cf-abdd23798b3a",
+          "page_role": "GOLD",
+          "query_token_index": 9,
+          "query_token_id": 106341,
+          "query_token": "股东",
+          "query_decoded": "股东",
+          "best_page_token_index": 134,
+          "best_page_token_id": 106341,
+          "best_page_token": "股东",
+          "best_page_decoded": "股东",
+          "maxsim": 0.6916505098342896
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "adc1eeb8-b0f8-5877-88cf-abdd23798b3a",
+          "page_role": "GOLD",
+          "query_token_index": 10,
+          "query_token_id": 149196,
+          "query_token": "权益",
+          "query_decoded": "权益",
+          "best_page_token_index": 135,
+          "best_page_token_id": 149196,
+          "best_page_token": "权益",
+          "best_page_decoded": "权益",
+          "maxsim": 0.6783304214477539
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "adc1eeb8-b0f8-5877-88cf-abdd23798b3a",
+          "page_role": "GOLD",
+          "query_token_index": 12,
+          "query_token_id": 48843,
+          "query_token": "扣",
+          "query_decoded": "扣",
+          "best_page_token_index": 433,
+          "best_page_token_id": 48843,
+          "best_page_token": "扣",
+          "best_page_decoded": "扣",
+          "maxsim": 0.6826004981994629
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "adc1eeb8-b0f8-5877-88cf-abdd23798b3a",
+          "page_role": "GOLD",
+          "query_token_index": 13,
+          "query_token_id": 7688,
+          "query_token": "非",
+          "query_decoded": "非",
+          "best_page_token_index": 223,
+          "best_page_token_id": 7688,
+          "best_page_token": "非",
+          "best_page_decoded": "非",
+          "maxsim": 0.6847087144851685
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "adc1eeb8-b0f8-5877-88cf-abdd23798b3a",
+          "page_role": "GOLD",
+          "query_token_index": 16,
+          "query_token_id": 217441,
+          "query_token": "净利润",
+          "query_decoded": "净利润",
+          "best_page_token_index": 430,
+          "best_page_token_id": 217441,
+          "best_page_token": "净利润",
+          "best_page_decoded": "净利润",
+          "maxsim": 0.6950125694274902
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "adc1eeb8-b0f8-5877-88cf-abdd23798b3a",
+          "page_role": "GOLD",
+          "query_token_index": 24,
+          "query_token_id": 99857,
+          "query_token": "证据",
+          "query_decoded": "证据",
+          "best_page_token_index": 377,
+          "best_page_token_id": 99857,
+          "best_page_token": "证据",
+          "best_page_decoded": "证据",
+          "maxsim": 0.6207887530326843
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 7,
+          "query_token_id": 36762,
+          "query_token": "归",
+          "query_decoded": "归",
+          "best_page_token_index": 278,
+          "best_page_token_id": 36762,
+          "best_page_token": "归",
+          "best_page_decoded": "归",
+          "maxsim": 0.7707377672195435
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 8,
+          "query_token_id": 15775,
+          "query_token": "母",
+          "query_decoded": "母",
+          "best_page_token_index": 279,
+          "best_page_token_id": 15775,
+          "best_page_token": "母",
+          "best_page_decoded": "母",
+          "maxsim": 0.7326606512069702
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 9,
+          "query_token_id": 106341,
+          "query_token": "股东",
+          "query_decoded": "股东",
+          "best_page_token_index": 93,
+          "best_page_token_id": 106341,
+          "best_page_token": "股东",
+          "best_page_decoded": "股东",
+          "maxsim": 0.7587258815765381
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 10,
+          "query_token_id": 149196,
+          "query_token": "权益",
+          "query_decoded": "权益",
+          "best_page_token_index": 94,
+          "best_page_token_id": 149196,
+          "best_page_token": "权益",
+          "best_page_decoded": "权益",
+          "maxsim": 0.7437926530838013
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 12,
+          "query_token_id": 48843,
+          "query_token": "扣",
+          "query_decoded": "扣",
+          "best_page_token_index": 135,
+          "best_page_token_id": 48843,
+          "best_page_token": "扣",
+          "best_page_decoded": "扣",
+          "maxsim": 0.7696000337600708
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 13,
+          "query_token_id": 7688,
+          "query_token": "非",
+          "query_decoded": "非",
+          "best_page_token_index": 285,
+          "best_page_token_id": 7688,
+          "best_page_token": "非",
+          "best_page_decoded": "非",
+          "maxsim": 0.756178081035614
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 16,
+          "query_token_id": 217441,
+          "query_token": "净利润",
+          "query_decoded": "净利润",
+          "best_page_token_index": 139,
+          "best_page_token_id": 217441,
+          "best_page_token": "净利润",
+          "best_page_decoded": "净利润",
+          "maxsim": 0.7497544288635254
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 24,
+          "query_token_id": 99857,
+          "query_token": "证据",
+          "query_decoded": "证据",
+          "best_page_token_index": 27,
+          "best_page_token_id": 99857,
+          "best_page_token": "证据",
+          "best_page_decoded": "证据",
+          "maxsim": 0.7648295760154724
+        }
+      ]
+    },
+    {
+      "case_type": "DEMOTED",
+      "session_id": "S004",
+      "query_id": "S004-Q039",
+      "original_query": "结合刚才的反证，前面有哪些表述需要降级或修正；回答时同时保留一项可能的反证。",
+      "frozen_p2_query": "结合刚才的反证（营业收入呈连续上升，归母股东权益呈连续上升，其中归母净利润呈先升后降、扣非归母净利润呈先升后降、经营活动现金流净额呈连续下降），前面有哪些表述需要降级或修正；回答时同时保留一项可能的反证。",
+      "gold_page_id": "c022f180-c519-52a7-9c70-3f15928609b5",
+      "gold_source_turn_id": "S004-Q027",
+      "gold_summary": "用户要求用前文已出现的数字反向检查“资产扩张有效”这一说法是否站得住，并限定用完整财年数据、不加入季度信息。助手基于《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF），确认2023-2025年三年口径一致，指出归母净利润（2023年300.41亿元、2024年402.54亿元、2025年326.19亿元，同比+34.00%、-18.97%）和扣非归母净利润（2023年284.62亿元、2024年369.83亿元、2025年294.46亿元，同比+29.94%、-20.38%）均呈先升后降，而营业收入（2023年6,023.15亿元、2024年7,771.02亿元、2025年8,039.65亿元，同比+29.02%、+3.46%）和总资产（2023年6,795.48亿元、2024年7,833.56亿元、2025年8,837.3亿元，同比+15.28%、+12.81%）连续上升，经营活动现金流净额（2023年1,697.25亿元、2024年1,334.54亿元、2025年591.36亿元，同比-21.37%、-55.69%）连续下降。结论：资产扩张有效这一说法不能仅凭总资产和收入连续上升确认，因为利润和现金流未同步，需结合附注进一步确认，不能单独证明具体经营原因，不预测未来。",
+      "gold_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "资产扩张有效性",
+        "反向检查",
+        "归母净利润",
+        "扣非归母净利润",
+        "总资产",
+        "年度报告"
+      ],
+      "competing_page_id": "0cd91b6e-376f-57c4-8232-cdabb36c695f",
+      "competing_source_turn_id": "S004-Q011",
+      "competing_summary": "用户要求基于前文已确认的比亚迪2023-2025年财务数据，重点分析经营现金流是否跟得上盈利，先说明可确认事实，再说明不能确认的原因。助手以《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF）为来源，确认三年口径一致，并指出：经营活动现金流净额连续下降（2023年1,697.25亿元、2024年1,334.54亿元、2025年591.36亿元，同比-21.37%、-55.69%），扣非归母净利润先升后降（2023年284.62亿元、2024年369.83亿元、2025年294.46亿元，同比+29.94%、-20.38%）。结论：经营活动现金流净额连续下降与扣非归母净利润先升后降方向不同，不能简单评价经营质量，需保留冲突并区分事实、计算与判断；不归因未披露原因，不预测未来。",
+      "competing_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "经营现金流",
+        "扣非归母净利润",
+        "盈利质量",
+        "年度报告"
+      ],
+      "gold_scores": {
+        "C3": {
+          "rank": 4,
+          "score": 0.5578400492668152,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 23,
+          "score": 0.6022965312004089,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 25,
+          "score": 0.5800802111625671,
+          "maxsim_score": 0.5800802111625671
+        },
+        "M2": {
+          "rank": 25,
+          "score": 0.5800802111625671,
+          "maxsim_score": 0.5800802111625671
+        }
+      },
+      "competing_scores": {
+        "C3": {
+          "rank": 19,
+          "score": 0.4933707118034363,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 2,
+          "score": 0.6604058146476746,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 1,
+          "score": 0.6499086022377014,
+          "maxsim_score": 0.6499086022377014
+        },
+        "M2": {
+          "rank": 1,
+          "score": 0.6499086022377014,
+          "maxsim_score": 0.6499086022377014
+        }
+      },
+      "token_level_matches": [
+        {
+          "query_id": "S004-Q039",
+          "page_id": "c022f180-c519-52a7-9c70-3f15928609b5",
+          "page_role": "GOLD",
+          "query_token_index": 4,
+          "query_token_id": 7606,
+          "query_token": "反",
+          "query_decoded": "反",
+          "best_page_token_index": 10,
+          "best_page_token_id": 7606,
+          "best_page_token": "反",
+          "best_page_decoded": "反",
+          "maxsim": 0.6745443344116211
+        },
+        {
+          "query_id": "S004-Q039",
+          "page_id": "c022f180-c519-52a7-9c70-3f15928609b5",
+          "page_role": "GOLD",
+          "query_token_index": 5,
+          "query_token_id": 21936,
+          "query_token": "证",
+          "query_decoded": "证",
+          "best_page_token_index": 346,
+          "best_page_token_id": 43012,
+          "best_page_token": "证明",
+          "best_page_decoded": "证明",
+          "maxsim": 0.4834783673286438
+        },
+        {
+          "query_id": "S004-Q039",
+          "page_id": "c022f180-c519-52a7-9c70-3f15928609b5",
+          "page_role": "GOLD",
+          "query_token_index": 7,
+          "query_token_id": 128180,
+          "query_token": "营业",
+          "query_decoded": "营业",
+          "best_page_token_index": 348,
+          "best_page_token_id": 16647,
+          "best_page_token": "经营",
+          "best_page_decoded": "经营",
+          "maxsim": 0.6064374446868896
+        },
+        {
+          "query_id": "S004-Q039",
+          "page_id": "c022f180-c519-52a7-9c70-3f15928609b5",
+          "page_role": "GOLD",
+          "query_token_index": 8,
+          "query_token_id": 16306,
+          "query_token": "收入",
+          "query_decoded": "收入",
+          "best_page_token_index": 324,
+          "best_page_token_id": 16306,
+          "best_page_token": "收入",
+          "best_page_decoded": "收入",
+          "maxsim": 0.6733667850494385
+        },
+        {
+          "query_id": "S004-Q039",
+          "page_id": "c022f180-c519-52a7-9c70-3f15928609b5",
+          "page_role": "GOLD",
+          "query_token_index": 31,
+          "query_token_id": 48843,
+          "query_token": "扣",
+          "query_decoded": "扣",
+          "best_page_token_index": 138,
+          "best_page_token_id": 48843,
+          "best_page_token": "扣",
+          "best_page_decoded": "扣",
+          "maxsim": 0.6559351086616516
+        },
+        {
+          "query_id": "S004-Q039",
+          "page_id": "c022f180-c519-52a7-9c70-3f15928609b5",
+          "page_role": "GOLD",
+          "query_token_index": 32,
+          "query_token_id": 7688,
+          "query_token": "非",
+          "query_decoded": "非",
+          "best_page_token_index": 139,
+          "best_page_token_id": 7688,
+          "best_page_token": "非",
+          "best_page_decoded": "非",
+          "maxsim": 0.657737135887146
+        },
+        {
+          "query_id": "S004-Q039",
+          "page_id": "c022f180-c519-52a7-9c70-3f15928609b5",
+          "page_role": "GOLD",
+          "query_token_index": 45,
+          "query_token_id": 4695,
+          "query_token": "流",
+          "query_decoded": "流",
+          "best_page_token_index": 181,
+          "best_page_token_id": 16328,
+          "best_page_token": "降",
+          "best_page_decoded": "降",
+          "maxsim": 0.48349031805992126
+        },
+        {
+          "query_id": "S004-Q039",
+          "page_id": "c022f180-c519-52a7-9c70-3f15928609b5",
+          "page_role": "GOLD",
+          "query_token_index": 46,
+          "query_token_id": 82519,
+          "query_token": "净",
+          "query_decoded": "净",
+          "best_page_token_index": 269,
+          "best_page_token_id": 82519,
+          "best_page_token": "净",
+          "best_page_decoded": "净",
+          "maxsim": 0.6129504442214966
+        },
+        {
+          "query_id": "S004-Q039",
+          "page_id": "0cd91b6e-376f-57c4-8232-cdabb36c695f",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 4,
+          "query_token_id": 7606,
+          "query_token": "反",
+          "query_decoded": "反",
+          "best_page_token_index": 264,
+          "best_page_token_id": 36762,
+          "best_page_token": "归",
+          "best_page_decoded": "归",
+          "maxsim": 0.5168833136558533
+        },
+        {
+          "query_id": "S004-Q039",
+          "page_id": "0cd91b6e-376f-57c4-8232-cdabb36c695f",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 5,
+          "query_token_id": 21936,
+          "query_token": "证",
+          "query_decoded": "证",
+          "best_page_token_index": 211,
+          "best_page_token_id": 16328,
+          "best_page_token": "降",
+          "best_page_decoded": "降",
+          "maxsim": 0.4889775514602661
+        },
+        {
+          "query_id": "S004-Q039",
+          "page_id": "0cd91b6e-376f-57c4-8232-cdabb36c695f",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 7,
+          "query_token_id": 128180,
+          "query_token": "营业",
+          "query_decoded": "营业",
+          "best_page_token_index": 104,
+          "best_page_token_id": 16647,
+          "best_page_token": "经营",
+          "best_page_decoded": "经营",
+          "maxsim": 0.6417206525802612
+        },
+        {
+          "query_id": "S004-Q039",
+          "page_id": "0cd91b6e-376f-57c4-8232-cdabb36c695f",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 8,
+          "query_token_id": 16306,
+          "query_token": "收入",
+          "query_decoded": "收入",
+          "best_page_token_index": 29,
+          "best_page_token_id": 107949,
+          "best_page_token": "盈利",
+          "best_page_decoded": "盈利",
+          "maxsim": 0.6156110763549805
+        },
+        {
+          "query_id": "S004-Q039",
+          "page_id": "0cd91b6e-376f-57c4-8232-cdabb36c695f",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 31,
+          "query_token_id": 48843,
+          "query_token": "扣",
+          "query_decoded": "扣",
+          "best_page_token_index": 262,
+          "best_page_token_id": 48843,
+          "best_page_token": "扣",
+          "best_page_decoded": "扣",
+          "maxsim": 0.7380055785179138
+        },
+        {
+          "query_id": "S004-Q039",
+          "page_id": "0cd91b6e-376f-57c4-8232-cdabb36c695f",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 32,
+          "query_token_id": 7688,
+          "query_token": "非",
+          "query_decoded": "非",
+          "best_page_token_index": 204,
+          "best_page_token_id": 7688,
+          "best_page_token": "非",
+          "best_page_decoded": "非",
+          "maxsim": 0.7235503196716309
+        },
+        {
+          "query_id": "S004-Q039",
+          "page_id": "0cd91b6e-376f-57c4-8232-cdabb36c695f",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 45,
+          "query_token_id": 4695,
+          "query_token": "流",
+          "query_decoded": "流",
+          "best_page_token_index": 197,
+          "best_page_token_id": 4695,
+          "best_page_token": "流",
+          "best_page_decoded": "流",
+          "maxsim": 0.7352145910263062
+        },
+        {
+          "query_id": "S004-Q039",
+          "page_id": "0cd91b6e-376f-57c4-8232-cdabb36c695f",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 46,
+          "query_token_id": 82519,
+          "query_token": "净",
+          "query_decoded": "净",
+          "best_page_token_index": 198,
+          "best_page_token_id": 82519,
+          "best_page_token": "净",
+          "best_page_decoded": "净",
+          "maxsim": 0.7657415866851807
+        }
+      ]
+    },
+    {
+      "case_type": "DEMOTED",
+      "session_id": "S004",
+      "query_id": "S004-Q065",
+      "original_query": "修订后重新区分事实、计算与判断，前面各轮的信息有没有被混在一起；先说明能确认的事实，再说还不能确认的原因。",
+      "frozen_p2_query": "修订后重新区分事实、计算与判断，前面各轮的信息有没有被混在一起；先说明能确认的事实，再说还不能确认的原因。",
+      "gold_page_id": "28de896e-9356-58a4-a8c5-c3efe7770f57",
+      "gold_source_turn_id": "S004-Q058",
+      "gold_summary": "用户要求将管理问询视角与上一轮证据分级衔接，说明若管理层不同意风险判断时最具体的追问应指向何处。助手基于《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF），确认三年口径一致，指出扣非归母净利润（2023年284.62亿元、2024年369.83亿元、2025年294.46亿元，同比+29.94%、-20.38%）呈先升后降，归母股东权益（2023年1,388.1亿元、2024年1,852.51亿元、2025年2,462.75亿元，同比+33.46%、+32.94%）呈连续上升，作为主结论；同时保留经营活动现金流净额（2023年1,697.25亿元、2024年1,334.54亿元、2025年591.36亿元，同比-21.37%、-55.69%）连续下降等冲突指标。结论：不简单评价好坏，而是描述指标方向、拐点及组合含义；可复算的三年原数和同比作为高确定性事实保留，具体经营原因未在年报中明确披露，不作确定归因，不预测未来。该结论承接前文证据分级、反证检验和基期选择，并作为后续管理问询和投研摘要的基础。",
+      "gold_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "管理问询",
+        "扣非归母净利润",
+        "归母股东权益",
+        "证据分级",
+        "年度报告"
+      ],
+      "competing_page_id": "bead4a59-825d-5fae-97c6-57173fa22a57",
+      "competing_source_turn_id": "S004-Q047",
+      "competing_summary": "用户要求基于前文修订后的结论，再做一次反证检验，确认是否存在真实数字与主结论冲突，并先说明可确认事实、再说明不能确认的原因。助手基于《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF），确认三年口径一致，指出经营活动现金流净额（2023年1,697.25亿元、2024年1,334.54亿元、2025年591.36亿元，同比-21.37%、-55.69%）呈连续下降，扣非归母净利润（2023年284.62亿元、2024年369.83亿元、2025年294.46亿元，同比+29.94%、-20.38%）呈先升后降。结论：不简单评价好坏，而是描述指标方向、拐点及组合含义；可复算的三年原数和同比作为高确定性事实保留，具体经营原因未在年报中明确披露，不作确定归因，不预测未来。该结论承接前文证据分级、信息缺口和表述审查，并作为后续风险排序和管理问询的基础。",
+      "competing_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "反证检验",
+        "经营活动现金流净额",
+        "扣非归母净利润",
+        "证据分级",
+        "年度报告"
+      ],
+      "gold_scores": {
+        "C3": {
+          "rank": 2,
+          "score": 0.47814619541168213,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 12,
+          "score": 0.5248700976371765,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 19,
+          "score": 0.5161111354827881,
+          "maxsim_score": 0.5161111354827881
+        },
+        "M2": {
+          "rank": 19,
+          "score": 0.5161111354827881,
+          "maxsim_score": 0.5161111354827881
+        }
+      },
+      "competing_scores": {
+        "C3": {
+          "rank": 1,
+          "score": 0.5154166221618652,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 1,
+          "score": 0.5765966773033142,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 1,
+          "score": 0.6261088252067566,
+          "maxsim_score": 0.6261088252067566
+        },
+        "M2": {
+          "rank": 1,
+          "score": 0.6261088252067566,
+          "maxsim_score": 0.6261088252067566
+        }
+      },
+      "token_level_matches": [
+        {
+          "query_id": "S004-Q065",
+          "page_id": "28de896e-9356-58a4-a8c5-c3efe7770f57",
+          "page_role": "GOLD",
+          "query_token_index": 1,
+          "query_token_id": 174979,
+          "query_token": "修订",
+          "query_decoded": "修订",
+          "best_page_token_index": 257,
+          "best_page_token_id": 28226,
+          "best_page_token": "复",
+          "best_page_decoded": "复",
+          "maxsim": 0.42542821168899536
+        },
+        {
+          "query_id": "S004-Q065",
+          "page_id": "28de896e-9356-58a4-a8c5-c3efe7770f57",
+          "page_role": "GOLD",
+          "query_token_index": 3,
+          "query_token_id": 21476,
+          "query_token": "重新",
+          "query_decoded": "重新",
+          "best_page_token_index": 257,
+          "best_page_token_id": 28226,
+          "best_page_token": "复",
+          "best_page_decoded": "复",
+          "maxsim": 0.51292884349823
+        },
+        {
+          "query_id": "S004-Q065",
+          "page_id": "28de896e-9356-58a4-a8c5-c3efe7770f57",
+          "page_role": "GOLD",
+          "query_token_index": 13,
+          "query_token_id": 4035,
+          "query_token": "各",
+          "query_decoded": "各",
+          "best_page_token_index": 10,
+          "best_page_token_id": 101257,
+          "best_page_token": "上一",
+          "best_page_decoded": "上一",
+          "maxsim": 0.48579517006874084
+        },
+        {
+          "query_id": "S004-Q065",
+          "page_id": "28de896e-9356-58a4-a8c5-c3efe7770f57",
+          "page_role": "GOLD",
+          "query_token_index": 15,
+          "query_token_id": 66096,
+          "query_token": "的信息",
+          "query_decoded": "的信息",
+          "best_page_token_index": 12,
+          "best_page_token_id": 99857,
+          "best_page_token": "证据",
+          "best_page_decoded": "证据",
+          "maxsim": 0.5056955218315125
+        },
+        {
+          "query_id": "S004-Q065",
+          "page_id": "28de896e-9356-58a4-a8c5-c3efe7770f57",
+          "page_role": "GOLD",
+          "query_token_index": 16,
+          "query_token_id": 87154,
+          "query_token": "有没有",
+          "query_decoded": "有没有",
+          "best_page_token_index": 19,
+          "best_page_token_id": 8042,
+          "best_page_token": "若",
+          "best_page_decoded": "若",
+          "maxsim": 0.500517725944519
+        },
+        {
+          "query_id": "S004-Q065",
+          "page_id": "28de896e-9356-58a4-a8c5-c3efe7770f57",
+          "page_role": "GOLD",
+          "query_token_index": 18,
+          "query_token_id": 29979,
+          "query_token": "混",
+          "query_decoded": "混",
+          "best_page_token_index": 15,
+          "best_page_token_id": 193488,
+          "best_page_token": "衔",
+          "best_page_decoded": "衔",
+          "maxsim": 0.4558714032173157
+        },
+        {
+          "query_id": "S004-Q065",
+          "page_id": "28de896e-9356-58a4-a8c5-c3efe7770f57",
+          "page_role": "GOLD",
+          "query_token_index": 19,
+          "query_token_id": 32946,
+          "query_token": "在一起",
+          "query_decoded": "在一起",
+          "best_page_token_index": 16,
+          "best_page_token_id": 5838,
+          "best_page_token": "接",
+          "best_page_decoded": "接",
+          "maxsim": 0.4845426380634308
+        },
+        {
+          "query_id": "S004-Q065",
+          "page_id": "28de896e-9356-58a4-a8c5-c3efe7770f57",
+          "page_role": "GOLD",
+          "query_token_index": 30,
+          "query_token_id": 3148,
+          "query_token": "还",
+          "query_decoded": "还",
+          "best_page_token_index": 10,
+          "best_page_token_id": 101257,
+          "best_page_token": "上一",
+          "best_page_decoded": "上一",
+          "maxsim": 0.5133841037750244
+        },
+        {
+          "query_id": "S004-Q065",
+          "page_id": "bead4a59-825d-5fae-97c6-57173fa22a57",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 1,
+          "query_token_id": 174979,
+          "query_token": "修订",
+          "query_decoded": "修订",
+          "best_page_token_index": 6,
+          "best_page_token_id": 174979,
+          "best_page_token": "修订",
+          "best_page_decoded": "修订",
+          "maxsim": 0.7243500351905823
+        },
+        {
+          "query_id": "S004-Q065",
+          "page_id": "bead4a59-825d-5fae-97c6-57173fa22a57",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 3,
+          "query_token_id": 21476,
+          "query_token": "重新",
+          "query_decoded": "重新",
+          "best_page_token_index": 10,
+          "best_page_token_id": 2058,
+          "best_page_token": "再",
+          "best_page_decoded": "再",
+          "maxsim": 0.637474536895752
+        },
+        {
+          "query_id": "S004-Q065",
+          "page_id": "bead4a59-825d-5fae-97c6-57173fa22a57",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 13,
+          "query_token_id": 4035,
+          "query_token": "各",
+          "query_decoded": "各",
+          "best_page_token_index": 10,
+          "best_page_token_id": 2058,
+          "best_page_token": "再",
+          "best_page_decoded": "再",
+          "maxsim": 0.5348536968231201
+        },
+        {
+          "query_id": "S004-Q065",
+          "page_id": "bead4a59-825d-5fae-97c6-57173fa22a57",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 15,
+          "query_token_id": 66096,
+          "query_token": "的信息",
+          "query_decoded": "的信息",
+          "best_page_token_index": 32,
+          "best_page_token_id": 65064,
+          "best_page_token": "事实",
+          "best_page_decoded": "事实",
+          "maxsim": 0.6060965061187744
+        },
+        {
+          "query_id": "S004-Q065",
+          "page_id": "bead4a59-825d-5fae-97c6-57173fa22a57",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 16,
+          "query_token_id": 87154,
+          "query_token": "有没有",
+          "query_decoded": "有没有",
+          "best_page_token_index": 19,
+          "best_page_token_id": 9021,
+          "best_page_token": "存在",
+          "best_page_decoded": "存在",
+          "maxsim": 0.6380131244659424
+        },
+        {
+          "query_id": "S004-Q065",
+          "page_id": "bead4a59-825d-5fae-97c6-57173fa22a57",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 18,
+          "query_token_id": 29979,
+          "query_token": "混",
+          "query_decoded": "混",
+          "best_page_token_index": 202,
+          "best_page_token_id": 118917,
+          "best_page_token": "组合",
+          "best_page_decoded": "组合",
+          "maxsim": 0.5612776279449463
+        },
+        {
+          "query_id": "S004-Q065",
+          "page_id": "bead4a59-825d-5fae-97c6-57173fa22a57",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 19,
+          "query_token_id": 32946,
+          "query_token": "在一起",
+          "query_decoded": "在一起",
+          "best_page_token_index": 202,
+          "best_page_token_id": 118917,
+          "best_page_token": "组合",
+          "best_page_decoded": "组合",
+          "maxsim": 0.5893996953964233
+        },
+        {
+          "query_id": "S004-Q065",
+          "page_id": "bead4a59-825d-5fae-97c6-57173fa22a57",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 30,
+          "query_token_id": 3148,
+          "query_token": "还",
+          "query_decoded": "还",
+          "best_page_token_index": 10,
+          "best_page_token_id": 2058,
+          "best_page_token": "再",
+          "best_page_decoded": "再",
+          "maxsim": 0.644420862197876
+        }
+      ]
+    },
+    {
+      "case_type": "HARD_NEGATIVE",
+      "session_id": "S004",
+      "query_id": "S004-Q049",
+      "original_query": "如果把刚才的风险点交给管理层，怎样问才能对应到具体披露而不是泛泛问原因；不要只比较2023年和2025年两个端点。",
+      "frozen_p2_query": "如果把刚才的风险点（经营活动现金流净额连续下降）交给管理层，怎样问才能对应到具体披露而不是泛泛问原因；不要只比较2023年和2025年两个端点。",
+      "gold_page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+      "gold_source_turn_id": "S004-Q043",
+      "gold_summary": "用户要求沿着上一轮的口径检查，将原始披露、派生计算和分析判断分开写清楚，证据不足时直接说明缺口。助手基于《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF），确认三年口径一致，指出归母股东权益（2023年1,388.1亿元、2024年1,852.51亿元、2025年2,462.75亿元，同比+33.46%、+32.94%）连续上升，扣非归母净利润（2023年284.62亿元、2024年369.83亿元、2025年294.46亿元，同比+29.94%、-20.38%）先升后降。结论：不简单评价好坏，而是描述指标方向、拐点及组合含义；可复算的三年原数和同比作为高确定性事实保留，具体经营原因未在年报中明确披露，不作确定归因，不预测未来。该结论承接前文口径检查和来源追溯，并作为后续表述审查和证据分级的基础。",
+      "gold_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "证据分级",
+        "归母股东权益",
+        "扣非归母净利润",
+        "年度报告",
+        "口径检查"
+      ],
+      "competing_page_id": "dad4c589-bd44-5d61-917f-9435b971db4d",
+      "competing_source_turn_id": "S004-Q029",
+      "competing_summary": "用户要求将前文资产和权益变化转化为可向管理层核实的问询问题，并先说明可确认事实、再说明不能确认原因，以比亚迪2023-2025年三年数据为例。助手基于《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF），确认三年口径一致，指出经营活动现金流净额（2023年1,697.25亿元、2024年1,334.54亿元、2025年591.36亿元，同比-21.37%、-55.69%）连续下降，扣非归母净利润（2023年284.62亿元、2024年369.83亿元、2025年294.46亿元，同比+29.94%、-20.38%）先升后降。结论：可确认三年数值、同比方向、首尾差额及指标间关系；不能确认具体经营原因，需查阅附注；管理层问询应指向具体年度、指标和披露位置，不预设原因。",
+      "competing_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "管理层问询",
+        "经营活动现金流净额",
+        "扣非归母净利润",
+        "年度报告"
+      ],
+      "gold_scores": {
+        "C3": {
+          "rank": 22,
+          "score": 0.5372671484947205,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 21,
+          "score": 0.648980975151062,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 42,
+          "score": 0.5825458765029907,
+          "maxsim_score": 0.5825458765029907
+        },
+        "M2": {
+          "rank": 42,
+          "score": 0.5825458765029907,
+          "maxsim_score": 0.5825458765029907
+        }
+      },
+      "competing_scores": {
+        "C3": {
+          "rank": 1,
+          "score": 0.6439988613128662,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 1,
+          "score": 0.7638025283813477,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 1,
+          "score": 0.7159843444824219,
+          "maxsim_score": 0.7159843444824219
+        },
+        "M2": {
+          "rank": 1,
+          "score": 0.7159843444824219,
+          "maxsim_score": 0.7159843444824219
+        }
+      },
+      "token_level_matches": [
+        {
+          "query_id": "S004-Q049",
+          "page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+          "page_role": "GOLD",
+          "query_token_index": 4,
+          "query_token_id": 2391,
+          "query_token": "点",
+          "query_decoded": "点",
+          "best_page_token_index": 33,
+          "best_page_token_id": 3524,
+          "best_page_token": "口",
+          "best_page_decoded": "口",
+          "maxsim": 0.5031617283821106
+        },
+        {
+          "query_id": "S004-Q049",
+          "page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+          "page_role": "GOLD",
+          "query_token_index": 6,
+          "query_token_id": 16647,
+          "query_token": "经营",
+          "query_decoded": "经营",
+          "best_page_token_index": 215,
+          "best_page_token_id": 16647,
+          "best_page_token": "经营",
+          "best_page_decoded": "经营",
+          "maxsim": 0.6878916025161743
+        },
+        {
+          "query_id": "S004-Q049",
+          "page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+          "page_role": "GOLD",
+          "query_token_index": 8,
+          "query_token_id": 98794,
+          "query_token": "现金",
+          "query_decoded": "现金",
+          "best_page_token_index": 219,
+          "best_page_token_id": 470,
+          "best_page_token": "年",
+          "best_page_decoded": "年",
+          "maxsim": 0.4818457365036011
+        },
+        {
+          "query_id": "S004-Q049",
+          "page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+          "page_role": "GOLD",
+          "query_token_index": 9,
+          "query_token_id": 4695,
+          "query_token": "流",
+          "query_decoded": "流",
+          "best_page_token_index": 14,
+          "best_page_token_id": 85567,
+          "best_page_token": "披露",
+          "best_page_decoded": "披露",
+          "maxsim": 0.46920543909072876
+        },
+        {
+          "query_id": "S004-Q049",
+          "page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+          "page_role": "GOLD",
+          "query_token_index": 10,
+          "query_token_id": 82519,
+          "query_token": "净",
+          "query_decoded": "净",
+          "best_page_token_index": 139,
+          "best_page_token_id": 217441,
+          "best_page_token": "净利润",
+          "best_page_decoded": "净利润",
+          "maxsim": 0.472393274307251
+        },
+        {
+          "query_id": "S004-Q049",
+          "page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+          "page_role": "GOLD",
+          "query_token_index": 15,
+          "query_token_id": 174882,
+          "query_token": "交给",
+          "query_decoded": "交给",
+          "best_page_token_index": 2,
+          "best_page_token_id": 5207,
+          "best_page_token": "要求",
+          "best_page_decoded": "要求",
+          "maxsim": 0.5459583401679993
+        },
+        {
+          "query_id": "S004-Q049",
+          "page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+          "page_role": "GOLD",
+          "query_token_index": 19,
+          "query_token_id": 51502,
+          "query_token": "怎样",
+          "query_decoded": "怎样",
+          "best_page_token_index": 3,
+          "best_page_token_id": 33073,
+          "best_page_token": "沿",
+          "best_page_decoded": "沿",
+          "maxsim": 0.5929545164108276
+        },
+        {
+          "query_id": "S004-Q049",
+          "page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+          "page_role": "GOLD",
+          "query_token_index": 27,
+          "query_token_id": 51955,
+          "query_token": "而不是",
+          "query_decoded": "而不是",
+          "best_page_token_index": 28,
+          "best_page_token_id": 23737,
+          "best_page_token": "不足",
+          "best_page_decoded": "不足",
+          "maxsim": 0.5498557686805725
+        },
+        {
+          "query_id": "S004-Q049",
+          "page_id": "dad4c589-bd44-5d61-917f-9435b971db4d",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 4,
+          "query_token_id": 2391,
+          "query_token": "点",
+          "query_decoded": "点",
+          "best_page_token_index": 20,
+          "best_page_token_id": 4258,
+          "best_page_token": "问题",
+          "best_page_decoded": "问题",
+          "maxsim": 0.5936667323112488
+        },
+        {
+          "query_id": "S004-Q049",
+          "page_id": "dad4c589-bd44-5d61-917f-9435b971db4d",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 6,
+          "query_token_id": 16647,
+          "query_token": "经营",
+          "query_decoded": "经营",
+          "best_page_token_index": 104,
+          "best_page_token_id": 16647,
+          "best_page_token": "经营",
+          "best_page_decoded": "经营",
+          "maxsim": 0.8025168180465698
+        },
+        {
+          "query_id": "S004-Q049",
+          "page_id": "dad4c589-bd44-5d61-917f-9435b971db4d",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 8,
+          "query_token_id": 98794,
+          "query_token": "现金",
+          "query_decoded": "现金",
+          "best_page_token_index": 106,
+          "best_page_token_id": 98794,
+          "best_page_token": "现金",
+          "best_page_decoded": "现金",
+          "maxsim": 0.8436994552612305
+        },
+        {
+          "query_id": "S004-Q049",
+          "page_id": "dad4c589-bd44-5d61-917f-9435b971db4d",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 9,
+          "query_token_id": 4695,
+          "query_token": "流",
+          "query_decoded": "流",
+          "best_page_token_index": 107,
+          "best_page_token_id": 4695,
+          "best_page_token": "流",
+          "best_page_decoded": "流",
+          "maxsim": 0.827192485332489
+        },
+        {
+          "query_id": "S004-Q049",
+          "page_id": "dad4c589-bd44-5d61-917f-9435b971db4d",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 10,
+          "query_token_id": 82519,
+          "query_token": "净",
+          "query_decoded": "净",
+          "best_page_token_index": 108,
+          "best_page_token_id": 82519,
+          "best_page_token": "净",
+          "best_page_decoded": "净",
+          "maxsim": 0.8031251430511475
+        },
+        {
+          "query_id": "S004-Q049",
+          "page_id": "dad4c589-bd44-5d61-917f-9435b971db4d",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 15,
+          "query_token_id": 174882,
+          "query_token": "交给",
+          "query_decoded": "交给",
+          "best_page_token_index": 2,
+          "best_page_token_id": 5207,
+          "best_page_token": "要求",
+          "best_page_decoded": "要求",
+          "maxsim": 0.6319605112075806
+        },
+        {
+          "query_id": "S004-Q049",
+          "page_id": "dad4c589-bd44-5d61-917f-9435b971db4d",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 19,
+          "query_token_id": 51502,
+          "query_token": "怎样",
+          "query_decoded": "怎样",
+          "best_page_token_index": 3,
+          "best_page_token_id": 1726,
+          "best_page_token": "将",
+          "best_page_decoded": "将",
+          "maxsim": 0.7208508253097534
+        },
+        {
+          "query_id": "S004-Q049",
+          "page_id": "dad4c589-bd44-5d61-917f-9435b971db4d",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 27,
+          "query_token_id": 51955,
+          "query_token": "而不是",
+          "query_decoded": "而不是",
+          "best_page_token_index": 212,
+          "best_page_token_id": 5292,
+          "best_page_token": "不能",
+          "best_page_decoded": "不能",
+          "maxsim": 0.6829137802124023
+        }
+      ]
+    },
+    {
+      "case_type": "HARD_NEGATIVE",
+      "session_id": "S004",
+      "query_id": "S004-Q055",
+      "original_query": "接着用一个可复算比率检查刚才的基期判断，但不要把近似值当正式指标；结论要能直接接到下一轮继续追问。",
+      "frozen_p2_query": "接着用一个可复算比率检查刚才的基期判断（总资产呈连续上升，归母股东权益呈连续上升），但不要把近似值当正式指标；结论要能直接接到下一轮继续追问。",
+      "gold_page_id": "b229284b-6a2b-5cfb-a8c8-0ccc1bd72603",
+      "gold_source_turn_id": "S004-Q045",
+      "gold_summary": "用户要求基于《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF），检查哪些问题仅凭当前年度报告摘要无法回答，并请用2023-2025三个完整财年数据回答，不加入季度信息。助手确认三年口径一致，列出关键指标：营业收入（2023年6,023.15亿元、2024年7,771.02亿元、2025年8,039.65亿元，同比+29.02%、+3.46%）、归母净利润（2023年300.41亿元、2024年402.54亿元、2025年326.19亿元，同比+34.00%、-18.97%）、扣非归母净利润（2023年284.62亿元、2024年369.83亿元、2025年294.46亿元，同比+29.94%、-20.38%）、经营活动现金流净额（2023年1,697.25亿元、2024年1,334.54亿元、2025年591.36亿元，同比-21.37%、-55.69%）、总资产（2023年6,795.48亿元、2024年7,833.56亿元、2025年8,837.3亿元，同比+15.28%、+12.81%）、归母股东权益（2023年1,388.1亿元、2024年1,852.51亿元、2025年2,462.75亿元，同比+33.46%、+32.94%）。结论：归母净利润和扣非归母净利润均呈先升后降，经营活动现金流净额连续下降，营业收入、总资产和归母股东权益连续上升；不简单评价好坏，而是描述方向、拐点及组合含义；可复算的三年原数和同比作为高确定性事实保留，具体经营原因未在年报中明确披露，不作确定归因，不预测未来。该结论承接前文口径检查和表述审查，并作为后续反证检验和风险排序的基础。",
+      "gold_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "信息缺口",
+        "完整财年",
+        "归母净利润",
+        "扣非归母净利润",
+        "经营活动现金流净额",
+        "年度报告"
+      ],
+      "competing_page_id": "f642437d-2d3c-5b95-a7f6-29f2e68c0a13",
+      "competing_source_turn_id": "S004-Q022",
+      "competing_summary": "用户要求结合上一轮资产变化，检查比亚迪2023-2025年归母股东权益与资产扩张或收缩是否同步，并说明与上一问的关系。助手基于《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF），确认2023-2025年三年口径一致，指出扣非归母净利润呈先升后降（2023年284.62亿元、2024年369.83亿元、2025年294.46亿元，同比+29.94%、-20.38%），归母股东权益呈连续上升（2023年1,388.1亿元、2024年1,852.51亿元、2025年2,462.75亿元，同比+33.46%、+32.94%），两者方向不同，冲突应保留为经营画像的一部分，不能归因未披露原因，不预测未来。",
+      "competing_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "股东权益",
+        "资产同步性",
+        "扣非归母净利润",
+        "归母股东权益",
+        "年度报告"
+      ],
+      "gold_scores": {
+        "C3": {
+          "rank": 25,
+          "score": 0.5234483480453491,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 30,
+          "score": 0.6048812866210938,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 42,
+          "score": 0.5515371561050415,
+          "maxsim_score": 0.5515371561050415
+        },
+        "M2": {
+          "rank": 42,
+          "score": 0.5515371561050415,
+          "maxsim_score": 0.5515371561050415
+        }
+      },
+      "competing_scores": {
+        "C3": {
+          "rank": 9,
+          "score": 0.5668666362762451,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 3,
+          "score": 0.6649317145347595,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 1,
+          "score": 0.6504105925559998,
+          "maxsim_score": 0.6504105925559998
+        },
+        "M2": {
+          "rank": 1,
+          "score": 0.6504105925559998,
+          "maxsim_score": 0.6504105925559998
+        }
+      },
+      "token_level_matches": [
+        {
+          "query_id": "S004-Q055",
+          "page_id": "b229284b-6a2b-5cfb-a8c8-0ccc1bd72603",
+          "page_role": "GOLD",
+          "query_token_index": 11,
+          "query_token_id": 9426,
+          "query_token": "基",
+          "query_decoded": "基",
+          "best_page_token_index": 3,
+          "best_page_token_id": 68108,
+          "best_page_token": "基于",
+          "best_page_decoded": "基于",
+          "maxsim": 0.4305170774459839
+        },
+        {
+          "query_id": "S004-Q055",
+          "page_id": "b229284b-6a2b-5cfb-a8c8-0ccc1bd72603",
+          "page_role": "GOLD",
+          "query_token_index": 12,
+          "query_token_id": 4118,
+          "query_token": "期",
+          "query_decoded": "期",
+          "best_page_token_index": 78,
+          "best_page_token_id": 62599,
+          "best_page_token": "季度",
+          "best_page_decoded": "季度",
+          "maxsim": 0.5094366669654846
+        },
+        {
+          "query_id": "S004-Q055",
+          "page_id": "b229284b-6a2b-5cfb-a8c8-0ccc1bd72603",
+          "page_role": "GOLD",
+          "query_token_index": 15,
+          "query_token_id": 7051,
+          "query_token": "总",
+          "query_decoded": "总",
+          "best_page_token_index": 472,
+          "best_page_token_id": 46396,
+          "best_page_token": "完整",
+          "best_page_decoded": "完整",
+          "maxsim": 0.5514582991600037
+        },
+        {
+          "query_id": "S004-Q055",
+          "page_id": "b229284b-6a2b-5cfb-a8c8-0ccc1bd72603",
+          "page_role": "GOLD",
+          "query_token_index": 16,
+          "query_token_id": 32310,
+          "query_token": "资产",
+          "query_decoded": "资产",
+          "best_page_token_index": 255,
+          "best_page_token_id": 32310,
+          "best_page_token": "资产",
+          "best_page_decoded": "资产",
+          "maxsim": 0.5636785626411438
+        },
+        {
+          "query_id": "S004-Q055",
+          "page_id": "b229284b-6a2b-5cfb-a8c8-0ccc1bd72603",
+          "page_role": "GOLD",
+          "query_token_index": 21,
+          "query_token_id": 36762,
+          "query_token": "归",
+          "query_decoded": "归",
+          "best_page_token_index": 292,
+          "best_page_token_id": 36762,
+          "best_page_token": "归",
+          "best_page_decoded": "归",
+          "maxsim": 0.6554080247879028
+        },
+        {
+          "query_id": "S004-Q055",
+          "page_id": "b229284b-6a2b-5cfb-a8c8-0ccc1bd72603",
+          "page_role": "GOLD",
+          "query_token_index": 22,
+          "query_token_id": 15775,
+          "query_token": "母",
+          "query_decoded": "母",
+          "best_page_token_index": 293,
+          "best_page_token_id": 15775,
+          "best_page_token": "母",
+          "best_page_decoded": "母",
+          "maxsim": 0.5948898792266846
+        },
+        {
+          "query_id": "S004-Q055",
+          "page_id": "b229284b-6a2b-5cfb-a8c8-0ccc1bd72603",
+          "page_role": "GOLD",
+          "query_token_index": 23,
+          "query_token_id": 106341,
+          "query_token": "股东",
+          "query_decoded": "股东",
+          "best_page_token_index": 294,
+          "best_page_token_id": 106341,
+          "best_page_token": "股东",
+          "best_page_decoded": "股东",
+          "maxsim": 0.6433591842651367
+        },
+        {
+          "query_id": "S004-Q055",
+          "page_id": "b229284b-6a2b-5cfb-a8c8-0ccc1bd72603",
+          "page_role": "GOLD",
+          "query_token_index": 24,
+          "query_token_id": 149196,
+          "query_token": "权益",
+          "query_decoded": "权益",
+          "best_page_token_index": 295,
+          "best_page_token_id": 149196,
+          "best_page_token": "权益",
+          "best_page_decoded": "权益",
+          "maxsim": 0.5204333066940308
+        },
+        {
+          "query_id": "S004-Q055",
+          "page_id": "f642437d-2d3c-5b95-a7f6-29f2e68c0a13",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 11,
+          "query_token_id": 9426,
+          "query_token": "基",
+          "query_decoded": "基",
+          "best_page_token_index": 22,
+          "best_page_token_id": 1189,
+          "best_page_token": "与",
+          "best_page_decoded": "与",
+          "maxsim": 0.48359614610671997
+        },
+        {
+          "query_id": "S004-Q055",
+          "page_id": "f642437d-2d3c-5b95-a7f6-29f2e68c0a13",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 12,
+          "query_token_id": 4118,
+          "query_token": "期",
+          "query_decoded": "期",
+          "best_page_token_index": 5,
+          "best_page_token_id": 23072,
+          "best_page_token": "轮",
+          "best_page_decoded": "轮",
+          "maxsim": 0.5716216564178467
+        },
+        {
+          "query_id": "S004-Q055",
+          "page_id": "f642437d-2d3c-5b95-a7f6-29f2e68c0a13",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 15,
+          "query_token_id": 7051,
+          "query_token": "总",
+          "query_decoded": "总",
+          "best_page_token_index": 6,
+          "best_page_token_id": 32310,
+          "best_page_token": "资产",
+          "best_page_decoded": "资产",
+          "maxsim": 0.5605756044387817
+        },
+        {
+          "query_id": "S004-Q055",
+          "page_id": "f642437d-2d3c-5b95-a7f6-29f2e68c0a13",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 16,
+          "query_token_id": 32310,
+          "query_token": "资产",
+          "query_decoded": "资产",
+          "best_page_token_index": 6,
+          "best_page_token_id": 32310,
+          "best_page_token": "资产",
+          "best_page_decoded": "资产",
+          "maxsim": 0.7898244261741638
+        },
+        {
+          "query_id": "S004-Q055",
+          "page_id": "f642437d-2d3c-5b95-a7f6-29f2e68c0a13",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 21,
+          "query_token_id": 36762,
+          "query_token": "归",
+          "query_decoded": "归",
+          "best_page_token_index": 18,
+          "best_page_token_id": 36762,
+          "best_page_token": "归",
+          "best_page_decoded": "归",
+          "maxsim": 0.7664303779602051
+        },
+        {
+          "query_id": "S004-Q055",
+          "page_id": "f642437d-2d3c-5b95-a7f6-29f2e68c0a13",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 22,
+          "query_token_id": 15775,
+          "query_token": "母",
+          "query_decoded": "母",
+          "best_page_token_index": 19,
+          "best_page_token_id": 15775,
+          "best_page_token": "母",
+          "best_page_decoded": "母",
+          "maxsim": 0.7601025104522705
+        },
+        {
+          "query_id": "S004-Q055",
+          "page_id": "f642437d-2d3c-5b95-a7f6-29f2e68c0a13",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 23,
+          "query_token_id": 106341,
+          "query_token": "股东",
+          "query_decoded": "股东",
+          "best_page_token_index": 20,
+          "best_page_token_id": 106341,
+          "best_page_token": "股东",
+          "best_page_decoded": "股东",
+          "maxsim": 0.7836675643920898
+        },
+        {
+          "query_id": "S004-Q055",
+          "page_id": "f642437d-2d3c-5b95-a7f6-29f2e68c0a13",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 24,
+          "query_token_id": 149196,
+          "query_token": "权益",
+          "query_decoded": "权益",
+          "best_page_token_index": 21,
+          "best_page_token_id": 149196,
+          "best_page_token": "权益",
+          "best_page_decoded": "权益",
+          "maxsim": 0.7733535766601562
+        }
+      ]
+    },
+    {
+      "case_type": "HARD_NEGATIVE",
+      "session_id": "S003",
+      "query_id": "S003-Q049",
+      "original_query": "如果把刚才的风险点交给管理层，怎样问才能对应到具体披露而不是泛泛问原因；请先给结论，再说明三年依据。",
+      "frozen_p2_query": "如果把刚才的风险点（经营活动现金流净额连续下降）交给管理层，怎样问才能对应到具体披露而不是泛泛问原因；请先给结论，再说明三年依据。",
+      "gold_page_id": "2316a391-e779-530b-ac2f-055182347d32",
+      "gold_source_turn_id": "S003-Q043",
+      "gold_summary": "用户要求沿着上一轮的口径检查，将原始披露、派生计算和分析判断分开写清楚，并把口径限制放在结论中。助手基于《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF），固定期间2023-2025三个完整财年，金额单位为亿元。关键数据：营业收入2023年6,023.15亿元、2024年7,771.02亿元、2025年8,039.65亿元，同比+29.02%、+3.46%，连续上升；归母净利润2023年300.41亿元、2024年402.54亿元、2025年326.19亿元，同比+34.00%、-18.97%，先升后降；扣非归母净利润2023年284.62亿元、2024年369.83亿元、2025年294.46亿元，同比+29.94%、-20.38%，先升后降；经营活动现金流净额2023年1,697.25亿元、2024年1,334.54亿元、2025年591.36亿元，同比-21.37%、-55.69%，连续下降；总资产2023年6,795.48亿元、2024年7,833.56亿元、2025年8,837.3亿元，同比+15.28%、+12.81%，连续上升；归母股东权益2023年1,388.1亿元、2024年1,852.51亿元、2025年2,462.75亿元，同比+33.46%、+32.94%，连续上升。助手结论：总资产连续上升与归母净利润先升后降构成方向冲突，应保留冲突并缩小结论范围；需分开两段同比，不以首尾差额代替年度路径；具体经营原因未在年报中明确披露，不作确定归因。分析以风险委员会委员视角，强调区分事实、计算和判断三层，保留2024年中间点，并明确后续修订需指出改变的是事实层、计算层还是判断层。",
+      "gold_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "证据分级",
+        "归母净利润",
+        "总资产",
+        "先升后降",
+        "连续上升",
+        "冲突保留"
+      ],
+      "competing_page_id": "bd0dc9f1-4c0c-5c9f-b9c0-5a7b5051b7f2",
+      "competing_source_turn_id": "S003-Q019",
+      "competing_summary": "用户要求将前文确认的资产和权益变化转化为可向管理层核实的问询问题，并先说明可确认事实、再说明不能确认的原因。助手基于《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF），固定期间为2023-2025三个完整财年，金额单位为亿元。关键数据：总资产2023年6,795.48亿元、2024年7,833.56亿元、2025年8,837.3亿元，同比分别为+15.28%、+12.81%，连续上升；归母净利润2023年300.41亿元、2024年402.54亿元、2025年326.19亿元，同比分别为+34.00%、-18.97%，先升后降。助手结论：可确认三年数值、同比方向、首尾差额及指标间同步性；不能确认具体经营原因，需查阅附注和管理层讨论。建议将问询落点指向具体年度、指标和披露位置，如利润与现金流方向差异、资产构成、归母与扣非差额等。分析以风险委员会委员视角，区分事实、计算和判断三层，强调反证、尾部风险与监控触发项。",
+      "competing_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "管理层问询",
+        "总资产",
+        "归母净利润",
+        "连续上升",
+        "先升后降",
+        "年报来源"
+      ],
+      "gold_scores": {
+        "C3": {
+          "rank": 22,
+          "score": 0.5056788325309753,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 27,
+          "score": 0.5903053283691406,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 26,
+          "score": 0.5394620299339294,
+          "maxsim_score": 0.5394620299339294
+        },
+        "M2": {
+          "rank": 26,
+          "score": 0.5394620299339294,
+          "maxsim_score": 0.5394620299339294
+        }
+      },
+      "competing_scores": {
+        "C3": {
+          "rank": 4,
+          "score": 0.560837984085083,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 3,
+          "score": 0.6619717478752136,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 1,
+          "score": 0.6292754411697388,
+          "maxsim_score": 0.6292754411697388
+        },
+        "M2": {
+          "rank": 1,
+          "score": 0.6292754411697388,
+          "maxsim_score": 0.6292754411697388
+        }
+      },
+      "token_level_matches": [
+        {
+          "query_id": "S003-Q049",
+          "page_id": "2316a391-e779-530b-ac2f-055182347d32",
+          "page_role": "GOLD",
+          "query_token_index": 4,
+          "query_token_id": 2391,
+          "query_token": "点",
+          "query_decoded": "点",
+          "best_page_token_index": 33,
+          "best_page_token_id": 160498,
+          "best_page_token": "结论",
+          "best_page_decoded": "结论",
+          "maxsim": 0.42149248719215393
+        },
+        {
+          "query_id": "S003-Q049",
+          "page_id": "2316a391-e779-530b-ac2f-055182347d32",
+          "page_role": "GOLD",
+          "query_token_index": 6,
+          "query_token_id": 16647,
+          "query_token": "经营",
+          "query_decoded": "经营",
+          "best_page_token_index": 230,
+          "best_page_token_id": 16647,
+          "best_page_token": "经营",
+          "best_page_decoded": "经营",
+          "maxsim": 0.628980278968811
+        },
+        {
+          "query_id": "S003-Q049",
+          "page_id": "2316a391-e779-530b-ac2f-055182347d32",
+          "page_role": "GOLD",
+          "query_token_index": 8,
+          "query_token_id": 98794,
+          "query_token": "现金",
+          "query_decoded": "现金",
+          "best_page_token_index": 232,
+          "best_page_token_id": 98794,
+          "best_page_token": "现金",
+          "best_page_decoded": "现金",
+          "maxsim": 0.6476958990097046
+        },
+        {
+          "query_id": "S003-Q049",
+          "page_id": "2316a391-e779-530b-ac2f-055182347d32",
+          "page_role": "GOLD",
+          "query_token_index": 9,
+          "query_token_id": 4695,
+          "query_token": "流",
+          "query_decoded": "流",
+          "best_page_token_index": 14,
+          "best_page_token_id": 85567,
+          "best_page_token": "披露",
+          "best_page_decoded": "披露",
+          "maxsim": 0.44055479764938354
+        },
+        {
+          "query_id": "S003-Q049",
+          "page_id": "2316a391-e779-530b-ac2f-055182347d32",
+          "page_role": "GOLD",
+          "query_token_index": 10,
+          "query_token_id": 82519,
+          "query_token": "净",
+          "query_decoded": "净",
+          "best_page_token_index": 234,
+          "best_page_token_id": 82519,
+          "best_page_token": "净",
+          "best_page_decoded": "净",
+          "maxsim": 0.5163503885269165
+        },
+        {
+          "query_id": "S003-Q049",
+          "page_id": "2316a391-e779-530b-ac2f-055182347d32",
+          "page_role": "GOLD",
+          "query_token_index": 15,
+          "query_token_id": 174882,
+          "query_token": "交给",
+          "query_decoded": "交给",
+          "best_page_token_index": 2,
+          "best_page_token_id": 5207,
+          "best_page_token": "要求",
+          "best_page_decoded": "要求",
+          "maxsim": 0.45966285467147827
+        },
+        {
+          "query_id": "S003-Q049",
+          "page_id": "2316a391-e779-530b-ac2f-055182347d32",
+          "page_role": "GOLD",
+          "query_token_index": 19,
+          "query_token_id": 51502,
+          "query_token": "怎样",
+          "query_decoded": "怎样",
+          "best_page_token_index": 3,
+          "best_page_token_id": 33073,
+          "best_page_token": "沿",
+          "best_page_decoded": "沿",
+          "maxsim": 0.5811460018157959
+        },
+        {
+          "query_id": "S003-Q049",
+          "page_id": "2316a391-e779-530b-ac2f-055182347d32",
+          "page_role": "GOLD",
+          "query_token_index": 27,
+          "query_token_id": 51955,
+          "query_token": "而不是",
+          "query_decoded": "而不是",
+          "best_page_token_index": 22,
+          "best_page_token_id": 1583,
+          "best_page_token": "分",
+          "best_page_decoded": "分",
+          "maxsim": 0.4940330982208252
+        },
+        {
+          "query_id": "S003-Q049",
+          "page_id": "bd0dc9f1-4c0c-5c9f-b9c0-5a7b5051b7f2",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 4,
+          "query_token_id": 2391,
+          "query_token": "点",
+          "query_decoded": "点",
+          "best_page_token_index": 233,
+          "best_page_token_id": 2391,
+          "best_page_token": "点",
+          "best_page_decoded": "点",
+          "maxsim": 0.5563132762908936
+        },
+        {
+          "query_id": "S003-Q049",
+          "page_id": "bd0dc9f1-4c0c-5c9f-b9c0-5a7b5051b7f2",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 6,
+          "query_token_id": 16647,
+          "query_token": "经营",
+          "query_decoded": "经营",
+          "best_page_token_index": 215,
+          "best_page_token_id": 16647,
+          "best_page_token": "经营",
+          "best_page_decoded": "经营",
+          "maxsim": 0.694035530090332
+        },
+        {
+          "query_id": "S003-Q049",
+          "page_id": "bd0dc9f1-4c0c-5c9f-b9c0-5a7b5051b7f2",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 8,
+          "query_token_id": 98794,
+          "query_token": "现金",
+          "query_decoded": "现金",
+          "best_page_token_index": 247,
+          "best_page_token_id": 98794,
+          "best_page_token": "现金",
+          "best_page_decoded": "现金",
+          "maxsim": 0.712437629699707
+        },
+        {
+          "query_id": "S003-Q049",
+          "page_id": "bd0dc9f1-4c0c-5c9f-b9c0-5a7b5051b7f2",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 9,
+          "query_token_id": 4695,
+          "query_token": "流",
+          "query_decoded": "流",
+          "best_page_token_index": 241,
+          "best_page_token_id": 85567,
+          "best_page_token": "披露",
+          "best_page_decoded": "披露",
+          "maxsim": 0.48587891459465027
+        },
+        {
+          "query_id": "S003-Q049",
+          "page_id": "bd0dc9f1-4c0c-5c9f-b9c0-5a7b5051b7f2",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 10,
+          "query_token_id": 82519,
+          "query_token": "净",
+          "query_decoded": "净",
+          "best_page_token_index": 245,
+          "best_page_token_id": 77597,
+          "best_page_token": "利润",
+          "best_page_decoded": "利润",
+          "maxsim": 0.4771242141723633
+        },
+        {
+          "query_id": "S003-Q049",
+          "page_id": "bd0dc9f1-4c0c-5c9f-b9c0-5a7b5051b7f2",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 15,
+          "query_token_id": 174882,
+          "query_token": "交给",
+          "query_decoded": "交给",
+          "best_page_token_index": 26,
+          "best_page_token_id": 37090,
+          "best_page_token": "说明",
+          "best_page_decoded": "说明",
+          "maxsim": 0.5244287848472595
+        },
+        {
+          "query_id": "S003-Q049",
+          "page_id": "bd0dc9f1-4c0c-5c9f-b9c0-5a7b5051b7f2",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 19,
+          "query_token_id": 51502,
+          "query_token": "怎样",
+          "query_decoded": "怎样",
+          "best_page_token_index": 25,
+          "best_page_token_id": 2996,
+          "best_page_token": "先",
+          "best_page_decoded": "先",
+          "maxsim": 0.6731326580047607
+        },
+        {
+          "query_id": "S003-Q049",
+          "page_id": "bd0dc9f1-4c0c-5c9f-b9c0-5a7b5051b7f2",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 27,
+          "query_token_id": 51955,
+          "query_token": "而不是",
+          "query_decoded": "而不是",
+          "best_page_token_index": 212,
+          "best_page_token_id": 5292,
+          "best_page_token": "不能",
+          "best_page_decoded": "不能",
+          "maxsim": 0.6005663871765137
+        }
+      ]
+    },
+    {
+      "case_type": "HARD_NEGATIVE",
+      "session_id": "S004",
+      "query_id": "S004-Q056",
+      "original_query": "把上一轮的计算放回证据层级，它属于披露事实还是分析工具；请区分最新一年的边际变化和完整三年路径。",
+      "frozen_p2_query": "把上一轮的计算（归母股东权益与扣非归母净利润的比率拆解）放回证据层级，它属于披露事实还是分析工具；请区分最新一年的边际变化和完整三年路径。",
+      "gold_page_id": "adc1eeb8-b0f8-5877-88cf-abdd23798b3a",
+      "gold_source_turn_id": "S004-Q050",
+      "gold_summary": "用户要求基于前文结论，综合当前章节，给出来源清楚、计算可复现、表述不过界的结论，并保留指标方向不同的冲突。助手基于《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF），确认三年口径一致，指出营业收入（2023年6,023.15亿元、2024年7,771.02亿元、2025年8,039.65亿元，同比+29.02%、+3.46%）和归母股东权益（2023年1,388.1亿元、2024年1,852.51亿元、2025年2,462.75亿元，同比+33.46%、+32.94%）均呈连续上升，作为主结论；同时保留归母净利润（2023年300.41亿元、2024年402.54亿元、2025年326.19亿元，同比+34.00%、-18.97%）和扣非归母净利润（2023年284.62亿元、2024年369.83亿元、2025年294.46亿元，同比+29.94%、-20.38%）呈先升后降，经营活动现金流净额（2023年1,697.25亿元、2024年1,334.54亿元、2025年591.36亿元，同比-21.37%、-55.69%）连续下降等冲突指标。结论：不简单评价好坏，而是描述指标方向、拐点及组合含义；可复算的三年原数和同比作为高确定性事实保留，具体经营原因未在年报中明确披露，不作确定归因，不预测未来。该结论承接前文证据分级、反证检验和风险排序，并作为后续管理问询和投研摘要的基础。",
+      "gold_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "综合结论",
+        "营业收入",
+        "归母股东权益",
+        "归母净利润",
+        "扣非归母净利润",
+        "经营活动现金流净额"
+      ],
+      "competing_page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+      "competing_source_turn_id": "S004-Q043",
+      "competing_summary": "用户要求沿着上一轮的口径检查，将原始披露、派生计算和分析判断分开写清楚，证据不足时直接说明缺口。助手基于《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF），确认三年口径一致，指出归母股东权益（2023年1,388.1亿元、2024年1,852.51亿元、2025年2,462.75亿元，同比+33.46%、+32.94%）连续上升，扣非归母净利润（2023年284.62亿元、2024年369.83亿元、2025年294.46亿元，同比+29.94%、-20.38%）先升后降。结论：不简单评价好坏，而是描述指标方向、拐点及组合含义；可复算的三年原数和同比作为高确定性事实保留，具体经营原因未在年报中明确披露，不作确定归因，不预测未来。该结论承接前文口径检查和来源追溯，并作为后续表述审查和证据分级的基础。",
+      "competing_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "证据分级",
+        "归母股东权益",
+        "扣非归母净利润",
+        "年度报告",
+        "口径检查"
+      ],
+      "gold_scores": {
+        "C3": {
+          "rank": 3,
+          "score": 0.6123521327972412,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 20,
+          "score": 0.6525918245315552,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 25,
+          "score": 0.5724908113479614,
+          "maxsim_score": 0.5724908113479614
+        },
+        "M2": {
+          "rank": 25,
+          "score": 0.5724908113479614,
+          "maxsim_score": 0.5724908113479614
+        }
+      },
+      "competing_scores": {
+        "C3": {
+          "rank": 6,
+          "score": 0.604918360710144,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 1,
+          "score": 0.7295365333557129,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 1,
+          "score": 0.6592414975166321,
+          "maxsim_score": 0.6592414975166321
+        },
+        "M2": {
+          "rank": 1,
+          "score": 0.6592414975166321,
+          "maxsim_score": 0.6592414975166321
+        }
+      },
+      "token_level_matches": [
+        {
+          "query_id": "S004-Q056",
+          "page_id": "adc1eeb8-b0f8-5877-88cf-abdd23798b3a",
+          "page_role": "GOLD",
+          "query_token_index": 7,
+          "query_token_id": 36762,
+          "query_token": "归",
+          "query_decoded": "归",
+          "best_page_token_index": 132,
+          "best_page_token_id": 36762,
+          "best_page_token": "归",
+          "best_page_decoded": "归",
+          "maxsim": 0.7084456086158752
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "adc1eeb8-b0f8-5877-88cf-abdd23798b3a",
+          "page_role": "GOLD",
+          "query_token_index": 8,
+          "query_token_id": 15775,
+          "query_token": "母",
+          "query_decoded": "母",
+          "best_page_token_index": 423,
+          "best_page_token_id": 15775,
+          "best_page_token": "母",
+          "best_page_decoded": "母",
+          "maxsim": 0.6839591264724731
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "adc1eeb8-b0f8-5877-88cf-abdd23798b3a",
+          "page_role": "GOLD",
+          "query_token_index": 9,
+          "query_token_id": 106341,
+          "query_token": "股东",
+          "query_decoded": "股东",
+          "best_page_token_index": 134,
+          "best_page_token_id": 106341,
+          "best_page_token": "股东",
+          "best_page_decoded": "股东",
+          "maxsim": 0.6916505098342896
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "adc1eeb8-b0f8-5877-88cf-abdd23798b3a",
+          "page_role": "GOLD",
+          "query_token_index": 10,
+          "query_token_id": 149196,
+          "query_token": "权益",
+          "query_decoded": "权益",
+          "best_page_token_index": 135,
+          "best_page_token_id": 149196,
+          "best_page_token": "权益",
+          "best_page_decoded": "权益",
+          "maxsim": 0.6783304214477539
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "adc1eeb8-b0f8-5877-88cf-abdd23798b3a",
+          "page_role": "GOLD",
+          "query_token_index": 12,
+          "query_token_id": 48843,
+          "query_token": "扣",
+          "query_decoded": "扣",
+          "best_page_token_index": 433,
+          "best_page_token_id": 48843,
+          "best_page_token": "扣",
+          "best_page_decoded": "扣",
+          "maxsim": 0.6826004981994629
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "adc1eeb8-b0f8-5877-88cf-abdd23798b3a",
+          "page_role": "GOLD",
+          "query_token_index": 13,
+          "query_token_id": 7688,
+          "query_token": "非",
+          "query_decoded": "非",
+          "best_page_token_index": 223,
+          "best_page_token_id": 7688,
+          "best_page_token": "非",
+          "best_page_decoded": "非",
+          "maxsim": 0.6847087144851685
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "adc1eeb8-b0f8-5877-88cf-abdd23798b3a",
+          "page_role": "GOLD",
+          "query_token_index": 16,
+          "query_token_id": 217441,
+          "query_token": "净利润",
+          "query_decoded": "净利润",
+          "best_page_token_index": 430,
+          "best_page_token_id": 217441,
+          "best_page_token": "净利润",
+          "best_page_decoded": "净利润",
+          "maxsim": 0.6950125694274902
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "adc1eeb8-b0f8-5877-88cf-abdd23798b3a",
+          "page_role": "GOLD",
+          "query_token_index": 24,
+          "query_token_id": 99857,
+          "query_token": "证据",
+          "query_decoded": "证据",
+          "best_page_token_index": 377,
+          "best_page_token_id": 99857,
+          "best_page_token": "证据",
+          "best_page_decoded": "证据",
+          "maxsim": 0.6207887530326843
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 7,
+          "query_token_id": 36762,
+          "query_token": "归",
+          "query_decoded": "归",
+          "best_page_token_index": 278,
+          "best_page_token_id": 36762,
+          "best_page_token": "归",
+          "best_page_decoded": "归",
+          "maxsim": 0.7707377672195435
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 8,
+          "query_token_id": 15775,
+          "query_token": "母",
+          "query_decoded": "母",
+          "best_page_token_index": 279,
+          "best_page_token_id": 15775,
+          "best_page_token": "母",
+          "best_page_decoded": "母",
+          "maxsim": 0.7326606512069702
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 9,
+          "query_token_id": 106341,
+          "query_token": "股东",
+          "query_decoded": "股东",
+          "best_page_token_index": 93,
+          "best_page_token_id": 106341,
+          "best_page_token": "股东",
+          "best_page_decoded": "股东",
+          "maxsim": 0.7587258815765381
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 10,
+          "query_token_id": 149196,
+          "query_token": "权益",
+          "query_decoded": "权益",
+          "best_page_token_index": 94,
+          "best_page_token_id": 149196,
+          "best_page_token": "权益",
+          "best_page_decoded": "权益",
+          "maxsim": 0.7437926530838013
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 12,
+          "query_token_id": 48843,
+          "query_token": "扣",
+          "query_decoded": "扣",
+          "best_page_token_index": 135,
+          "best_page_token_id": 48843,
+          "best_page_token": "扣",
+          "best_page_decoded": "扣",
+          "maxsim": 0.7696000337600708
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 13,
+          "query_token_id": 7688,
+          "query_token": "非",
+          "query_decoded": "非",
+          "best_page_token_index": 285,
+          "best_page_token_id": 7688,
+          "best_page_token": "非",
+          "best_page_decoded": "非",
+          "maxsim": 0.756178081035614
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 16,
+          "query_token_id": 217441,
+          "query_token": "净利润",
+          "query_decoded": "净利润",
+          "best_page_token_index": 139,
+          "best_page_token_id": 217441,
+          "best_page_token": "净利润",
+          "best_page_decoded": "净利润",
+          "maxsim": 0.7497544288635254
+        },
+        {
+          "query_id": "S004-Q056",
+          "page_id": "08c5243c-c754-5bb1-b020-dfbf21f542d7",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 24,
+          "query_token_id": 99857,
+          "query_token": "证据",
+          "query_decoded": "证据",
+          "best_page_token_index": 27,
+          "best_page_token_id": 99857,
+          "best_page_token": "证据",
+          "best_page_decoded": "证据",
+          "maxsim": 0.7648295760154724
+        }
+      ]
+    },
+    {
+      "case_type": "HARD_NEGATIVE",
+      "session_id": "S003",
+      "query_id": "S003-Q084",
+      "original_query": "来源确认以后，再看三年比较口径是否足以支撑前面的横向判断；别只复述数字，要说明它和上一问的关系。",
+      "frozen_p2_query": "来源确认以后，再看三年比较口径是否足以支撑前面的横向判断（扣非归母净利润呈先升后降，归母净利润呈先升后降）；别只复述数字，要说明它和上一问（现有数字分别来自哪份公开披露）的关系。",
+      "gold_page_id": "15caa01c-5d97-5da1-93ca-bbb8a8cf5f22",
+      "gold_source_turn_id": "S003-Q078",
+      "gold_summary": "用户要求按来源可靠性检查之前的决策信息是否引用二手推断，并明确哪些是年报原数、哪些是计算结果。助手基于《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF），固定期间2023-2025三个完整财年，金额单位为亿元，从风险委员会委员视角回答。关键数据：经营活动现金流净额2023年1,697.25亿元、2024年1,334.54亿元、2025年591.36亿元，同比-21.37%、-55.69%，连续下降；总资产2023年6,795.48亿元、2024年7,833.56亿元、2025年8,837.3亿元，同比+15.28%、+12.81%，连续上升。助手结论：经营活动现金流净额连续下降与总资产连续上升方向不同，构成冲突，应保留冲突并缩小结论范围；需分开两段同比，不以首尾差额代替年度路径；具体经营原因未在年报中明确披露，不作确定归因。分析以风险委员会委员视角，区分事实、计算和判断三层，保留2024年中间点，并明确后续修订需指出改变的是事实层、计算层还是判断层。",
+      "gold_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "来源可靠性",
+        "经营活动现金流净额",
+        "总资产",
+        "连续下降",
+        "连续上升",
+        "冲突保留"
+      ],
+      "competing_page_id": "bd0dc9f1-4c0c-5c9f-b9c0-5a7b5051b7f2",
+      "competing_source_turn_id": "S003-Q019",
+      "competing_summary": "用户要求将前文确认的资产和权益变化转化为可向管理层核实的问询问题，并先说明可确认事实、再说明不能确认的原因。助手基于《比亚迪2025年年度报告或年度报告摘要》（披露日期2026-03-28，来源地址https://static.cninfo.com.cn/finalpage/2026-03-28/1225045350.PDF），固定期间为2023-2025三个完整财年，金额单位为亿元。关键数据：总资产2023年6,795.48亿元、2024年7,833.56亿元、2025年8,837.3亿元，同比分别为+15.28%、+12.81%，连续上升；归母净利润2023年300.41亿元、2024年402.54亿元、2025年326.19亿元，同比分别为+34.00%、-18.97%，先升后降。助手结论：可确认三年数值、同比方向、首尾差额及指标间同步性；不能确认具体经营原因，需查阅附注和管理层讨论。建议将问询落点指向具体年度、指标和披露位置，如利润与现金流方向差异、资产构成、归母与扣非差额等。分析以风险委员会委员视角，区分事实、计算和判断三层，强调反证、尾部风险与监控触发项。",
+      "competing_keywords": [
+        "比亚迪",
+        "2023-2025",
+        "管理层问询",
+        "总资产",
+        "归母净利润",
+        "连续上升",
+        "先升后降",
+        "年报来源"
+      ],
+      "gold_scores": {
+        "C3": {
+          "rank": 30,
+          "score": 0.6417790651321411,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 37,
+          "score": 0.6637557148933411,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 60,
+          "score": 0.5716773867607117,
+          "maxsim_score": 0.5716773867607117
+        },
+        "M2": {
+          "rank": 51,
+          "score": 0.5716773867607117,
+          "maxsim_score": 0.5716773867607117
+        }
+      },
+      "competing_scores": {
+        "C3": {
+          "rank": 45,
+          "score": 0.6269727349281311,
+          "maxsim_score": null
+        },
+        "M0": {
+          "rank": 1,
+          "score": 0.7053014636039734,
+          "maxsim_score": null
+        },
+        "M1": {
+          "rank": 1,
+          "score": 0.6570861339569092,
+          "maxsim_score": 0.6570861339569092
+        },
+        "M2": {
+          "rank": 1,
+          "score": 0.6570861339569092,
+          "maxsim_score": 0.6570861339569092
+        }
+      },
+      "token_level_matches": [
+        {
+          "query_id": "S003-Q084",
+          "page_id": "15caa01c-5d97-5da1-93ca-bbb8a8cf5f22",
+          "page_role": "GOLD",
+          "query_token_index": 9,
+          "query_token_id": 3524,
+          "query_token": "口",
+          "query_decoded": "口",
+          "best_page_token_index": 11,
+          "best_page_token_id": 135844,
+          "best_page_token": "引用",
+          "best_page_decoded": "引用",
+          "maxsim": 0.44921067357063293
+        },
+        {
+          "query_id": "S003-Q084",
+          "page_id": "15caa01c-5d97-5da1-93ca-bbb8a8cf5f22",
+          "page_role": "GOLD",
+          "query_token_index": 10,
+          "query_token_id": 111456,
+          "query_token": "径",
+          "query_decoded": "径",
+          "best_page_token_index": 11,
+          "best_page_token_id": 135844,
+          "best_page_token": "引用",
+          "best_page_decoded": "引用",
+          "maxsim": 0.526324987411499
+        },
+        {
+          "query_id": "S003-Q084",
+          "page_id": "15caa01c-5d97-5da1-93ca-bbb8a8cf5f22",
+          "page_role": "GOLD",
+          "query_token_index": 13,
+          "query_token_id": 93085,
+          "query_token": "支撑",
+          "query_decoded": "支撑",
+          "best_page_token_index": 11,
+          "best_page_token_id": 135844,
+          "best_page_token": "引用",
+          "best_page_decoded": "引用",
+          "maxsim": 0.5777901411056519
+        },
+        {
+          "query_id": "S003-Q084",
+          "page_id": "15caa01c-5d97-5da1-93ca-bbb8a8cf5f22",
+          "page_role": "GOLD",
+          "query_token_index": 20,
+          "query_token_id": 48843,
+          "query_token": "扣",
+          "query_decoded": "扣",
+          "best_page_token_index": 27,
+          "best_page_token_id": 66277,
+          "best_page_token": "计算",
+          "best_page_decoded": "计算",
+          "maxsim": 0.493216335773468
+        },
+        {
+          "query_id": "S003-Q084",
+          "page_id": "15caa01c-5d97-5da1-93ca-bbb8a8cf5f22",
+          "page_role": "GOLD",
+          "query_token_index": 21,
+          "query_token_id": 7688,
+          "query_token": "非",
+          "query_decoded": "非",
+          "best_page_token_index": 203,
+          "best_page_token_id": 7051,
+          "best_page_token": "总",
+          "best_page_decoded": "总",
+          "maxsim": 0.46589934825897217
+        },
+        {
+          "query_id": "S003-Q084",
+          "page_id": "15caa01c-5d97-5da1-93ca-bbb8a8cf5f22",
+          "page_role": "GOLD",
+          "query_token_index": 22,
+          "query_token_id": 36762,
+          "query_token": "归",
+          "query_decoded": "归",
+          "best_page_token_index": 236,
+          "best_page_token_id": 17526,
+          "best_page_token": "年度",
+          "best_page_decoded": "年度",
+          "maxsim": 0.47542351484298706
+        },
+        {
+          "query_id": "S003-Q084",
+          "page_id": "15caa01c-5d97-5da1-93ca-bbb8a8cf5f22",
+          "page_role": "GOLD",
+          "query_token_index": 23,
+          "query_token_id": 15775,
+          "query_token": "母",
+          "query_decoded": "母",
+          "best_page_token_index": 204,
+          "best_page_token_id": 32310,
+          "best_page_token": "资产",
+          "best_page_decoded": "资产",
+          "maxsim": 0.48602598905563354
+        },
+        {
+          "query_id": "S003-Q084",
+          "page_id": "15caa01c-5d97-5da1-93ca-bbb8a8cf5f22",
+          "page_role": "GOLD",
+          "query_token_index": 24,
+          "query_token_id": 217441,
+          "query_token": "净利润",
+          "query_decoded": "净利润",
+          "best_page_token_index": 87,
+          "best_page_token_id": 55874,
+          "best_page_token": "财",
+          "best_page_decoded": "财",
+          "maxsim": 0.5600374341011047
+        },
+        {
+          "query_id": "S003-Q084",
+          "page_id": "bd0dc9f1-4c0c-5c9f-b9c0-5a7b5051b7f2",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 9,
+          "query_token_id": 3524,
+          "query_token": "口",
+          "query_decoded": "口",
+          "best_page_token_index": 196,
+          "best_page_token_id": 4723,
+          "best_page_token": "数",
+          "best_page_decoded": "数",
+          "maxsim": 0.4645204544067383
+        },
+        {
+          "query_id": "S003-Q084",
+          "page_id": "bd0dc9f1-4c0c-5c9f-b9c0-5a7b5051b7f2",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 10,
+          "query_token_id": 111456,
+          "query_token": "径",
+          "query_decoded": "径",
+          "best_page_token_index": 250,
+          "best_page_token_id": 109104,
+          "best_page_token": "差异",
+          "best_page_decoded": "差异",
+          "maxsim": 0.5334444046020508
+        },
+        {
+          "query_id": "S003-Q084",
+          "page_id": "bd0dc9f1-4c0c-5c9f-b9c0-5a7b5051b7f2",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 13,
+          "query_token_id": 93085,
+          "query_token": "支撑",
+          "query_decoded": "支撑",
+          "best_page_token_index": 213,
+          "best_page_token_id": 88468,
+          "best_page_token": "确认",
+          "best_page_decoded": "确认",
+          "maxsim": 0.6027694344520569
+        },
+        {
+          "query_id": "S003-Q084",
+          "page_id": "bd0dc9f1-4c0c-5c9f-b9c0-5a7b5051b7f2",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 20,
+          "query_token_id": 48843,
+          "query_token": "扣",
+          "query_decoded": "扣",
+          "best_page_token_index": 258,
+          "best_page_token_id": 48843,
+          "best_page_token": "扣",
+          "best_page_decoded": "扣",
+          "maxsim": 0.5961316823959351
+        },
+        {
+          "query_id": "S003-Q084",
+          "page_id": "bd0dc9f1-4c0c-5c9f-b9c0-5a7b5051b7f2",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 21,
+          "query_token_id": 7688,
+          "query_token": "非",
+          "query_decoded": "非",
+          "best_page_token_index": 259,
+          "best_page_token_id": 7688,
+          "best_page_token": "非",
+          "best_page_decoded": "非",
+          "maxsim": 0.6639039516448975
+        },
+        {
+          "query_id": "S003-Q084",
+          "page_id": "bd0dc9f1-4c0c-5c9f-b9c0-5a7b5051b7f2",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 22,
+          "query_token_id": 36762,
+          "query_token": "归",
+          "query_decoded": "归",
+          "best_page_token_index": 255,
+          "best_page_token_id": 36762,
+          "best_page_token": "归",
+          "best_page_decoded": "归",
+          "maxsim": 0.7294141054153442
+        },
+        {
+          "query_id": "S003-Q084",
+          "page_id": "bd0dc9f1-4c0c-5c9f-b9c0-5a7b5051b7f2",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 23,
+          "query_token_id": 15775,
+          "query_token": "母",
+          "query_decoded": "母",
+          "best_page_token_index": 319,
+          "best_page_token_id": 15775,
+          "best_page_token": "母",
+          "best_page_decoded": "母",
+          "maxsim": 0.6863235235214233
+        },
+        {
+          "query_id": "S003-Q084",
+          "page_id": "bd0dc9f1-4c0c-5c9f-b9c0-5a7b5051b7f2",
+          "page_role": "COMPETING_NON_GOLD",
+          "query_token_index": 24,
+          "query_token_id": 217441,
+          "query_token": "净利润",
+          "query_decoded": "净利润",
+          "best_page_token_index": 320,
+          "best_page_token_id": 217441,
+          "best_page_token": "净利润",
+          "best_page_decoded": "净利润",
+          "maxsim": 0.7497361302375793
+        }
+      ]
+    }
+  ]
+}

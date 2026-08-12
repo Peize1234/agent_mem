@@ -1,0 +1,336 @@
+{
+  "length_symmetry": {
+    "V1": [
+      {
+        "item_type": "Query",
+        "field": "task",
+        "count": 99,
+        "mean_chars": 49.282828282828284,
+        "median_chars": 47,
+        "p90_chars": 68.4,
+        "empty_count": 0
+      },
+      {
+        "item_type": "Query",
+        "field": "fact",
+        "count": 99,
+        "mean_chars": 26.636363636363637,
+        "median_chars": 25,
+        "p90_chars": 40.2,
+        "empty_count": 0
+      },
+      {
+        "item_type": "Query",
+        "field": "relation",
+        "count": 99,
+        "mean_chars": 41.35353535353536,
+        "median_chars": 40,
+        "p90_chars": 60.2,
+        "empty_count": 0
+      },
+      {
+        "item_type": "Page",
+        "field": "task",
+        "count": 333,
+        "mean_chars": 88.11711711711712,
+        "median_chars": 87,
+        "p90_chars": 128.0,
+        "empty_count": 0
+      },
+      {
+        "item_type": "Page",
+        "field": "fact",
+        "count": 333,
+        "mean_chars": 341.8948948948949,
+        "median_chars": 318,
+        "p90_chars": 454.40000000000003,
+        "empty_count": 0
+      },
+      {
+        "item_type": "Page",
+        "field": "relation",
+        "count": 333,
+        "mean_chars": 122.43243243243244,
+        "median_chars": 114,
+        "p90_chars": 183.00000000000006,
+        "empty_count": 0
+      }
+    ],
+    "V2": [
+      {
+        "item_type": "Query",
+        "field": "task",
+        "count": 99,
+        "mean_chars": 21.91919191919192,
+        "median_chars": 21,
+        "p90_chars": 32.0,
+        "empty_count": 0
+      },
+      {
+        "item_type": "Query",
+        "field": "fact",
+        "count": 99,
+        "mean_chars": 22.858585858585858,
+        "median_chars": 23,
+        "p90_chars": 37.0,
+        "empty_count": 0
+      },
+      {
+        "item_type": "Query",
+        "field": "relation",
+        "count": 99,
+        "mean_chars": 19.494949494949495,
+        "median_chars": 18,
+        "p90_chars": 29.400000000000006,
+        "empty_count": 1
+      },
+      {
+        "item_type": "Page",
+        "field": "task",
+        "count": 333,
+        "mean_chars": 28.95795795795796,
+        "median_chars": 29,
+        "p90_chars": 39.0,
+        "empty_count": 0
+      },
+      {
+        "item_type": "Page",
+        "field": "fact",
+        "count": 333,
+        "mean_chars": 166.4834834834835,
+        "median_chars": 159,
+        "p90_chars": 242.8,
+        "empty_count": 0
+      },
+      {
+        "item_type": "Page",
+        "field": "relation",
+        "count": 333,
+        "mean_chars": 73.64564564564564,
+        "median_chars": 70,
+        "p90_chars": 96.0,
+        "empty_count": 0
+      }
+    ]
+  },
+  "page_fact_duplicates": {
+    "V1": {
+      "page_count": 333,
+      "exact_duplicate_group_count": 29,
+      "duplicate_rows": 74,
+      "duplicate_row_rate": 0.2222222222222222,
+      "largest_duplicate_group": 6,
+      "session_macro_duplicate_rate": 0.19231704864908342
+    },
+    "V2": {
+      "page_count": 333,
+      "exact_duplicate_group_count": 48,
+      "duplicate_rows": 126,
+      "duplicate_row_rate": 0.3783783783783784,
+      "largest_duplicate_group": 10,
+      "session_macro_duplicate_rate": 0.3736767218397425
+    }
+  },
+  "page_fact_duplicate_by_session": {
+    "V1": [
+      {
+        "variant": "V1",
+        "session_id": "S001",
+        "page_count": 47,
+        "duplicate_rows": 8,
+        "duplicate_row_rate": 0.1702127659574468
+      },
+      {
+        "variant": "V1",
+        "session_id": "S002",
+        "page_count": 70,
+        "duplicate_rows": 18,
+        "duplicate_row_rate": 0.2571428571428571
+      },
+      {
+        "variant": "V1",
+        "session_id": "S003",
+        "page_count": 90,
+        "duplicate_rows": 21,
+        "duplicate_row_rate": 0.23333333333333334
+      },
+      {
+        "variant": "V1",
+        "session_id": "S004",
+        "page_count": 71,
+        "duplicate_rows": 2,
+        "duplicate_row_rate": 0.028169014084507043
+      },
+      {
+        "variant": "V1",
+        "session_id": "S005",
+        "page_count": 55,
+        "duplicate_rows": 15,
+        "duplicate_row_rate": 0.2727272727272727
+      }
+    ],
+    "V2": [
+      {
+        "variant": "V2",
+        "session_id": "S001",
+        "page_count": 47,
+        "duplicate_rows": 8,
+        "duplicate_row_rate": 0.1702127659574468
+      },
+      {
+        "variant": "V2",
+        "session_id": "S002",
+        "page_count": 70,
+        "duplicate_rows": 38,
+        "duplicate_row_rate": 0.5428571428571428
+      },
+      {
+        "variant": "V2",
+        "session_id": "S003",
+        "page_count": 90,
+        "duplicate_rows": 27,
+        "duplicate_row_rate": 0.3
+      },
+      {
+        "variant": "V2",
+        "session_id": "S004",
+        "page_count": 71,
+        "duplicate_rows": 22,
+        "duplicate_row_rate": 0.30985915492957744
+      },
+      {
+        "variant": "V2",
+        "session_id": "S005",
+        "page_count": 55,
+        "duplicate_rows": 30,
+        "duplicate_row_rate": 0.5454545454545454
+      }
+    ]
+  },
+  "fact_provenance": {
+    "V1": {
+      "page_count": 333,
+      "has_provenance_count": 331,
+      "has_provenance_rate": 0.993993993993994,
+      "non_source_task_page_count": 148,
+      "inappropriate_provenance_count": 148,
+      "inappropriate_provenance_rate": 1.0,
+      "pattern_counts": {
+        "http": 325,
+        "cninfo": 325,
+        "披露日期": 330,
+        "年度报告": 328,
+        "来源": 329,
+        "报告摘要": 311
+      },
+      "pattern_rates": {
+        "http": 0.975975975975976,
+        "cninfo": 0.975975975975976,
+        "披露日期": 0.990990990990991,
+        "年度报告": 0.984984984984985,
+        "来源": 0.987987987987988,
+        "报告摘要": 0.933933933933934
+      }
+    },
+    "V2": {
+      "page_count": 333,
+      "has_provenance_count": 326,
+      "has_provenance_rate": 0.978978978978979,
+      "non_source_task_page_count": 241,
+      "inappropriate_provenance_count": 234,
+      "inappropriate_provenance_rate": 0.970954356846473,
+      "pattern_counts": {
+        "http": 0,
+        "cninfo": 0,
+        "披露日期": 316,
+        "年度报告": 276,
+        "来源": 326,
+        "报告摘要": 272
+      },
+      "pattern_rates": {
+        "http": 0.0,
+        "cninfo": 0.0,
+        "披露日期": 0.948948948948949,
+        "年度报告": 0.8288288288288288,
+        "来源": 0.978978978978979,
+        "报告摘要": 0.8168168168168168
+      }
+    }
+  },
+  "query_fact_deictic_residue": {
+    "V1": {
+      "query_count": 99,
+      "residue_count": 31,
+      "residue_rate": 0.31313131313131315
+    },
+    "V2": {
+      "query_count": 99,
+      "residue_count": 9,
+      "residue_rate": 0.09090909090909091
+    }
+  },
+  "task_relation_similarity": [
+    {
+      "variant": "V1",
+      "item_type": "Query",
+      "count": 99,
+      "mean_char_trigram_cosine": 0.3707568660475195,
+      "median_char_trigram_cosine": 0.35944731617416775,
+      "p90_char_trigram_cosine": 0.6176702001053361,
+      "rate_ge_0_8": 0.010101010101010102,
+      "rate_ge_0_9": 0.0
+    },
+    {
+      "variant": "V2",
+      "item_type": "Query",
+      "count": 99,
+      "mean_char_trigram_cosine": 0.3611003829678827,
+      "median_char_trigram_cosine": 0.3731012536223182,
+      "p90_char_trigram_cosine": 0.6350638705005213,
+      "rate_ge_0_8": 0.04040404040404041,
+      "rate_ge_0_9": 0.010101010101010102
+    },
+    {
+      "variant": "V1",
+      "item_type": "Page",
+      "count": 333,
+      "mean_char_trigram_cosine": 0.17734409621043354,
+      "median_char_trigram_cosine": 0.1432979802986566,
+      "p90_char_trigram_cosine": 0.42813063318780603,
+      "rate_ge_0_8": 0.0,
+      "rate_ge_0_9": 0.0
+    },
+    {
+      "variant": "V2",
+      "item_type": "Page",
+      "count": 333,
+      "mean_char_trigram_cosine": 0.0528904458284015,
+      "median_char_trigram_cosine": 0.022360679774997897,
+      "p90_char_trigram_cosine": 0.16197151912300892,
+      "rate_ge_0_8": 0.0,
+      "rate_ge_0_9": 0.0
+    }
+  ],
+  "boilerplate_summary": {
+    "V1": {
+      "task": {
+        "any_pattern_count": 205,
+        "any_pattern_rate": 0.6156156156156156
+      },
+      "relation": {
+        "any_pattern_count": 153,
+        "any_pattern_rate": 0.4594594594594595
+      }
+    },
+    "V2": {
+      "task": {
+        "any_pattern_count": 26,
+        "any_pattern_rate": 0.07807807807807808
+      },
+      "relation": {
+        "any_pattern_count": 157,
+        "any_pattern_rate": 0.47147147147147145
+      }
+    }
+  }
+}
