@@ -1,0 +1,2 @@
+﻿session_id,turn_count,evaluated_count,error_count,wall_clock_seconds,migration_job_count,mid_long_recall,mid_long_precision,all_recall,full_dependency_recall
+S004_比亚迪_IR,74,39,0,600.6797220860026,71,0.9487179487179487,0.05599601595045145,1.0,0.8974358974358975

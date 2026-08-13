@@ -1,0 +1,2 @@
+﻿session_id,turn_count,evaluated_count,error_count,wall_clock_seconds,migration_job_count,mid_long_recall,mid_long_precision,all_recall,full_dependency_recall
+S006_宁德时代_审委,80,41,0,584.0084277780115,77,0.9634146341463414,0.05323577940224601,1.0,0.926829268292683

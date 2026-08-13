@@ -1,0 +1,11 @@
+{
+  "mode": "new_isolated_session_provenance_plus_rebuilt_midterm_c3",
+  "dataset": "/home/peize/Code/htzq/mem0/exp/金融分析数据集_前10个Session长短期记忆再平衡.xlsx",
+  "dataset_sha256": "161f550721955ec056d0c9612d74eb8cc67d255a8cb36a1412bd8575b201a0f2",
+  "recall_dir": "/home/peize/Code/htzq/mem0/exp/results/recall_rebalanced_s001_s010_isolated",
+  "c3_ranking": "/home/peize/Code/htzq/mem0/exp/results/midterm_c3_rebalanced_s001_s010/c3_rankings.jsonl",
+  "c3_ranking_sha256": "7d013255b4df2d54bdcfe3d68b56aaf32049879a532ce0d1d0324340eefb29d1",
+  "shortterm_qa_turns": 3,
+  "midterm_top_k": 5,
+  "longterm_top_k": 5
+}

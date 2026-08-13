@@ -1,0 +1,166 @@
+{
+  "total_turns": 80,
+  "successful_turns": 80,
+  "failed_turns": 0,
+  "evaluated_turns": 41,
+  "evaluated_successful_turns": 41,
+  "effective": {
+    "session_count": 1,
+    "session_concurrency": 1,
+    "short_term_message_capacity": 6,
+    "short_term_qa_capacity": 3,
+    "wait_strategy": "before_evaluation",
+    "evaluate_only_long_range": true,
+    "llm_mode": "real",
+    "infer": true,
+    "profile_enabled": false,
+    "runtime_dir": "/home/peize/Code/htzq/mem0/exp/runtime/recall_rebalanced_s001_s010_isolated/S006",
+    "dataset_path": "/home/peize/Code/htzq/mem0/exp/金融分析数据集_前10个Session长短期记忆再平衡.xlsx",
+    "git_commit": "b1067b2e7d31648c33c46f726a46f66822f6cb70",
+    "elapsed_seconds": 584.447514295578,
+    "session_wall_clock_seconds": {
+      "S006_宁德时代_审委": 584.0084277780115
+    },
+    "sequential_estimated_seconds": 584.0084277780115,
+    "effective_session_speedup": 0.9992487152279265
+  },
+  "build_total_ms": {
+    "count": 80,
+    "min": 44.92869699606672,
+    "mean": 339.8595655880854,
+    "p50": 227.41290900012245,
+    "p90": 484.13030860392627,
+    "p95": 575.1994230478886,
+    "p99": 2130.0508091279794,
+    "max": 5514.638938999269,
+    "stddev": 606.9181814698309
+  },
+  "retrieve_context_ms": {
+    "count": 80,
+    "min": 44.748897998942994,
+    "mean": 338.8267580874526,
+    "p50": 226.6542094948818,
+    "p90": 483.1963085933241,
+    "p95": 574.336083047092,
+    "p99": 2129.11674612461,
+    "max": 5514.470939000603,
+    "stddev": 607.0101353706544
+  },
+  "add_submit_ms": {
+    "count": 80,
+    "min": 10.227898994344287,
+    "mean": 49.74370026284305,
+    "p50": 31.94974799407646,
+    "p90": 103.67903959704564,
+    "p95": 122.4307267955737,
+    "p99": 203.65293505208643,
+    "max": 255.45219700143207,
+    "stddev": 45.24862996153619
+  },
+  "short": {
+    "recall": 0.036585365853658534,
+    "precision": 0.024390243902439025,
+    "hit_rate": 0.07317073170731707,
+    "full_dependency_recall": 0.0,
+    "mrr": 0.024390243902439025
+  },
+  "mid_page": {
+    "recall": 0.5853658536585366,
+    "precision": 0.13048780487804879,
+    "hit_rate": 0.6097560975609756,
+    "full_dependency_recall": 0.5609756097560976,
+    "mrr": 0.44268292682926824
+  },
+  "mid_session": {
+    "recall": 0.9634146341463414,
+    "precision": 0.05323577940224601,
+    "hit_rate": 1.0,
+    "full_dependency_recall": 0.926829268292683,
+    "mrr": 0.11601171585735186
+  },
+  "mid": {
+    "recall": 0.9634146341463414,
+    "precision": 0.05323577940224601,
+    "hit_rate": 1.0,
+    "full_dependency_recall": 0.926829268292683,
+    "mrr": 0.4586705503870268
+  },
+  "long": {
+    "recall": 0.2804878048780488,
+    "precision": 0.07357723577235772,
+    "hit_rate": 0.2926829268292683,
+    "full_dependency_recall": 0.2682926829268293,
+    "mrr": 0.18170731707317073
+  },
+  "mid_long": {
+    "recall": 0.9634146341463414,
+    "precision": 0.05323577940224601,
+    "hit_rate": 1.0,
+    "full_dependency_recall": 0.926829268292683,
+    "mrr": 0.4586705503870268
+  },
+  "all": {
+    "recall": 1.0,
+    "precision": 0.039541958312332905,
+    "hit_rate": 1.0,
+    "full_dependency_recall": 1.0,
+    "mrr": 0.15928231819635064
+  },
+  "by_dependency_type": {
+    "历史回溯": {
+      "count": 38,
+      "mid_long_recall": 1.0,
+      "mid_long_precision": 0.05563028964862302,
+      "all_recall": 1.0
+    },
+    "相邻承接＋多跳综合": {
+      "count": 3,
+      "mid_long_recall": 0.5,
+      "mid_long_precision": 0.022905316281470436,
+      "all_recall": 1.0
+    }
+  },
+  "benchmark_config": {
+    "benchmark": {
+      "run_name": "recall_rebalanced_s006",
+      "reset_storage": true,
+      "output_dir": "/home/peize/Code/htzq/mem0/exp/results/recall_rebalanced_s001_s010_isolated/S006",
+      "random_seed": 42
+    },
+    "dataset": {
+      "path": "exp/金融分析数据集_前10个Session长短期记忆再平衡.xlsx",
+      "include_sheets": [
+        "S006_宁德时代_审委"
+      ],
+      "max_sessions": 1,
+      "max_turns_per_session": null
+    },
+    "storage": {
+      "runtime_dir": "/home/peize/Code/htzq/mem0/exp/runtime/recall_rebalanced_s001_s010_isolated/S006",
+      "collection_name": "recall_rebalanced_s006"
+    },
+    "execution": {
+      "session_concurrency": 1,
+      "retrieval_timeout_seconds": 180,
+      "add_timeout_seconds": 180,
+      "background_job_timeout_seconds": 1800,
+      "background_poll_interval_seconds": 0.2,
+      "wait_strategy": "before_evaluation"
+    },
+    "memory": {
+      "config_path": "exp/benchmark/memory_config.json",
+      "llm_mode": "real",
+      "infer": true,
+      "profile_enabled": false,
+      "profile_update_on_add": false
+    },
+    "retrieval": {
+      "top_k": 5,
+      "threshold": 0.1,
+      "rerank": false
+    },
+    "evaluation": {
+      "evaluate_only_long_range": true
+    }
+  }
+}

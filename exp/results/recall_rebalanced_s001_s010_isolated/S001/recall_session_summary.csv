@@ -1,0 +1,2 @@
+﻿session_id,turn_count,evaluated_count,error_count,wall_clock_seconds,migration_job_count,mid_long_recall,mid_long_precision,all_recall,full_dependency_recall
+S001_贵州茅台_投研,50,24,0,397.8701160710043,47,0.9791666666666666,0.07898821600478535,1.0,0.9583333333333334

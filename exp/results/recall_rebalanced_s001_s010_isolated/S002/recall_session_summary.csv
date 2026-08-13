@@ -1,0 +1,2 @@
+﻿session_id,turn_count,evaluated_count,error_count,wall_clock_seconds,migration_job_count,mid_long_recall,mid_long_precision,all_recall,full_dependency_recall
+S002_贵州茅台_内审,73,38,0,560.2353106249939,70,0.9473684210526315,0.05737619124025489,1.0,0.8947368421052632

@@ -1,0 +1,280 @@
+{
+  "mode": "isolated_session_subprocesses",
+  "base_config": "/home/peize/Code/htzq/mem0/exp/benchmark/recall_rebalanced_s001_s010.json",
+  "dataset": "/home/peize/Code/htzq/mem0/exp/金融分析数据集_前10个Session长短期记忆再平衡.xlsx",
+  "session_count": 10,
+  "total_turns": 752,
+  "failed_turns": 0,
+  "sessions": [
+    {
+      "result_dir": "/home/peize/Code/htzq/mem0/exp/results/recall_rebalanced_s001_s010_isolated/S001",
+      "turn_count": 50,
+      "evaluated_turns": 24,
+      "elapsed_seconds": 398.11599588394165,
+      "long": {
+        "recall": 0.5,
+        "precision": 0.12083333333333333,
+        "hit_rate": 0.5,
+        "full_dependency_recall": 0.5,
+        "mrr": 0.33055555555555555
+      },
+      "mid": {
+        "recall": 0.9791666666666666,
+        "precision": 0.07898821600478535,
+        "hit_rate": 1.0,
+        "full_dependency_recall": 0.9583333333333334,
+        "mrr": 0.4355532324100815
+      },
+      "all": {
+        "recall": 1.0,
+        "precision": 0.05460518729444611,
+        "hit_rate": 1.0,
+        "full_dependency_recall": 1.0,
+        "mrr": 0.15176465118456753
+      }
+    },
+    {
+      "result_dir": "/home/peize/Code/htzq/mem0/exp/results/recall_rebalanced_s001_s010_isolated/S002",
+      "turn_count": 73,
+      "evaluated_turns": 38,
+      "elapsed_seconds": 560.559015750885,
+      "long": {
+        "recall": 0.5263157894736842,
+        "precision": 0.12324561403508773,
+        "hit_rate": 0.5263157894736842,
+        "full_dependency_recall": 0.5263157894736842,
+        "mrr": 0.3394736842105263
+      },
+      "mid": {
+        "recall": 0.9473684210526315,
+        "precision": 0.05737619124025489,
+        "hit_rate": 1.0,
+        "full_dependency_recall": 0.8947368421052632,
+        "mrr": 0.43663162461584415
+      },
+      "all": {
+        "recall": 1.0,
+        "precision": 0.04362047826893457,
+        "hit_rate": 1.0,
+        "full_dependency_recall": 1.0,
+        "mrr": 0.17166542283495895
+      }
+    },
+    {
+      "result_dir": "/home/peize/Code/htzq/mem0/exp/results/recall_rebalanced_s001_s010_isolated/S003",
+      "turn_count": 93,
+      "evaluated_turns": 46,
+      "elapsed_seconds": 767.6428463459015,
+      "long": {
+        "recall": 0.2608695652173913,
+        "precision": 0.07210144927536233,
+        "hit_rate": 0.2826086956521739,
+        "full_dependency_recall": 0.2391304347826087,
+        "mrr": 0.22536231884057972
+      },
+      "mid": {
+        "recall": 0.9782608695652174,
+        "precision": 0.04978405761670117,
+        "hit_rate": 1.0,
+        "full_dependency_recall": 0.9565217391304348,
+        "mrr": 0.2368395450272647
+      },
+      "all": {
+        "recall": 1.0,
+        "precision": 0.03783760870665891,
+        "hit_rate": 1.0,
+        "full_dependency_recall": 1.0,
+        "mrr": 0.10268769958464767
+      }
+    },
+    {
+      "result_dir": "/home/peize/Code/htzq/mem0/exp/results/recall_rebalanced_s001_s010_isolated/S004",
+      "turn_count": 74,
+      "evaluated_turns": 39,
+      "elapsed_seconds": 600.981936454773,
+      "long": {
+        "recall": 0.5641025641025641,
+        "precision": 0.14145299145299145,
+        "hit_rate": 0.5897435897435898,
+        "full_dependency_recall": 0.5384615384615384,
+        "mrr": 0.4316239316239316
+      },
+      "mid": {
+        "recall": 0.9487179487179487,
+        "precision": 0.05599601595045145,
+        "hit_rate": 1.0,
+        "full_dependency_recall": 0.8974358974358975,
+        "mrr": 0.33815925431442484
+      },
+      "all": {
+        "recall": 1.0,
+        "precision": 0.04245198599249101,
+        "hit_rate": 1.0,
+        "full_dependency_recall": 1.0,
+        "mrr": 0.14020771195351614
+      }
+    },
+    {
+      "result_dir": "/home/peize/Code/htzq/mem0/exp/results/recall_rebalanced_s001_s010_isolated/S005",
+      "turn_count": 58,
+      "evaluated_turns": 31,
+      "elapsed_seconds": 481.8794665336609,
+      "long": {
+        "recall": 0.3225806451612903,
+        "precision": 0.08655913978494624,
+        "hit_rate": 0.3548387096774194,
+        "full_dependency_recall": 0.2903225806451613,
+        "mrr": 0.21989247311827956
+      },
+      "mid": {
+        "recall": 0.9354838709677419,
+        "precision": 0.06667479511396808,
+        "hit_rate": 1.0,
+        "full_dependency_recall": 0.8709677419354839,
+        "mrr": 0.4494419321245108
+      },
+      "all": {
+        "recall": 1.0,
+        "precision": 0.0499830746450577,
+        "hit_rate": 1.0,
+        "full_dependency_recall": 1.0,
+        "mrr": 0.18188712180916405
+      }
+    },
+    {
+      "result_dir": "/home/peize/Code/htzq/mem0/exp/results/recall_rebalanced_s001_s010_isolated/S006",
+      "turn_count": 80,
+      "evaluated_turns": 41,
+      "elapsed_seconds": 584.447514295578,
+      "long": {
+        "recall": 0.2804878048780488,
+        "precision": 0.07357723577235772,
+        "hit_rate": 0.2926829268292683,
+        "full_dependency_recall": 0.2682926829268293,
+        "mrr": 0.18170731707317073
+      },
+      "mid": {
+        "recall": 0.9634146341463414,
+        "precision": 0.05323577940224601,
+        "hit_rate": 1.0,
+        "full_dependency_recall": 0.926829268292683,
+        "mrr": 0.4586705503870268
+      },
+      "all": {
+        "recall": 1.0,
+        "precision": 0.039541958312332905,
+        "hit_rate": 1.0,
+        "full_dependency_recall": 1.0,
+        "mrr": 0.15928231819635064
+      }
+    },
+    {
+      "result_dir": "/home/peize/Code/htzq/mem0/exp/results/recall_rebalanced_s001_s010_isolated/S007",
+      "turn_count": 96,
+      "evaluated_turns": 50,
+      "elapsed_seconds": 933.2819085121155,
+      "long": {
+        "recall": 0.31,
+        "precision": 0.08133333333333333,
+        "hit_rate": 0.34,
+        "full_dependency_recall": 0.28,
+        "mrr": 0.249
+      },
+      "mid": {
+        "recall": 0.96,
+        "precision": 0.046375950711044556,
+        "hit_rate": 1.0,
+        "full_dependency_recall": 0.92,
+        "mrr": 0.3595375157366854
+      },
+      "all": {
+        "recall": 1.0,
+        "precision": 0.03571525656843301,
+        "hit_rate": 1.0,
+        "full_dependency_recall": 1.0,
+        "mrr": 0.1417035926843043
+      }
+    },
+    {
+      "result_dir": "/home/peize/Code/htzq/mem0/exp/results/recall_rebalanced_s001_s010_isolated/S008",
+      "turn_count": 61,
+      "evaluated_turns": 31,
+      "elapsed_seconds": 620.6639342308044,
+      "long": {
+        "recall": 0.3548387096774194,
+        "precision": 0.09516129032258065,
+        "hit_rate": 0.3548387096774194,
+        "full_dependency_recall": 0.3548387096774194,
+        "mrr": 0.22956989247311826
+      },
+      "mid": {
+        "recall": 0.9516129032258065,
+        "precision": 0.06725268009148422,
+        "hit_rate": 1.0,
+        "full_dependency_recall": 0.9032258064516129,
+        "mrr": 0.5675305258349245
+      },
+      "all": {
+        "recall": 1.0,
+        "precision": 0.05032756855707484,
+        "hit_rate": 1.0,
+        "full_dependency_recall": 1.0,
+        "mrr": 0.19895246629117597
+      }
+    },
+    {
+      "result_dir": "/home/peize/Code/htzq/mem0/exp/results/recall_rebalanced_s001_s010_isolated/S009",
+      "turn_count": 72,
+      "evaluated_turns": 37,
+      "elapsed_seconds": 1809.0884294509888,
+      "long": {
+        "recall": 0.43243243243243246,
+        "precision": 0.10765765765765765,
+        "hit_rate": 0.4594594594594595,
+        "full_dependency_recall": 0.40540540540540543,
+        "mrr": 0.31351351351351353
+      },
+      "mid": {
+        "recall": 0.9594594594594594,
+        "precision": 0.07599590541358067,
+        "hit_rate": 1.0,
+        "full_dependency_recall": 0.918918918918919,
+        "mrr": 0.4712030410661221
+      },
+      "all": {
+        "recall": 1.0,
+        "precision": 0.055973653574518466,
+        "hit_rate": 1.0,
+        "full_dependency_recall": 1.0,
+        "mrr": 0.17680773862563598
+      }
+    },
+    {
+      "result_dir": "/home/peize/Code/htzq/mem0/exp/results/recall_rebalanced_s001_s010_isolated/S010",
+      "turn_count": 95,
+      "evaluated_turns": 49,
+      "elapsed_seconds": 1933.9509057998657,
+      "long": {
+        "recall": 0.3877551020408163,
+        "precision": 0.09319727891156462,
+        "hit_rate": 0.3877551020408163,
+        "full_dependency_recall": 0.3877551020408163,
+        "mrr": 0.2173469387755102
+      },
+      "mid": {
+        "recall": 0.9591836734693877,
+        "precision": 0.057023401907777806,
+        "hit_rate": 1.0,
+        "full_dependency_recall": 0.9183673469387755,
+        "mrr": 0.427209058474219
+      },
+      "all": {
+        "recall": 1.0,
+        "precision": 0.04285978603277382,
+        "hit_rate": 1.0,
+        "full_dependency_recall": 1.0,
+        "mrr": 0.16891979461874296
+      }
+    }
+  ]
+}

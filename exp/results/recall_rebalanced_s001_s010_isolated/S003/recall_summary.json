@@ -1,0 +1,166 @@
+{
+  "total_turns": 93,
+  "successful_turns": 93,
+  "failed_turns": 0,
+  "evaluated_turns": 46,
+  "evaluated_successful_turns": 46,
+  "effective": {
+    "session_count": 1,
+    "session_concurrency": 1,
+    "short_term_message_capacity": 6,
+    "short_term_qa_capacity": 3,
+    "wait_strategy": "before_evaluation",
+    "evaluate_only_long_range": true,
+    "llm_mode": "real",
+    "infer": true,
+    "profile_enabled": false,
+    "runtime_dir": "/home/peize/Code/htzq/mem0/exp/runtime/recall_rebalanced_s001_s010_isolated/S003",
+    "dataset_path": "/home/peize/Code/htzq/mem0/exp/金融分析数据集_前10个Session长短期记忆再平衡.xlsx",
+    "git_commit": "b1067b2e7d31648c33c46f726a46f66822f6cb70",
+    "elapsed_seconds": 767.6428463459015,
+    "session_wall_clock_seconds": {
+      "S003_比亚迪_风委": 767.2801416919974
+    },
+    "sequential_estimated_seconds": 767.2801416919974,
+    "effective_session_speedup": 0.9995275085860168
+  },
+  "build_total_ms": {
+    "count": 93,
+    "min": 81.05840500502381,
+    "mean": 418.53951728982247,
+    "p50": 219.61740299593657,
+    "p90": 383.79811619524844,
+    "p95": 418.2630725990746,
+    "p99": 1856.0157435247397,
+    "max": 16844.84254400013,
+    "stddev": 1715.3993753284506
+  },
+  "retrieve_context_ms": {
+    "count": 93,
+    "min": 79.9231989949476,
+    "mean": 417.19909469983213,
+    "p50": 218.5933010041481,
+    "p90": 382.8993161965627,
+    "p95": 409.016973801772,
+    "p99": 1855.1198835164264,
+    "max": 16842.16234399355,
+    "stddev": 1715.2302292268823
+  },
+  "add_submit_ms": {
+    "count": 93,
+    "min": 10.208099993178621,
+    "mean": 58.27106939758905,
+    "p50": 44.57199999887962,
+    "p90": 115.11410420062019,
+    "p95": 133.10410060512353,
+    "p99": 190.91427532664957,
+    "max": 233.32600299909245,
+    "stddev": 45.87059515309786
+  },
+  "short": {
+    "recall": 0.021739130434782608,
+    "precision": 0.014492753623188404,
+    "hit_rate": 0.043478260869565216,
+    "full_dependency_recall": 0.0,
+    "mrr": 0.014492753623188404
+  },
+  "mid_page": {
+    "recall": 0.42391304347826086,
+    "precision": 0.09456521739130436,
+    "hit_rate": 0.43478260869565216,
+    "full_dependency_recall": 0.41304347826086957,
+    "mrr": 0.22318840579710147
+  },
+  "mid_session": {
+    "recall": 0.9782608695652174,
+    "precision": 0.04978405761670117,
+    "hit_rate": 1.0,
+    "full_dependency_recall": 0.9565217391304348,
+    "mrr": 0.06523442754216852
+  },
+  "mid": {
+    "recall": 0.9782608695652174,
+    "precision": 0.04978405761670117,
+    "hit_rate": 1.0,
+    "full_dependency_recall": 0.9565217391304348,
+    "mrr": 0.2368395450272647
+  },
+  "long": {
+    "recall": 0.2608695652173913,
+    "precision": 0.07210144927536233,
+    "hit_rate": 0.2826086956521739,
+    "full_dependency_recall": 0.2391304347826087,
+    "mrr": 0.22536231884057972
+  },
+  "mid_long": {
+    "recall": 0.9782608695652174,
+    "precision": 0.04978405761670117,
+    "hit_rate": 1.0,
+    "full_dependency_recall": 0.9565217391304348,
+    "mrr": 0.2368395450272647
+  },
+  "all": {
+    "recall": 1.0,
+    "precision": 0.03783760870665891,
+    "hit_rate": 1.0,
+    "full_dependency_recall": 1.0,
+    "mrr": 0.10268769958464767
+  },
+  "by_dependency_type": {
+    "历史回溯": {
+      "count": 44,
+      "mid_long_recall": 1.0,
+      "mid_long_precision": 0.04969006696964886,
+      "all_recall": 1.0
+    },
+    "相邻承接＋多跳综合": {
+      "count": 2,
+      "mid_long_recall": 0.5,
+      "mid_long_precision": 0.05185185185185185,
+      "all_recall": 1.0
+    }
+  },
+  "benchmark_config": {
+    "benchmark": {
+      "run_name": "recall_rebalanced_s003",
+      "reset_storage": true,
+      "output_dir": "/home/peize/Code/htzq/mem0/exp/results/recall_rebalanced_s001_s010_isolated/S003",
+      "random_seed": 42
+    },
+    "dataset": {
+      "path": "exp/金融分析数据集_前10个Session长短期记忆再平衡.xlsx",
+      "include_sheets": [
+        "S003_比亚迪_风委"
+      ],
+      "max_sessions": 1,
+      "max_turns_per_session": null
+    },
+    "storage": {
+      "runtime_dir": "/home/peize/Code/htzq/mem0/exp/runtime/recall_rebalanced_s001_s010_isolated/S003",
+      "collection_name": "recall_rebalanced_s003"
+    },
+    "execution": {
+      "session_concurrency": 1,
+      "retrieval_timeout_seconds": 180,
+      "add_timeout_seconds": 180,
+      "background_job_timeout_seconds": 1800,
+      "background_poll_interval_seconds": 0.2,
+      "wait_strategy": "before_evaluation"
+    },
+    "memory": {
+      "config_path": "exp/benchmark/memory_config.json",
+      "llm_mode": "real",
+      "infer": true,
+      "profile_enabled": false,
+      "profile_update_on_add": false
+    },
+    "retrieval": {
+      "top_k": 5,
+      "threshold": 0.1,
+      "rerank": false
+    },
+    "evaluation": {
+      "evaluate_only_long_range": true
+    }
+  }
+}

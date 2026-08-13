@@ -1,0 +1,166 @@
+{
+  "total_turns": 96,
+  "successful_turns": 96,
+  "failed_turns": 0,
+  "evaluated_turns": 50,
+  "evaluated_successful_turns": 50,
+  "effective": {
+    "session_count": 1,
+    "session_concurrency": 1,
+    "short_term_message_capacity": 6,
+    "short_term_qa_capacity": 3,
+    "wait_strategy": "before_evaluation",
+    "evaluate_only_long_range": true,
+    "llm_mode": "real",
+    "infer": true,
+    "profile_enabled": false,
+    "runtime_dir": "/home/peize/Code/htzq/mem0/exp/runtime/recall_rebalanced_s001_s010_isolated/S007",
+    "dataset_path": "/home/peize/Code/htzq/mem0/exp/金融分析数据集_前10个Session长短期记忆再平衡.xlsx",
+    "git_commit": "b1067b2e7d31648c33c46f726a46f66822f6cb70",
+    "elapsed_seconds": 933.2819085121155,
+    "session_wall_clock_seconds": {
+      "S007_美的集团_授信": 932.859473192002
+    },
+    "sequential_estimated_seconds": 932.859473192002,
+    "effective_session_speedup": 0.9995473657891999
+  },
+  "build_total_ms": {
+    "count": 96,
+    "min": 37.25499899883289,
+    "mean": 305.5826253958003,
+    "p50": 212.53730549506145,
+    "p90": 468.2024974972592,
+    "p95": 549.7822007528157,
+    "p99": 944.9418374526286,
+    "max": 5765.762160997838,
+    "stddev": 575.0201469076361
+  },
+  "retrieve_context_ms": {
+    "count": 96,
+    "min": 36.97829900193028,
+    "mean": 304.04216810378176,
+    "p50": 211.23532749334117,
+    "p90": 467.355447493901,
+    "p95": 549.0162507485365,
+    "p99": 944.2321174566897,
+    "max": 5765.574561009998,
+    "stddev": 575.1653842938019
+  },
+  "add_submit_ms": {
+    "count": 96,
+    "min": 10.04310000280384,
+    "mean": 50.958780354903865,
+    "p50": 35.796444994048215,
+    "p90": 93.20279999519698,
+    "p95": 134.36837550034397,
+    "p99": 148.3603050008241,
+    "max": 172.05530000501312,
+    "stddev": 38.345561042649074
+  },
+  "short": {
+    "recall": 0.04,
+    "precision": 0.026666666666666665,
+    "hit_rate": 0.08,
+    "full_dependency_recall": 0.0,
+    "mrr": 0.026666666666666665
+  },
+  "mid_page": {
+    "recall": 0.58,
+    "precision": 0.127,
+    "hit_rate": 0.6,
+    "full_dependency_recall": 0.56,
+    "mrr": 0.3516666666666666
+  },
+  "mid_session": {
+    "recall": 0.96,
+    "precision": 0.046375950711044556,
+    "hit_rate": 1.0,
+    "full_dependency_recall": 0.92,
+    "mrr": 0.06056050710785939
+  },
+  "mid": {
+    "recall": 0.96,
+    "precision": 0.046375950711044556,
+    "hit_rate": 1.0,
+    "full_dependency_recall": 0.92,
+    "mrr": 0.3595375157366854
+  },
+  "long": {
+    "recall": 0.31,
+    "precision": 0.08133333333333333,
+    "hit_rate": 0.34,
+    "full_dependency_recall": 0.28,
+    "mrr": 0.249
+  },
+  "mid_long": {
+    "recall": 0.96,
+    "precision": 0.046375950711044556,
+    "hit_rate": 1.0,
+    "full_dependency_recall": 0.92,
+    "mrr": 0.3595375157366854
+  },
+  "all": {
+    "recall": 1.0,
+    "precision": 0.03571525656843301,
+    "hit_rate": 1.0,
+    "full_dependency_recall": 1.0,
+    "mrr": 0.1417035926843043
+  },
+  "by_dependency_type": {
+    "历史回溯": {
+      "count": 46,
+      "mid_long_recall": 1.0,
+      "mid_long_precision": 0.04800747006506636,
+      "all_recall": 1.0
+    },
+    "相邻承接＋多跳综合": {
+      "count": 4,
+      "mid_long_recall": 0.5,
+      "mid_long_precision": 0.02761347813979393,
+      "all_recall": 1.0
+    }
+  },
+  "benchmark_config": {
+    "benchmark": {
+      "run_name": "recall_rebalanced_s007",
+      "reset_storage": true,
+      "output_dir": "/home/peize/Code/htzq/mem0/exp/results/recall_rebalanced_s001_s010_isolated/S007",
+      "random_seed": 42
+    },
+    "dataset": {
+      "path": "exp/金融分析数据集_前10个Session长短期记忆再平衡.xlsx",
+      "include_sheets": [
+        "S007_美的集团_授信"
+      ],
+      "max_sessions": 1,
+      "max_turns_per_session": null
+    },
+    "storage": {
+      "runtime_dir": "/home/peize/Code/htzq/mem0/exp/runtime/recall_rebalanced_s001_s010_isolated/S007",
+      "collection_name": "recall_rebalanced_s007"
+    },
+    "execution": {
+      "session_concurrency": 1,
+      "retrieval_timeout_seconds": 180,
+      "add_timeout_seconds": 180,
+      "background_job_timeout_seconds": 1800,
+      "background_poll_interval_seconds": 0.2,
+      "wait_strategy": "before_evaluation"
+    },
+    "memory": {
+      "config_path": "exp/benchmark/memory_config.json",
+      "llm_mode": "real",
+      "infer": true,
+      "profile_enabled": false,
+      "profile_update_on_add": false
+    },
+    "retrieval": {
+      "top_k": 5,
+      "threshold": 0.1,
+      "rerank": false
+    },
+    "evaluation": {
+      "evaluate_only_long_range": true
+    }
+  }
+}

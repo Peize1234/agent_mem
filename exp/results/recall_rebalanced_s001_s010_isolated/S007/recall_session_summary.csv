@@ -1,0 +1,2 @@
+﻿session_id,turn_count,evaluated_count,error_count,wall_clock_seconds,migration_job_count,mid_long_recall,mid_long_precision,all_recall,full_dependency_recall
+S007_美的集团_授信,96,50,0,932.859473192002,93,0.96,0.046375950711044556,1.0,0.92

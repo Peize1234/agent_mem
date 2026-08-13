@@ -1,0 +1,2 @@
+﻿session_id,turn_count,evaluated_count,error_count,wall_clock_seconds,migration_job_count,mid_long_recall,mid_long_precision,all_recall,full_dependency_recall
+S003_比亚迪_风委,93,46,0,767.2801416919974,90,0.9782608695652174,0.04978405761670117,1.0,0.9565217391304348

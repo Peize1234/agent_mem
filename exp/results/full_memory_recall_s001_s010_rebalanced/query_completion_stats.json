@@ -1,0 +1,226 @@
+{
+  "configurations": {
+    "short": {
+      "label": "Short",
+      "query_count": 742,
+      "requirement_hit_count": 400,
+      "mean": 0.5013477088948787,
+      "median": 0.5,
+      "p25": 0.0,
+      "p75": 1.0,
+      "zero_complete_query_count": 354,
+      "zero_complete_query_rate": 0.477088948787062,
+      "full_complete_query_count": 356,
+      "full_complete_query_rate": 0.4797843665768194,
+      "completion_ge_50_rate": 0.522911051212938,
+      "completion_ge_80_rate": 0.4797843665768194
+    },
+    "mid": {
+      "label": "Mid",
+      "query_count": 742,
+      "requirement_hit_count": 179,
+      "mean": 0.23315363881401618,
+      "median": 0.0,
+      "p25": 0.0,
+      "p75": 0.0,
+      "zero_complete_query_count": 563,
+      "zero_complete_query_rate": 0.7587601078167115,
+      "full_complete_query_count": 167,
+      "full_complete_query_rate": 0.22506738544474394,
+      "completion_ge_50_rate": 0.24123989218328842,
+      "completion_ge_80_rate": 0.22506738544474394
+    },
+    "long": {
+      "label": "Long",
+      "query_count": 742,
+      "requirement_hit_count": 155,
+      "mean": 0.20080862533692723,
+      "median": 0.0,
+      "p25": 0.0,
+      "p75": 0.0,
+      "zero_complete_query_count": 587,
+      "zero_complete_query_rate": 0.7911051212938005,
+      "full_complete_query_count": 143,
+      "full_complete_query_rate": 0.192722371967655,
+      "completion_ge_50_rate": 0.20889487870619947,
+      "completion_ge_80_rate": 0.192722371967655
+    },
+    "short_mid": {
+      "label": "Short + Mid",
+      "query_count": 742,
+      "requirement_hit_count": 579,
+      "mean": 0.7345013477088949,
+      "median": 1.0,
+      "p25": 0.0,
+      "p75": 1.0,
+      "zero_complete_query_count": 187,
+      "zero_complete_query_rate": 0.25202156334231807,
+      "full_complete_query_count": 535,
+      "full_complete_query_rate": 0.7210242587601078,
+      "completion_ge_50_rate": 0.7479784366576819,
+      "completion_ge_80_rate": 0.7210242587601078
+    },
+    "short_long": {
+      "label": "Short + Long",
+      "query_count": 742,
+      "requirement_hit_count": 555,
+      "mean": 0.7021563342318059,
+      "median": 1.0,
+      "p25": 0.0,
+      "p75": 1.0,
+      "zero_complete_query_count": 211,
+      "zero_complete_query_rate": 0.284366576819407,
+      "full_complete_query_count": 511,
+      "full_complete_query_rate": 0.6886792452830188,
+      "completion_ge_50_rate": 0.715633423180593,
+      "completion_ge_80_rate": 0.6886792452830188
+    },
+    "mid_long": {
+      "label": "Mid + Long",
+      "query_count": 742,
+      "requirement_hit_count": 218,
+      "mean": 0.28234501347708896,
+      "median": 0.0,
+      "p25": 0.0,
+      "p75": 1.0,
+      "zero_complete_query_count": 524,
+      "zero_complete_query_rate": 0.706199460916442,
+      "full_complete_query_count": 201,
+      "full_complete_query_rate": 0.27088948787061995,
+      "completion_ge_50_rate": 0.29380053908355797,
+      "completion_ge_80_rate": 0.27088948787061995
+    },
+    "all_memory": {
+      "label": "Short + Mid + Long",
+      "query_count": 742,
+      "requirement_hit_count": 618,
+      "mean": 0.7836927223719676,
+      "median": 1.0,
+      "p25": 1.0,
+      "p75": 1.0,
+      "zero_complete_query_count": 153,
+      "zero_complete_query_rate": 0.20619946091644206,
+      "full_complete_query_count": 574,
+      "full_complete_query_rate": 0.7735849056603774,
+      "completion_ge_50_rate": 0.793800539083558,
+      "completion_ge_80_rate": 0.7735849056603774
+    }
+  },
+  "validation": {
+    "status": "PASS",
+    "dataset": {
+      "query_count": 752,
+      "gold_requirement_count": 786,
+      "or_requirement_count": 0,
+      "shortterm_hit_count": 400
+    },
+    "gold_bearing_query_count": 742,
+    "no_gold_query_count": 10,
+    "outside_shortterm_requirement_count": 386,
+    "midterm_routed_query_count": 386,
+    "midterm_requirement_hit_at_5_all_gold": 179,
+    "midterm_outside_shortterm_hit_at_5": 179,
+    "longterm_requirement_hit_at_5": 155,
+    "all_memory_requirement_hit_count": 618,
+    "or_groups_counted_once": true,
+    "query_completion_monotonicity": true
+  },
+  "source_recall_validation": {
+    "status": "PASS",
+    "sessions": [
+      {
+        "session_id": "S001",
+        "turn_count": 50,
+        "failed_turns": 0,
+        "evaluated_turns": 24
+      },
+      {
+        "session_id": "S002",
+        "turn_count": 73,
+        "failed_turns": 0,
+        "evaluated_turns": 38
+      },
+      {
+        "session_id": "S003",
+        "turn_count": 93,
+        "failed_turns": 0,
+        "evaluated_turns": 46
+      },
+      {
+        "session_id": "S004",
+        "turn_count": 74,
+        "failed_turns": 0,
+        "evaluated_turns": 39
+      },
+      {
+        "session_id": "S005",
+        "turn_count": 58,
+        "failed_turns": 0,
+        "evaluated_turns": 31
+      },
+      {
+        "session_id": "S006",
+        "turn_count": 80,
+        "failed_turns": 0,
+        "evaluated_turns": 41
+      },
+      {
+        "session_id": "S007",
+        "turn_count": 96,
+        "failed_turns": 0,
+        "evaluated_turns": 50
+      },
+      {
+        "session_id": "S008",
+        "turn_count": 61,
+        "failed_turns": 0,
+        "evaluated_turns": 31
+      },
+      {
+        "session_id": "S009",
+        "turn_count": 72,
+        "failed_turns": 0,
+        "evaluated_turns": 37
+      },
+      {
+        "session_id": "S010",
+        "turn_count": 95,
+        "failed_turns": 0,
+        "evaluated_turns": 49
+      }
+    ]
+  },
+  "pairwise_improvements": [
+    {
+      "configuration": "Short + Mid",
+      "mean_completion": 0.7345013477088949,
+      "best_constituent_mean": 0.5013477088948787,
+      "gain_over_best_constituent": 0.23315363881401618
+    },
+    {
+      "configuration": "Short + Long",
+      "mean_completion": 0.7021563342318059,
+      "best_constituent_mean": 0.5013477088948787,
+      "gain_over_best_constituent": 0.20080862533692723
+    },
+    {
+      "configuration": "Mid + Long",
+      "mean_completion": 0.28234501347708896,
+      "best_constituent_mean": 0.23315363881401618,
+      "gain_over_best_constituent": 0.04919137466307277
+    }
+  ],
+  "histogram_bins_percent": [
+    0.0,
+    10.0,
+    20.0,
+    30.0,
+    40.0,
+    50.0,
+    60.0,
+    70.0,
+    80.0,
+    90.0,
+    100.0
+  ]
+}

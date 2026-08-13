@@ -1,0 +1,2 @@
+﻿session_id,turn_count,evaluated_count,error_count,wall_clock_seconds,migration_job_count,mid_long_recall,mid_long_precision,all_recall,full_dependency_recall
+S010_招商银行_采购,95,49,0,1933.6995196790085,92,0.9591836734693877,0.05488850205120307,1.0,0.9183673469387755

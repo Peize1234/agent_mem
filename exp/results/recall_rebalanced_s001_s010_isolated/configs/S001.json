@@ -1,0 +1,43 @@
+{
+  "benchmark": {
+    "run_name": "recall_rebalanced_s001",
+    "reset_storage": true,
+    "output_dir": "/home/peize/Code/htzq/mem0/exp/results/recall_rebalanced_s001_s010_isolated/S001",
+    "random_seed": 42
+  },
+  "dataset": {
+    "path": "exp/金融分析数据集_前10个Session长短期记忆再平衡.xlsx",
+    "include_sheets": [
+      "S001_贵州茅台_投研"
+    ],
+    "max_sessions": 1,
+    "max_turns_per_session": null
+  },
+  "storage": {
+    "runtime_dir": "/home/peize/Code/htzq/mem0/exp/runtime/recall_rebalanced_s001_s010_isolated/S001",
+    "collection_name": "recall_rebalanced_s001"
+  },
+  "execution": {
+    "session_concurrency": 1,
+    "retrieval_timeout_seconds": 180,
+    "add_timeout_seconds": 180,
+    "background_job_timeout_seconds": 1800,
+    "background_poll_interval_seconds": 0.2,
+    "wait_strategy": "before_evaluation"
+  },
+  "memory": {
+    "config_path": "exp/benchmark/memory_config.json",
+    "llm_mode": "real",
+    "infer": true,
+    "profile_enabled": false,
+    "profile_update_on_add": false
+  },
+  "retrieval": {
+    "top_k": 5,
+    "threshold": 0.1,
+    "rerank": false
+  },
+  "evaluation": {
+    "evaluate_only_long_range": true
+  }
+}

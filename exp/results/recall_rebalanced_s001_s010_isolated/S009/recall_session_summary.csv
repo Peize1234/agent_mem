@@ -1,0 +1,2 @@
+﻿session_id,turn_count,evaluated_count,error_count,wall_clock_seconds,migration_job_count,mid_long_recall,mid_long_precision,all_recall,full_dependency_recall
+S009_招商银行_并购,72,37,0,1808.8510396119964,69,0.9594594594594594,0.07331181375890079,1.0,0.918918918918919
