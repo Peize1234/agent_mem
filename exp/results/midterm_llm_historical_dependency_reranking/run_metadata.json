@@ -1,0 +1,111 @@
+{
+  "experiment_name": "midterm_llm_historical_dependency_reranking",
+  "settings": {
+    "output_dir": "/home/peize/Code/htzq/mem0/exp/results/midterm_llm_historical_dependency_reranking",
+    "model": "deepseek-v4-flash",
+    "temperature": 0.0,
+    "top_p": 0.1,
+    "max_tokens": 4096,
+    "timeout_seconds": 240.0,
+    "retries": 3,
+    "concurrency": 5,
+    "candidate_k": 20,
+    "output_k": 5,
+    "thinking_mode": "disabled",
+    "dataset_config": "/home/peize/Code/htzq/mem0/exp/benchmark/full_memory_recall_s001_s005_v2.json",
+    "memory_config": "/home/peize/Code/htzq/mem0/exp/benchmark/memory_config.json",
+    "raw_config": {
+      "experiment_name": "midterm_llm_historical_dependency_reranking",
+      "dataset_config": "exp/benchmark/full_memory_recall_s001_s005_v2.json",
+      "memory_config": "exp/benchmark/memory_config.json",
+      "model": "deepseek-v4-flash",
+      "thinking_mode": "disabled",
+      "temperature": 0.0,
+      "top_p": 0.1,
+      "max_tokens": 4096,
+      "timeout_seconds": 240,
+      "retries": 3,
+      "concurrency": 5,
+      "candidate_k": 20,
+      "output_k": 5,
+      "output_dir": "exp/results/midterm_llm_historical_dependency_reranking"
+    }
+  },
+  "prompt": {
+    "path": "/home/peize/Code/htzq/mem0/exp/results/midterm_llm_historical_dependency_reranking/prompts/historical_dependency_listwise_v1.txt",
+    "sha256": "fb2ddc0f62b36d5fbbbfb0718502c28c981cb4e1cd15fa67b63a445a6cd9d98e",
+    "version": "historical-dependency-listwise-v1"
+  },
+  "dataset_sha256": "10d07e773464df0e1adf7143b6e7cd136ade506c0d0ff4b61e2ab0951e9c5cfc",
+  "source_qa_sha256": "3b772563cd2a2be57ad9f280c1fb58ddc407f5956971a4c5baa979b6b4922253",
+  "c3": {
+    "page_count": 333,
+    "query_count": 99,
+    "v3_eligible_query_count": 97,
+    "excluded_from_midterm_by_or_shortterm_hit": [
+      "S002-Q042",
+      "S005-Q042"
+    ],
+    "old_gold_contract_reproduction": {
+      "gold_at_5": 59,
+      "gold_count": 154,
+      "recall_at_5": 0.38311688311688313
+    },
+    "cache_metadata": {
+      "Production": {
+        "metadata_path": "/home/peize/Code/htzq/mem0/exp/results/midterm_add_local_context_ablation/controls/cache/embeddings/BAAI_bge-small-zh-v1.5/no-user-Production-S001-S005-0229fd5bfd017507.json",
+        "model": "BAAI/bge-small-zh-v1.5",
+        "batch_name": "no-user-Production-S001-S005",
+        "content_hash": "0229fd5bfd01750723d348cba37d409fbeebc74168bb29021fdaff904d52d6bb",
+        "item_count": 333,
+        "dimension": 512,
+        "build_ms": 3215.80530600113,
+        "item_latency_ms": {},
+        "cache_hit": false
+      },
+      "PreviousAndFollowingContext": {
+        "metadata_path": "/home/peize/Code/htzq/mem0/exp/results/midterm_add_local_context_ablation/controls/cache/embeddings/BAAI_bge-small-zh-v1.5/no-user-PreviousAndFollowingContext-S001-S005-13fd58bbf11217a7.json",
+        "model": "BAAI/bge-small-zh-v1.5",
+        "batch_name": "no-user-PreviousAndFollowingContext-S001-S005",
+        "content_hash": "13fd58bbf11217a70e5c98e724780db94fd960d5600f6946024e3632b2c1a2d8",
+        "item_count": 333,
+        "dimension": 512,
+        "build_ms": 3502.114563998475,
+        "item_latency_ms": {},
+        "cache_hit": false
+      }
+    },
+    "embedding_cache_reused": true,
+    "new_embedding_count": 0,
+    "contract": "frozen C3 vectors"
+  },
+  "api": {
+    "successful_output_count": 97,
+    "failed_output_count": 0,
+    "api_attempt_count_this_run": 0,
+    "cache_hit_count_this_run": 97,
+    "retry_count_this_run": 0,
+    "provider_precondition_rejected_count": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "cumulative_successful_api_attempt_count": 97,
+    "cumulative_retry_count": 0,
+    "persistent_success_cache_entry_count": 97
+  },
+  "validation": {
+    "v3_gold_requirement_count_559": "PASS",
+    "outside_shortterm_gold_149": "PASS",
+    "eligible_query_97": "PASS",
+    "c3_r5_59_of_149": "PASS",
+    "c3_r10_84_of_149": "PASS",
+    "c3_r20_122_of_149": "PASS",
+    "prompt_frozen_before_api": "PASS",
+    "no_page_regeneration": "PASS",
+    "no_future_leakage": "PASS",
+    "or_gold": "PASS"
+  },
+  "page_regeneration": false,
+  "new_embedding_count": 0,
+  "full_session_rerun": false,
+  "mem0_production_modified": false
+}

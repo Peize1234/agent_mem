@@ -1,0 +1,66 @@
+{
+  "query_count": 97,
+  "batch_count": 343,
+  "average_batches_per_query": 3.536082474226804,
+  "all_candidates_tied_batch_count": 106,
+  "all_candidates_tied_batch_rate": 0.30903790087463556,
+  "batch_unique_score_count_mean": 3.556851311953353,
+  "batch_unique_score_count_median": 5,
+  "merged_query_unique_score_count_mean": 6.577319587628866,
+  "merged_query_unique_score_count_median": 7,
+  "merged_all_candidates_tied_query_count": 3,
+  "old_20way_all_candidates_tied_query_count": 36,
+  "old_tied_batch5_discriminated_query_count": 33,
+  "batch_index_stats": {
+    "1": {
+      "batch_count": 97,
+      "candidate_score_count": 475,
+      "score_mean": 82.41684210526316,
+      "score_median": 90.0,
+      "all_candidates_tied_batch_count": 30
+    },
+    "2": {
+      "batch_count": 92,
+      "candidate_score_count": 440,
+      "score_mean": 77.87954545454545,
+      "score_median": 85.0,
+      "all_candidates_tied_batch_count": 31
+    },
+    "3": {
+      "batch_count": 77,
+      "candidate_score_count": 385,
+      "score_mean": 76.32467532467533,
+      "score_median": 85.0,
+      "all_candidates_tied_batch_count": 16
+    },
+    "4": {
+      "batch_count": 77,
+      "candidate_score_count": 360,
+      "score_mean": 77.58611111111111,
+      "score_median": 85.0,
+      "all_candidates_tied_batch_count": 29
+    }
+  },
+  "score_frequency_distribution": {
+    "100.0": 453,
+    "90.0": 214,
+    "85.0": 188,
+    "80.0": 185,
+    "70.0": 151,
+    "75.0": 118,
+    "0.0": 116,
+    "95.0": 94,
+    "60.0": 48,
+    "30.0": 24,
+    "50.0": 17,
+    "20.0": 13,
+    "40.0": 11,
+    "88.0": 11,
+    "65.0": 6,
+    "25.0": 4,
+    "15.0": 2,
+    "82.0": 2,
+    "92.0": 2,
+    "55.0": 1
+  }
+}

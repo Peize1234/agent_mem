@@ -1,0 +1,167 @@
+[
+  {
+    "cache_key": "df637ac92a137b7558034152017b55f469f660e8f12f039112fc0f81e52a3aed",
+    "query_id": "S002-Q066",
+    "batch_index": 2,
+    "query_text_sha256": "7672cc84c51ebb4caeddec20cd23dc12854d827daff9132d3004f6f29131a876",
+    "candidate_page_ids": [
+      "d04ea023-63be-523c-b994-bdc3c3fd0ae4",
+      "647fce0c-6320-5a98-819d-50dff3300582",
+      "36301016-21e0-53b6-967a-92affd6e0d68",
+      "2e583969-bc65-5074-a7fe-0424438cd092",
+      "1489a6a2-1be1-5d95-99ec-ac3f42b06c35"
+    ],
+    "candidate_payload_sha256": "9b2b3c078f606093379e2c88904996e190a4b351883f7044be7021cc8a76a560",
+    "candidate_k": 20,
+    "llm_batch_candidate_count": 5,
+    "prompt_version": "historical-dependency-listwise-v1",
+    "prompt_sha256": "fb2ddc0f62b36d5fbbbfb0718502c28c981cb4e1cd15fa67b63a445a6cd9d98e",
+    "model": "deepseek-v4-flash",
+    "thinking_mode": "disabled",
+    "temperature": 0.0,
+    "top_p": 0.1,
+    "max_tokens": 4096,
+    "status": "FAILED",
+    "parsed": null,
+    "api_attempt_count": 3,
+    "retry_count": 2,
+    "provider_precondition_rejected_count": 0,
+    "errors": [
+      "attempt 1: APIConnectionError: Connection error.",
+      "attempt 2: APIConnectionError: Connection error.",
+      "attempt 3: APITimeoutError: Request timed out."
+    ]
+  },
+  {
+    "cache_key": "741021b348130c201c1f23be2131dda053e035b84836dd9e333c86e8d8a6aac6",
+    "query_id": "S002-Q070",
+    "batch_index": 1,
+    "query_text_sha256": "a3b94327486eb036dbedb8859a911d17a3ae2153158b6b138b6ba5b05b0bb1c5",
+    "candidate_page_ids": [
+      "3549589e-05fe-5631-9385-5379f8dd4396",
+      "94326378-5fde-5bb5-85fb-a77991b3ac6c",
+      "166328f1-a89c-5b18-8a53-02ac909e0849",
+      "323c7c4f-02b6-5801-9c72-3623423fb3c6",
+      "5490b9a4-3ee1-5d2c-913f-1fb3ae921f10"
+    ],
+    "candidate_payload_sha256": "de2a4bfc1a8f432314c56a7629cb75946bb634ff2703a238ea0cf9782f8dc9b6",
+    "candidate_k": 20,
+    "llm_batch_candidate_count": 5,
+    "prompt_version": "historical-dependency-listwise-v1",
+    "prompt_sha256": "fb2ddc0f62b36d5fbbbfb0718502c28c981cb4e1cd15fa67b63a445a6cd9d98e",
+    "model": "deepseek-v4-flash",
+    "thinking_mode": "disabled",
+    "temperature": 0.0,
+    "top_p": 0.1,
+    "max_tokens": 4096,
+    "status": "FAILED",
+    "parsed": null,
+    "api_attempt_count": 3,
+    "retry_count": 2,
+    "provider_precondition_rejected_count": 0,
+    "errors": [
+      "attempt 1: APIConnectionError: Connection error.",
+      "attempt 2: APIConnectionError: Connection error.",
+      "attempt 3: APITimeoutError: Request timed out."
+    ]
+  },
+  {
+    "cache_key": "cd7265de50c1c340f60c5470da0e4d5703499f77c8b2996bb630e9b4036e5a5d",
+    "query_id": "S002-Q070",
+    "batch_index": 2,
+    "query_text_sha256": "a3b94327486eb036dbedb8859a911d17a3ae2153158b6b138b6ba5b05b0bb1c5",
+    "candidate_page_ids": [
+      "03cfc256-5474-5a94-b3bd-8ae0e1468cfd",
+      "7cf76f8c-3ecc-5aa0-8867-9b1934ccb270",
+      "a2f4bee5-f836-545e-8197-d79f3f2d284c",
+      "d04ea023-63be-523c-b994-bdc3c3fd0ae4",
+      "647fce0c-6320-5a98-819d-50dff3300582"
+    ],
+    "candidate_payload_sha256": "b9f96e28d648f8a7ee1813aadfbcc914e82beecc15e4c37c5235fa837214f4bb",
+    "candidate_k": 20,
+    "llm_batch_candidate_count": 5,
+    "prompt_version": "historical-dependency-listwise-v1",
+    "prompt_sha256": "fb2ddc0f62b36d5fbbbfb0718502c28c981cb4e1cd15fa67b63a445a6cd9d98e",
+    "model": "deepseek-v4-flash",
+    "thinking_mode": "disabled",
+    "temperature": 0.0,
+    "top_p": 0.1,
+    "max_tokens": 4096,
+    "status": "FAILED",
+    "parsed": null,
+    "api_attempt_count": 3,
+    "retry_count": 2,
+    "provider_precondition_rejected_count": 0,
+    "errors": [
+      "attempt 1: APIConnectionError: Connection error.",
+      "attempt 2: APIConnectionError: Connection error.",
+      "attempt 3: APITimeoutError: Request timed out."
+    ]
+  },
+  {
+    "cache_key": "04caf76fe286808a7aac5df7eab225aeaa5c95b89a6ae66027b1b93bc323a93c",
+    "query_id": "S002-Q066",
+    "batch_index": 3,
+    "query_text_sha256": "7672cc84c51ebb4caeddec20cd23dc12854d827daff9132d3004f6f29131a876",
+    "candidate_page_ids": [
+      "323c7c4f-02b6-5801-9c72-3623423fb3c6",
+      "5490b9a4-3ee1-5d2c-913f-1fb3ae921f10",
+      "90f899e0-16f7-540e-9302-625439620445",
+      "f176798e-99a6-575c-b7a4-f45d3d408206",
+      "8dcae915-8670-5f3e-802c-be0b10d761fa"
+    ],
+    "candidate_payload_sha256": "4bf64fba4627efb8f5213158c3b7c82e78cad2d3586a34606981aa50bb831a6a",
+    "candidate_k": 20,
+    "llm_batch_candidate_count": 5,
+    "prompt_version": "historical-dependency-listwise-v1",
+    "prompt_sha256": "fb2ddc0f62b36d5fbbbfb0718502c28c981cb4e1cd15fa67b63a445a6cd9d98e",
+    "model": "deepseek-v4-flash",
+    "thinking_mode": "disabled",
+    "temperature": 0.0,
+    "top_p": 0.1,
+    "max_tokens": 4096,
+    "status": "FAILED",
+    "parsed": null,
+    "api_attempt_count": 3,
+    "retry_count": 2,
+    "provider_precondition_rejected_count": 0,
+    "errors": [
+      "attempt 1: APIConnectionError: Connection error.",
+      "attempt 2: APIConnectionError: Connection error.",
+      "attempt 3: APITimeoutError: Request timed out."
+    ]
+  },
+  {
+    "cache_key": "657e654bbcd43a933cce46b2e671cfcab23a8d42023d4b8de18ea94f8ce9d7fe",
+    "query_id": "S002-Q066",
+    "batch_index": 4,
+    "query_text_sha256": "7672cc84c51ebb4caeddec20cd23dc12854d827daff9132d3004f6f29131a876",
+    "candidate_page_ids": [
+      "57600f18-283a-5f61-bf9e-7a48d4f8d3c5",
+      "79860bb6-6010-5ca0-ac81-f4327e2bff44",
+      "566e5d08-995e-5a35-9566-2770b6024b5a",
+      "a56a2b47-0045-5d3d-952d-ef79edf44e4a",
+      "893b3ae9-1f94-5436-8c6d-54e200693867"
+    ],
+    "candidate_payload_sha256": "91ed920eac094b474c2de33fb20b21ff4984031376805d530a2235bb709d0a7e",
+    "candidate_k": 20,
+    "llm_batch_candidate_count": 5,
+    "prompt_version": "historical-dependency-listwise-v1",
+    "prompt_sha256": "fb2ddc0f62b36d5fbbbfb0718502c28c981cb4e1cd15fa67b63a445a6cd9d98e",
+    "model": "deepseek-v4-flash",
+    "thinking_mode": "disabled",
+    "temperature": 0.0,
+    "top_p": 0.1,
+    "max_tokens": 4096,
+    "status": "FAILED",
+    "parsed": null,
+    "api_attempt_count": 3,
+    "retry_count": 2,
+    "provider_precondition_rejected_count": 0,
+    "errors": [
+      "attempt 1: APIConnectionError: Connection error.",
+      "attempt 2: APIConnectionError: Connection error.",
+      "attempt 3: APITimeoutError: Request timed out."
+    ]
+  }
+]

@@ -1,0 +1,18 @@
+{
+  "experiment_name": "midterm_llm_historical_dependency_reranking_batch5",
+  "dataset_config": "exp/benchmark/full_memory_recall_s001_s005_v2.json",
+  "memory_config": "exp/benchmark/memory_config.json",
+  "old_result_dir": "exp/results/midterm_llm_historical_dependency_reranking",
+  "model": "deepseek-v4-flash",
+  "thinking_mode": "disabled",
+  "temperature": 0.0,
+  "top_p": 0.1,
+  "max_tokens": 4096,
+  "timeout_seconds": 240,
+  "retries": 3,
+  "concurrency": 5,
+  "candidate_k": 20,
+  "llm_batch_candidate_count": 5,
+  "output_k": 5,
+  "output_dir": "exp/results/midterm_llm_historical_dependency_reranking_batch5"
+}

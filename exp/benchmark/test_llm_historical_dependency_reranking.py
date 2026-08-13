@@ -1,5 +1,3 @@
-import copy
-
 import pytest
 
 from exp.benchmark.run_llm_historical_dependency_reranking import (

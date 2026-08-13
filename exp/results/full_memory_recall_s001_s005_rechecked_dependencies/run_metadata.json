@@ -1,0 +1,22 @@
+{
+  "mode": "offline_gold_relabeling",
+  "dataset": "/home/peize/Code/htzq/mem0/exp/金融分析数据集_必要依赖重新核验版.xlsx",
+  "dataset_sha256": "af1e88a14f84bdd30855b234eeed4856ea284a2c1b0cdf11c9afc9767552e424",
+  "artifact_dataset": "/home/peize/Code/htzq/mem0/exp/enterprise_finance_memory_sessions_100_v3_realistic_2023_2025.xlsx",
+  "artifact_dataset_sha256": "10d07e773464df0e1adf7143b6e7cd136ade506c0d0ff4b61e2ab0951e9c5cfc",
+  "source_qa_sha256": "3b772563cd2a2be57ad9f280c1fb58ddc407f5956971a4c5baa979b6b4922253",
+  "source_qa_matches_frozen_artifacts": true,
+  "artifact_results_dir": "/home/peize/Code/htzq/mem0/exp/results/full_memory_recall_s001_s005_v2",
+  "midterm_ranking": "/home/peize/Code/htzq/mem0/exp/results/midterm_bge_m3_multivector_late_interaction/rankings/c3_top60_multivector_rerank.jsonl",
+  "midterm_ranking_sha256": "0baab51652785fa0d2163135e37bb54d2734ec25c1eb289787a30644af3949e7",
+  "frozen_artifact_reproduction": {
+    "ranking_query_count": 99,
+    "existing_eligible_gold_count": 149,
+    "existing_gold_at_5": 59,
+    "status": "PASS"
+  },
+  "new_llm_calls": 0,
+  "new_embedding_count": 0,
+  "midterm_page_regeneration": false,
+  "session_rerun": false
+}

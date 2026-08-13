@@ -1,0 +1,16 @@
+﻿configuration,session_id,eligible_gold_count,gold_at_5,recall_at_5
+C3 Dense,S001,21,10,0.47619047619047616
+C3 Dense,S002,30,11,0.36666666666666664
+C3 Dense,S003,42,13,0.30952380952380953
+C3 Dense,S004,32,13,0.40625
+C3 Dense,S005,24,12,0.5
+C3 Top20 + 20-way LLM Historical Dependency Rerank,S001,21,7,0.3333333333333333
+C3 Top20 + 20-way LLM Historical Dependency Rerank,S002,30,10,0.3333333333333333
+C3 Top20 + 20-way LLM Historical Dependency Rerank,S003,42,10,0.23809523809523808
+C3 Top20 + 20-way LLM Historical Dependency Rerank,S004,32,9,0.28125
+C3 Top20 + 20-way LLM Historical Dependency Rerank,S005,24,9,0.375
+C3 Top20 + 5-candidate Batched LLM Historical Dependency Rerank,S001,21,5,0.23809523809523808
+C3 Top20 + 5-candidate Batched LLM Historical Dependency Rerank,S002,30,12,0.4
+C3 Top20 + 5-candidate Batched LLM Historical Dependency Rerank,S003,42,8,0.19047619047619047
+C3 Top20 + 5-candidate Batched LLM Historical Dependency Rerank,S004,32,7,0.21875
+C3 Top20 + 5-candidate Batched LLM Historical Dependency Rerank,S005,24,12,0.5

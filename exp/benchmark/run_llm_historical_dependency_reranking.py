@@ -26,7 +26,6 @@ REPO_ROOT = ensure_repo_root_on_path(Path(__file__))
 from exp.benchmark.memory_gold_groups import GoldRequirement  # noqa: E402
 from exp.benchmark.midterm_retrieval_eval import load_jsonl, stable_hash  # noqa: E402
 from exp.benchmark.run_full_memory_recall_s001_s005_v2 import (  # noqa: E402
-    DEFAULT_CONFIG as DATASET_CONFIG_DEFAULT,
     DatasetTurn,
     RunSettings as DatasetSettings,
     assert_expected_stats,
@@ -36,6 +35,7 @@ from exp.benchmark.run_full_memory_recall_s001_s005_v2 import (  # noqa: E402
     source_qa_hash,
     static_dataset_stats,
 )
+from exp.benchmark.run_midterm_dense_bm25_hybrid_checkpoints import checkpoint_inputs  # noqa: E402
 
 
 DEFAULT_CONFIG = REPO_ROOT / "exp/benchmark/llm_historical_dependency_reranking.json"
@@ -204,7 +204,7 @@ def validate_dependency_scores(value: Mapping[str, Any], candidate_ids: Sequence
         scores[page_id] = numeric
         clean.append({"page_id": page_id, "dependency_score": numeric})
     if seen != set(expected):
-        raise ValueError(f"Page ID 缺失：{sorted(set(expected)-seen)}")
+        raise ValueError(f"Page ID 缺失：{sorted(set(expected) - seen)}")
     return {"results": clean, "score_by_page_id": scores}
 
 
@@ -257,7 +257,9 @@ class DependencyScoreCache:
             with self.path.open("a", encoding="utf-8") as handle:
                 handle.write(json.dumps(dict(row), ensure_ascii=False, default=str) + "\n")
 
-    def identity(self, query_id: str, query_text: str, candidates: Sequence[Mapping[str, Any]], payload: str) -> dict[str, Any]:
+    def identity(
+        self, query_id: str, query_text: str, candidates: Sequence[Mapping[str, Any]], payload: str
+    ) -> dict[str, Any]:
         return {
             "query_id": query_id,
             "query_text_sha256": sha256_text(query_text),
@@ -377,9 +379,7 @@ def eligible_queries_and_groups(
             turns_by_id[turn.query_id] = turn
             short_ids = [
                 candidate.query_id
-                for candidate in turns[
-                    max(0, turn.turn_index - dataset_settings.shortterm_qa_turns) : turn.turn_index
-                ]
+                for candidate in turns[max(0, turn.turn_index - dataset_settings.shortterm_qa_turns) : turn.turn_index]
             ]
             eligible = [group for group in turn.gold_groups if not group.hit_by(short_ids)]
             if eligible:
@@ -447,9 +447,7 @@ def evaluate_or_rankings(
         "mrr": statistics.fmean(row["reciprocal_rank"] for row in query_rows),
         "mean_gold_rank": statistics.fmean(row["rank"] for row in gold_rows),
         "macro_query_recall_at_5": statistics.fmean(row["recall_at_5"] for row in query_rows),
-        "macro_session_recall_at_5": statistics.fmean(
-            sum(values) / len(values) for values in session_hits.values()
-        ),
+        "macro_session_recall_at_5": statistics.fmean(sum(values) / len(values) for values in session_hits.values()),
     }
     return metrics, gold_rows, query_rows
 
@@ -508,7 +506,11 @@ def movement_rows(
         current = after[str(before["requirement_id"])]
         old_rank, new_rank = int(before["rank"]), int(current["rank"])
         transition = (
-            "PROMOTED" if old_rank > 5 and new_rank <= 5 else "DEMOTED" if old_rank <= 5 and new_rank > 5 else "UNCHANGED"
+            "PROMOTED"
+            if old_rank > 5 and new_rank <= 5
+            else "DEMOTED"
+            if old_rank <= 5 and new_rank > 5
+            else "UNCHANGED"
         )
         rows.append(
             {
@@ -535,9 +537,7 @@ def query_movements(
         current = after[str(before["query_id"])]
         base_hit = any(rank <= 5 for rank in before["gold_ranks"])
         llm_hit = any(rank <= 5 for rank in current["gold_ranks"])
-        transition = (
-            "RESCUED" if not base_hit and llm_hit else "HURT" if base_hit and not llm_hit else "UNCHANGED"
-        )
+        transition = "RESCUED" if not base_hit and llm_hit else "HURT" if base_hit and not llm_hit else "UNCHANGED"
         rows.append(
             {
                 "session_id": before["session_id"],
@@ -695,6 +695,8 @@ def render_report(
     movements: Sequence[Mapping[str, Any]],
     queries: Sequence[Mapping[str, Any]],
     api: Mapping[str, Any],
+    session_rows: Sequence[Mapping[str, Any]],
+    score_diagnostics: Mapping[str, Any],
 ) -> str:
     promoted = sum(row["transition"] == "PROMOTED" for row in movements)
     demoted = sum(row["transition"] == "DEMOTED" for row in movements)
@@ -717,7 +719,7 @@ def render_report(
         "",
         f"- Promoted Gold：{promoted}",
         f"- Demoted Gold：{demoted}",
-        f"- Net Gold Gain：{promoted-demoted:+d}",
+        f"- Net Gold Gain：{promoted - demoted:+d}",
         f"- Rescued Queries：{rescued}",
         f"- Hurt Queries：{hurt}",
         f"- Preserved C3 Top5 Gold：{preserved}/{baseline['gold_at_5']}",
@@ -725,12 +727,38 @@ def render_report(
         "## API / Cache",
         "",
         f"- Successful Query outputs：{api['successful_output_count']}",
-        f"- API attempts：{api['api_attempt_count']}",
-        f"- Cache hits：{api['cache_hit_count']}",
-        f"- Retries：{api['retry_count']}",
+        f"- API attempts（本次 / 累计成功生成）：{api['api_attempt_count_this_run']} / "
+        f"{api['cumulative_successful_api_attempt_count']}",
+        f"- Cache hits（本次）：{api['cache_hit_count_this_run']}",
+        f"- Retries（本次 / 累计）：{api['retry_count_this_run']} / {api['cumulative_retry_count']}",
         "",
-        "候选只来自冻结 C3 query-time visible Top20；Prompt 不包含 Gold、C3 score/rank、Raw QA、邻近 QA或未来对话。",
+        "## Session R@5",
+        "",
+        "| Session | C3 | LLM Dependency Rerank |",
+        "|---|---:|---:|",
     ]
+    by_session = {
+        (str(row["configuration"]), str(row["session_id"])): float(row["recall_at_5"]) for row in session_rows
+    }
+    session_ids = sorted({str(row["session_id"]) for row in session_rows})
+    for session_id in session_ids:
+        lines.append(
+            f"| {session_id} | {by_session[('C3 Dense', session_id)]:.2%} | "
+            f"{by_session[('LLM Dependency Rerank', session_id)]:.2%} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Score Diagnostics",
+            "",
+            f"- 全候选同分 Query：{score_diagnostics['all_candidates_tied_query_count']}/"
+            f"{score_diagnostics['query_count']}",
+            f"- 每个 Query 的 unique score 数：mean={score_diagnostics['unique_score_count_mean']:.2f}，"
+            f"median={score_diagnostics['unique_score_count_median']:.1f}",
+            "",
+            "候选只来自冻结 C3 query-time visible Top20；Prompt 不包含 Gold、C3 score/rank、Raw QA、邻近 QA或未来对话。",
+        ]
+    )
     return "\n".join(lines) + "\n"
 
 
@@ -750,9 +778,7 @@ async def run_experiment(settings: ExperimentSettings, validate_only: bool) -> i
     if any(int(baseline_metrics[key]) != value for key, value in expected.items()):
         raise AssertionError(f"C3 V3 reproduction failed：{baseline_metrics}")
 
-    _, _, _, checkpoints, _ = __import__(
-        "exp.benchmark.run_midterm_dense_bm25_hybrid_checkpoints", fromlist=["checkpoint_inputs"]
-    ).checkpoint_inputs()
+    _, _, _, checkpoints, _ = checkpoint_inputs()
     c3 = checkpoints["C3"]
     page_by_id = c3["page_by_id"]
     query_texts = c3["query_texts"]
@@ -776,7 +802,11 @@ async def run_experiment(settings: ExperimentSettings, validate_only: bool) -> i
     if not all(validation.values()):
         raise AssertionError(f"Pre-LLM validation failed：{validation}")
     if validate_only:
-        print(json.dumps({"dataset": stats, "baseline": baseline_metrics, "validation": validation}, ensure_ascii=False, indent=2))
+        print(
+            json.dumps(
+                {"dataset": stats, "baseline": baseline_metrics, "validation": validation}, ensure_ascii=False, indent=2
+            )
+        )
         return 0
 
     memory_config = expand_env_placeholders(load_json(settings.memory_config))
@@ -806,17 +836,28 @@ async def run_experiment(settings: ExperimentSettings, validate_only: bool) -> i
     api_meta = {
         "successful_output_count": len(responses) - len(failures),
         "failed_output_count": len(failures),
-        "api_attempt_count": sum(0 if row.get("cache_hit_this_run") else int(row.get("api_attempt_count") or 0) for row in responses),
-        "cache_hit_count": sum(bool(row.get("cache_hit_this_run")) for row in responses),
-        "retry_count": sum(0 if row.get("cache_hit_this_run") else int(row.get("retry_count") or 0) for row in responses),
+        "api_attempt_count_this_run": sum(
+            0 if row.get("cache_hit_this_run") else int(row.get("api_attempt_count") or 0) for row in responses
+        ),
+        "cache_hit_count_this_run": sum(bool(row.get("cache_hit_this_run")) for row in responses),
+        "retry_count_this_run": sum(
+            0 if row.get("cache_hit_this_run") else int(row.get("retry_count") or 0) for row in responses
+        ),
         "provider_precondition_rejected_count": sum(
             0 if row.get("cache_hit_this_run") else int(row.get("provider_precondition_rejected_count") or 0)
             for row in responses
         ),
-        "prompt_tokens": sum(int(row.get("prompt_tokens") or 0) for row in responses if not row.get("cache_hit_this_run")),
+        "prompt_tokens": sum(
+            int(row.get("prompt_tokens") or 0) for row in responses if not row.get("cache_hit_this_run")
+        ),
         "completion_tokens": sum(
             int(row.get("completion_tokens") or 0) for row in responses if not row.get("cache_hit_this_run")
         ),
+        "cumulative_successful_api_attempt_count": sum(
+            int(row.get("api_attempt_count") or 0) for row in cache.success.values()
+        ),
+        "cumulative_retry_count": sum(int(row.get("retry_count") or 0) for row in cache.success.values()),
+        "persistent_success_cache_entry_count": len(cache.success),
     }
     if failures:
         write_json(settings.output_dir / "failed_queries.json", failures)
@@ -868,6 +909,24 @@ async def run_experiment(settings: ExperimentSettings, validate_only: bool) -> i
                     "recall_at_5": sum(row["hit_at_5"] for row in selected) / len(selected),
                 }
             )
+    unique_score_counts = []
+    all_scores = []
+    for response in responses:
+        scores = [float(row["dependency_score"]) for row in response["parsed"]["results"]]
+        unique_score_counts.append(len(set(scores)))
+        all_scores.extend(scores)
+    score_frequencies: dict[str, int] = defaultdict(int)
+    for score in all_scores:
+        score_frequencies[str(score)] += 1
+    score_diagnostics = {
+        "query_count": len(responses),
+        "all_candidates_tied_query_count": sum(count == 1 for count in unique_score_counts),
+        "unique_score_count_mean": statistics.fmean(unique_score_counts),
+        "unique_score_count_median": statistics.median(unique_score_counts),
+        "unique_score_count_min": min(unique_score_counts),
+        "unique_score_count_max": max(unique_score_counts),
+        "score_frequencies": dict(sorted(score_frequencies.items(), key=lambda item: (-item[1], item[0]))),
+    }
     write_csv(settings.output_dir / "metrics.csv", metric_rows)
     write_csv(settings.output_dir / "session_metrics.csv", session_rows)
     write_csv(settings.output_dir / "gold_movements.csv", movements)
@@ -875,8 +934,17 @@ async def run_experiment(settings: ExperimentSettings, validate_only: bool) -> i
     write_jsonl(settings.output_dir / "rankings/c3_top20.jsonl", c3_exports)
     write_jsonl(settings.output_dir / "rankings/llm_top20.jsonl", llm_exports)
     write_json(settings.output_dir / "representative_cases.json", cases)
+    write_json(settings.output_dir / "analysis/score_diagnostics.json", score_diagnostics)
     (settings.output_dir / "representative_cases.md").write_text(render_cases(cases), encoding="utf-8")
-    report = render_report(baseline_metrics, llm_metrics, movements, query_movement_rows, api_meta)
+    report = render_report(
+        baseline_metrics,
+        llm_metrics,
+        movements,
+        query_movement_rows,
+        api_meta,
+        session_rows,
+        score_diagnostics,
+    )
     (settings.output_dir / "experiment_report.md").write_text(report, encoding="utf-8")
     metadata = {
         "experiment_name": settings.raw_config["experiment_name"],

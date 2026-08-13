@@ -1,0 +1,11 @@
+{
+  "mode": "shortterm_only_offline_audit",
+  "dataset": "/home/peize/Code/htzq/mem0/exp/金融分析数据集_前10个Session长短期记忆再平衡.xlsx",
+  "dataset_sha256": "161f550721955ec056d0c9612d74eb8cc67d255a8cb36a1412bd8575b201a0f2",
+  "frozen_source_dataset": "/home/peize/Code/htzq/mem0/exp/enterprise_finance_memory_sessions_100_v3_realistic_2023_2025.xlsx",
+  "frozen_source_dataset_sha256": "10d07e773464df0e1adf7143b6e7cd136ade506c0d0ff4b61e2ab0951e9c5cfc",
+  "new_llm_calls": 0,
+  "new_embedding_count": 0,
+  "session_rerun": false,
+  "midterm_longterm_results_emitted": false
+}
