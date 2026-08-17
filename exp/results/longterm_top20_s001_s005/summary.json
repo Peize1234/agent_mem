@@ -1,0 +1,54 @@
+{
+  "outside_shortterm_gold": 149,
+  "shortterm_hit": 410,
+  "midterm_hit_at_5": 59,
+  "longterm_hit_at_5_old": 37,
+  "longterm_hit_at_5_recomputed": 36,
+  "longterm_hit_at_20": 98,
+  "longterm_recall_at_20": 0.6577181208053692,
+  "longterm_recall_at_20_upper_bound": 0.6845637583892618,
+  "indeterminate_longterm_at_20": 4,
+  "longterm_mrr_at_20": 0.17474178367673696,
+  "mid_union_long_at_5_old": 74,
+  "mid_union_long_at_20": 109,
+  "overall_hit": 519,
+  "overall_recall": 0.9284436493738819,
+  "new_hits_at_20": 61,
+  "by_session": {
+    "S001": {
+      "eligible": 21,
+      "longterm_hit_at_5": 7,
+      "longterm_hit_at_20": 13,
+      "midterm_hit_at_5": 10,
+      "union_hit": 15
+    },
+    "S002": {
+      "eligible": 30,
+      "longterm_hit_at_5": 8,
+      "longterm_hit_at_20": 22,
+      "midterm_hit_at_5": 11,
+      "union_hit": 23
+    },
+    "S003": {
+      "eligible": 42,
+      "longterm_hit_at_5": 7,
+      "longterm_hit_at_20": 23,
+      "midterm_hit_at_5": 13,
+      "union_hit": 27
+    },
+    "S004": {
+      "eligible": 32,
+      "longterm_hit_at_5": 6,
+      "longterm_hit_at_20": 21,
+      "midterm_hit_at_5": 13,
+      "union_hit": 25
+    },
+    "S005": {
+      "eligible": 24,
+      "longterm_hit_at_5": 8,
+      "longterm_hit_at_20": 19,
+      "midterm_hit_at_5": 12,
+      "union_hit": 19
+    }
+  }
+}

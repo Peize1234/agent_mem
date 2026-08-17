@@ -1,0 +1,98 @@
+{
+  "experiment": "longterm_top20_s001_s005",
+  "created_at": "2026-08-17T10:45:15+0800",
+  "elapsed_seconds": 28.76,
+  "dataset": "/home/peize/Code/htzq/mem0/exp/enterprise_finance_memory_sessions_100_v3_realistic_2023_2025.xlsx",
+  "v3_results_dir": "/home/peize/Code/htzq/mem0/exp/results/full_memory_recall_s001_s005_v2",
+  "embedding_model": "/tmp/qtest/model",
+  "top_k": 20,
+  "threshold": 0.1,
+  "llm_calls": 0,
+  "memory_regeneration": false,
+  "shortterm_rerun": false,
+  "midterm_rerun": false,
+  "reused_artifacts": {
+    "S001": {
+      "history_db": "history.db",
+      "qdrant_store": "qdrant_server:recall_full_100_sessions",
+      "collection": "recall_full_100_sessions",
+      "server": true
+    },
+    "S002": {
+      "history_db": "history.db",
+      "qdrant_store": "qdrant",
+      "collection": "midterm_multi_session_validation_s002_s005",
+      "server": false
+    },
+    "S003": {
+      "history_db": "history.db",
+      "qdrant_store": "qdrant",
+      "collection": "midterm_multi_session_validation_s002_s005",
+      "server": false
+    },
+    "S004": {
+      "history_db": "history.db",
+      "qdrant_store": "qdrant",
+      "collection": "midterm_multi_session_validation_s004_retry",
+      "server": false
+    },
+    "S005": {
+      "history_db": "history.db",
+      "qdrant_store": "qdrant",
+      "collection": "midterm_multi_session_validation_s002_s005",
+      "server": false
+    }
+  },
+  "missing_longterm_turns_in_store": {
+    "S001": [
+      "S001-Q021",
+      "S001-Q022",
+      "S001-Q023"
+    ],
+    "S002": [],
+    "S003": [
+      "S003-Q011",
+      "S003-Q012",
+      "S003-Q013",
+      "S003-Q024",
+      "S003-Q087"
+    ],
+    "S004": [
+      "S004-Q050"
+    ],
+    "S005": [
+      "S005-Q035",
+      "S005-Q036",
+      "S005-Q037"
+    ]
+  },
+  "missing_longterm_content_turns": {
+    "S001": [
+      "S001-Q018",
+      "S001-Q019",
+      "S001-Q020"
+    ],
+    "S002": [],
+    "S003": [
+      "S003-Q008",
+      "S003-Q009",
+      "S003-Q010",
+      "S003-Q021",
+      "S003-Q084"
+    ],
+    "S004": [
+      "S004-Q047"
+    ],
+    "S005": [
+      "S005-Q032",
+      "S005-Q033",
+      "S005-Q034"
+    ]
+  },
+  "validation": {
+    "evaluated_queries": 97,
+    "exact_match": 22,
+    "same_set_diff_order": 19,
+    "diff": 56
+  }
+}

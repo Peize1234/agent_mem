@@ -1,0 +1,5850 @@
+meta:
+  title: Agent Memory MidTerm Experiment Paths — S001-S005
+  repository: Peize1234/agent_mem
+  branch: refactor/demo-isolation
+  primary_experiment_root: exp
+  scope_sessions:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  short_term_window_qa: 3
+  purpose: 用于自动绘制实验演进路径；尽量展开 exp 下前 5 个 Session 相关的小实验。
+  status_semantics:
+    baseline: 基线/对照
+    completed: 实际有结果产物的实验
+    improved: 相对直接父节点有正向结果
+    best: 该阶段被选中的最佳/主线方案
+    degraded: 实际完成但核心指标下降
+    tied: 核心指标持平
+    blocked: 实验尝试存在，但因资源/凭据/模型产物等未完成
+    diagnostic: 诊断/审计，不直接作为候选方案
+    oracle: 仅用于上界，不可部署
+  metric_note: 不同阶段 denominator 不完全相同：S001 初始实验为 21 eligible Gold；S001-S005 主开发实验为 154 eligible Gold。不要跨 denominator 直接比较
+    Gold 数。
+  node_count: 307
+  edge_count: 316
+  experiment_node_count: 272
+  hub_node_count: 32
+  diagnostic_node_count: 3
+groups:
+- id: G0
+  label: 0. Baseline / Benchmark
+- id: G1
+  label: 1. S001 Initial Retrieval Exploration
+- id: G2
+  label: 2. S001 Rerank & Fusion Tuning
+- id: G3
+  label: 3. Query Rewrite / Reference Resolution — S001-S005
+- id: G4
+  label: 4. Add Prompt / Context / Page Construction — S001-S005
+- id: G5
+  label: 5. Page Representation — S001-S005
+- id: G6
+  label: 6. Embedding — S001-S005
+- id: G7
+  label: 7. BM25 / Hybrid — S001-S005
+- id: G8
+  label: 8. Multi-vector / Reranker Diagnostics — S001-S005
+- id: G9
+  label: 9. Frozen Multi-session Validation
+nodes:
+- id: BASE_S001_PROD
+  label: 'Production Baseline
+
+    Q0 + P0 + BGE-small + Dense Top5'
+  group: G0
+  kind: experiment
+  scope:
+  - S001
+  status: baseline
+  config:
+    query: Q0 current user query
+    page: P0 summary+keywords+user_input
+    embedding: BAAI/bge-small-zh-v1.5
+    retrieval: dense cosine
+    top_k: 5
+  metrics:
+    eligible_gold: 21
+    gold_at_5: 7/21
+    r5: 0.3333
+    r10: 0.5714
+    r20: 0.8571
+    mrr: 0.3322
+    mean_gold_rank: 10.24
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: H_S001_QUERY
+  label: S001 Query Ablation
+  group: G1
+  kind: hub
+  scope:
+  - S001
+  status: completed
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/query_ablation.csv
+- id: S001_QUERY_Q0
+  label: Q0 — Current user query
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: baseline
+  config:
+    query_variant: Q0
+  metrics:
+    r5: 0.3333
+    r20: 0.8571
+    mrr: 0.3322
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_QUERY_Q1
+  label: Q1 — Current + previous 1 QA
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: degraded
+  config:
+    query_variant: Q1
+  metrics:
+    r5: 0.2381
+    r20: 0.8571
+    mrr: 0.3254
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_QUERY_Q2
+  label: Q2 — Current + previous 2 QA
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: degraded
+  config:
+    query_variant: Q2
+  metrics:
+    r5: 0.2381
+    r20: 0.8571
+    mrr: 0.3254
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_QUERY_Q3
+  label: Q3 — Current + previous 3 QA
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: degraded
+  config:
+    query_variant: Q3
+  metrics:
+    r5: 0.2381
+    r20: 0.8571
+    mrr: 0.3254
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_QUERY_Q4
+  label: Q4 — DeepSeek no-thinking standalone rewrite
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: tied
+  config:
+    query_variant: Q4
+  metrics:
+    r5: 0.3333
+    r20: 0.8095
+    mrr: 0.2308
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_QUERY_Q5
+  label: Q5 — Original + standalone rewrite
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: improved
+  config:
+    query_variant: Q5
+  metrics:
+    r5: 0.381
+    r20: 0.8095
+    mrr: 0.2179
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_QUERY_Q6
+  label: Q6 — Two-query RRF
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: degraded
+  config:
+    query_variant: Q6
+  metrics:
+    r5: 0.2857
+    r20: 0.8571
+    mrr: 0.2564
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_QUERY_QO
+  label: QO — required_context Oracle
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: oracle
+  config:
+    query_variant: QO
+  metrics:
+    r5: 0.7619
+    r20: 0.9524
+    mrr: 0.8269
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: H_S001_PAGE
+  label: S001 Page Representation Ablation
+  group: G1
+  kind: hub
+  scope:
+  - S001
+  status: completed
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/page_representation_ablation.csv
+- id: S001_PAGE_P0
+  label: P0 — summary + keywords + user_input
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: baseline
+  config:
+    page_variant: P0
+  metrics:
+    r5: 0.3333
+    mrr: 0.3322
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_PAGE_P1
+  label: P1 — summary
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: tied
+  config:
+    page_variant: P1
+  metrics:
+    r5: 0.3333
+    mrr: 0.2963
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_PAGE_P2
+  label: P2 — user_input
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: degraded
+  config:
+    page_variant: P2
+  metrics:
+    r5: 0.1905
+    mrr: 0.15
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_PAGE_P3
+  label: P3 — raw_dialogue
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: degraded
+  config:
+    page_variant: P3
+  metrics:
+    r5: 0.2381
+    mrr: 0.1941
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_PAGE_P4
+  label: P4 — user_input + assistant_response
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: degraded
+  config:
+    page_variant: P4
+  metrics:
+    r5: 0.2381
+    mrr: 0.1941
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_PAGE_P5
+  label: P5 — user_input + summary
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: tied
+  config:
+    page_variant: P5
+  metrics:
+    r5: 0.3333
+    mrr: 0.2542
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_PAGE_P6
+  label: P6 — summary + raw_dialogue
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: degraded
+  config:
+    page_variant: P6
+  metrics:
+    r5: 0.2857
+    mrr: 0.265
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_PAGE_P7
+  label: P7 — user_input + keywords
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: degraded
+  config:
+    page_variant: P7
+  metrics:
+    r5: 0.2381
+    mrr: 0.1749
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_PAGE_P8
+  label: P8 — summary + keywords
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: improved
+  config:
+    page_variant: P8
+  metrics:
+    r5: 0.3333
+    mrr: 0.3813
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: H_S001_QUERY_PAGE
+  label: S001 Query × Page Interaction
+  group: G1
+  kind: hub
+  scope:
+  - S001
+  status: completed
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/query_page_interaction.csv
+- id: S001_QP_Q5_P8
+  label: Q5 + P8
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    query: Q5
+    page: P8
+  metrics:
+    r5: 0.381
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_QP_Q5_P0
+  label: Q5 + P0
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    query: Q5
+    page: P0
+  metrics:
+    r5: 0.381
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_QP_Q0_P8
+  label: Q0 + P8
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    query: Q0
+    page: P8
+  metrics:
+    r5: 0.3333
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_QP_Q0_P0
+  label: Q0 + P0
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    query: Q0
+    page: P0
+  metrics:
+    r5: 0.3333
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: H_S001_CANDIDATE_DEPTH
+  label: S001 Candidate Depth
+  group: G1
+  kind: hub
+  scope:
+  - S001
+  status: completed
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/candidate_depth_ablation.csv
+- id: S001_CAND_K_5
+  label: Candidate K = 5
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 5
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/candidate_depth_ablation.csv
+- id: S001_CAND_K_10
+  label: Candidate K = 10
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 10
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/candidate_depth_ablation.csv
+- id: S001_CAND_K_15
+  label: Candidate K = 15
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 15
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/candidate_depth_ablation.csv
+- id: S001_CAND_K_20
+  label: Candidate K = 20
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/candidate_depth_ablation.csv
+- id: S001_CAND_K_30
+  label: Candidate K = 30
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 30
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/candidate_depth_ablation.csv
+- id: S001_CAND_K_ALL_AVAILABLE
+  label: Candidate K = all_available
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: all_available
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/candidate_depth_ablation.csv
+- id: H_S001_EMBED_GRID
+  label: S001 Embedding × Query × Page Screening
+  group: G1
+  kind: hub
+  scope:
+  - S001
+  status: completed
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/embedding_ablation.csv
+- id: H_S001_E0
+  label: E0 — BAAI/bge-small-zh-v1.5
+  group: G1
+  kind: hub
+  scope:
+  - S001
+  status: completed
+- id: S001_EMB_E0_Q5_P8
+  label: E0 / Q5 / P8
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    embedding: BAAI/bge-small-zh-v1.5
+    query: Q5
+    page: P8
+  metrics:
+    r5: 0.381
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_EMB_E0_Q5_P0
+  label: E0 / Q5 / P0
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    embedding: BAAI/bge-small-zh-v1.5
+    query: Q5
+    page: P0
+  metrics:
+    r5: 0.381
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_EMB_E0_Q0_P8
+  label: E0 / Q0 / P8
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    embedding: BAAI/bge-small-zh-v1.5
+    query: Q0
+    page: P8
+  metrics:
+    r5: 0.3333
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_EMB_E0_Q0_P0
+  label: E0 / Q0 / P0
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    embedding: BAAI/bge-small-zh-v1.5
+    query: Q0
+    page: P0
+  metrics:
+    r5: 0.3333
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: H_S001_E1
+  label: E1 — BAAI/bge-base-zh-v1.5
+  group: G1
+  kind: hub
+  scope:
+  - S001
+  status: completed
+- id: S001_EMB_E1_Q5_P8
+  label: E1 / Q5 / P8
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    embedding: BAAI/bge-base-zh-v1.5
+    query: Q5
+    page: P8
+  metrics:
+    r5: 0.3333
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_EMB_E1_Q5_P0
+  label: E1 / Q5 / P0
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    embedding: BAAI/bge-base-zh-v1.5
+    query: Q5
+    page: P0
+  metrics:
+    r5: 0.381
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_EMB_E1_Q0_P8
+  label: E1 / Q0 / P8
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    embedding: BAAI/bge-base-zh-v1.5
+    query: Q0
+    page: P8
+  metrics:
+    r5: 0.381
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_EMB_E1_Q0_P0
+  label: E1 / Q0 / P0
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    embedding: BAAI/bge-base-zh-v1.5
+    query: Q0
+    page: P0
+  metrics:
+    r5: 0.381
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: H_S001_E2
+  label: E2 — BAAI/bge-large-zh-v1.5
+  group: G1
+  kind: hub
+  scope:
+  - S001
+  status: completed
+- id: S001_EMB_E2_Q5_P8
+  label: E2 / Q5 / P8
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    embedding: BAAI/bge-large-zh-v1.5
+    query: Q5
+    page: P8
+  metrics:
+    r5: 0.3333
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_EMB_E2_Q5_P0
+  label: E2 / Q5 / P0
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    embedding: BAAI/bge-large-zh-v1.5
+    query: Q5
+    page: P0
+  metrics:
+    r5: 0.1905
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_EMB_E2_Q0_P8
+  label: E2 / Q0 / P8
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    embedding: BAAI/bge-large-zh-v1.5
+    query: Q0
+    page: P8
+  metrics:
+    r5: 0.2381
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_EMB_E2_Q0_P0
+  label: E2 / Q0 / P0
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    embedding: BAAI/bge-large-zh-v1.5
+    query: Q0
+    page: P0
+  metrics:
+    r5: 0.2857
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: H_S001_E3
+  label: E3 — BAAI/bge-m3
+  group: G1
+  kind: hub
+  scope:
+  - S001
+  status: completed
+- id: S001_EMB_E3_Q5_P8
+  label: E3 / Q5 / P8
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    embedding: BAAI/bge-m3
+    query: Q5
+    page: P8
+  metrics:
+    r5: 0.2857
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_EMB_E3_Q5_P0
+  label: E3 / Q5 / P0
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    embedding: BAAI/bge-m3
+    query: Q5
+    page: P0
+  metrics:
+    r5: 0.2381
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_EMB_E3_Q0_P8
+  label: E3 / Q0 / P8
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    embedding: BAAI/bge-m3
+    query: Q0
+    page: P8
+  metrics:
+    r5: 0.2381
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_EMB_E3_Q0_P0
+  label: E3 / Q0 / P0
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    embedding: BAAI/bge-m3
+    query: Q0
+    page: P0
+  metrics:
+    r5: 0.1429
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: H_S001_HYBRID
+  label: S001 Dense / BM25 / Hybrid
+  group: G1
+  kind: hub
+  scope:
+  - S001
+  status: completed
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/hybrid_ablation.csv
+- id: S001_HYB_H0_dense_front
+  label: 'H0_dense [front]
+
+    Dense'
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    strategy: H0_dense
+    screening_scope: front
+  metrics:
+    r5: 0.381
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_HYB_H0_dense_hybrid_only
+  label: 'H0_dense [hybrid_only]
+
+    Dense'
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    strategy: H0_dense
+    screening_scope: hybrid_only
+  metrics:
+    r5: 0.3333
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_HYB_H1_bm25_front
+  label: 'H1_bm25 [front]
+
+    BM25'
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    strategy: H1_bm25
+    screening_scope: front
+  metrics:
+    r5: 0.2381
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_HYB_H1_bm25_hybrid_only
+  label: 'H1_bm25 [hybrid_only]
+
+    BM25'
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    strategy: H1_bm25
+    screening_scope: hybrid_only
+  metrics:
+    r5: 0.1905
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_HYB_H2_rrf_front
+  label: 'H2_rrf [front]
+
+    Dense+BM25 RRF'
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    strategy: H2_rrf
+    screening_scope: front
+  metrics:
+    r5: 0.3333
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_HYB_H2_rrf_hybrid_only
+  label: 'H2_rrf [hybrid_only]
+
+    Dense+BM25 RRF'
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    strategy: H2_rrf
+    screening_scope: hybrid_only
+  metrics:
+    r5: 0.3333
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_HYB_H3_dense_0.8_bm25_0.2_front
+  label: 'H3_dense_0.8_bm25_0.2 [front]
+
+    0.8 Dense + 0.2 BM25'
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    strategy: H3_dense_0.8_bm25_0.2
+    screening_scope: front
+  metrics:
+    r5: 0.381
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_HYB_H3_dense_0.8_bm25_0.2_hybrid_only
+  label: 'H3_dense_0.8_bm25_0.2 [hybrid_only]
+
+    0.8 Dense + 0.2 BM25'
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    strategy: H3_dense_0.8_bm25_0.2
+    screening_scope: hybrid_only
+  metrics:
+    r5: 0.3333
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_HYB_H4_dense_0.6_bm25_0.4_front
+  label: 'H4_dense_0.6_bm25_0.4 [front]
+
+    0.6 Dense + 0.4 BM25'
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    strategy: H4_dense_0.6_bm25_0.4
+    screening_scope: front
+  metrics:
+    r5: 0.3333
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_HYB_H4_dense_0.6_bm25_0.4_hybrid_only
+  label: 'H4_dense_0.6_bm25_0.4 [hybrid_only]
+
+    0.6 Dense + 0.4 BM25'
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    strategy: H4_dense_0.6_bm25_0.4
+    screening_scope: hybrid_only
+  metrics:
+    r5: 0.3333
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: H_S001_RERANK_FIRST
+  label: S001 First-stage Rerank
+  group: G1
+  kind: hub
+  scope:
+  - S001
+  status: completed
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rerank_ablation.csv
+- id: S001_RERANK_R0
+  label: R0 — No rerank
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: baseline
+  metrics:
+    r5: 0.2381
+    candidate_r20: 0.9048
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_RERANK_R1
+  label: R1 — BAAI/bge-reranker-base
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: improved
+  metrics:
+    r5: 0.4286
+    candidate_r20: 0.9048
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_RERANK_R2
+  label: R2 — DeepSeek no-thinking rerank
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: improved
+  metrics:
+    r5: 0.4762
+    candidate_r20: 0.9048
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: H_S001_COMBINATIONS
+  label: S001 Combined Schemes C0-C6
+  group: G1
+  kind: hub
+  scope:
+  - S001
+  status: completed
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/combination_ablation.csv
+- id: S001_COMBO_C0
+  label: C0 — Baseline
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: baseline
+  config:
+    chain: Q0+P0+E0+dense
+  metrics:
+    r5: 0.3333
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_COMBO_C1
+  label: C1 — Best query only
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: improved
+  config:
+    chain: Q5+P0+E0+dense
+  metrics:
+    r5: 0.381
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_COMBO_C2
+  label: C2 — Best representation + embedding only
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: improved
+  config:
+    chain: Q0+P8+E1+dense
+  metrics:
+    r5: 0.381
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_COMBO_C3
+  label: C3 — Candidate expansion + local rerank only
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: degraded
+  config:
+    chain: Q0+P0+E0 + candidate expansion + local rerank
+  metrics:
+    r5: 0.2857
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_COMBO_C4
+  label: C4 — Best no-online-LLM
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: improved
+  config:
+    chain: Q0+P8+E1+BM25+local cross-encoder
+  metrics:
+    r5: 0.4286
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_COMBO_C5
+  label: C5 — Best quality
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: best
+  config:
+    chain: Q0+P8+E1+BM25+DeepSeek rerank
+  metrics:
+    r5: 0.4762
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: S001_COMBO_C6
+  label: C6 — Best practical
+  group: G1
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    chain: low-latency Pareto from C2
+  metrics:
+    r5: 0.381
+  source_script: exp/benchmark/run_midterm_retrieval_experiments.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/experiment_report.md
+- id: H_S001_RERANK_TUNING
+  label: S001 Offline Rerank Tuning
+  group: G2
+  kind: hub
+  scope:
+  - S001
+  status: completed
+  source_script: exp/benchmark/run_midterm_rerank_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/second_stage_report.md
+- id: S001_S2_CAND_DENSE
+  label: P8 / K20 — Dense
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_source: dense
+    candidate_k: 20
+    candidate_representation: P8
+  metrics:
+    candidate_recall: 0.8095
+    pre_rerank_r5: 0.3333
+  source_script: exp/benchmark/run_midterm_rerank_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/second_stage_report.md
+- id: S001_S2_CAND_BM25
+  label: P8 / K20 — BM25
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_source: bm25
+    candidate_k: 20
+    candidate_representation: P8
+  metrics:
+    candidate_recall: 0.9048
+    pre_rerank_r5: 0.2381
+  source_script: exp/benchmark/run_midterm_rerank_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/second_stage_report.md
+- id: S001_S2_CAND_UNION_FIXED
+  label: P8 / K20 — Fixed-budget Dense/BM25 union
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_source: union_fixed
+    candidate_k: 20
+    candidate_representation: P8
+  metrics:
+    candidate_recall: 0.9524
+    pre_rerank_r5: 0.3333
+  source_script: exp/benchmark/run_midterm_rerank_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/second_stage_report.md
+- id: S001_S2_CAND_RRF60
+  label: P8 / K20 — RRF60
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_source: rrf60
+    candidate_k: 20
+    candidate_representation: P8
+  metrics:
+    candidate_recall: 0.9048
+    pre_rerank_r5: 0.3333
+  source_script: exp/benchmark/run_midterm_rerank_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/second_stage_report.md
+- id: S001_S2_CAND_WEIGHTED_DENSE_0.8
+  label: P8 / K20 — 0.8/0.2 normalized fusion
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_source: weighted_dense_0.8
+    candidate_k: 20
+    candidate_representation: P8
+  metrics:
+    candidate_recall: 0.8095
+    pre_rerank_r5: 0.3333
+  source_script: exp/benchmark/run_midterm_rerank_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/second_stage_report.md
+- id: S001_S2_CAND_WEIGHTED_DENSE_0.6
+  label: P8 / K20 — 0.6/0.4 normalized fusion
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_source: weighted_dense_0.6
+    candidate_k: 20
+    candidate_representation: P8
+  metrics:
+    candidate_recall: 0.8571
+    pre_rerank_r5: 0.3333
+  source_script: exp/benchmark/run_midterm_rerank_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/second_stage_report.md
+- id: S001_S2_CAND_UNION_EXPANDED
+  label: P8 / K20 — Expanded union
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_source: union_expanded
+    candidate_k: 20
+    candidate_representation: P8
+  metrics:
+    candidate_recall: 1.0
+    pre_rerank_r5: 0.3333
+  source_script: exp/benchmark/run_midterm_rerank_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/second_stage_report.md
+- id: S001_S2_LOCAL_K10
+  label: Local reranker K=10
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate: P0 RRF60
+    rerank_page: P8
+    reranker: BAAI/bge-reranker-base
+    candidate_k: 10
+  metrics:
+    candidate_recall: 0.4762
+    r5: 0.381
+    mrr: 0.2521
+  source_script: exp/benchmark/run_midterm_rerank_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/second_stage_report.md
+- id: S001_S2_LOCAL_K15
+  label: Local reranker K=15
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate: P0 RRF60
+    rerank_page: P8
+    reranker: BAAI/bge-reranker-base
+    candidate_k: 15
+  metrics:
+    candidate_recall: 0.6667
+    r5: 0.4286
+    mrr: 0.2786
+  source_script: exp/benchmark/run_midterm_rerank_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/second_stage_report.md
+- id: S001_S2_LOCAL_K20
+  label: Local reranker K=20
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: best
+  config:
+    candidate: P0 RRF60
+    rerank_page: P8
+    reranker: BAAI/bge-reranker-base
+    candidate_k: 20
+  metrics:
+    candidate_recall: 0.9048
+    r5: 0.4762
+    mrr: 0.3098
+  source_script: exp/benchmark/run_midterm_rerank_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/second_stage_report.md
+- id: S001_S2_LOCAL_K30
+  label: Local reranker K=30
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate: P0 RRF60
+    rerank_page: P8
+    reranker: BAAI/bge-reranker-base
+    candidate_k: 30
+  metrics:
+    candidate_recall: 1.0
+    r5: 0.4286
+    mrr: 0.2928
+  source_script: exp/benchmark/run_midterm_rerank_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/second_stage_report.md
+- id: S001_S2_LOCAL_REP_P0
+  label: Local rerank input = P0
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    reranker: BAAI/bge-reranker-base
+    rerank_representation: P0
+  metrics:
+    r5: 0.2857
+    mrr: 0.2303
+  source_script: exp/benchmark/run_midterm_rerank_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/second_stage_report.md
+- id: S001_S2_LOCAL_REP_P1
+  label: Local rerank input = P1
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    reranker: BAAI/bge-reranker-base
+    rerank_representation: P1
+  metrics:
+    r5: 0.4286
+    mrr: 0.2381
+  source_script: exp/benchmark/run_midterm_rerank_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/second_stage_report.md
+- id: S001_S2_LOCAL_REP_P8
+  label: Local rerank input = P8
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: best
+  config:
+    reranker: BAAI/bge-reranker-base
+    rerank_representation: P8
+  metrics:
+    r5: 0.4762
+    mrr: 0.3098
+  source_script: exp/benchmark/run_midterm_rerank_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/second_stage_report.md
+- id: S001_S2_LLM_REP_P0
+  label: DeepSeek rerank input = P0
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  metrics:
+    r5: 0.381
+    mrr: 0.2145
+  source_script: exp/benchmark/run_midterm_rerank_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/second_stage_report.md
+- id: S001_S2_LLM_REP_P1
+  label: DeepSeek rerank input = P1
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  metrics:
+    r5: 0.2381
+    mrr: 0.1759
+  source_script: exp/benchmark/run_midterm_rerank_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/second_stage_report.md
+- id: S001_S2_LLM_REP_P8
+  label: DeepSeek rerank input = P8
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: best
+  metrics:
+    r5: 0.4762
+    mrr: 0.2993
+  source_script: exp/benchmark/run_midterm_rerank_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/second_stage_report.md
+- id: S001_S2_LLM_K10
+  label: DeepSeek reranker K=10
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  metrics:
+    candidate_recall: 0.5238
+    r5: 0.3333
+  source_script: exp/benchmark/run_midterm_rerank_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/second_stage_report.md
+- id: S001_S2_LLM_K15
+  label: DeepSeek reranker K=15
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  metrics:
+    candidate_recall: 0.7143
+    r5: 0.3333
+  source_script: exp/benchmark/run_midterm_rerank_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/second_stage_report.md
+- id: S001_S2_LLM_K20
+  label: DeepSeek reranker K=20
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: best
+  metrics:
+    candidate_recall: 0.9048
+    r5: 0.4762
+  source_script: exp/benchmark/run_midterm_rerank_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/second_stage_report.md
+- id: S001_S2_LLM_K30
+  label: DeepSeek reranker K=30
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  metrics:
+    candidate_recall: 1.0
+    r5: 0.381
+  source_script: exp/benchmark/run_midterm_rerank_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/second_stage_report.md
+- id: S001_S2_RERANK_LARGE
+  label: BAAI/bge-reranker-large
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: degraded
+  metrics:
+    r5: 0.3333
+  source_script: exp/benchmark/run_midterm_rerank_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/second_stage_report.md
+  notes: 比 bge-reranker-base 少 3 个 Gold，且延迟显著更高。
+- id: S001_S2_LQ0
+  label: Lightweight Query — LQ0
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: baseline
+  metrics:
+    r5: 0.4762
+    mrr: 0.3098
+    llm_calls_per_query: 0
+  source_script: exp/benchmark/run_midterm_rerank_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/second_stage_report.md
+- id: S001_S2_LQ1
+  label: Lightweight Query — LQ1
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: degraded
+  metrics:
+    r5: 0.381
+    mrr: 0.3244
+    llm_calls_per_query: 0
+  source_script: exp/benchmark/run_midterm_rerank_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/second_stage_report.md
+- id: S001_S2_LQ2
+  label: Lightweight Query — LQ2
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: degraded
+  metrics:
+    r5: 0.4286
+    mrr: 0.1896
+    llm_calls_per_query: 0
+  source_script: exp/benchmark/run_midterm_rerank_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/second_stage_report.md
+- id: S001_S2_LQ4
+  label: Lightweight Query — LQ4
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: degraded
+  metrics:
+    r5: 0.3333
+    mrr: 0.2397
+    llm_calls_per_query: 1
+  source_script: exp/benchmark/run_midterm_rerank_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/second_stage_report.md
+- id: S001_S2_LQ4_BEST_QUALITY
+  label: Lightweight Query — LQ4_BEST_QUALITY
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: degraded
+  metrics:
+    r5: 0.381
+    mrr: 0.3395
+    llm_calls_per_query: 1
+  source_script: exp/benchmark/run_midterm_rerank_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rerank_tuning/second_stage_report.md
+- id: H_S001_RANK_FUSION
+  label: S001 Cached Rank / Score Fusion
+  group: G2
+  kind: hub
+  scope:
+  - S001
+  status: completed
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K15_RF0_reranker_only
+  label: K15 / RF0_reranker_only
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 15
+    type: reranker_only
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K15_RF1_equal_rrf_c20
+  label: K15 / RF1_equal_rrf_c20
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 15
+    type: rank_fusion
+    c: 20
+    candidate_weight: 1
+    reranker_weight: 1
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K15_RF1_equal_rrf_c60
+  label: K15 / RF1_equal_rrf_c60
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 15
+    type: rank_fusion
+    c: 60
+    candidate_weight: 1
+    reranker_weight: 1
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K15_RF1_equal_rrf_c100
+  label: K15 / RF1_equal_rrf_c100
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 15
+    type: rank_fusion
+    c: 100
+    candidate_weight: 1
+    reranker_weight: 1
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K15_RF2_reranker_weight_1p5
+  label: K15 / RF2_reranker_weight_1.5
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 15
+    type: rank_fusion
+    c: 60
+    candidate_weight: 1
+    reranker_weight: 1.5
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K15_RF2_reranker_weight_2
+  label: K15 / RF2_reranker_weight_2
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 15
+    type: rank_fusion
+    c: 60
+    candidate_weight: 1
+    reranker_weight: 2.0
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K15_RF2_reranker_weight_3
+  label: K15 / RF2_reranker_weight_3
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 15
+    type: rank_fusion
+    c: 60
+    candidate_weight: 1
+    reranker_weight: 3.0
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K15_RF2_reranker_weight_4
+  label: K15 / RF2_reranker_weight_4
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 15
+    type: rank_fusion
+    c: 60
+    candidate_weight: 1
+    reranker_weight: 4.0
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K15_RF3_candidate_weight_1p5
+  label: K15 / RF3_candidate_weight_1.5
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 15
+    type: rank_fusion
+    c: 60
+    candidate_weight: 1.5
+    reranker_weight: 1
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K15_RF3_candidate_weight_2
+  label: K15 / RF3_candidate_weight_2
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 15
+    type: rank_fusion
+    c: 60
+    candidate_weight: 2.0
+    reranker_weight: 1
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K15_SF0_candidate_0p2_reranker_0p8
+  label: K15 / SF0_candidate_0.2_reranker_0.8
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 15
+    type: score_fusion
+    candidate_weight: 0.2
+    reranker_weight: 0.8
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K15_SF1_candidate_0p3_reranker_0p7
+  label: K15 / SF1_candidate_0.3_reranker_0.7
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 15
+    type: score_fusion
+    candidate_weight: 0.3
+    reranker_weight: 0.7
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K15_SF2_candidate_0p4_reranker_0p6
+  label: K15 / SF2_candidate_0.4_reranker_0.6
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 15
+    type: score_fusion
+    candidate_weight: 0.4
+    reranker_weight: 0.6
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K15_SF3_candidate_0p5_reranker_0p5
+  label: K15 / SF3_candidate_0.5_reranker_0.5
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 15
+    type: score_fusion
+    candidate_weight: 0.5
+    reranker_weight: 0.5
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K15_PR1_candidate_top2_protection
+  label: K15 / PR1_candidate_top2_protection
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 15
+    type: protection
+    protected_top_n: 2
+  metrics:
+    r5: 0.4286
+    mrr: 0.3005
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K15_PR1_candidate_top3_protection
+  label: K15 / PR1_candidate_top3_protection
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 15
+    type: protection
+    protected_top_n: 3
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K20_RF0_reranker_only
+  label: K20 / RF0_reranker_only
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: best
+  config:
+    candidate_k: 20
+    type: reranker_only
+  metrics:
+    r5: 0.4762
+    mrr: 0.3098
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K20_RF1_equal_rrf_c20
+  label: K20 / RF1_equal_rrf_c20
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 20
+    type: rank_fusion
+    c: 20
+    candidate_weight: 1
+    reranker_weight: 1
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K20_RF1_equal_rrf_c60
+  label: K20 / RF1_equal_rrf_c60
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 20
+    type: rank_fusion
+    c: 60
+    candidate_weight: 1
+    reranker_weight: 1
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K20_RF1_equal_rrf_c100
+  label: K20 / RF1_equal_rrf_c100
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 20
+    type: rank_fusion
+    c: 100
+    candidate_weight: 1
+    reranker_weight: 1
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K20_RF2_reranker_weight_1p5
+  label: K20 / RF2_reranker_weight_1.5
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 20
+    type: rank_fusion
+    c: 60
+    candidate_weight: 1
+    reranker_weight: 1.5
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K20_RF2_reranker_weight_2
+  label: K20 / RF2_reranker_weight_2
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 20
+    type: rank_fusion
+    c: 60
+    candidate_weight: 1
+    reranker_weight: 2.0
+  metrics:
+    r5: 0.381
+    mrr: 0.2606
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K20_RF2_reranker_weight_3
+  label: K20 / RF2_reranker_weight_3
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 20
+    type: rank_fusion
+    c: 60
+    candidate_weight: 1
+    reranker_weight: 3.0
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K20_RF2_reranker_weight_4
+  label: K20 / RF2_reranker_weight_4
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 20
+    type: rank_fusion
+    c: 60
+    candidate_weight: 1
+    reranker_weight: 4.0
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K20_RF3_candidate_weight_1p5
+  label: K20 / RF3_candidate_weight_1.5
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 20
+    type: rank_fusion
+    c: 60
+    candidate_weight: 1.5
+    reranker_weight: 1
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K20_RF3_candidate_weight_2
+  label: K20 / RF3_candidate_weight_2
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 20
+    type: rank_fusion
+    c: 60
+    candidate_weight: 2.0
+    reranker_weight: 1
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K20_SF0_candidate_0p2_reranker_0p8
+  label: K20 / SF0_candidate_0.2_reranker_0.8
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 20
+    type: score_fusion
+    candidate_weight: 0.2
+    reranker_weight: 0.8
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K20_SF1_candidate_0p3_reranker_0p7
+  label: K20 / SF1_candidate_0.3_reranker_0.7
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 20
+    type: score_fusion
+    candidate_weight: 0.3
+    reranker_weight: 0.7
+  metrics:
+    r5: 0.4286
+    mrr: 0.3318
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K20_SF2_candidate_0p4_reranker_0p6
+  label: K20 / SF2_candidate_0.4_reranker_0.6
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 20
+    type: score_fusion
+    candidate_weight: 0.4
+    reranker_weight: 0.6
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K20_SF3_candidate_0p5_reranker_0p5
+  label: K20 / SF3_candidate_0.5_reranker_0.5
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 20
+    type: score_fusion
+    candidate_weight: 0.5
+    reranker_weight: 0.5
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K20_PR1_candidate_top2_protection
+  label: K20 / PR1_candidate_top2_protection
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 20
+    type: protection
+    protected_top_n: 2
+  metrics:
+    r5: 0.4762
+    mrr: 0.3015
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: S001_RF_K20_PR1_candidate_top3_protection
+  label: K20 / PR1_candidate_top3_protection
+  group: G2
+  kind: experiment
+  scope:
+  - S001
+  status: completed
+  config:
+    candidate_k: 20
+    type: protection
+    protected_top_n: 3
+  source_script: exp/benchmark/run_midterm_rank_fusion_tuning.py
+  result_path: exp/results/midterm_retrieval_experiments_no_thinking/rank_fusion_tuning/third_stage_report.md
+- id: H_QUERY_CROSS_SESSION
+  label: Query Rewrite / Reference Resolution
+  group: G3
+  kind: hub
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  source_script: exp/benchmark/run_query_rewrite_cross_session_diagnosis.py
+  result_path: exp/results/query_rewrite_cross_session_diagnosis/session_summary.csv
+- id: QX_Q5_CROSS
+  label: Q5 Original + Standalone Rewrite — Cross-session
+  group: G3
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  metrics:
+    eligible_gold: 154
+    baseline_gold_at_5: 50/154
+    variant_gold_at_5: 52/154
+    baseline_r5: 0.324675
+    variant_r5: 0.337662
+    promoted: 16
+    demoted: 14
+    net: 2
+  source_script: exp/benchmark/run_query_rewrite_cross_session_diagnosis.py
+  result_path: exp/results/query_rewrite_cross_session_diagnosis/session_summary.csv
+- id: H_QUERY_CLEAN_REPLACEMENT
+  label: Clean Replacement Ablation
+  group: G3
+  kind: hub
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  source_script: exp/benchmark/run_query_rewrite_clean_replacement_ablation.py
+  result_path: exp/results/query_rewrite_clean_replacement_ablation/session_summary.csv
+- id: QCLEAN_BASE
+  label: Baseline original query
+  group: G3
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: baseline
+  metrics:
+    r5: 0.324675
+    eligible_gold: 154
+  source_script: exp/benchmark/run_query_rewrite_clean_replacement_ablation.py
+  result_path: exp/results/query_rewrite_clean_replacement_ablation/session_summary.csv
+- id: QCLEAN_OLD_REWRITE
+  label: Old rewrite only
+  group: G3
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: degraded
+  metrics:
+    r5: 0.292208
+    eligible_gold: 154
+  source_script: exp/benchmark/run_query_rewrite_clean_replacement_ablation.py
+  result_path: exp/results/query_rewrite_clean_replacement_ablation/session_summary.csv
+- id: QCLEAN_REF_ONLY
+  label: Conservative reference resolution only
+  group: G3
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: improved
+  metrics:
+    r5: 0.344156
+    eligible_gold: 154
+  source_script: exp/benchmark/run_query_rewrite_clean_replacement_ablation.py
+  result_path: exp/results/query_rewrite_clean_replacement_ablation/session_summary.csv
+- id: H_REF_PROMPTS
+  label: Reference Resolution Prompt P0-P4
+  group: G3
+  kind: hub
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  source_script: exp/benchmark/run_reference_resolution_prompt_ablation.py
+  result_path: exp/results/reference_resolution_prompt_ablation/prompt_metrics.csv
+- id: REF_P0
+  label: P0 — Current conservative reference-resolution
+  group: G3
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: improved
+  metrics:
+    eligible_gold: 154
+    r5: 0.344156
+    promoted: 3
+    demoted: 0
+    net: 3
+  source_script: exp/benchmark/run_reference_resolution_prompt_ablation.py
+  result_path: exp/results/reference_resolution_prompt_ablation/prompt_metrics.csv
+- id: REF_P1
+  label: P1 — Explicit-reference prompt
+  group: G3
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  metrics:
+    eligible_gold: 154
+    r5: 0.337662
+    promoted: 10
+    demoted: 8
+    net: 2
+  source_script: exp/benchmark/run_reference_resolution_prompt_ablation.py
+  result_path: exp/results/reference_resolution_prompt_ablation/prompt_metrics.csv
+- id: REF_P2
+  label: P2 — Slot-bounded reference resolution
+  group: G3
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: best
+  metrics:
+    eligible_gold: 154
+    r5: 0.350649
+    promoted: 7
+    demoted: 3
+    net: 4
+  source_script: exp/benchmark/run_reference_resolution_prompt_ablation.py
+  result_path: exp/results/reference_resolution_prompt_ablation/prompt_metrics.csv
+- id: REF_P3
+  label: P3 — One-hop dependency prompt
+  group: G3
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: degraded
+  metrics:
+    eligible_gold: 154
+    r5: 0.318182
+    promoted: 9
+    demoted: 10
+    net: -1
+  source_script: exp/benchmark/run_reference_resolution_prompt_ablation.py
+  result_path: exp/results/reference_resolution_prompt_ablation/prompt_metrics.csv
+- id: REF_P4
+  label: P4 — Identity-only reference resolution
+  group: G3
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: degraded
+  metrics:
+    eligible_gold: 154
+    r5: 0.311688
+    promoted: 3
+    demoted: 5
+    net: -2
+  source_script: exp/benchmark/run_reference_resolution_identity_only_ablation.py
+  result_path: exp/results/reference_resolution_identity_only_ablation/prompt_metrics.csv
+- id: DIAG_REF_QUERY
+  label: Reference Resolution Query Diagnosis
+  group: G3
+  kind: diagnostic
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: diagnostic
+  source_script: exp/benchmark/run_reference_resolution_query_diagnosis.py
+  result_path: exp/results/reference_resolution_query_diagnosis
+- id: H_ADD_SEARCH_CROSS
+  label: Add × Search Cross Ablation
+  group: G4
+  kind: hub
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  source_script: exp/benchmark/run_midterm_add_search_cross_ablation.py
+  result_path: exp/results/midterm_add_search_cross_ablation
+- id: ADDSEARCH_OLD_BASE
+  label: Add-Old + Search-Baseline
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    add: Add-Old
+    search: Search-Baseline
+  source_script: exp/benchmark/run_midterm_add_search_cross_ablation.py
+  result_path: exp/results/midterm_add_search_cross_ablation
+- id: ADDSEARCH_OLD_P2
+  label: Add-Old + Search-P2
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    add: Add-Old
+    search: Search-P2
+  source_script: exp/benchmark/run_midterm_add_search_cross_ablation.py
+  result_path: exp/results/midterm_add_search_cross_ablation
+- id: ADDSEARCH_NEW_BASE
+  label: Add-New single-turn retrieval + Search-Baseline
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    add: Add-New single-turn retrieval
+    search: Search-Baseline
+  source_script: exp/benchmark/run_midterm_add_search_cross_ablation.py
+  result_path: exp/results/midterm_add_search_cross_ablation
+- id: ADDSEARCH_NEW_P2
+  label: Add-New single-turn retrieval + Search-P2
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    add: Add-New single-turn retrieval
+    search: Search-P2
+  source_script: exp/benchmark/run_midterm_add_search_cross_ablation.py
+  result_path: exp/results/midterm_add_search_cross_ablation
+- id: H_ADD_PROMPT_MULTI
+  label: Add Prompt Multi-candidate × Search
+  group: G4
+  kind: hub
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  source_script: exp/benchmark/run_midterm_add_prompt_multi_ablation.py
+  result_path: exp/results/midterm_add_prompt_multi_ablation/metrics/retrieval_metrics.csv
+- id: ADDMULTI_Old_Baseline
+  label: Old Production Old + Baseline
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    add_variant: Old
+    search: Baseline
+  metrics:
+    gold_at_5: 50/154
+    r5: 0.324675
+  source_script: exp/benchmark/run_midterm_add_prompt_multi_ablation.py
+  result_path: exp/results/midterm_add_prompt_multi_ablation/metrics/retrieval_metrics.csv
+- id: ADDMULTI_Old_P2
+  label: Old Production Old + P2
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    add_variant: Old
+    search: P2
+  metrics:
+    gold_at_5: 54/154
+    r5: 0.350649
+  source_script: exp/benchmark/run_midterm_add_prompt_multi_ablation.py
+  result_path: exp/results/midterm_add_prompt_multi_ablation/metrics/retrieval_metrics.csv
+- id: ADDMULTI_A1_Baseline
+  label: A1 Task-first + Baseline
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    add_variant: A1
+    search: Baseline
+  metrics:
+    gold_at_5: 37/154
+    r5: 0.24026
+  source_script: exp/benchmark/run_midterm_add_prompt_multi_ablation.py
+  result_path: exp/results/midterm_add_prompt_multi_ablation/metrics/retrieval_metrics.csv
+- id: ADDMULTI_A1_P2
+  label: A1 Task-first + P2
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    add_variant: A1
+    search: P2
+  metrics:
+    gold_at_5: 37/154
+    r5: 0.24026
+  source_script: exp/benchmark/run_midterm_add_prompt_multi_ablation.py
+  result_path: exp/results/midterm_add_prompt_multi_ablation/metrics/retrieval_metrics.csv
+- id: ADDMULTI_A2_Baseline
+  label: A2 Task + dependency + Baseline
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    add_variant: A2
+    search: Baseline
+  metrics:
+    gold_at_5: 40/154
+    r5: 0.25974
+  source_script: exp/benchmark/run_midterm_add_prompt_multi_ablation.py
+  result_path: exp/results/midterm_add_prompt_multi_ablation/metrics/retrieval_metrics.csv
+- id: ADDMULTI_A2_P2
+  label: A2 Task + dependency + P2
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    add_variant: A2
+    search: P2
+  metrics:
+    gold_at_5: 39/154
+    r5: 0.253247
+  source_script: exp/benchmark/run_midterm_add_prompt_multi_ablation.py
+  result_path: exp/results/midterm_add_prompt_multi_ablation/metrics/retrieval_metrics.csv
+- id: ADDMULTI_A3_Baseline
+  label: A3 Production-old-lite + Baseline
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    add_variant: A3
+    search: Baseline
+  metrics:
+    gold_at_5: 35/154
+    r5: 0.227273
+  source_script: exp/benchmark/run_midterm_add_prompt_multi_ablation.py
+  result_path: exp/results/midterm_add_prompt_multi_ablation/metrics/retrieval_metrics.csv
+- id: ADDMULTI_A3_P2
+  label: A3 Production-old-lite + P2
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    add_variant: A3
+    search: P2
+  metrics:
+    gold_at_5: 38/154
+    r5: 0.246753
+  source_script: exp/benchmark/run_midterm_add_prompt_multi_ablation.py
+  result_path: exp/results/midterm_add_prompt_multi_ablation/metrics/retrieval_metrics.csv
+- id: H_ADD_CONSERVATIVE_CAND
+  label: Production-local Add Prompt Candidates
+  group: G4
+  kind: hub
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  source_script: exp/benchmark/run_midterm_add_prompt_conservative_candidates_ablation.py
+  result_path: exp/results/midterm_add_prompt_conservative_candidates_ablation
+- id: ADDCAND_Old_Baseline
+  label: Production + Baseline
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    prompt: Old
+    search: Baseline
+  source_script: exp/benchmark/run_midterm_add_prompt_conservative_candidates_ablation.py
+  result_path: exp/results/midterm_add_prompt_conservative_candidates_ablation
+- id: ADDCAND_Old_P2
+  label: Production + P2
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    prompt: Old
+    search: P2
+  source_script: exp/benchmark/run_midterm_add_prompt_conservative_candidates_ablation.py
+  result_path: exp/results/midterm_add_prompt_conservative_candidates_ablation
+- id: ADDCAND_A1_Baseline
+  label: Minimal change + Baseline
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    prompt: A1
+    search: Baseline
+  source_script: exp/benchmark/run_midterm_add_prompt_conservative_candidates_ablation.py
+  result_path: exp/results/midterm_add_prompt_conservative_candidates_ablation
+- id: ADDCAND_A1_P2
+  label: Minimal change + P2
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    prompt: A1
+    search: P2
+  source_script: exp/benchmark/run_midterm_add_prompt_conservative_candidates_ablation.py
+  result_path: exp/results/midterm_add_prompt_conservative_candidates_ablation
+- id: ADDCAND_A2_Baseline
+  label: Multi retrieval entry + Baseline
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    prompt: A2
+    search: Baseline
+  source_script: exp/benchmark/run_midterm_add_prompt_conservative_candidates_ablation.py
+  result_path: exp/results/midterm_add_prompt_conservative_candidates_ablation
+- id: ADDCAND_A2_P2
+  label: Multi retrieval entry + P2
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    prompt: A2
+    search: P2
+  source_script: exp/benchmark/run_midterm_add_prompt_conservative_candidates_ablation.py
+  result_path: exp/results/midterm_add_prompt_conservative_candidates_ablation
+- id: ADDCAND_A3_Baseline
+  label: Task + evidence chain + Baseline
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    prompt: A3
+    search: Baseline
+  source_script: exp/benchmark/run_midterm_add_prompt_conservative_candidates_ablation.py
+  result_path: exp/results/midterm_add_prompt_conservative_candidates_ablation
+- id: ADDCAND_A3_P2
+  label: Task + evidence chain + P2
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    prompt: A3
+    search: P2
+  source_script: exp/benchmark/run_midterm_add_prompt_conservative_candidates_ablation.py
+  result_path: exp/results/midterm_add_prompt_conservative_candidates_ablation
+- id: H_ADD_CONSERVATIVE_TUNED
+  label: Conservative Retrieval-tuned Add Prompt
+  group: G4
+  kind: hub
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  source_script: exp/benchmark/run_midterm_add_conservative_retrieval_tuning_ablation.py
+  result_path: exp/results/midterm_add_conservative_retrieval_tuning_ablation
+- id: ADDTUNED_Production_OriginalQuery
+  label: Production + OriginalQuery
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    add_prompt: Production
+    search: OriginalQuery
+  source_script: exp/benchmark/run_midterm_add_conservative_retrieval_tuning_ablation.py
+  result_path: exp/results/midterm_add_conservative_retrieval_tuning_ablation
+- id: ADDTUNED_Production_ResolvedQuery
+  label: Production + ResolvedQuery
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    add_prompt: Production
+    search: ResolvedQuery
+  source_script: exp/benchmark/run_midterm_add_conservative_retrieval_tuning_ablation.py
+  result_path: exp/results/midterm_add_conservative_retrieval_tuning_ablation
+- id: ADDTUNED_ConservativeTuned_OriginalQuery
+  label: ConservativeTuned + OriginalQuery
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    add_prompt: ConservativeTuned
+    search: OriginalQuery
+  source_script: exp/benchmark/run_midterm_add_conservative_retrieval_tuning_ablation.py
+  result_path: exp/results/midterm_add_conservative_retrieval_tuning_ablation
+- id: ADDTUNED_ConservativeTuned_ResolvedQuery
+  label: ConservativeTuned + ResolvedQuery
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    add_prompt: ConservativeTuned
+    search: ResolvedQuery
+  source_script: exp/benchmark/run_midterm_add_conservative_retrieval_tuning_ablation.py
+  result_path: exp/results/midterm_add_conservative_retrieval_tuning_ablation
+- id: H_LOCAL_CONTEXT
+  label: Eviction-time Local Context
+  group: G4
+  kind: hub
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  source_script: exp/benchmark/run_midterm_add_local_context_ablation.py
+  result_path: exp/results/midterm_add_local_context_ablation/experiment_report.md
+- id: CTX_PROD
+  label: 'Production Add: current User+Assistant'
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: baseline
+  metrics:
+    r5: 0.3506
+    r20: 0.7597
+  source_script: exp/benchmark/run_midterm_add_local_context_ablation.py
+  result_path: exp/results/midterm_add_local_context_ablation/experiment_report.md
+- id: CTX_PREV
+  label: Production Add + previous context
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: degraded
+  metrics:
+    r5: 0.2922
+    r20: 0.8052
+  source_script: exp/benchmark/run_midterm_add_local_context_ablation.py
+  result_path: exp/results/midterm_add_local_context_ablation/experiment_report.md
+- id: CTX_PREV_FOLLOW
+  label: Production Add + previous + following context
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: improved
+  metrics:
+    r5: 0.3701
+    r20: 0.8442
+  source_script: exp/benchmark/run_midterm_add_local_context_ablation.py
+  result_path: exp/results/midterm_add_local_context_ablation/experiment_report.md
+- id: H_CONTEXT_PROMPT_CAND
+  label: Context Add Prompt Candidates
+  group: G4
+  kind: hub
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  source_script: exp/benchmark/run_midterm_add_context_prompt_candidates.py
+  result_path: exp/results/midterm_add_context_prompt_candidates/experiment_report.md
+- id: CTXP_PROD_REF
+  label: Production Add reference
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  metrics:
+    r5: 0.3571
+    eligible_gold: 154
+  source_script: exp/benchmark/run_midterm_add_context_prompt_candidates.py
+  result_path: exp/results/midterm_add_context_prompt_candidates/experiment_report.md
+- id: CTXP_CURRENT
+  label: Current previous+following Prompt
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: best
+  metrics:
+    r5: 0.3831
+    eligible_gold: 154
+  source_script: exp/benchmark/run_midterm_add_context_prompt_candidates.py
+  result_path: exp/results/midterm_add_context_prompt_candidates/experiment_report.md
+- id: CTXP_C1
+  label: Relation-resolution first; no context fact expansion
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: degraded
+  metrics:
+    r5: 0.2727
+    eligible_gold: 154
+  source_script: exp/benchmark/run_midterm_add_context_prompt_candidates.py
+  result_path: exp/results/midterm_add_context_prompt_candidates/experiment_report.md
+- id: CTXP_C2
+  label: Current-turn first + one relation sentence
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: degraded
+  metrics:
+    r5: 0.2468
+    eligible_gold: 154
+  source_script: exp/benchmark/run_midterm_add_context_prompt_candidates.py
+  result_path: exp/results/midterm_add_context_prompt_candidates/experiment_report.md
+- id: CTXP_C3
+  label: Distinctive information first; suppress repetition
+  group: G4
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: degraded
+  metrics:
+    r5: 0.3052
+    eligible_gold: 154
+  source_script: exp/benchmark/run_midterm_add_context_prompt_candidates.py
+  result_path: exp/results/midterm_add_context_prompt_candidates/experiment_report.md
+- id: H_PAGE_DECOMP
+  label: Frozen Page Representation Decomposition
+  group: G5
+  kind: hub
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  source_script: exp/benchmark/run_midterm_page_representation_decomposition.py
+  result_path: exp/results/midterm_page_representation_decomposition
+- id: PAGEDEC_E0_Baseline
+  label: 'E0 — Production full: summary + keywords + user + Baseline'
+  group: G5
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    representation: E0
+    search: Baseline
+  source_script: exp/benchmark/run_midterm_page_representation_decomposition.py
+  result_path: exp/results/midterm_page_representation_decomposition
+- id: PAGEDEC_E0_P2
+  label: 'E0 — Production full: summary + keywords + user + P2'
+  group: G5
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    representation: E0
+    search: P2
+  source_script: exp/benchmark/run_midterm_page_representation_decomposition.py
+  result_path: exp/results/midterm_page_representation_decomposition
+- id: PAGEDEC_E1_Baseline
+  label: E1 — summary only + Baseline
+  group: G5
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    representation: E1
+    search: Baseline
+  source_script: exp/benchmark/run_midterm_page_representation_decomposition.py
+  result_path: exp/results/midterm_page_representation_decomposition
+- id: PAGEDEC_E1_P2
+  label: E1 — summary only + P2
+  group: G5
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    representation: E1
+    search: P2
+  source_script: exp/benchmark/run_midterm_page_representation_decomposition.py
+  result_path: exp/results/midterm_page_representation_decomposition
+- id: PAGEDEC_E2_Baseline
+  label: E2 — summary + keywords + Baseline
+  group: G5
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    representation: E2
+    search: Baseline
+  source_script: exp/benchmark/run_midterm_page_representation_decomposition.py
+  result_path: exp/results/midterm_page_representation_decomposition
+- id: PAGEDEC_E2_P2
+  label: E2 — summary + keywords + P2
+  group: G5
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    representation: E2
+    search: P2
+  source_script: exp/benchmark/run_midterm_page_representation_decomposition.py
+  result_path: exp/results/midterm_page_representation_decomposition
+- id: PAGEDEC_E3_Baseline
+  label: E3 — summary + user + Baseline
+  group: G5
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    representation: E3
+    search: Baseline
+  source_script: exp/benchmark/run_midterm_page_representation_decomposition.py
+  result_path: exp/results/midterm_page_representation_decomposition
+- id: PAGEDEC_E3_P2
+  label: E3 — summary + user + P2
+  group: G5
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    representation: E3
+    search: P2
+  source_script: exp/benchmark/run_midterm_page_representation_decomposition.py
+  result_path: exp/results/midterm_page_representation_decomposition
+- id: PAGEDEC_E4_Baseline
+  label: E4 — user only + Baseline
+  group: G5
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    representation: E4
+    search: Baseline
+  source_script: exp/benchmark/run_midterm_page_representation_decomposition.py
+  result_path: exp/results/midterm_page_representation_decomposition
+- id: PAGEDEC_E4_P2
+  label: E4 — user only + P2
+  group: G5
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    representation: E4
+    search: P2
+  source_script: exp/benchmark/run_midterm_page_representation_decomposition.py
+  result_path: exp/results/midterm_page_representation_decomposition
+- id: PAGEDEC_E5_Baseline
+  label: E5 — keywords + user + Baseline
+  group: G5
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    representation: E5
+    search: Baseline
+  source_script: exp/benchmark/run_midterm_page_representation_decomposition.py
+  result_path: exp/results/midterm_page_representation_decomposition
+- id: PAGEDEC_E5_P2
+  label: E5 — keywords + user + P2
+  group: G5
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    representation: E5
+    search: P2
+  source_script: exp/benchmark/run_midterm_page_representation_decomposition.py
+  result_path: exp/results/midterm_page_representation_decomposition
+- id: PAGEDEC_E6_100_Baseline
+  label: E6-100 — summary first 100 chars + keywords + user + Baseline
+  group: G5
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    representation: E6-100
+    search: Baseline
+  source_script: exp/benchmark/run_midterm_page_representation_decomposition.py
+  result_path: exp/results/midterm_page_representation_decomposition
+- id: PAGEDEC_E6_100_P2
+  label: E6-100 — summary first 100 chars + keywords + user + P2
+  group: G5
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    representation: E6-100
+    search: P2
+  source_script: exp/benchmark/run_midterm_page_representation_decomposition.py
+  result_path: exp/results/midterm_page_representation_decomposition
+- id: PAGEDEC_E6_200_Baseline
+  label: E6-200 — summary first 200 chars + keywords + user + Baseline
+  group: G5
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    representation: E6-200
+    search: Baseline
+  source_script: exp/benchmark/run_midterm_page_representation_decomposition.py
+  result_path: exp/results/midterm_page_representation_decomposition
+- id: PAGEDEC_E6_200_P2
+  label: E6-200 — summary first 200 chars + keywords + user + P2
+  group: G5
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    representation: E6-200
+    search: P2
+  source_script: exp/benchmark/run_midterm_page_representation_decomposition.py
+  result_path: exp/results/midterm_page_representation_decomposition
+- id: PAGEDEC_E6_300_Baseline
+  label: E6-300 — summary first 300 chars + keywords + user + Baseline
+  group: G5
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    representation: E6-300
+    search: Baseline
+  source_script: exp/benchmark/run_midterm_page_representation_decomposition.py
+  result_path: exp/results/midterm_page_representation_decomposition
+- id: PAGEDEC_E6_300_P2
+  label: E6-300 — summary first 300 chars + keywords + user + P2
+  group: G5
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    representation: E6-300
+    search: P2
+  source_script: exp/benchmark/run_midterm_page_representation_decomposition.py
+  result_path: exp/results/midterm_page_representation_decomposition
+- id: PAGEDEC_E7_100_Baseline
+  label: E7-100 — summary last 100 chars + keywords + user + Baseline
+  group: G5
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    representation: E7-100
+    search: Baseline
+  source_script: exp/benchmark/run_midterm_page_representation_decomposition.py
+  result_path: exp/results/midterm_page_representation_decomposition
+- id: PAGEDEC_E7_100_P2
+  label: E7-100 — summary last 100 chars + keywords + user + P2
+  group: G5
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    representation: E7-100
+    search: P2
+  source_script: exp/benchmark/run_midterm_page_representation_decomposition.py
+  result_path: exp/results/midterm_page_representation_decomposition
+- id: PAGEDEC_E7_200_Baseline
+  label: E7-200 — summary last 200 chars + keywords + user + Baseline
+  group: G5
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    representation: E7-200
+    search: Baseline
+  source_script: exp/benchmark/run_midterm_page_representation_decomposition.py
+  result_path: exp/results/midterm_page_representation_decomposition
+- id: PAGEDEC_E7_200_P2
+  label: E7-200 — summary last 200 chars + keywords + user + P2
+  group: G5
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    representation: E7-200
+    search: P2
+  source_script: exp/benchmark/run_midterm_page_representation_decomposition.py
+  result_path: exp/results/midterm_page_representation_decomposition
+- id: PAGEDEC_E7_300_Baseline
+  label: E7-300 — summary last 300 chars + keywords + user + Baseline
+  group: G5
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    representation: E7-300
+    search: Baseline
+  source_script: exp/benchmark/run_midterm_page_representation_decomposition.py
+  result_path: exp/results/midterm_page_representation_decomposition
+- id: PAGEDEC_E7_300_P2
+  label: E7-300 — summary last 300 chars + keywords + user + P2
+  group: G5
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    representation: E7-300
+    search: P2
+  source_script: exp/benchmark/run_midterm_page_representation_decomposition.py
+  result_path: exp/results/midterm_page_representation_decomposition
+- id: DIAG_PAGE_REP
+  label: Page Representation Diagnosis
+  group: G5
+  kind: diagnostic
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: diagnostic
+  source_script: exp/benchmark/diagnose_page_representation.py
+  result_path: exp/results/page_representation_diagnosis
+- id: DIAG_MIDTERM_PAGE
+  label: MidTerm Page Recall Diagnosis
+  group: G5
+  kind: diagnostic
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: diagnostic
+  source_script: exp/benchmark/diagnose_midterm_page_recall.py
+  result_path: exp/results/midterm_page_diagnosis
+- id: H_EMBEDDING
+  label: Embedding Model Exploration
+  group: G6
+  kind: hub
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  source_script: exp/benchmark/run_midterm_embedding_model_ablation.py
+  result_path: exp/results/midterm_embedding_model_ablation/experiment_report.md
+- id: EMB_LEN_Small512
+  label: BAAI/bge-small-zh-v1.5 / max_length=512
+  group: G6
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: best
+  config:
+    model: BAAI/bge-small-zh-v1.5
+    max_length: 512
+  metrics:
+    r5: 0.3831
+    eligible_gold: 154
+  source_script: exp/benchmark/run_midterm_bge_m3_length_ablation.py
+  result_path: exp/results/midterm_bge_m3_length_ablation/experiment_report.md
+- id: EMB_LEN_M3_512
+  label: BAAI/bge-m3 / max_length=512
+  group: G6
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: degraded
+  config:
+    model: BAAI/bge-m3
+    max_length: 512
+  metrics:
+    r5: 0.3701
+    eligible_gold: 154
+  source_script: exp/benchmark/run_midterm_bge_m3_length_ablation.py
+  result_path: exp/results/midterm_bge_m3_length_ablation/experiment_report.md
+- id: EMB_LEN_M3_1024
+  label: BAAI/bge-m3 / max_length=1024
+  group: G6
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: degraded
+  config:
+    model: BAAI/bge-m3
+    max_length: 1024
+  metrics:
+    r5: 0.3701
+    eligible_gold: 154
+  source_script: exp/benchmark/run_midterm_bge_m3_length_ablation.py
+  result_path: exp/results/midterm_bge_m3_length_ablation/experiment_report.md
+- id: EMB_LEN_M3_2048
+  label: BAAI/bge-m3 / max_length=2048
+  group: G6
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: degraded
+  config:
+    model: BAAI/bge-m3
+    max_length: 2048
+  metrics:
+    r5: 0.3701
+    eligible_gold: 154
+  source_script: exp/benchmark/run_midterm_bge_m3_length_ablation.py
+  result_path: exp/results/midterm_bge_m3_length_ablation/experiment_report.md
+- id: EMB_MODEL_BGE_SMALL
+  label: BAAI/bge-small-zh-v1.5
+  group: G6
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: best
+  config:
+    model: BAAI/bge-small-zh-v1.5
+  metrics:
+    r5: 0.3831
+  source_script: exp/benchmark/run_midterm_embedding_model_ablation.py
+  result_path: exp/results/midterm_embedding_model_ablation/experiment_report.md
+  notes: current baseline
+- id: EMB_MODEL_ACGE
+  label: aspire/acge_text_embedding
+  group: G6
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: degraded
+  config:
+    model: aspire/acge_text_embedding
+  metrics:
+    r5: 0.2792
+  source_script: exp/benchmark/run_midterm_embedding_model_ablation.py
+  result_path: exp/results/midterm_embedding_model_ablation/experiment_report.md
+  notes: completed
+- id: EMB_MODEL_YOUTU
+  label: tencent/Youtu-Embedding
+  group: G6
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: blocked
+  config:
+    model: tencent/Youtu-Embedding
+  source_script: exp/benchmark/run_midterm_embedding_model_ablation.py
+  result_path: exp/results/midterm_embedding_model_ablation/experiment_report.md
+  notes: blocked by local resources
+- id: EMB_MODEL_CONAN
+  label: TencentBAC/Conan-embedding-v2
+  group: G6
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: blocked
+  config:
+    model: TencentBAC/Conan-embedding-v2
+  source_script: exp/benchmark/run_midterm_embedding_model_ablation.py
+  result_path: exp/results/midterm_embedding_model_ablation/experiment_report.md
+  notes: official artifacts/credentials unavailable
+- id: EMB_MODEL_QWEN3_4B
+  label: Qwen/Qwen3-Embedding-4B
+  group: G6
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: blocked
+  config:
+    model: Qwen/Qwen3-Embedding-4B
+  source_script: exp/benchmark/run_midterm_embedding_model_ablation.py
+  result_path: exp/results/midterm_embedding_model_ablation/experiment_report.md
+  notes: local resource/runtime impractical
+- id: H_EMB_FIN_LIGHT
+  label: Financial / Lightweight Embeddings
+  group: G6
+  kind: hub
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  source_script: exp/benchmark/run_midterm_financial_lightweight_embedding_ablation.py
+  result_path: exp/results/midterm_financial_lightweight_embedding_ablation/experiment_report.md
+- id: EMB_FL_BGE_SMALL
+  label: BAAI/bge-small-zh-v1.5
+  group: G6
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: best
+  metrics:
+    r5: 0.3831
+    r20: 0.8182
+  source_script: exp/benchmark/run_midterm_financial_lightweight_embedding_ablation.py
+  result_path: exp/results/midterm_financial_lightweight_embedding_ablation/experiment_report.md
+- id: EMB_FL_FIN
+  label: qcsun/financial-embedding
+  group: G6
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: degraded
+  metrics:
+    r5: 0.3442
+    r20: 0.7662
+  source_script: exp/benchmark/run_midterm_financial_lightweight_embedding_ablation.py
+  result_path: exp/results/midterm_financial_lightweight_embedding_ablation/experiment_report.md
+- id: EMB_FL_E5
+  label: BalyasnyAI/multilingual-e5-base
+  group: G6
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: degraded
+  metrics:
+    r5: 0.3571
+    r20: 0.8442
+  source_script: exp/benchmark/run_midterm_financial_lightweight_embedding_ablation.py
+  result_path: exp/results/midterm_financial_lightweight_embedding_ablation/experiment_report.md
+- id: EMB_FL_GTE
+  label: Alibaba-NLP/gte-multilingual-base
+  group: G6
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: degraded
+  metrics:
+    r5: 0.3247
+    r20: 0.8117
+  source_script: exp/benchmark/run_midterm_financial_lightweight_embedding_ablation.py
+  result_path: exp/results/midterm_financial_lightweight_embedding_ablation/experiment_report.md
+- id: EMB_FL_GEMMA
+  label: google/embeddinggemma-300m
+  group: G6
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: blocked
+  source_script: exp/benchmark/run_midterm_financial_lightweight_embedding_ablation.py
+  result_path: exp/results/midterm_financial_lightweight_embedding_ablation/experiment_report.md
+- id: H_BM25_CHECKPOINTS
+  label: Dense + Chinese BM25 at C0-C3 Checkpoints
+  group: G7
+  kind: hub
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  source_script: exp/benchmark/run_midterm_dense_bm25_hybrid_checkpoints.py
+  result_path: exp/results/midterm_dense_bm25_hybrid_checkpoints
+- id: BMCP_C0_DENSE
+  label: 'C0 / DENSE
+
+    Original Query + Production Summary+Keywords+User'
+  group: G7
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    checkpoint: C0
+    retrieval: dense
+  metrics:
+    dense_gold_at_5: 50/154
+  source_script: exp/benchmark/run_midterm_dense_bm25_hybrid_checkpoints.py
+  result_path: exp/results/midterm_dense_bm25_hybrid_checkpoints
+- id: BMCP_C0_BM25
+  label: 'C0 / BM25
+
+    Original Query + Production Summary+Keywords+User'
+  group: G7
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    checkpoint: C0
+    retrieval: bm25
+  source_script: exp/benchmark/run_midterm_dense_bm25_hybrid_checkpoints.py
+  result_path: exp/results/midterm_dense_bm25_hybrid_checkpoints
+- id: BMCP_C0_HYBRID
+  label: 'C0 / HYBRID
+
+    Original Query + Production Summary+Keywords+User'
+  group: G7
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    checkpoint: C0
+    retrieval: hybrid
+  source_script: exp/benchmark/run_midterm_dense_bm25_hybrid_checkpoints.py
+  result_path: exp/results/midterm_dense_bm25_hybrid_checkpoints
+- id: BMCP_C1_DENSE
+  label: 'C1 / DENSE
+
+    P2 + Production Summary+Keywords+User'
+  group: G7
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    checkpoint: C1
+    retrieval: dense
+  metrics:
+    dense_gold_at_5: 54/154
+  source_script: exp/benchmark/run_midterm_dense_bm25_hybrid_checkpoints.py
+  result_path: exp/results/midterm_dense_bm25_hybrid_checkpoints
+- id: BMCP_C1_BM25
+  label: 'C1 / BM25
+
+    P2 + Production Summary+Keywords+User'
+  group: G7
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    checkpoint: C1
+    retrieval: bm25
+  source_script: exp/benchmark/run_midterm_dense_bm25_hybrid_checkpoints.py
+  result_path: exp/results/midterm_dense_bm25_hybrid_checkpoints
+- id: BMCP_C1_HYBRID
+  label: 'C1 / HYBRID
+
+    P2 + Production Summary+Keywords+User'
+  group: G7
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    checkpoint: C1
+    retrieval: hybrid
+  source_script: exp/benchmark/run_midterm_dense_bm25_hybrid_checkpoints.py
+  result_path: exp/results/midterm_dense_bm25_hybrid_checkpoints
+- id: BMCP_C2_DENSE
+  label: 'C2 / DENSE
+
+    P2 + Production Summary+Keywords'
+  group: G7
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    checkpoint: C2
+    retrieval: dense
+  metrics:
+    dense_gold_at_5: 55/154
+  source_script: exp/benchmark/run_midterm_dense_bm25_hybrid_checkpoints.py
+  result_path: exp/results/midterm_dense_bm25_hybrid_checkpoints
+- id: BMCP_C2_BM25
+  label: 'C2 / BM25
+
+    P2 + Production Summary+Keywords'
+  group: G7
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    checkpoint: C2
+    retrieval: bm25
+  source_script: exp/benchmark/run_midterm_dense_bm25_hybrid_checkpoints.py
+  result_path: exp/results/midterm_dense_bm25_hybrid_checkpoints
+- id: BMCP_C2_HYBRID
+  label: 'C2 / HYBRID
+
+    P2 + Production Summary+Keywords'
+  group: G7
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    checkpoint: C2
+    retrieval: hybrid
+  source_script: exp/benchmark/run_midterm_dense_bm25_hybrid_checkpoints.py
+  result_path: exp/results/midterm_dense_bm25_hybrid_checkpoints
+- id: BMCP_C3_DENSE
+  label: 'C3 / DENSE
+
+    P2 + context Summary+Keywords'
+  group: G7
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    checkpoint: C3
+    retrieval: dense
+  metrics:
+    dense_gold_at_5: 59/154
+  source_script: exp/benchmark/run_midterm_dense_bm25_hybrid_checkpoints.py
+  result_path: exp/results/midterm_dense_bm25_hybrid_checkpoints
+- id: BMCP_C3_BM25
+  label: 'C3 / BM25
+
+    P2 + context Summary+Keywords'
+  group: G7
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    checkpoint: C3
+    retrieval: bm25
+  source_script: exp/benchmark/run_midterm_dense_bm25_hybrid_checkpoints.py
+  result_path: exp/results/midterm_dense_bm25_hybrid_checkpoints
+- id: BMCP_C3_HYBRID
+  label: 'C3 / HYBRID
+
+    P2 + context Summary+Keywords'
+  group: G7
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    checkpoint: C3
+    retrieval: hybrid
+  source_script: exp/benchmark/run_midterm_dense_bm25_hybrid_checkpoints.py
+  result_path: exp/results/midterm_dense_bm25_hybrid_checkpoints
+- id: H_BM25_INPUT_IDF
+  label: C3 BM25 Input / IDF Scope
+  group: G7
+  kind: hub
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  source_script: exp/benchmark/run_midterm_c3_bm25_input_idf_ablation.py
+  result_path: exp/results/midterm_c3_bm25_input_idf_ablation
+- id: BMIDF_H0
+  label: H0 — Production Hybrid
+  group: G7
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    bm25_query: P2
+    bm25_page: Summary+Keywords
+    idf_scope: visible_pages
+    filter: false
+  source_script: exp/benchmark/run_midterm_c3_bm25_input_idf_ablation.py
+  result_path: exp/results/midterm_c3_bm25_input_idf_ablation
+- id: BMIDF_H1
+  label: H1 — BM25 Query denoising
+  group: G7
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    bm25_query: Original
+    bm25_page: Summary+Keywords
+    idf_scope: visible_pages
+    filter: false
+  source_script: exp/benchmark/run_midterm_c3_bm25_input_idf_ablation.py
+  result_path: exp/results/midterm_c3_bm25_input_idf_ablation
+- id: BMIDF_H2
+  label: H2 — BM25 Page = Keywords Only
+  group: G7
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    bm25_query: P2
+    bm25_page: Keywords Only
+    idf_scope: visible_pages
+    filter: false
+  source_script: exp/benchmark/run_midterm_c3_bm25_input_idf_ablation.py
+  result_path: exp/results/midterm_c3_bm25_input_idf_ablation
+- id: BMIDF_H3
+  label: H3 — Stopword/high-frequency template filter
+  group: G7
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    bm25_query: P2
+    bm25_page: Summary+Keywords
+    idf_scope: visible_pages
+    filter: true
+  source_script: exp/benchmark/run_midterm_c3_bm25_input_idf_ablation.py
+  result_path: exp/results/midterm_c3_bm25_input_idf_ablation
+- id: BMIDF_H4
+  label: H4 — Dense Top60 Local-IDF BM25
+  group: G7
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    bm25_query: P2
+    bm25_page: Summary+Keywords
+    idf_scope: dense_top60
+    filter: false
+  source_script: exp/benchmark/run_midterm_c3_bm25_input_idf_ablation.py
+  result_path: exp/results/midterm_c3_bm25_input_idf_ablation
+- id: BMIDF_H5
+  label: H5 — Combined
+  group: G7
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    bm25_query: Original
+    bm25_page: Keywords Only
+    idf_scope: dense_top60
+    filter: true
+  source_script: exp/benchmark/run_midterm_c3_bm25_input_idf_ablation.py
+  result_path: exp/results/midterm_c3_bm25_input_idf_ablation
+- id: H_BM25_WEIGHT
+  label: C3 Cached BM25 Fusion Weight Sweep
+  group: G7
+  kind: hub
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  source_script: exp/benchmark/run_midterm_c3_bm25_fusion_weight_ablation.py
+  result_path: exp/results/midterm_c3_bm25_fusion_weight_ablation
+- id: BMW_H5_W50
+  label: H5-W50
+  group: G7
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    bm25_source: H5
+    dense_weight: 0.5
+    bm25_weight: 0.5
+    zero_fallback: false
+  source_script: exp/benchmark/run_midterm_c3_bm25_fusion_weight_ablation.py
+  result_path: exp/results/midterm_c3_bm25_fusion_weight_ablation
+- id: BMW_H5_W60
+  label: H5-W60
+  group: G7
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    bm25_source: H5
+    dense_weight: 0.6
+    bm25_weight: 0.4
+    zero_fallback: false
+  source_script: exp/benchmark/run_midterm_c3_bm25_fusion_weight_ablation.py
+  result_path: exp/results/midterm_c3_bm25_fusion_weight_ablation
+- id: BMW_H5_W70
+  label: H5-W70
+  group: G7
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    bm25_source: H5
+    dense_weight: 0.7
+    bm25_weight: 0.3
+    zero_fallback: false
+  source_script: exp/benchmark/run_midterm_c3_bm25_fusion_weight_ablation.py
+  result_path: exp/results/midterm_c3_bm25_fusion_weight_ablation
+- id: BMW_H5_W80
+  label: H5-W80
+  group: G7
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    bm25_source: H5
+    dense_weight: 0.8
+    bm25_weight: 0.2
+    zero_fallback: false
+  source_script: exp/benchmark/run_midterm_c3_bm25_fusion_weight_ablation.py
+  result_path: exp/results/midterm_c3_bm25_fusion_weight_ablation
+- id: BMW_H5_W90
+  label: H5-W90
+  group: G7
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    bm25_source: H5
+    dense_weight: 0.9
+    bm25_weight: 0.1
+    zero_fallback: false
+  source_script: exp/benchmark/run_midterm_c3_bm25_fusion_weight_ablation.py
+  result_path: exp/results/midterm_c3_bm25_fusion_weight_ablation
+- id: BMW_H5_W95
+  label: H5-W95
+  group: G7
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    bm25_source: H5
+    dense_weight: 0.95
+    bm25_weight: 0.05
+    zero_fallback: false
+  source_script: exp/benchmark/run_midterm_c3_bm25_fusion_weight_ablation.py
+  result_path: exp/results/midterm_c3_bm25_fusion_weight_ablation
+- id: BMW_H5_W100
+  label: H5-W100
+  group: G7
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    bm25_source: H5
+    dense_weight: 1.0
+    bm25_weight: 0.0
+    zero_fallback: false
+  source_script: exp/benchmark/run_midterm_c3_bm25_fusion_weight_ablation.py
+  result_path: exp/results/midterm_c3_bm25_fusion_weight_ablation
+- id: BMW_H1_W80
+  label: H1-W80
+  group: G7
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    bm25_source: H1
+    dense_weight: 0.8
+    bm25_weight: 0.2
+    zero_fallback: false
+  source_script: exp/benchmark/run_midterm_c3_bm25_fusion_weight_ablation.py
+  result_path: exp/results/midterm_c3_bm25_fusion_weight_ablation
+- id: BMW_H1_W90
+  label: H1-W90
+  group: G7
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    bm25_source: H1
+    dense_weight: 0.9
+    bm25_weight: 0.1
+    zero_fallback: false
+  source_script: exp/benchmark/run_midterm_c3_bm25_fusion_weight_ablation.py
+  result_path: exp/results/midterm_c3_bm25_fusion_weight_ablation
+- id: BMW_H1_W95
+  label: H1-W95
+  group: G7
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    bm25_source: H1
+    dense_weight: 0.95
+    bm25_weight: 0.05
+    zero_fallback: false
+  source_script: exp/benchmark/run_midterm_c3_bm25_fusion_weight_ablation.py
+  result_path: exp/results/midterm_c3_bm25_fusion_weight_ablation
+- id: BMW_H5_W90_ZeroFallback
+  label: H5-W90-ZeroFallback
+  group: G7
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    bm25_source: H5
+    dense_weight: 0.9
+    bm25_weight: 0.1
+    zero_fallback: true
+  source_script: exp/benchmark/run_midterm_c3_bm25_fusion_weight_ablation.py
+  result_path: exp/results/midterm_c3_bm25_fusion_weight_ablation
+- id: H_FIELD_AWARE
+  label: Field-aware Multi-vector
+  group: G8
+  kind: hub
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  source_script: exp/benchmark/run_midterm_field_aware_multi_vector_retrieval.py
+  result_path: exp/results/midterm_field_aware_multi_vector_retrieval/experiment_report.md
+- id: FIELD_TFR_442
+  label: 0.4 Task + 0.4 Fact + 0.2 Relation
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: degraded
+  config:
+    task_weight: 0.4
+    fact_weight: 0.4
+    relation_weight: 0.2
+  metrics:
+    eligible_gold: 154
+    gold_at_5: 52/154
+    r5: 0.3377
+    r10: 0.5584
+    r20: 0.7662
+    mrr: 0.3097
+  source_script: exp/benchmark/run_midterm_field_aware_multi_vector_retrieval.py
+  result_path: exp/results/midterm_field_aware_multi_vector_retrieval/experiment_report.md
+- id: H_RERANK_INPUT_DIAG
+  label: Reranker Input × Candidate Pool Diagnosis
+  group: G8
+  kind: hub
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R0_P8_CURRENT_C0_DENSE20
+  label: R0_P8_CURRENT × C0_DENSE20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R0_P8_CURRENT
+    input_description: summary→keywords auto
+    candidate_strategy: dense
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R0_P8_CURRENT_C1_BM25_20
+  label: R0_P8_CURRENT × C1_BM25_20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R0_P8_CURRENT
+    input_description: summary→keywords auto
+    candidate_strategy: bm25
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R0_P8_CURRENT_C2_RRF60_20
+  label: R0_P8_CURRENT × C2_RRF60_20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R0_P8_CURRENT
+    input_description: summary→keywords auto
+    candidate_strategy: rrf
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R0_P8_CURRENT_C3_FIXED_UNION20
+  label: R0_P8_CURRENT × C3_FIXED_UNION20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R0_P8_CURRENT
+    input_description: summary→keywords auto
+    candidate_strategy: fixed_union
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R0_P8_CURRENT_C4_UNION15X15
+  label: R0_P8_CURRENT × C4_UNION15X15
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R0_P8_CURRENT
+    input_description: summary→keywords auto
+    candidate_strategy: expanded_union
+    candidate_k: 15
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R0_P8_CURRENT_C5_UNION20X20
+  label: R0_P8_CURRENT × C5_UNION20X20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R0_P8_CURRENT
+    input_description: summary→keywords auto
+    candidate_strategy: expanded_union
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R1_KEYWORDS_FIRST_C0_DENSE20
+  label: R1_KEYWORDS_FIRST × C0_DENSE20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R1_KEYWORDS_FIRST
+    input_description: keywords→summary auto
+    candidate_strategy: dense
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R1_KEYWORDS_FIRST_C1_BM25_20
+  label: R1_KEYWORDS_FIRST × C1_BM25_20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R1_KEYWORDS_FIRST
+    input_description: keywords→summary auto
+    candidate_strategy: bm25
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R1_KEYWORDS_FIRST_C2_RRF60_20
+  label: R1_KEYWORDS_FIRST × C2_RRF60_20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R1_KEYWORDS_FIRST
+    input_description: keywords→summary auto
+    candidate_strategy: rrf
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R1_KEYWORDS_FIRST_C3_FIXED_UNION20
+  label: R1_KEYWORDS_FIRST × C3_FIXED_UNION20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R1_KEYWORDS_FIRST
+    input_description: keywords→summary auto
+    candidate_strategy: fixed_union
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R1_KEYWORDS_FIRST_C4_UNION15X15
+  label: R1_KEYWORDS_FIRST × C4_UNION15X15
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R1_KEYWORDS_FIRST
+    input_description: keywords→summary auto
+    candidate_strategy: expanded_union
+    candidate_k: 15
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R1_KEYWORDS_FIRST_C5_UNION20X20
+  label: R1_KEYWORDS_FIRST × C5_UNION20X20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R1_KEYWORDS_FIRST
+    input_description: keywords→summary auto
+    candidate_strategy: expanded_union
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R2_PACK_A_C0_DENSE20
+  label: R2_PACK_A × C0_DENSE20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R2_PACK_A
+    input_description: user→keywords→summary budgeted
+    candidate_strategy: dense
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R2_PACK_A_C1_BM25_20
+  label: R2_PACK_A × C1_BM25_20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R2_PACK_A
+    input_description: user→keywords→summary budgeted
+    candidate_strategy: bm25
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R2_PACK_A_C2_RRF60_20
+  label: R2_PACK_A × C2_RRF60_20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R2_PACK_A
+    input_description: user→keywords→summary budgeted
+    candidate_strategy: rrf
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R2_PACK_A_C3_FIXED_UNION20
+  label: R2_PACK_A × C3_FIXED_UNION20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R2_PACK_A
+    input_description: user→keywords→summary budgeted
+    candidate_strategy: fixed_union
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R2_PACK_A_C4_UNION15X15
+  label: R2_PACK_A × C4_UNION15X15
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R2_PACK_A
+    input_description: user→keywords→summary budgeted
+    candidate_strategy: expanded_union
+    candidate_k: 15
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R2_PACK_A_C5_UNION20X20
+  label: R2_PACK_A × C5_UNION20X20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R2_PACK_A
+    input_description: user→keywords→summary budgeted
+    candidate_strategy: expanded_union
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R3_USER_SUMMARY_C0_DENSE20
+  label: R3_USER_SUMMARY × C0_DENSE20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R3_USER_SUMMARY
+    input_description: user→summary budgeted
+    candidate_strategy: dense
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R3_USER_SUMMARY_C1_BM25_20
+  label: R3_USER_SUMMARY × C1_BM25_20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R3_USER_SUMMARY
+    input_description: user→summary budgeted
+    candidate_strategy: bm25
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R3_USER_SUMMARY_C2_RRF60_20
+  label: R3_USER_SUMMARY × C2_RRF60_20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R3_USER_SUMMARY
+    input_description: user→summary budgeted
+    candidate_strategy: rrf
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R3_USER_SUMMARY_C3_FIXED_UNION20
+  label: R3_USER_SUMMARY × C3_FIXED_UNION20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R3_USER_SUMMARY
+    input_description: user→summary budgeted
+    candidate_strategy: fixed_union
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R3_USER_SUMMARY_C4_UNION15X15
+  label: R3_USER_SUMMARY × C4_UNION15X15
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R3_USER_SUMMARY
+    input_description: user→summary budgeted
+    candidate_strategy: expanded_union
+    candidate_k: 15
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R3_USER_SUMMARY_C5_UNION20X20
+  label: R3_USER_SUMMARY × C5_UNION20X20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R3_USER_SUMMARY
+    input_description: user→summary budgeted
+    candidate_strategy: expanded_union
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R4_PACK_B_C0_DENSE20
+  label: R4_PACK_B × C0_DENSE20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R4_PACK_B
+    input_description: keywords→user→summary budgeted
+    candidate_strategy: dense
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R4_PACK_B_C1_BM25_20
+  label: R4_PACK_B × C1_BM25_20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R4_PACK_B
+    input_description: keywords→user→summary budgeted
+    candidate_strategy: bm25
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R4_PACK_B_C2_RRF60_20
+  label: R4_PACK_B × C2_RRF60_20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R4_PACK_B
+    input_description: keywords→user→summary budgeted
+    candidate_strategy: rrf
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R4_PACK_B_C3_FIXED_UNION20
+  label: R4_PACK_B × C3_FIXED_UNION20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R4_PACK_B
+    input_description: keywords→user→summary budgeted
+    candidate_strategy: fixed_union
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R4_PACK_B_C4_UNION15X15
+  label: R4_PACK_B × C4_UNION15X15
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R4_PACK_B
+    input_description: keywords→user→summary budgeted
+    candidate_strategy: expanded_union
+    candidate_k: 15
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_R4_PACK_B_C5_UNION20X20
+  label: R4_PACK_B × C5_UNION20X20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: R4_PACK_B
+    input_description: keywords→user→summary budgeted
+    candidate_strategy: expanded_union
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_PACK_C_BALANCED_C0_DENSE20
+  label: PACK_C_BALANCED × C0_DENSE20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: PACK_C_BALANCED
+    input_description: balanced user/keywords/summary caps
+    candidate_strategy: dense
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_PACK_C_BALANCED_C1_BM25_20
+  label: PACK_C_BALANCED × C1_BM25_20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: PACK_C_BALANCED
+    input_description: balanced user/keywords/summary caps
+    candidate_strategy: bm25
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_PACK_C_BALANCED_C2_RRF60_20
+  label: PACK_C_BALANCED × C2_RRF60_20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: PACK_C_BALANCED
+    input_description: balanced user/keywords/summary caps
+    candidate_strategy: rrf
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_PACK_C_BALANCED_C3_FIXED_UNION20
+  label: PACK_C_BALANCED × C3_FIXED_UNION20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: PACK_C_BALANCED
+    input_description: balanced user/keywords/summary caps
+    candidate_strategy: fixed_union
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_PACK_C_BALANCED_C4_UNION15X15
+  label: PACK_C_BALANCED × C4_UNION15X15
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: PACK_C_BALANCED
+    input_description: balanced user/keywords/summary caps
+    candidate_strategy: expanded_union
+    candidate_k: 15
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_PACK_C_BALANCED_C5_UNION20X20
+  label: PACK_C_BALANCED × C5_UNION20X20
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker_input: PACK_C_BALANCED
+    input_description: balanced user/keywords/summary caps
+    candidate_strategy: expanded_union
+    candidate_k: 20
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: RDIAG_NEW_RERANKER
+  label: BAAI/bge-reranker-v2-m3 trial
+  group: G8
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    reranker: BAAI/bge-reranker-v2-m3
+  source_script: exp/benchmark/run_midterm_reranker_input_diagnosis.py
+  result_path: exp/results/midterm_reranker_input_diagnosis_no_thinking
+- id: H_MULTI_SESSION_VALIDATION
+  label: Frozen S001 Chains → S002-S005 Held-out
+  group: G9
+  kind: hub
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  source_script: exp/benchmark/run_midterm_multi_session_validation.py
+  result_path: exp/results/midterm_multi_session_validation_no_thinking/validation_report.md
+- id: VAL_BASELINE
+  label: Baseline
+  group: G9
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: baseline
+  config:
+    candidate_representation: P0
+    retrieval: dense
+    candidate_k: 5
+    reranker: null
+  metrics:
+    heldout_micro_r5: 0.3233
+    heldout_macro_session_r5: 0.3376
+  source_script: exp/benchmark/run_midterm_multi_session_validation.py
+  result_path: exp/results/midterm_multi_session_validation_no_thinking/validation_report.md
+- id: VAL_QUALITY
+  label: Quality K20
+  group: G9
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: completed
+  config:
+    candidate_representation: P0
+    retrieval: dense+BM25 RRF60
+    candidate_k: 20
+    rerank_representation: P8
+    reranker: BAAI/bge-reranker-base
+    final: reranker_only
+  metrics:
+    heldout_micro_r5: 0.3308
+    heldout_macro_session_r5: 0.3342
+    delta_micro_pp: 0.75
+    warm_e2e_p95_ms: 1619.18
+  source_script: exp/benchmark/run_midterm_multi_session_validation.py
+  result_path: exp/results/midterm_multi_session_validation_no_thinking/validation_report.md
+- id: VAL_PARETO
+  label: Pareto K15 + Top2 protection
+  group: G9
+  kind: experiment
+  scope:
+  - S001
+  - S002
+  - S003
+  - S004
+  - S005
+  status: degraded
+  config:
+    candidate_representation: P0
+    retrieval: dense+BM25 RRF60
+    candidate_k: 15
+    rerank_representation: P8
+    reranker: BAAI/bge-reranker-base
+    final: candidate_top2_protection_then_reranker
+  metrics:
+    heldout_micro_r5: 0.3158
+    heldout_macro_session_r5: 0.3222
+    delta_micro_pp: -0.75
+    warm_e2e_p95_ms: 1256.66
+  source_script: exp/benchmark/run_midterm_multi_session_validation.py
+  result_path: exp/results/midterm_multi_session_validation_no_thinking/validation_report.md
+edges:
+- from: BASE_S001_PROD
+  to: H_S001_QUERY
+  type: branch
+- from: H_S001_QUERY
+  to: S001_QUERY_Q0
+  type: ablation
+- from: H_S001_QUERY
+  to: S001_QUERY_Q1
+  type: ablation
+- from: H_S001_QUERY
+  to: S001_QUERY_Q2
+  type: ablation
+- from: H_S001_QUERY
+  to: S001_QUERY_Q3
+  type: ablation
+- from: H_S001_QUERY
+  to: S001_QUERY_Q4
+  type: ablation
+- from: H_S001_QUERY
+  to: S001_QUERY_Q5
+  type: ablation
+- from: H_S001_QUERY
+  to: S001_QUERY_Q6
+  type: ablation
+- from: H_S001_QUERY
+  to: S001_QUERY_QO
+  type: ablation
+- from: BASE_S001_PROD
+  to: H_S001_PAGE
+  type: branch
+- from: H_S001_PAGE
+  to: S001_PAGE_P0
+  type: ablation
+- from: H_S001_PAGE
+  to: S001_PAGE_P1
+  type: ablation
+- from: H_S001_PAGE
+  to: S001_PAGE_P2
+  type: ablation
+- from: H_S001_PAGE
+  to: S001_PAGE_P3
+  type: ablation
+- from: H_S001_PAGE
+  to: S001_PAGE_P4
+  type: ablation
+- from: H_S001_PAGE
+  to: S001_PAGE_P5
+  type: ablation
+- from: H_S001_PAGE
+  to: S001_PAGE_P6
+  type: ablation
+- from: H_S001_PAGE
+  to: S001_PAGE_P7
+  type: ablation
+- from: H_S001_PAGE
+  to: S001_PAGE_P8
+  type: ablation
+- from: BASE_S001_PROD
+  to: H_S001_QUERY_PAGE
+  type: branch
+- from: H_S001_QUERY_PAGE
+  to: S001_QP_Q5_P8
+  type: grid
+- from: H_S001_QUERY_PAGE
+  to: S001_QP_Q5_P0
+  type: grid
+- from: H_S001_QUERY_PAGE
+  to: S001_QP_Q0_P8
+  type: grid
+- from: H_S001_QUERY_PAGE
+  to: S001_QP_Q0_P0
+  type: grid
+- from: BASE_S001_PROD
+  to: H_S001_CANDIDATE_DEPTH
+  type: branch
+- from: H_S001_CANDIDATE_DEPTH
+  to: S001_CAND_K_5
+  type: ablation
+- from: H_S001_CANDIDATE_DEPTH
+  to: S001_CAND_K_10
+  type: ablation
+- from: H_S001_CANDIDATE_DEPTH
+  to: S001_CAND_K_15
+  type: ablation
+- from: H_S001_CANDIDATE_DEPTH
+  to: S001_CAND_K_20
+  type: ablation
+- from: H_S001_CANDIDATE_DEPTH
+  to: S001_CAND_K_30
+  type: ablation
+- from: H_S001_CANDIDATE_DEPTH
+  to: S001_CAND_K_ALL_AVAILABLE
+  type: ablation
+- from: BASE_S001_PROD
+  to: H_S001_EMBED_GRID
+  type: branch
+- from: H_S001_EMBED_GRID
+  to: H_S001_E0
+  type: branch
+- from: H_S001_E0
+  to: S001_EMB_E0_Q5_P8
+  type: grid
+- from: H_S001_E0
+  to: S001_EMB_E0_Q5_P0
+  type: grid
+- from: H_S001_E0
+  to: S001_EMB_E0_Q0_P8
+  type: grid
+- from: H_S001_E0
+  to: S001_EMB_E0_Q0_P0
+  type: grid
+- from: H_S001_EMBED_GRID
+  to: H_S001_E1
+  type: branch
+- from: H_S001_E1
+  to: S001_EMB_E1_Q5_P8
+  type: grid
+- from: H_S001_E1
+  to: S001_EMB_E1_Q5_P0
+  type: grid
+- from: H_S001_E1
+  to: S001_EMB_E1_Q0_P8
+  type: grid
+- from: H_S001_E1
+  to: S001_EMB_E1_Q0_P0
+  type: grid
+- from: H_S001_EMBED_GRID
+  to: H_S001_E2
+  type: branch
+- from: H_S001_E2
+  to: S001_EMB_E2_Q5_P8
+  type: grid
+- from: H_S001_E2
+  to: S001_EMB_E2_Q5_P0
+  type: grid
+- from: H_S001_E2
+  to: S001_EMB_E2_Q0_P8
+  type: grid
+- from: H_S001_E2
+  to: S001_EMB_E2_Q0_P0
+  type: grid
+- from: H_S001_EMBED_GRID
+  to: H_S001_E3
+  type: branch
+- from: H_S001_E3
+  to: S001_EMB_E3_Q5_P8
+  type: grid
+- from: H_S001_E3
+  to: S001_EMB_E3_Q5_P0
+  type: grid
+- from: H_S001_E3
+  to: S001_EMB_E3_Q0_P8
+  type: grid
+- from: H_S001_E3
+  to: S001_EMB_E3_Q0_P0
+  type: grid
+- from: BASE_S001_PROD
+  to: H_S001_HYBRID
+  type: branch
+- from: H_S001_HYBRID
+  to: S001_HYB_H0_dense_front
+  type: grid
+- from: H_S001_HYBRID
+  to: S001_HYB_H0_dense_hybrid_only
+  type: grid
+- from: H_S001_HYBRID
+  to: S001_HYB_H1_bm25_front
+  type: grid
+- from: H_S001_HYBRID
+  to: S001_HYB_H1_bm25_hybrid_only
+  type: grid
+- from: H_S001_HYBRID
+  to: S001_HYB_H2_rrf_front
+  type: grid
+- from: H_S001_HYBRID
+  to: S001_HYB_H2_rrf_hybrid_only
+  type: grid
+- from: H_S001_HYBRID
+  to: S001_HYB_H3_dense_0.8_bm25_0.2_front
+  type: grid
+- from: H_S001_HYBRID
+  to: S001_HYB_H3_dense_0.8_bm25_0.2_hybrid_only
+  type: grid
+- from: H_S001_HYBRID
+  to: S001_HYB_H4_dense_0.6_bm25_0.4_front
+  type: grid
+- from: H_S001_HYBRID
+  to: S001_HYB_H4_dense_0.6_bm25_0.4_hybrid_only
+  type: grid
+- from: BASE_S001_PROD
+  to: H_S001_RERANK_FIRST
+  type: branch
+- from: H_S001_RERANK_FIRST
+  to: S001_RERANK_R0
+  type: ablation
+- from: H_S001_RERANK_FIRST
+  to: S001_RERANK_R1
+  type: ablation
+- from: H_S001_RERANK_FIRST
+  to: S001_RERANK_R2
+  type: ablation
+- from: BASE_S001_PROD
+  to: H_S001_COMBINATIONS
+  type: branch
+- from: H_S001_COMBINATIONS
+  to: S001_COMBO_C0
+  type: combination
+- from: H_S001_COMBINATIONS
+  to: S001_COMBO_C1
+  type: combination
+- from: H_S001_COMBINATIONS
+  to: S001_COMBO_C2
+  type: combination
+- from: H_S001_COMBINATIONS
+  to: S001_COMBO_C3
+  type: combination
+- from: H_S001_COMBINATIONS
+  to: S001_COMBO_C4
+  type: combination
+- from: H_S001_COMBINATIONS
+  to: S001_COMBO_C5
+  type: combination
+- from: H_S001_COMBINATIONS
+  to: S001_COMBO_C6
+  type: combination
+- from: S001_COMBO_C4
+  to: H_S001_RERANK_TUNING
+  type: branch
+- from: H_S001_RERANK_TUNING
+  to: S001_S2_CAND_DENSE
+  type: candidate_source
+- from: H_S001_RERANK_TUNING
+  to: S001_S2_CAND_BM25
+  type: candidate_source
+- from: H_S001_RERANK_TUNING
+  to: S001_S2_CAND_UNION_FIXED
+  type: candidate_source
+- from: H_S001_RERANK_TUNING
+  to: S001_S2_CAND_RRF60
+  type: candidate_source
+- from: H_S001_RERANK_TUNING
+  to: S001_S2_CAND_WEIGHTED_DENSE_0.8
+  type: candidate_source
+- from: H_S001_RERANK_TUNING
+  to: S001_S2_CAND_WEIGHTED_DENSE_0.6
+  type: candidate_source
+- from: H_S001_RERANK_TUNING
+  to: S001_S2_CAND_UNION_EXPANDED
+  type: candidate_source
+- from: H_S001_RERANK_TUNING
+  to: S001_S2_LOCAL_K10
+  type: candidate_k
+- from: H_S001_RERANK_TUNING
+  to: S001_S2_LOCAL_K15
+  type: candidate_k
+- from: H_S001_RERANK_TUNING
+  to: S001_S2_LOCAL_K20
+  type: candidate_k
+- from: H_S001_RERANK_TUNING
+  to: S001_S2_LOCAL_K30
+  type: candidate_k
+- from: H_S001_RERANK_TUNING
+  to: S001_S2_LOCAL_REP_P0
+  type: representation
+- from: H_S001_RERANK_TUNING
+  to: S001_S2_LOCAL_REP_P1
+  type: representation
+- from: H_S001_RERANK_TUNING
+  to: S001_S2_LOCAL_REP_P8
+  type: representation
+- from: H_S001_RERANK_TUNING
+  to: S001_S2_LLM_REP_P0
+  type: representation
+- from: H_S001_RERANK_TUNING
+  to: S001_S2_LLM_REP_P1
+  type: representation
+- from: H_S001_RERANK_TUNING
+  to: S001_S2_LLM_REP_P8
+  type: representation
+- from: H_S001_RERANK_TUNING
+  to: S001_S2_LLM_K10
+  type: candidate_k
+- from: H_S001_RERANK_TUNING
+  to: S001_S2_LLM_K15
+  type: candidate_k
+- from: H_S001_RERANK_TUNING
+  to: S001_S2_LLM_K20
+  type: candidate_k
+- from: H_S001_RERANK_TUNING
+  to: S001_S2_LLM_K30
+  type: candidate_k
+- from: H_S001_RERANK_TUNING
+  to: S001_S2_RERANK_LARGE
+  type: model_ablation
+- from: H_S001_RERANK_TUNING
+  to: S001_S2_LQ0
+  type: query_ablation
+- from: H_S001_RERANK_TUNING
+  to: S001_S2_LQ1
+  type: query_ablation
+- from: H_S001_RERANK_TUNING
+  to: S001_S2_LQ2
+  type: query_ablation
+- from: H_S001_RERANK_TUNING
+  to: S001_S2_LQ4
+  type: query_ablation
+- from: H_S001_RERANK_TUNING
+  to: S001_S2_LQ4_BEST_QUALITY
+  type: query_ablation
+- from: S001_S2_LOCAL_K20
+  to: H_S001_RANK_FUSION
+  type: branch
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K15_RF0_reranker_only
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K15_RF1_equal_rrf_c20
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K15_RF1_equal_rrf_c60
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K15_RF1_equal_rrf_c100
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K15_RF2_reranker_weight_1p5
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K15_RF2_reranker_weight_2
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K15_RF2_reranker_weight_3
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K15_RF2_reranker_weight_4
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K15_RF3_candidate_weight_1p5
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K15_RF3_candidate_weight_2
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K15_SF0_candidate_0p2_reranker_0p8
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K15_SF1_candidate_0p3_reranker_0p7
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K15_SF2_candidate_0p4_reranker_0p6
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K15_SF3_candidate_0p5_reranker_0p5
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K15_PR1_candidate_top2_protection
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K15_PR1_candidate_top3_protection
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K20_RF0_reranker_only
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K20_RF1_equal_rrf_c20
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K20_RF1_equal_rrf_c60
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K20_RF1_equal_rrf_c100
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K20_RF2_reranker_weight_1p5
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K20_RF2_reranker_weight_2
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K20_RF2_reranker_weight_3
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K20_RF2_reranker_weight_4
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K20_RF3_candidate_weight_1p5
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K20_RF3_candidate_weight_2
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K20_SF0_candidate_0p2_reranker_0p8
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K20_SF1_candidate_0p3_reranker_0p7
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K20_SF2_candidate_0p4_reranker_0p6
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K20_SF3_candidate_0p5_reranker_0p5
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K20_PR1_candidate_top2_protection
+  type: fusion
+- from: H_S001_RANK_FUSION
+  to: S001_RF_K20_PR1_candidate_top3_protection
+  type: fusion
+- from: BASE_S001_PROD
+  to: H_QUERY_CROSS_SESSION
+  type: branch
+- from: H_QUERY_CROSS_SESSION
+  to: QX_Q5_CROSS
+  type: transfer
+- from: QX_Q5_CROSS
+  to: H_QUERY_CLEAN_REPLACEMENT
+  type: branch
+- from: H_QUERY_CLEAN_REPLACEMENT
+  to: QCLEAN_BASE
+  type: ablation
+- from: H_QUERY_CLEAN_REPLACEMENT
+  to: QCLEAN_OLD_REWRITE
+  type: ablation
+- from: H_QUERY_CLEAN_REPLACEMENT
+  to: QCLEAN_REF_ONLY
+  type: ablation
+- from: QCLEAN_REF_ONLY
+  to: H_REF_PROMPTS
+  type: branch
+- from: H_REF_PROMPTS
+  to: REF_P0
+  type: prompt_ablation
+- from: H_REF_PROMPTS
+  to: REF_P1
+  type: prompt_ablation
+- from: H_REF_PROMPTS
+  to: REF_P2
+  type: prompt_ablation
+- from: H_REF_PROMPTS
+  to: REF_P3
+  type: prompt_ablation
+- from: H_REF_PROMPTS
+  to: REF_P4
+  type: prompt_ablation
+- from: REF_P2
+  to: DIAG_REF_QUERY
+  type: diagnosis
+- from: REF_P2
+  to: H_ADD_SEARCH_CROSS
+  type: branch
+- from: H_ADD_SEARCH_CROSS
+  to: ADDSEARCH_OLD_BASE
+  type: grid
+- from: H_ADD_SEARCH_CROSS
+  to: ADDSEARCH_OLD_P2
+  type: grid
+- from: H_ADD_SEARCH_CROSS
+  to: ADDSEARCH_NEW_BASE
+  type: grid
+- from: H_ADD_SEARCH_CROSS
+  to: ADDSEARCH_NEW_P2
+  type: grid
+- from: ADDSEARCH_OLD_P2
+  to: H_ADD_PROMPT_MULTI
+  type: branch
+- from: H_ADD_PROMPT_MULTI
+  to: ADDMULTI_Old_Baseline
+  type: grid
+- from: H_ADD_PROMPT_MULTI
+  to: ADDMULTI_Old_P2
+  type: grid
+- from: H_ADD_PROMPT_MULTI
+  to: ADDMULTI_A1_Baseline
+  type: grid
+- from: H_ADD_PROMPT_MULTI
+  to: ADDMULTI_A1_P2
+  type: grid
+- from: H_ADD_PROMPT_MULTI
+  to: ADDMULTI_A2_Baseline
+  type: grid
+- from: H_ADD_PROMPT_MULTI
+  to: ADDMULTI_A2_P2
+  type: grid
+- from: H_ADD_PROMPT_MULTI
+  to: ADDMULTI_A3_Baseline
+  type: grid
+- from: H_ADD_PROMPT_MULTI
+  to: ADDMULTI_A3_P2
+  type: grid
+- from: ADDMULTI_Old_P2
+  to: H_ADD_CONSERVATIVE_CAND
+  type: branch
+- from: H_ADD_CONSERVATIVE_CAND
+  to: ADDCAND_Old_Baseline
+  type: grid
+- from: H_ADD_CONSERVATIVE_CAND
+  to: ADDCAND_Old_P2
+  type: grid
+- from: H_ADD_CONSERVATIVE_CAND
+  to: ADDCAND_A1_Baseline
+  type: grid
+- from: H_ADD_CONSERVATIVE_CAND
+  to: ADDCAND_A1_P2
+  type: grid
+- from: H_ADD_CONSERVATIVE_CAND
+  to: ADDCAND_A2_Baseline
+  type: grid
+- from: H_ADD_CONSERVATIVE_CAND
+  to: ADDCAND_A2_P2
+  type: grid
+- from: H_ADD_CONSERVATIVE_CAND
+  to: ADDCAND_A3_Baseline
+  type: grid
+- from: H_ADD_CONSERVATIVE_CAND
+  to: ADDCAND_A3_P2
+  type: grid
+- from: ADDCAND_Old_P2
+  to: H_ADD_CONSERVATIVE_TUNED
+  type: branch
+- from: H_ADD_CONSERVATIVE_TUNED
+  to: ADDTUNED_Production_OriginalQuery
+  type: grid
+- from: H_ADD_CONSERVATIVE_TUNED
+  to: ADDTUNED_Production_ResolvedQuery
+  type: grid
+- from: H_ADD_CONSERVATIVE_TUNED
+  to: ADDTUNED_ConservativeTuned_OriginalQuery
+  type: grid
+- from: H_ADD_CONSERVATIVE_TUNED
+  to: ADDTUNED_ConservativeTuned_ResolvedQuery
+  type: grid
+- from: REF_P2
+  to: H_LOCAL_CONTEXT
+  type: branch
+- from: H_LOCAL_CONTEXT
+  to: CTX_PROD
+  type: context_ablation
+- from: H_LOCAL_CONTEXT
+  to: CTX_PREV
+  type: context_ablation
+- from: H_LOCAL_CONTEXT
+  to: CTX_PREV_FOLLOW
+  type: context_ablation
+- from: CTX_PREV_FOLLOW
+  to: H_CONTEXT_PROMPT_CAND
+  type: branch
+- from: H_CONTEXT_PROMPT_CAND
+  to: CTXP_PROD_REF
+  type: prompt_ablation
+- from: H_CONTEXT_PROMPT_CAND
+  to: CTXP_CURRENT
+  type: prompt_ablation
+- from: H_CONTEXT_PROMPT_CAND
+  to: CTXP_C1
+  type: prompt_ablation
+- from: H_CONTEXT_PROMPT_CAND
+  to: CTXP_C2
+  type: prompt_ablation
+- from: H_CONTEXT_PROMPT_CAND
+  to: CTXP_C3
+  type: prompt_ablation
+- from: CTXP_CURRENT
+  to: H_PAGE_DECOMP
+  type: branch
+- from: H_PAGE_DECOMP
+  to: PAGEDEC_E0_Baseline
+  type: grid
+- from: H_PAGE_DECOMP
+  to: PAGEDEC_E0_P2
+  type: grid
+- from: H_PAGE_DECOMP
+  to: PAGEDEC_E1_Baseline
+  type: grid
+- from: H_PAGE_DECOMP
+  to: PAGEDEC_E1_P2
+  type: grid
+- from: H_PAGE_DECOMP
+  to: PAGEDEC_E2_Baseline
+  type: grid
+- from: H_PAGE_DECOMP
+  to: PAGEDEC_E2_P2
+  type: grid
+- from: H_PAGE_DECOMP
+  to: PAGEDEC_E3_Baseline
+  type: grid
+- from: H_PAGE_DECOMP
+  to: PAGEDEC_E3_P2
+  type: grid
+- from: H_PAGE_DECOMP
+  to: PAGEDEC_E4_Baseline
+  type: grid
+- from: H_PAGE_DECOMP
+  to: PAGEDEC_E4_P2
+  type: grid
+- from: H_PAGE_DECOMP
+  to: PAGEDEC_E5_Baseline
+  type: grid
+- from: H_PAGE_DECOMP
+  to: PAGEDEC_E5_P2
+  type: grid
+- from: H_PAGE_DECOMP
+  to: PAGEDEC_E6_100_Baseline
+  type: grid
+- from: H_PAGE_DECOMP
+  to: PAGEDEC_E6_100_P2
+  type: grid
+- from: H_PAGE_DECOMP
+  to: PAGEDEC_E6_200_Baseline
+  type: grid
+- from: H_PAGE_DECOMP
+  to: PAGEDEC_E6_200_P2
+  type: grid
+- from: H_PAGE_DECOMP
+  to: PAGEDEC_E6_300_Baseline
+  type: grid
+- from: H_PAGE_DECOMP
+  to: PAGEDEC_E6_300_P2
+  type: grid
+- from: H_PAGE_DECOMP
+  to: PAGEDEC_E7_100_Baseline
+  type: grid
+- from: H_PAGE_DECOMP
+  to: PAGEDEC_E7_100_P2
+  type: grid
+- from: H_PAGE_DECOMP
+  to: PAGEDEC_E7_200_Baseline
+  type: grid
+- from: H_PAGE_DECOMP
+  to: PAGEDEC_E7_200_P2
+  type: grid
+- from: H_PAGE_DECOMP
+  to: PAGEDEC_E7_300_Baseline
+  type: grid
+- from: H_PAGE_DECOMP
+  to: PAGEDEC_E7_300_P2
+  type: grid
+- from: H_PAGE_DECOMP
+  to: DIAG_PAGE_REP
+  type: diagnosis
+- from: H_PAGE_DECOMP
+  to: DIAG_MIDTERM_PAGE
+  type: diagnosis
+- from: CTXP_CURRENT
+  to: H_EMBEDDING
+  type: branch
+- from: H_EMBEDDING
+  to: EMB_LEN_Small512
+  type: length_ablation
+- from: H_EMBEDDING
+  to: EMB_LEN_M3_512
+  type: length_ablation
+- from: H_EMBEDDING
+  to: EMB_LEN_M3_1024
+  type: length_ablation
+- from: H_EMBEDDING
+  to: EMB_LEN_M3_2048
+  type: length_ablation
+- from: H_EMBEDDING
+  to: EMB_MODEL_BGE_SMALL
+  type: model_ablation
+- from: H_EMBEDDING
+  to: EMB_MODEL_ACGE
+  type: model_ablation
+- from: H_EMBEDDING
+  to: EMB_MODEL_YOUTU
+  type: model_ablation
+- from: H_EMBEDDING
+  to: EMB_MODEL_CONAN
+  type: model_ablation
+- from: H_EMBEDDING
+  to: EMB_MODEL_QWEN3_4B
+  type: model_ablation
+- from: EMB_MODEL_BGE_SMALL
+  to: H_EMB_FIN_LIGHT
+  type: branch
+- from: H_EMB_FIN_LIGHT
+  to: EMB_FL_BGE_SMALL
+  type: model_ablation
+- from: H_EMB_FIN_LIGHT
+  to: EMB_FL_FIN
+  type: model_ablation
+- from: H_EMB_FIN_LIGHT
+  to: EMB_FL_E5
+  type: model_ablation
+- from: H_EMB_FIN_LIGHT
+  to: EMB_FL_GTE
+  type: model_ablation
+- from: H_EMB_FIN_LIGHT
+  to: EMB_FL_GEMMA
+  type: model_ablation
+- from: CTXP_CURRENT
+  to: H_BM25_CHECKPOINTS
+  type: branch
+- from: H_BM25_CHECKPOINTS
+  to: BMCP_C0_DENSE
+  type: checkpoint
+- from: H_BM25_CHECKPOINTS
+  to: BMCP_C0_BM25
+  type: checkpoint
+- from: H_BM25_CHECKPOINTS
+  to: BMCP_C0_HYBRID
+  type: checkpoint
+- from: H_BM25_CHECKPOINTS
+  to: BMCP_C1_DENSE
+  type: checkpoint
+- from: H_BM25_CHECKPOINTS
+  to: BMCP_C1_BM25
+  type: checkpoint
+- from: H_BM25_CHECKPOINTS
+  to: BMCP_C1_HYBRID
+  type: checkpoint
+- from: H_BM25_CHECKPOINTS
+  to: BMCP_C2_DENSE
+  type: checkpoint
+- from: H_BM25_CHECKPOINTS
+  to: BMCP_C2_BM25
+  type: checkpoint
+- from: H_BM25_CHECKPOINTS
+  to: BMCP_C2_HYBRID
+  type: checkpoint
+- from: H_BM25_CHECKPOINTS
+  to: BMCP_C3_DENSE
+  type: checkpoint
+- from: H_BM25_CHECKPOINTS
+  to: BMCP_C3_BM25
+  type: checkpoint
+- from: H_BM25_CHECKPOINTS
+  to: BMCP_C3_HYBRID
+  type: checkpoint
+- from: BMCP_C3_HYBRID
+  to: H_BM25_INPUT_IDF
+  type: branch
+- from: H_BM25_INPUT_IDF
+  to: BMIDF_H0
+  type: ablation
+- from: H_BM25_INPUT_IDF
+  to: BMIDF_H1
+  type: ablation
+- from: H_BM25_INPUT_IDF
+  to: BMIDF_H2
+  type: ablation
+- from: H_BM25_INPUT_IDF
+  to: BMIDF_H3
+  type: ablation
+- from: H_BM25_INPUT_IDF
+  to: BMIDF_H4
+  type: ablation
+- from: H_BM25_INPUT_IDF
+  to: BMIDF_H5
+  type: ablation
+- from: BMIDF_H5
+  to: H_BM25_WEIGHT
+  type: branch
+- from: H_BM25_WEIGHT
+  to: BMW_H5_W50
+  type: weight_ablation
+- from: H_BM25_WEIGHT
+  to: BMW_H5_W60
+  type: weight_ablation
+- from: H_BM25_WEIGHT
+  to: BMW_H5_W70
+  type: weight_ablation
+- from: H_BM25_WEIGHT
+  to: BMW_H5_W80
+  type: weight_ablation
+- from: H_BM25_WEIGHT
+  to: BMW_H5_W90
+  type: weight_ablation
+- from: H_BM25_WEIGHT
+  to: BMW_H5_W95
+  type: weight_ablation
+- from: H_BM25_WEIGHT
+  to: BMW_H5_W100
+  type: weight_ablation
+- from: H_BM25_WEIGHT
+  to: BMW_H1_W80
+  type: weight_ablation
+- from: H_BM25_WEIGHT
+  to: BMW_H1_W90
+  type: weight_ablation
+- from: H_BM25_WEIGHT
+  to: BMW_H1_W95
+  type: weight_ablation
+- from: H_BM25_WEIGHT
+  to: BMW_H5_W90_ZeroFallback
+  type: weight_ablation
+- from: CTXP_CURRENT
+  to: H_FIELD_AWARE
+  type: branch
+- from: H_FIELD_AWARE
+  to: FIELD_TFR_442
+  type: multi_vector
+- from: FIELD_TFR_442
+  to: H_RERANK_INPUT_DIAG
+  type: branch
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R0_P8_CURRENT_C0_DENSE20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R0_P8_CURRENT_C1_BM25_20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R0_P8_CURRENT_C2_RRF60_20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R0_P8_CURRENT_C3_FIXED_UNION20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R0_P8_CURRENT_C4_UNION15X15
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R0_P8_CURRENT_C5_UNION20X20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R1_KEYWORDS_FIRST_C0_DENSE20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R1_KEYWORDS_FIRST_C1_BM25_20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R1_KEYWORDS_FIRST_C2_RRF60_20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R1_KEYWORDS_FIRST_C3_FIXED_UNION20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R1_KEYWORDS_FIRST_C4_UNION15X15
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R1_KEYWORDS_FIRST_C5_UNION20X20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R2_PACK_A_C0_DENSE20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R2_PACK_A_C1_BM25_20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R2_PACK_A_C2_RRF60_20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R2_PACK_A_C3_FIXED_UNION20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R2_PACK_A_C4_UNION15X15
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R2_PACK_A_C5_UNION20X20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R3_USER_SUMMARY_C0_DENSE20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R3_USER_SUMMARY_C1_BM25_20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R3_USER_SUMMARY_C2_RRF60_20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R3_USER_SUMMARY_C3_FIXED_UNION20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R3_USER_SUMMARY_C4_UNION15X15
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R3_USER_SUMMARY_C5_UNION20X20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R4_PACK_B_C0_DENSE20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R4_PACK_B_C1_BM25_20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R4_PACK_B_C2_RRF60_20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R4_PACK_B_C3_FIXED_UNION20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R4_PACK_B_C4_UNION15X15
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_R4_PACK_B_C5_UNION20X20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_PACK_C_BALANCED_C0_DENSE20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_PACK_C_BALANCED_C1_BM25_20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_PACK_C_BALANCED_C2_RRF60_20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_PACK_C_BALANCED_C3_FIXED_UNION20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_PACK_C_BALANCED_C4_UNION15X15
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_PACK_C_BALANCED_C5_UNION20X20
+  type: grid
+- from: H_RERANK_INPUT_DIAG
+  to: RDIAG_NEW_RERANKER
+  type: model_ablation
+- from: S001_RF_K20_RF0_reranker_only
+  to: H_MULTI_SESSION_VALIDATION
+  type: branch
+- from: H_MULTI_SESSION_VALIDATION
+  to: VAL_BASELINE
+  type: heldout_validation
+- from: H_MULTI_SESSION_VALIDATION
+  to: VAL_QUALITY
+  type: heldout_validation
+- from: H_MULTI_SESSION_VALIDATION
+  to: VAL_PARETO
+  type: heldout_validation
+- from: BASE_S001_PROD
+  to: QX_Q5_CROSS
+  type: main_path
+  label: Q5 在 5 Session 上复验
+- from: QX_Q5_CROSS
+  to: QCLEAN_REF_ONLY
+  type: main_path
+  label: 从 standalone rewrite 转向保守引用解析
+- from: QCLEAN_REF_ONLY
+  to: REF_P2
+  type: main_path
+  label: P2 slot-bounded 成为 Reference Resolution 最优
+- from: REF_P2
+  to: CTX_PREV_FOLLOW
+  type: main_path
+  label: P2 + eviction-time 前后文 Add
+- from: CTX_PREV_FOLLOW
+  to: CTXP_CURRENT
+  type: main_path
+  label: 当前前后文 Prompt 保留为最佳
+- from: CTXP_CURRENT
+  to: EMB_FL_BGE_SMALL
+  type: main_path
+  label: 固定 C3 后做 Embedding 对照
+- from: CTXP_CURRENT
+  to: BMCP_C3_DENSE
+  type: main_path
+  label: 固定 C3 后做 Dense/BM25 对照
+- from: CTXP_CURRENT
+  to: FIELD_TFR_442
+  type: main_path
+  label: 固定 C3 后做 Field-aware
+- from: S001_S2_LOCAL_K20
+  to: H_S001_RANK_FUSION
+  type: main_path
+  label: 对 reranker-only 做融合/保护
+- from: S001_RF_K20_RF0_reranker_only
+  to: VAL_QUALITY
+  type: main_path
+  label: 冻结 S001 Quality 链到 held-out
+inventory:
+  confirmed_result_families:
+  - midterm_retrieval_experiments_no_thinking
+  - midterm_retrieval_experiments_no_thinking/rerank_tuning
+  - midterm_retrieval_experiments_no_thinking/rank_fusion_tuning
+  - query_rewrite_cross_session_diagnosis
+  - query_rewrite_clean_replacement_ablation
+  - reference_resolution_query_diagnosis
+  - reference_resolution_prompt_ablation
+  - reference_resolution_identity_only_ablation
+  - midterm_add_search_cross_ablation
+  - midterm_add_prompt_multi_ablation
+  - midterm_add_prompt_conservative_candidates_ablation
+  - midterm_add_conservative_retrieval_tuning_ablation
+  - midterm_add_local_context_ablation
+  - midterm_add_context_prompt_candidates
+  - midterm_page_representation_decomposition
+  - page_representation_diagnosis
+  - midterm_page_diagnosis
+  - midterm_bge_m3_length_ablation
+  - midterm_embedding_model_ablation
+  - midterm_financial_lightweight_embedding_ablation
+  - midterm_dense_bm25_hybrid_checkpoints
+  - midterm_c3_bm25_input_idf_ablation
+  - midterm_c3_bm25_fusion_weight_ablation
+  - midterm_field_aware_multi_vector_retrieval
+  - midterm_reranker_input_diagnosis_no_thinking
+  - midterm_multi_session_validation_no_thinking
+  other_exp_result_families_seen_but_not_expanded_into_main_graph:
+  - midterm_add_local_context_ablation/controls
+  - midterm_add_context_prompt_candidates/analysis
+  - midterm_add_prompt_multi_ablation/analysis
+  - manual_embedding_inspection artifacts
+  - cache/snapshot/latency/audit artifacts
+  not_found_on_current_branch_by_name_search:
+  - MaxSim-named experiment
+  - Historical Dependency reranker-named experiment
+  note: 上述 not_found 仅表示在当前 GitHub 分支中未以对应名称检索到；没有将其它实验强行映射成这些名称。
+rendering:
+  suggested_layout: left_to_right
+  main_path_edge_type: main_path
+  node_style_by_status:
+    baseline: neutral
+    best: accent_strong
+    improved: accent_light
+    completed: neutral
+    degraded: muted
+    blocked: dashed
+    diagnostic: outline
+    oracle: dotted
+  collapse_hubs_by_default:
+  - H_S001_EMBED_GRID
+  - H_S001_RANK_FUSION
+  - H_PAGE_DECOMP
+  - H_RERANK_INPUT_DIAG
