@@ -1,50 +1,50 @@
 ---
 name: memory-retrieval-tuner
-description: Automatically audit a memory benchmark, run production-faithful MidTerm retrieval tuning, validate generalization across sessions, and recommend a stable configuration. Use when changing datasets or tuning MidTerm memory retrieval. R@K is configurable; K defaults to 5.
+description: 自动审查记忆 Benchmark，基于生产一致的 MidTerm 检索链路进行调参，跨 Session 验证泛化能力，并推荐稳定配置。适用于数据集变更或 MidTerm 记忆检索调参场景。R@K 可配置，K 默认值为 5。
 ---
 
-# Memory Retrieval Tuner
+# 记忆检索自动调参器
 
-## Goal
+## 目标
 
-Automate the memory-retrieval tuning workflow after a dataset change:
+在数据集发生变化后，自动执行记忆检索调参流程：
 
-1. audit the benchmark before tuning;
-2. establish a reproducible production baseline;
-3. split by Session to separate tuning from validation;
-4. search cheap parameters first;
-5. use diagnostics to decide which expensive branch to run;
-6. validate the best candidates on held-out Sessions;
-7. return a stable recommended configuration, not merely the highest in-sample score.
+1. 调参前先审查 Benchmark；
+2. 建立可复现的生产 Baseline；
+3. 按 Session 划分 Tune 与 Validation；
+4. 优先搜索低成本参数；
+5. 根据诊断结果决定是否进入高成本搜索分支；
+6. 在 held-out Sessions 上验证最佳候选；
+7. 返回稳定、可泛化的推荐配置，而不是只选择样本内得分最高的配置。
 
-Do **not** encode any historical experiment result as a universal best setting. Treat prior results only as search priors.
+**不要**把任何历史实验结果写成普适最优配置。历史结果只能作为搜索先验。
 
-Read before running:
+运行前先阅读：
 
 - `references/search_strategy.md`
 - `references/experiment_lessons.md`
 - `search_space.yaml`
 
-## Inputs
+## 输入参数
 
-Required:
+必填：
 
-- `dataset`: benchmark dataset path.
+- `dataset`：Benchmark 数据集路径。
 
-Optional:
+可选：
 
-- `k`: recall cutoff used by the primary metric `R@K`. Default: `5`.
-- `budget`: `quick | standard | deep`. Default: `standard`.
-- `target`: currently only `midterm`. ShortTerm, LongTerm, and union metrics are final regression checks.
-- `sessions`: optional Session subset.
-- `seed`: split/search seed. Default comes from `search_space.yaml`.
-- `resume`: existing tuning run directory to resume.
-- `output_dir`: output root. Default: `exp/results/auto_tuning`.
-- `memory_config`: production-compatible Memory config used when a new source run is required. Default: `exp/benchmark/memory_config.json`.
-- `llm_mode`: `real | mock`. Default: `real`; `mock` is infrastructure/smoke-test only.
-- `overrides`: explicit search-space overrides.
+- `k`：Primary Metric `R@K` 使用的 Recall cutoff，默认：`5`。
+- `budget`：`quick | standard | deep`，默认：`standard`。
+- `target`：当前仅支持 `midterm`。ShortTerm、LongTerm 和 union 指标仅用于最终 regression 检查。
+- `sessions`：可选的 Session 子集。
+- `seed`：数据划分/搜索随机种子，默认从 `search_space.yaml` 读取。
+- `resume`：已有调参运行目录，用于恢复运行。
+- `output_dir`：输出根目录，默认：`exp/results/auto_tuning`。
+- `memory_config`：生成新 source run 时使用的生产兼容 Memory 配置，默认：`exp/benchmark/memory_config.json`。
+- `llm_mode`：`real | mock`，默认：`real`；`mock` 仅用于基础设施测试和 smoke test。
+- `overrides`：显式指定的搜索空间覆盖项。
 
-Invocation examples:
+调用示例：
 
 ```text
 $memory-retrieval-tuner dataset=exp/my_dataset.xlsx
@@ -58,72 +58,65 @@ $memory-retrieval-tuner dataset=exp/my_dataset.xlsx k=10 budget=deep
 $memory-retrieval-tuner dataset=exp/my_dataset.xlsx k=3 target=midterm sessions=S001-S010
 ```
 
-User-specified values always override defaults in `search_space.yaml`.
+用户显式传入的参数始终优先于 `search_space.yaml` 中的默认值。
 
-## Executable entry point
+## 可执行入口
 
-Run the deterministic orchestrator from the repository root:
+从仓库根目录运行确定性的 orchestrator：
 
 ```bash
 python .agents/skills/memory-retrieval-tuner/scripts/run_tuner.py \
   dataset=<dataset_path> k=<K> budget=<quick|standard|deep>
 ```
 
-Pass `resume=<existing_run_dir>` to resume an interrupted run. Pass concurrency overrides as
-`max_parallel_sessions=N`, `max_parallel_candidates=N`, and `max_parallel_llm_calls=N`.
+使用 `resume=<existing_run_dir>` 恢复中断的运行。并发相关参数可通过
+`max_parallel_sessions=N`、`max_parallel_candidates=N` 和 `max_parallel_llm_calls=N` 覆盖。
 
-The MidTerm tuning baseline never falls back to a source-turn BM25 surrogate or a production trace. It must come from
-replayable `production_midterm_v1` checkpoints. If they do not exist, the tuner starts isolated Session subprocesses
-and runs the real `AsyncMemory.add -> MidTermUpdater -> MidTermMemory -> MidTermRetriever` pipeline. A complete
-production trace is discovered separately and is used only for final ShortTerm/LongTerm/All-memory regression. Pass
-`source_run=<path>` to pin an existing source run; an incomplete source run is a hard audit failure.
+MidTerm 调参 Baseline 绝不能回退为 source-turn BM25 surrogate 或 production trace。它必须来自可重放的 `production_midterm_v1` checkpoint。如果 checkpoint 不存在，tuner 会启动按 Session 隔离的子进程，并运行真实的 `AsyncMemory.add -> MidTermUpdater -> MidTermMemory -> MidTermRetriever` 链路。完整 production trace 会独立发现，只用于最终 ShortTerm/LongTerm/All-memory regression。可通过 `source_run=<path>` 固定已有 source run；不完整的 source run 必须判定为 audit hard failure。
 
-`production_midterm_adapter` freezes query-time production Page and Session payloads, dense vectors, query vectors,
-and source-job lineage. It does not construct Page summaries from workbook answers. Cheap candidates reload those
-artifacts into Candidate/Session-isolated Qdrant + SQLite runtimes and call production `MidTermRetriever`.
-Source worker concurrency is capped by both `max_parallel_sessions` and `max_parallel_llm_calls`.
+`production_midterm_adapter` 会冻结 Query 时刻的生产 Page / Session payload、dense vector、query vector 和 source-job lineage。它不会使用工作簿中的答案构造 Page Summary。Cheap Candidate 会将这些 artifact 重新加载到 Candidate/Session 隔离的 Qdrant + SQLite runtime 中，并直接调用生产 `MidTermRetriever`。Source worker 的并发同时受到 `max_parallel_sessions` 和 `max_parallel_llm_calls` 限制。
 
-## Metric contract
+## 指标约定
 
-The primary objective is **requirement-level Recall@K on held-out validation Sessions**.
+Primary Objective 是 **held-out Validation Sessions 上 requirement-level Recall@K**。
 
-Let each Query contain one or more Gold requirements. An AND-separated dependency contributes one requirement per required group. An OR group contributes one requirement and is satisfied if any member is retrieved.
+每个 Query 可以包含一个或多个 Gold requirement。AND 分隔的依赖中，每个必需 group 各自构成一个 requirement；OR group 只构成一个 requirement，只要检索到其中任意 member 即满足。
 
-For a configured `k`:
+对于配置的 `k`：
 
 ```text
-R@K = number of satisfied Gold requirements within top K
-      --------------------------------------------------
-      number of eligible Gold requirements
+R@K = top K 内满足的 Gold requirement 数量
+      ---------------------------------------
+             eligible Gold requirement 数量
 ```
 
-Rules:
+规则：
 
-- `k` is configurable and defaults to `5`.
-- Never hard-code `R@5` in evaluators, reports, filenames, or stopping logic.
-- Derive secondary cutoffs from `k` where possible, e.g. `R@(2K)` and `R@(4K)`.
-- For MidTerm tuning, the primary denominator should be the Gold requirements that are actually routed/eligible for MidTerm under the benchmark contract.
-- Report ShortTerm coverage separately.
-- Also report end-to-end union/completion metrics so local MidTerm gains are not mistaken for overall memory gains.
-- Keep Micro requirement-level R@K and Macro/session-level metrics separate.
+- `k` 可配置，默认值为 `5`。
+- evaluator、报告、文件名或停止逻辑中禁止硬编码 `R@5`。
+- 其他 cutoff 尽量从 `k` 推导，例如 `R@(2K)`、`R@(4K)`。
+- MidTerm 调参时，Primary denominator 应使用按照 Benchmark contract 实际被路由到 MidTerm / 对 MidTerm eligible 的 Gold requirements。
+- ShortTerm coverage 单独报告。
+- 同时报告端到端 union/completion 指标，避免把局部 MidTerm 提升误认为整体 Memory 提升。
+- Micro requirement-level R@K 与 Macro/session-level 指标必须分开报告。
 
-## Autonomy
+## 自主执行规则
 
-Run the workflow end-to-end unless blocked by a genuine missing dependency, invalid dataset, unavailable model/API, or a destructive action requiring approval.
+除非确实存在缺失依赖、无效数据集、模型/API 不可用，或需要用户批准的破坏性操作，否则应端到端完成整个工作流。
 
-Do not stop after every stage to ask what to try next. Use the search policy below.
+不要每完成一个阶段就停下来询问下一步做什么，应按照下面的搜索策略继续执行。
 
-Do not modify `mem0/` production code merely to run an experiment. Prefer:
+不要为了运行实验而修改 `mem0/` 生产代码。优先使用：
 
-1. existing benchmark/evaluation code;
-2. experiment adapters/config overrides;
-3. new code under `exp/benchmark/` or this skill's `scripts/`.
+1. 现有 Benchmark / Evaluation 代码；
+2. 实验 adapter / 配置覆盖；
+3. `exp/benchmark/` 或本 Skill `scripts/` 下的新代码。
 
-Only change production code when the user explicitly requests implementation of the selected configuration.
+只有当用户明确要求落地所选配置时，才允许修改生产代码。
 
-## Repository reuse
+## 仓库复用原则
 
-Before writing new experiment code, inspect the local repository and reuse current equivalents of known components. Common reusable paths may include:
+编写新的实验代码前，先检查本地仓库，优先复用当前已有的等价组件。常见可复用路径可能包括：
 
 - `exp/benchmark/benchmark_common.py`
 - `exp/benchmark/benchmark_memory.py`
@@ -132,21 +125,21 @@ Before writing new experiment code, inspect the local repository and reuse curre
 - `exp/benchmark/midterm_retrieval_eval.py`
 - `exp/benchmark/diagnose_midterm_page_recall.py`
 - `exp/benchmark/diagnose_page_representation.py`
-- existing query-rewrite/reference-resolution ablations
-- existing embedding/BM25/reranking ablations
-- existing frozen Page/Query/embedding/ranking artifacts under `exp/results/`
+- 现有 query-rewrite/reference-resolution ablation
+- 现有 embedding/BM25/reranking ablation
+- `exp/results/` 下已有的 frozen Page/Query/embedding/ranking artifact
 
-Paths may evolve. Verify what exists locally; if a listed file is absent, search for the current equivalent instead of recreating it blindly.
+路径可能发生变化。必须先确认本地实际存在的文件；如果某个列出的文件不存在，应搜索当前等价实现，而不是直接重新写一份。
 
-Prefer frozen artifacts when they are semantically compatible with the current dataset/config and provenance can be validated. Never reuse an artifact merely because the filename looks similar.
+当 frozen artifact 与当前 dataset/config 在语义上兼容，并且 provenance 可以验证时，应优先复用。不能仅因为文件名看起来相似就复用 artifact。
 
-## Workflow
+## 工作流程
 
-### 0. Resolve configuration
+### 0. 解析配置
 
-Load `search_space.yaml`, then apply user overrides.
+加载 `search_space.yaml`，然后应用用户 overrides。
 
-Resolve at minimum:
+至少解析：
 
 ```text
 dataset
@@ -158,73 +151,70 @@ sessions
 output_dir
 ```
 
-Validate:
+校验：
 
-- `k >= 1`;
-- retrieval candidate pool is at least `k`;
-- any `R@(2K)` / `R@(4K)` report cutoff does not exceed available candidates without being clearly marked as capped;
-- configuration is serialized into run metadata.
-- `dataset.shortterm_qa_turns` matches `memory_config.midterm.short_term_capacity / 2`; use the production-derived
-  QA-turn window and record any override explicitly.
+- `k >= 1`；
+- retrieval candidate pool 至少为 `k`；
+- 如果 `R@(2K)` / `R@(4K)` 的报告 cutoff 超过可用候选数量，必须明确标记为 capped；
+- 配置必须序列化写入 run metadata；
+- `dataset.shortterm_qa_turns` 应与 `memory_config.midterm.short_term_capacity / 2` 一致；实际使用生产配置推导出的 QA-turn window，并显式记录任何 override。
 
-Create:
+创建：
 
 ```text
 <output_dir>/<run_id>/
 ```
 
-### 1. Dataset audit — mandatory gate
+### 1. 数据集审查——强制 Gate
 
-Audit before any tuning.
+任何调参开始前必须先进行 Dataset Audit。
 
-Check:
+检查：
 
-- Session, Query, Gold requirement counts;
-- Gold-bearing versus independent Queries;
-- dependency-distance distribution;
-- ShortTerm coverage using the configured ShortTerm window;
-- MidTerm/LongTerm eligibility/routing;
-- AND/OR Gold parsing;
-- invalid or future dependencies;
-- cross-session leakage;
-- duplicate Query IDs;
-- missing prior targets;
-- explicit historical-location leakage such as quoted prior questions, turn numbers, or templated “go back N turns” wording;
-- suspicious concentration at one dependency distance;
-- strong Query/Answer templating or duplication if detectable;
-- benchmark provenance consistency.
+- Session、Query、Gold requirement 数量；
+- 包含 Gold 的 Query 与 independent Query 数量；
+- dependency-distance 分布；
+- 使用配置的 ShortTerm window 计算 ShortTerm coverage；
+- MidTerm/LongTerm eligibility/routing；
+- AND/OR Gold 解析；
+- 无效依赖或 future dependency；
+- cross-session leakage；
+- 重复 Query ID；
+- 缺失的历史 target；
+- 显式历史位置泄漏，例如直接引用历史问题、turn 编号，或模板化的“往前 N 轮”措辞；
+- dependency distance 是否异常集中在某一位置；
+- 如果可检测，检查明显的 Query/Answer 模板化或重复；
+- Benchmark provenance 一致性。
 
-Write:
+写入：
 
 ```text
 dataset_audit.json
 dataset_audit.md
 ```
 
-If a structural correctness check fails, stop with:
+如果 structural correctness 检查失败，停止并返回：
 
 ```text
 DATASET_AUDIT_FAILED
 ```
 
-If only a quality warning is detected, continue only when metrics remain interpretable and mark the run:
+如果仅发现数据质量警告，只要指标仍然可解释，可以继续运行，但必须将本次运行标记为：
 
 ```text
 DATASET_QUALITY_WARNING
 ```
 
-Never “tune around” a broken benchmark.
+绝不能通过调参来“绕过”一个有结构性问题的 Benchmark。
 
-### 2. Establish baseline
+### 2. 建立 Baseline
 
-Establish two independent baselines:
+建立两个完全独立的 Baseline：
 
-- `midterm_baseline`: replayable `production_midterm_v1` checkpoints; this is the only baseline used by tuning,
-  validation, and winner selection.
-- `full_memory_regression_baseline`: an optional complete production trace used only after selection for
-  ShortTerm/LongTerm/All-memory/Union regression. Report `N/A` plus a skip reason when it is unavailable.
+- `midterm_baseline`：来自可重放的 `production_midterm_v1` checkpoint；这是 tuning、validation 和 winner selection 唯一允许使用的 Baseline。
+- `full_memory_regression_baseline`：可选的完整 production trace，仅在 winner 选出后用于 ShortTerm/LongTerm/All-memory/Union regression。如果不可用，报告 `N/A` 并说明跳过原因。
 
-The production contract is:
+生产 contract：
 
 ```text
 AsyncMemory.add
@@ -238,156 +228,152 @@ AsyncMemory.add
 -> global Page-score dedupe/sort/cap
 ```
 
-Query-time dense+BM25 fusion is a benchmark-only candidate extension. It must retain production Session routing and
-operate on production-generated Page payloads. It is never labeled as the production baseline.
+Query-time dense+BM25 fusion 是 Benchmark-only Candidate 扩展。它必须保留生产 Session routing，并基于生产生成的 Page payload 工作。绝不能把它标记为 production baseline。
 
-Record:
+记录：
 
-- primary R@K;
-- Macro/session R@K;
-- MRR;
-- R@(2K), R@(4K) when available;
-- mean/median Gold rank;
-- ShortTerm coverage;
-- target-layer hits;
-- Short+Target union;
-- All-memory union/completion;
-- runtime;
-- LLM calls;
-- embedding calls;
-- cache reuse;
-- failed turns.
+- Primary R@K；
+- Macro/session R@K；
+- MRR；
+- 条件允许时记录 R@(2K)、R@(4K)；
+- Gold rank 的 mean/median；
+- ShortTerm coverage；
+- target-layer hits；
+- Short+Target union；
+- All-memory union/completion；
+- runtime；
+- LLM calls；
+- embedding calls；
+- cache reuse；
+- failed turns。
 
-No candidate is comparable unless its evaluation contract matches the baseline.
+只有 evaluation contract 与 Baseline 完全一致的 Candidate 才具有可比性。
 
-### 3. Split by Session
+### 3. 按 Session 切分
 
-Never randomly split individual Queries from the same Session across tune and validation sets.
+禁止把同一 Session 中的 Query 随机拆到 Tune 和 Validation 两侧。
 
-Use the split policy in `references/search_strategy.md`.
+使用 `references/search_strategy.md` 中定义的 split policy。
 
-Write:
+写入：
 
 ```text
 split_manifest.json
 ```
 
-Freeze this split for the entire run.
+整个 run 期间必须冻结该 split，不允许中途变化。
 
-If there are too few Sessions for a reliable holdout, use the documented fallback and explicitly reduce confidence in the final recommendation.
+如果 Session 数量过少，无法形成可靠 holdout，则使用文档规定的 fallback，并在最终推荐中明确降低置信度。
 
-### 4. Cheap search
+### 4. Cheap Search
 
-Search low-cost, artifact-reusable dimensions first.
+优先搜索低成本、可复用 artifact 的维度。
 
-Typical dimensions:
+典型维度：
 
-- Query representation;
-- Page representation;
-- retrieval `top_k` / candidate-pool size;
-- similarity thresholds;
-- session/page limits;
-- dense/keyword score weights;
-- inexpensive lexical fusion where existing artifacts permit it.
+- Query representation；
+- Page representation；
+- retrieval `top_k` / candidate-pool size；
+- similarity threshold；
+- session/page limit；
+- dense/keyword score weight；
+- 在现有 artifact 支持下的低成本 lexical fusion。
 
-Only claim branches implemented against the production contract. The current generic adapter supports production
-dense retrieval, `top_k_sessions`, `top_k_pages`, `max_total_pages`, and dense+Qdrant-BM25 Page fusion. Query rewrite,
-Page representation, alternate embeddings, Session-assignment weights/thresholds, rerankers, and prompt variants
-must be skipped unless an exact-provenance production artifact/adapter is present.
+只能声称已经支持与生产 contract 对齐的搜索分支。当前 generic adapter 支持 production dense retrieval、`top_k_sessions`、`top_k_pages`、`max_total_pages` 以及 dense+Qdrant-BM25 Page fusion。Query rewrite、Page representation、alternative embedding、Session-assignment weight/threshold、reranker 和 prompt variant，除非存在 provenance 精确匹配的生产 artifact/adapter，否则必须跳过。
 
-Use staged search, not a full Cartesian grid.
+使用分阶段搜索，不要直接跑完整 Cartesian grid。
 
-After each stage:
+每个阶段结束后：
 
-1. evaluate candidates on tune Sessions;
-2. prune clearly dominated candidates;
-3. keep a small frontier;
-4. run diagnostic logic before opening a new search branch.
+1. 在 Tune Sessions 上评估 Candidate；
+2. 剪枝明显劣势 Candidate；
+3. 只保留小规模 frontier；
+4. 开启新搜索分支前先运行诊断逻辑。
 
-### 5. Diagnostic branch selection
+### 5. 诊断与分支选择
 
-Use the relationship between R@K and deeper recall to decide what to search next.
+根据 R@K 与更深层 Recall 的关系决定下一步应该搜索什么。
 
-Examples:
+示例：
 
-- **High R@(4K), low R@K:** candidates contain Gold but top ranking is poor. Prefer query representation, score fusion, reranking, field weighting.
-- **Low R@(4K):** candidate coverage is poor. Prefer Page representation, memory-write summary, embeddings, candidate generation.
-- **Large Session variance:** prioritize robust/generalizable configurations; inspect failure clusters before increasing search breadth.
-- **Tune improves but validation regresses:** classify as overfit; do not promote.
-- **A cheap representation change already wins stably:** do not spend expensive LLM budget merely because more branches exist.
+- **R@(4K) 高、R@K 低：** Gold 已经进入候选集，但前排排序不足。优先尝试 Query representation、score fusion、reranking、field weighting。
+- **R@(4K) 低：** 候选覆盖不足。优先尝试 Page representation、memory-write summary、embedding、candidate generation。
+- **Session 方差较大：** 优先选择稳健、可泛化的配置；扩大搜索范围前先检查失败 Session / failure cluster。
+- **Tune 提升但 Validation 下降：** 判定为 overfit，不得晋级。
+- **低成本 representation 变化已经稳定获胜：** 不要因为还有更多搜索分支就无意义消耗 LLM budget。
 
-Follow `references/search_strategy.md`.
+具体规则遵循 `references/search_strategy.md`。
 
-### 6. Secondary search
+### 6. Secondary Search
 
-Run only if diagnostics justify it.
+只有诊断结果明确支持时才运行。
 
-Potential branches:
+潜在搜索分支：
 
-- alternative embedding models;
-- BM25 / dense+lexical fusion;
-- field-aware scoring;
-- candidate-pool expansion;
-- lightweight reranking.
+- alternative embedding model；
+- BM25 / dense+lexical fusion；
+- field-aware scoring；
+- candidate-pool expansion；
+- lightweight reranking。
 
-Use cache/frozen artifacts aggressively when valid.
+在 provenance 有效时，应尽可能复用 cache/frozen artifact。
 
-### 7. Expensive LLM search
+### 7. 高成本 LLM Search
 
-Run only for top candidates or when diagnostics show representation generation is the bottleneck.
+只对最优 Candidate，或诊断明确表明 representation generation 是瓶颈时运行。
 
-Potential branches:
+潜在搜索分支：
 
-- Add/memory-write prompt variants;
-- context-aware Add variants;
-- Page-summary prompt variants;
-- bounded Query reference resolution;
-- Query rewrite variants.
+- Add/memory-write prompt variant；
+- context-aware Add variant；
+- Page-summary prompt variant；
+- bounded Query reference resolution；
+- Query rewrite variant。
 
-Requirements:
+要求：
 
-- freeze prompt text and hash it;
-- record LLM model/config;
-- record exact call counts;
-- cache generated artifacts;
-- never regenerate an existing valid frozen artifact simply to make an ablation “fresh”;
-- never compare two prompt variants unless their provenance is distinguishable.
+- 固定 prompt 文本并记录 hash；
+- 记录 LLM model/config；
+- 记录精确调用次数；
+- 缓存生成的 artifact；
+- 不要为了让 ablation 看起来“新鲜”而重新生成已有且有效的 frozen artifact；
+- 两个 prompt variant 如果 provenance 无法区分，则禁止直接比较。
 
 ### 8. Validation
 
-Take only the tune frontier into held-out validation.
+只有 Tune frontier 中保留下来的 Candidate 才进入 held-out Validation。
 
-The primary ranking criterion is validation requirement-level R@K.
+Primary Ranking Criterion 是 Validation requirement-level R@K。
 
-Use this tie-break order:
+Tie-break 顺序：
 
-1. validation R@K;
-2. Macro/session stability;
-3. MRR;
-4. R@(2K) / R@(4K);
-5. lower cost and lower complexity.
+1. Validation R@K；
+2. Macro/session stability；
+3. MRR；
+4. R@(2K) / R@(4K)；
+5. 更低成本和更低复杂度。
 
-Treat differences inside `selection.tie_tolerance_pp` as practically tied unless repeated/session evidence clearly favors one candidate.
+当差异落在 `selection.tie_tolerance_pp` 内时，应视为实际接近，除非重复实验或 Session-level 证据明显支持其中某个 Candidate。
 
-Mark candidates with strong tune gain and validation regression as:
+如果 Candidate 在 Tune 上明显提升，但 Validation 下降，标记为：
 
 ```text
 OVERFIT
 ```
 
-Do not choose them.
+不得选择该 Candidate。
 
-### 9. Final recommendation
+### 9. 最终推荐
 
-Recommend one configuration plus up to two alternatives:
+推荐一个配置，并最多附带两个备选：
 
-- `best_stable`: default recommendation;
-- `best_accuracy`: only if meaningfully more accurate but costlier;
-- `best_low_cost`: only if materially cheaper with near-tied accuracy.
+- `best_stable`：默认推荐；
+- `best_accuracy`：只有在准确率确实明显更高但成本也更高时给出；
+- `best_low_cost`：只有在成本明显更低且准确率接近时给出。
 
-Never state “best” without saying whether it is tune-best or validation-best.
+使用“best”时必须明确它是 tune-best 还是 validation-best。
 
-Write:
+写入：
 
 ```text
 leaderboard.csv
@@ -400,59 +386,59 @@ final_report.md
 run_metadata.json
 ```
 
-## Candidate promotion rules
+## Candidate 晋级规则
 
-A candidate may advance when it is:
+Candidate 满足以下任一条件时可以晋级：
 
-- better on primary R@K by a meaningful amount; or
-- practically tied on R@K but better on stability/MRR/cost; or
-- diagnostically useful enough to justify a downstream branch.
+- Primary R@K 有具有实际意义的提升；或
+- R@K 基本持平，但 stability/MRR/cost 更好；或
+- 具有足够诊断价值，值得触发下游搜索分支。
 
-Do not promote a candidate merely because it improves one Session while materially harming the rest.
+不能因为 Candidate 只提升了某一个 Session，却明显损害其他 Session，就让它晋级。
 
-Do not keep expanding the search space after improvements plateau under the stopping rules in `search_space.yaml`.
+当改进已经根据 `search_space.yaml` 中的 stopping rules 进入平台期后，不要继续无边界扩大搜索空间。
 
-## Reporting requirements
+## 报告要求
 
-`final_report.md` must include:
+`final_report.md` 必须包含：
 
-- dataset and provenance;
-- configured `K`;
-- ShortTerm window;
-- tune/validation split;
-- baseline metrics;
-- search stages actually executed;
-- skipped branches and why;
-- tune leaderboard;
-- validation leaderboard;
-- per-Session metrics;
-- best stable configuration;
-- diff versus baseline;
-- absolute improvement in percentage points;
-- R@(2K)/R@(4K) context;
-- MRR and rank diagnostics;
-- all-memory union/completion impact;
-- cost: runtime, LLM calls, embedding calls;
-- overfit candidates;
-- data-quality warnings;
-- stop reason;
-- confidence/limitations.
+- dataset 与 provenance；
+- 配置的 `K`；
+- ShortTerm window；
+- Tune/Validation split；
+- Baseline metrics；
+- 实际执行过的 search stage；
+- 被跳过的 branch 及原因；
+- Tune leaderboard；
+- Validation leaderboard；
+- per-Session metrics；
+- best stable configuration；
+- 相对 Baseline 的 diff；
+- percentage point 的绝对提升；
+- R@(2K)/R@(4K) 上下文；
+- MRR 和 rank diagnostics；
+- all-memory union/completion impact；
+- cost：runtime、LLM calls、embedding calls；
+- overfit Candidate；
+- data-quality warning；
+- stop reason；
+- confidence/limitations。
 
-When `k=10`, all primary labels/report prose must say `R@10`, not `R@5`.
+当 `k=10` 时，所有 Primary label 和报告文本必须写 `R@10`，不能写 `R@5`。
 
-## Final checks
+## 最终检查
 
-Before completion verify:
+完成前确认：
 
-- [ ] Dataset audit passed or warnings are explicit.
-- [ ] `k` came from user override or default `5`.
-- [ ] No evaluator hard-coded `5`.
-- [ ] Tune and validation are Session-disjoint.
-- [ ] Baseline and candidates share the same Gold/routing/evaluation contract.
-- [ ] Candidate artifacts belong to the current dataset/config or have validated provenance.
-- [ ] Failed-turn count is zero, or failures are explicitly invalidating.
-- [ ] No future/cross-session memory leakage.
-- [ ] Best configuration is selected by held-out validation, not tune score alone.
-- [ ] Search stopped for a recorded reason.
-- [ ] `best_config.json` is reproducible.
-- [ ] `final_report.md` clearly distinguishes empirical result from historical prior.
+- [ ] Dataset Audit 已通过，或所有 warning 均已明确记录。
+- [ ] `k` 来自用户 override 或默认值 `5`。
+- [ ] evaluator 中没有硬编码 `5`。
+- [ ] Tune 和 Validation 在 Session 维度完全不重叠。
+- [ ] Baseline 与 Candidate 使用相同的 Gold/routing/evaluation contract。
+- [ ] Candidate artifact 属于当前 dataset/config，或其 provenance 已验证。
+- [ ] failed-turn count 为 0，或者这些 failure 已明确判定为使结果无效。
+- [ ] 不存在 future/cross-session memory leakage。
+- [ ] 最佳配置由 held-out Validation 选择，而不是仅根据 Tune score。
+- [ ] Search 已因为一个可记录的 reason 停止。
+- [ ] `best_config.json` 可复现。
+- [ ] `final_report.md` 明确区分实证结果与历史先验。
