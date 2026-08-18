@@ -194,3 +194,6 @@ testing.ipynb
 
 # Experiment runtime state
 /exp/runtime/
+
+# Generated experiment caches
+/exp/results/**/cache/

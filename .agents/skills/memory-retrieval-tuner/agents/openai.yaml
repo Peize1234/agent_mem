@@ -1,0 +1,4 @@
+interface:
+  display_name: "Memory Retrieval Tuner"
+  short_description: "Audit and tune memory retrieval across sessions"
+  default_prompt: "Use $memory-retrieval-tuner to audit this dataset, tune retrieval with session-held-out validation, and report the best stable configuration."

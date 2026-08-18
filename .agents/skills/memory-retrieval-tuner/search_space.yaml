@@ -1,0 +1,336 @@
+version: 1
+
+skill:
+  name: memory-retrieval-tuner
+
+evaluation:
+  # Primary Recall cutoff. User invocation may override this, e.g. k=10.
+  k: 5
+  min_k: 1
+  primary_metric: requirement_recall_at_k
+  secondary_cutoffs:
+    - multiplier: 2
+    - multiplier: 4
+  report_metrics:
+    - requirement_recall_at_k
+    - macro_session_recall_at_k
+    - mrr
+    - mean_gold_rank
+    - median_gold_rank
+    - shortterm_coverage
+    - target_layer_union
+    - all_memory_union
+    - query_completion
+  gold_semantics:
+    and_separator: "；"
+    or_group_parentheses: true
+
+target:
+  default: midterm
+  allowed:
+    - midterm
+    - longterm
+    - all_memory
+
+dataset:
+  shortterm_qa_turns: 3
+  fail_on:
+    future_dependency: true
+    cross_session_dependency: true
+    duplicate_query_id: true
+    missing_gold_target: true
+    incomplete_source_run: true
+  quality_warnings:
+    explicit_history_target_leakage_ratio: 0.20
+    single_distance_concentration_ratio: 0.60
+    repeated_question_template_ratio: 0.30
+
+split:
+  unit: session
+  seed: 42
+  policies:
+    many_sessions:
+      min_sessions: 8
+      method: deterministic_stratified_holdout
+      tune_fraction: 0.70
+      validation_fraction: 0.30
+    medium_sessions:
+      min_sessions: 5
+      max_sessions: 7
+      method: deterministic_holdout
+      min_validation_sessions: 2
+    few_sessions:
+      min_sessions: 3
+      max_sessions: 4
+      method: leave_one_session_out
+    tiny:
+      max_sessions: 2
+      method: exploratory_only
+
+budget:
+  default: standard
+  profiles:
+    quick:
+      max_cheap_candidates: 12
+      max_secondary_branches: 1
+      max_expensive_candidates: 0
+      validation_frontier: 2
+    standard:
+      max_cheap_candidates: 30
+      max_secondary_branches: 2
+      max_expensive_candidates: 6
+      validation_frontier: 5
+    deep:
+      max_cheap_candidates: 80
+      max_secondary_branches: 4
+      max_expensive_candidates: 16
+      validation_frontier: 8
+
+selection:
+  # Differences within this range are treated as practically tied.
+  tie_tolerance_pp: 0.25
+  min_improvement_pp: 0.25
+  patience_stages: 2
+  primary: validation_requirement_recall_at_k
+  tie_breakers:
+    - validation_macro_session_recall_at_k
+    - session_stability
+    - mrr
+    - recall_at_2k
+    - recall_at_4k
+    - lower_llm_calls
+    - lower_embedding_cost
+    - lower_runtime
+    - lower_complexity
+  overfit:
+    mark_if_tune_improves_and_validation_delta_pp_below: -0.50
+
+search:
+  algorithm: staged_successive_filtering
+  cartesian_grid: false
+  reuse_frozen_artifacts: true
+  require_provenance_validation: true
+
+  stages:
+    cheap:
+      query_representation:
+        enabled: true
+        values:
+          - original
+          - bounded_reference_resolution
+        optional_existing_repo_variants: true
+
+      page_representation:
+        enabled: true
+        values:
+          - production
+          - summary
+          - summary_keywords
+          - summary_keywords_raw_user
+        optional_existing_repo_variants: true
+
+      retrieval:
+        enabled: true
+
+        # Values are searched around the production baseline.
+        # Implementation should clip lower bounds so every evaluated
+        # candidate pool can return at least evaluation.k items.
+        top_k_pages:
+          mode: around_baseline
+          relative_values:
+            - -5
+            - 0
+            - 5
+            - 15
+          min_value_expression: "evaluation.k"
+
+        top_k_sessions:
+          mode: around_baseline
+          relative_values:
+            - -1
+            - 0
+            - 1
+            - 2
+          min_value: 1
+
+        max_total_pages:
+          mode: around_baseline
+          relative_values:
+            - -10
+            - 0
+            - 10
+            - 30
+          min_value_expression: "evaluation.k"
+
+        session_similarity_threshold:
+          mode: coarse_to_fine
+          coarse:
+            - 0.0
+            - 0.2
+            - 0.4
+            - 0.6
+            - 0.8
+          refine_step: 0.05
+
+        page_similarity_threshold:
+          mode: coarse_to_fine
+          coarse:
+            - 0.0
+            - 0.2
+            - 0.4
+            - 0.6
+            - 0.8
+          refine_step: 0.05
+
+        embedding_similarity_weight:
+          mode: coarse_to_fine
+          coarse:
+            - 0.25
+            - 0.5
+            - 0.75
+            - 1.0
+          refine_step: 0.05
+
+        keyword_overlap_weight:
+          mode: coupled_complement_or_repo_native
+          coarse:
+            - 0.0
+            - 0.1
+            - 0.25
+            - 0.5
+
+    secondary:
+      embedding_models:
+        enabled: diagnostic
+        trigger: candidate_coverage_bottleneck
+        # Keep the current production model first.
+        values:
+          - production
+          - BAAI/bge-small-zh-v1.5
+          - BAAI/bge-m3
+          - intfloat/multilingual-e5-base
+        max_models_standard: 3
+
+      lexical_hybrid:
+        enabled: diagnostic
+        trigger_any:
+          - lexical_miss_pattern
+          - exact_entity_or_identifier_dependency
+          - dense_candidate_coverage_weak
+        methods:
+          - bm25
+          - dense_bm25_fusion
+        dense_weight:
+          mode: coarse_to_fine
+          coarse:
+            - 0.5
+            - 0.7
+            - 0.85
+            - 1.0
+          refine_step: 0.05
+
+      reranking:
+        enabled: diagnostic
+        trigger: ranking_bottleneck
+        min_deep_recall_gap_pp: 15.0
+        methods:
+          - existing_repo_lightweight_reranker
+          - existing_repo_cross_encoder
+          - existing_repo_llm_reranker
+        max_methods_standard: 2
+
+      advanced_representation:
+        enabled: diagnostic
+        methods:
+          - field_aware
+          - multi_vector
+          - maxsim
+        max_methods_standard: 1
+
+    expensive:
+      enabled: diagnostic
+      require_frontier_candidate: true
+
+      query_prompt:
+        variants:
+          - production_or_original
+          - bounded_reference_resolution
+          - existing_repo_prompt_variants
+
+      memory_write_prompt:
+        variants:
+          - production_add
+          - conservative_or_minimum_change_add
+          - context_aware_add
+          - existing_repo_add_variants
+
+      page_summary_prompt:
+        variants:
+          - production_summary
+          - existing_repo_summary_variants
+
+      generation:
+        cache: true
+        record_prompt_hash: true
+        record_model_config: true
+        record_llm_calls: true
+        regenerate_valid_frozen_artifact: false
+
+diagnostics:
+  ranking_bottleneck:
+    # If deeper recall exceeds R@K by this many percentage points,
+    # prioritize ranking/reranking over Page regeneration.
+    min_recall_4k_minus_k_pp: 20.0
+
+  candidate_coverage_bottleneck:
+    # Heuristic. Implementation should compare against baseline and dataset difficulty,
+    # not treat this as a universal scientific threshold.
+    max_recall_4k_percent: 65.0
+
+  session_instability:
+    max_stddev_pp: 12.0
+    max_worst_session_gap_from_macro_pp: 20.0
+
+  overfit:
+    compare_tune_validation: true
+
+execution:
+  session_isolation: true
+  fail_if_failed_turns_gt: 0
+  max_parallel_sessions: 4
+  max_parallel_candidates: 4
+  max_parallel_llm_calls: 4
+  cache_embeddings: true
+  cache_rankings_depth:
+    # Store rankings deeper than K so changing K can often reuse ranking artifacts.
+    multiplier_of_k: 4
+    minimum: 20
+  preserve_existing_results: true
+  modify_production_mem0: false
+
+repository:
+  prefer_reuse:
+    - exp/benchmark/benchmark_common.py
+    - exp/benchmark/benchmark_memory.py
+    - exp/benchmark/run_recall_benchmark.py
+    - exp/benchmark/run_recall_isolated_sessions.py
+    - exp/benchmark/midterm_retrieval_eval.py
+    - exp/benchmark/diagnose_midterm_page_recall.py
+    - exp/benchmark/diagnose_page_representation.py
+    - exp/results
+  if_missing: search_for_current_equivalent
+
+output:
+  root: exp/results/auto_tuning
+  files:
+    - dataset_audit.json
+    - dataset_audit.md
+    - split_manifest.json
+    - search_trace.jsonl
+    - leaderboard.csv
+    - best_config.json
+    - best_config_diff.json
+    - requirement_results.jsonl
+    - session_metrics.csv
+    - final_report.md
+    - run_metadata.json
