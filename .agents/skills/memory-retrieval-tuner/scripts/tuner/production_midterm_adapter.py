@@ -10,6 +10,7 @@ import re
 import sqlite3
 import subprocess
 import sys
+import threading
 import time
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
@@ -35,6 +36,7 @@ from .retrieval_primitives import (
     normalized_score_fuse,
     page_representation,
 )
+from .source_prompt_variants import ContextAwareMidTermUpdater, visible_context_by_dialogue
 
 
 ADAPTER_SCHEMA = 1
@@ -42,11 +44,11 @@ PRODUCTION_BACKEND = "production_midterm"
 SUPPORTED_RETRIEVAL_METHODS = {"dense", "dense_bm25_fusion"}
 
 
-def production_prompt_hashes() -> dict[str, str]:
+def production_prompt_hashes(*, page_summary_prompt: str | None = None) -> dict[str, str]:
     from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT, MIDTERM_SESSION_MERGE_PROMPT
 
     return {
-        "page_summary": hashlib.sha256(MIDTERM_PAGE_SUMMARY_PROMPT.encode()).hexdigest(),
+        "page_summary": hashlib.sha256((page_summary_prompt or MIDTERM_PAGE_SUMMARY_PROMPT).encode()).hexdigest(),
         "session_merge": hashlib.sha256(MIDTERM_SESSION_MERGE_PROMPT.encode()).hexdigest(),
     }
 
@@ -334,7 +336,26 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
     )
     config.setdefault("background", {})["midterm_worker_count"] = 1
     config["background"]["longterm_worker_count"] = 1
-    memory = create_production_memory(config, llm_mode=str(spec.get("llm_mode") or "real"))
+    page_summary_prompt = str(spec.get("page_summary_prompt") or "") or None
+    original_prompts: tuple[str, str] | None = None
+    if page_summary_prompt:
+        import mem0.memory.midterm_updater as midterm_updater_module
+
+        from . import production_runtime as production_runtime_module
+
+        original_prompts = (
+            midterm_updater_module.MIDTERM_PAGE_SUMMARY_PROMPT,
+            production_runtime_module.MIDTERM_PAGE_SUMMARY_PROMPT,
+        )
+        midterm_updater_module.MIDTERM_PAGE_SUMMARY_PROMPT = page_summary_prompt
+        production_runtime_module.MIDTERM_PAGE_SUMMARY_PROMPT = page_summary_prompt
+    try:
+        memory = create_production_memory(config, llm_mode=str(spec.get("llm_mode") or "real"))
+    except Exception:
+        if original_prompts is not None:
+            midterm_updater_module.MIDTERM_PAGE_SUMMARY_PROMPT = original_prompts[0]
+            production_runtime_module.MIDTERM_PAGE_SUMMARY_PROMPT = original_prompts[1]
+        raise
     counted = CountingLLM(memory.llm)
     counted_embedding = CountingEmbedding(memory.embedding_model)
     memory.llm = counted
@@ -344,6 +365,13 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
     if getattr(memory, "_midterm_memory", None) is not None:
         memory._midterm_memory.embedding_model = counted_embedding
     shortterm_window = memory._short_term_capacity() // 2
+    if str(spec.get("context_mode") or "none") == "previous_visible":
+        memory._midterm_updater = ContextAwareMidTermUpdater(
+            memory.midterm_memory,
+            counted,
+            memory.config.midterm,
+            context_by_dialogue=visible_context_by_dialogue(list(session.turns), qa_window=shortterm_window),
+        )
     lineage = LineageTracker(shortterm_window)
     pending: list[str] = []
     checkpoints: list[dict[str, Any]] = []
@@ -411,12 +439,19 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
         await memory.flush_background_tasks(timeout=job_timeout)
     finally:
         memory.close()
+        if original_prompts is not None:
+            import mem0.memory.midterm_updater as midterm_updater_module
+
+            from . import production_runtime as production_runtime_module
+
+            midterm_updater_module.MIDTERM_PAGE_SUMMARY_PROMPT = original_prompts[0]
+            production_runtime_module.MIDTERM_PAGE_SUMMARY_PROMPT = original_prompts[1]
 
     checkpoints_path = output_dir / "production_midterm_checkpoints.jsonl"
     trace_path = output_dir / "recall_turn_results.jsonl"
     write_jsonl(checkpoints_path, checkpoints)
     write_jsonl(trace_path, turn_rows)
-    prompt_hashes = production_prompt_hashes()
+    prompt_hashes = production_prompt_hashes(page_summary_prompt=page_summary_prompt)
     repo_root = Path(__file__).resolve().parents[5]
     manifest = {
         "schema": ADAPTER_SCHEMA,
@@ -439,6 +474,9 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
         "effective_memory_config": redact_secrets(config),
         "production_config": deepcopy(config.get("midterm") or {}),
         "prompt_hashes": prompt_hashes,
+        "source_variant": str(spec.get("source_variant") or "production"),
+        "context_mode": str(spec.get("context_mode") or "none"),
+        "source_identity": dict(spec.get("source_identity") or {}),
         "llm_mode": str(spec.get("llm_mode") or "real"),
         "llm_calls": counted.calls,
         "embedding_calls": counted_embedding.calls,
@@ -461,14 +499,23 @@ def generate_production_sources(
     llm_mode: str,
     max_parallel_sessions: int,
     max_parallel_llm_calls: int,
+    page_summary_prompt: str | None = None,
+    context_mode: str = "none",
+    source_variant: str = "production",
+    source_identity: Mapping[str, Any] | None = None,
+    source_root: Path | None = None,
+    generation_stats: dict[str, Any] | None = None,
 ) -> list[Path]:
     """Generate missing production artifacts in isolated subprocesses."""
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
-    source_root = run_dir / "production_source"
+    source_root = source_root or run_dir / "production_source"
     source_root.mkdir(parents=True, exist_ok=True)
     memory_config_sha256 = sha256_file(memory_config_path)
-    prompt_hashes = production_prompt_hashes()
+    prompt_hashes = production_prompt_hashes(page_summary_prompt=page_summary_prompt)
+    expected_source_identity = dict(source_identity or {})
+    generated_paths: list[Path] = []
+    generated_lock = threading.Lock()
 
     def run_session(session_id: str) -> Path:
         code = _safe_component(session_id)
@@ -484,6 +531,9 @@ def generate_production_sources(
                 and int(value.get("ranking_depth") or 0) >= ranking_depth
                 and value.get("memory_config_sha256") == memory_config_sha256
                 and value.get("prompt_hashes") == prompt_hashes
+                and str(value.get("source_variant") or "production") == source_variant
+                and str(value.get("context_mode") or "none") == context_mode
+                and dict(value.get("source_identity") or {}) == expected_source_identity
                 and str(value.get("llm_mode") or "real") == llm_mode
                 and Path(str(value.get("checkpoints_path") or "")).exists()
                 and value.get("checkpoints_sha256") == sha256_file(Path(str(value["checkpoints_path"])))
@@ -491,7 +541,7 @@ def generate_production_sources(
                 return manifest_path
         runtime = isolated_runtime_layout(
             run_dir,
-            candidate_hash="production-source",
+            candidate_hash=f"production-source-{stable_hash(expected_source_identity)[:12]}",
             session_id=session_id,
             purpose="source",
         )
@@ -504,6 +554,10 @@ def generate_production_sources(
             "memory_config_path": str(memory_config_path.resolve()),
             "ranking_depth": ranking_depth,
             "llm_mode": llm_mode,
+            "page_summary_prompt": page_summary_prompt,
+            "context_mode": context_mode,
+            "source_variant": source_variant,
+            "source_identity": expected_source_identity,
         }
         spec_path = result_dir / "source_spec.json"
         atomic_write_json(spec_path, spec)
@@ -529,6 +583,8 @@ def generate_production_sources(
         manifest = load_json(manifest_path)
         if int(manifest.get("turn_count") or 0) != int(session_turn_counts[session_id]):
             raise RuntimeError(f"Incomplete production source for {session_id}")
+        with generated_lock:
+            generated_paths.append(manifest_path)
         return manifest_path
 
     paths: dict[str, Path] = {}
@@ -541,7 +597,18 @@ def generate_production_sources(
         futures = {executor.submit(run_session, session_id): session_id for session_id in session_ids}
         for future in as_completed(futures):
             paths[futures[future]] = future.result()
-    return [paths[session_id] for session_id in session_ids]
+    ordered = [paths[session_id] for session_id in session_ids]
+    if generation_stats is not None:
+        generated = [load_json(path) for path in generated_paths]
+        generation_stats.update(
+            {
+                "generated_sessions": len(generated_paths),
+                "reused_sessions": len(ordered) - len(generated_paths),
+                "llm_calls": sum(int(item.get("llm_calls") or 0) for item in generated),
+                "embedding_calls": sum(int(item.get("embedding_calls") or 0) for item in generated),
+            }
+        )
+    return ordered
 
 
 def source_worker_parallelism(

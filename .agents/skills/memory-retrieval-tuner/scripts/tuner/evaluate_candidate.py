@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import statistics
 import time
 from collections import defaultdict
@@ -14,7 +15,30 @@ from .production_midterm_adapter import PRODUCTION_BACKEND, ProductionMidtermAda
 
 
 def candidate_hash(dataset_sha256: str, candidate: Candidate) -> str:
-    return stable_hash({"dataset_sha256": dataset_sha256, "config": candidate.config})
+    return stable_hash({"dataset_sha256": dataset_sha256, "config": _ranking_identity_config(candidate.config)})
+
+
+def _ranking_identity_config(config: Mapping[str, Any]) -> dict[str, Any]:
+    """Remove mutable cache paths while retaining their immutable content identities."""
+    value = dict(config)
+    manifests = value.pop("manifest_sha256", {}) or {}
+    value.pop("manifest_paths", None)
+    value["manifest_content_sha256"] = sorted(str(item) for item in manifests.values())
+    source_spec = value.pop("source_generation_spec", None)
+    if isinstance(source_spec, Mapping):
+        value["source_generation_identity"] = source_spec.get("source_identity")
+    for path_key, hash_key in (
+        ("derived_artifact_path", "derived_artifact_sha256"),
+        ("query_artifact_path", "query_artifact_sha256"),
+        ("embedding_model_path", "embedding_model_revision"),
+        ("reranker_model_path", "reranker_model_revision"),
+    ):
+        if value.get(path_key):
+            value.pop(path_key, None)
+            value[f"{path_key}_identity"] = value.get(hash_key)
+    for key in ("experiment_branch", "branch_cost_level", "parent_candidate_hash", "applied_branches"):
+        value.pop(key, None)
+    return value
 
 
 def _eligible_requirements(
@@ -103,7 +127,7 @@ def _rank_session(
     run_dir: Path,
     candidate_id: str,
 ) -> tuple[dict[str, list[dict[str, Any]]], bool]:
-    ranking_config = dict(candidate.config)
+    ranking_config = _ranking_identity_config(candidate.config)
     raw_depth = ranking_depth
     identity = {
         "schema": 1,
@@ -460,6 +484,8 @@ def evaluate_candidate(
         )
     else:
         metrics[f"{target}_recall_at_k"] = metrics["recall_at_k"]
+    metrics["tuning_llm_calls"] = int(candidate.provenance.get("tuning_llm_calls") or 0)
+    metrics["tuning_embedding_calls"] = int(candidate.provenance.get("tuning_embedding_calls") or 0)
     reused_artifacts: list[str] = []
     if candidate.provenance.get("ranking_sha256"):
         reused_artifacts.append(str(candidate.provenance["ranking_sha256"]))
@@ -471,11 +497,13 @@ def evaluate_candidate(
     manifest_hashes = candidate.provenance.get("manifests") or {}
     if isinstance(manifest_hashes, Mapping):
         reused_artifacts.extend(str(value) for value in manifest_hashes.values())
+    generation_stats = candidate.provenance.get("deferred_generation_stats") or {}
+    reused_artifacts.extend(str(value) for value in candidate.provenance.get("reused_artifacts") or [])
     return CandidateResult(
         name=candidate.name,
         candidate_hash=candidate_id,
         stage=candidate.stage,
-        config=candidate.config,
+        config=copy.deepcopy(candidate.config),
         metrics=metrics,
         requirement_rows=requirements,
         session_rows=session_rows,
@@ -483,8 +511,8 @@ def evaluate_candidate(
         work_seconds=work_seconds,
         cache_hits=cache_hits,
         cache_misses=cache_misses,
-        llm_calls=0,
-        embedding_calls=0,
+        llm_calls=int(generation_stats.get("llm_calls") or 0),
+        embedding_calls=int(generation_stats.get("embedding_calls") or 0),
         reused_artifacts=reused_artifacts,
         complexity=candidate.complexity,
     )

@@ -207,8 +207,8 @@ def write_outputs(
             "",
             "## Cost, cache, and parallel execution",
             "",
-            f"- New LLM calls: {run_metadata.get('llm_calls', 0)}",
-            f"- Embedding calls: {run_metadata.get('embedding_calls', 0)}",
+            f"- Cumulative LLM calls: {run_metadata.get('llm_calls', 0)}",
+            f"- Cumulative embedding calls: {run_metadata.get('embedding_calls', 0)}",
             f"- Source generation LLM / embedding calls: "
             f"{run_metadata.get('source_generation_llm_calls', 0)} / "
             f"{run_metadata.get('source_generation_embedding_calls', 0)}",
@@ -242,8 +242,8 @@ def write_outputs(
             f"- MidTerm baseline prompt provenance: "
             f"`{(run_metadata.get('midterm_baseline_provenance') or {}).get('prompt_provenance') or 'explicit prompt hashes validated'}`.",
             "- Frozen rankings are eligible only when dataset provenance and the `production_midterm_v1` retrieval contract validate.",
-            "- Query/Page/embedding branches without a production-contract adapter are reported as skipped, not evaluated by a surrogate.",
-            "- New LLM prompt generation is deferred unless a repository-native generator with exact prompt/model provenance is available.",
+            "- Query/Page/embedding variants are derived from production MidTerm checkpoints and remain explicitly marked as Benchmark candidates, not production behavior.",
+            "- Query Prompt generation requires standard/deep budget; Add/Page Prompt generation requires deep budget. Missing API/model resources are recorded as unavailable rather than replaced by surrogate artifacts.",
         )
     )
     atomic_write_text(run_dir / "final_report.md", "\n".join(lines) + "\n")

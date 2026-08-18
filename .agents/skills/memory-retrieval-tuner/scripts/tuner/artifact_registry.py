@@ -80,7 +80,13 @@ def _production_config_fingerprint(config: Mapping[str, Any]) -> str:
 
 def load_frozen_query_overrides(config: Mapping[str, Any]) -> dict[str, str]:
     path = Path(str(config["query_artifact_path"]))
-    variants = _query_artifact_variants(load_jsonl(path))
+    if path.suffix.lower() == ".json":
+        value = load_json(path)
+        payload = value.get("payload") if value.get("status") == "COMPLETE" else value
+        rows = list((payload or {}).get("rows") or []) if isinstance(payload, Mapping) else []
+    else:
+        rows = load_jsonl(path)
+    variants = _query_artifact_variants(rows)
     variant = str(config["query_artifact_variant"])
     if variant not in variants:
         raise ValueError(f"Query artifact {path} has no variant {variant!r}")

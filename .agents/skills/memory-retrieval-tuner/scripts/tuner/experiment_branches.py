@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import json
+import hashlib
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Protocol
@@ -10,6 +10,8 @@ from .derived_artifacts import DerivedArtifactBuilder
 from .io_utils import load_json, sha256_file, stable_hash
 from .model_discovery import ModelDiscovery
 from .models import Candidate, CandidateResult, Dataset
+from .prompt_artifacts import QueryPromptArtifactGenerator, controlled_query_prompt_variants
+from .source_prompt_variants import controlled_page_prompt_variants
 
 
 COST_RANK = {"cheap": 0, "medium": 1, "high": 2, "expensive": 3}
@@ -85,6 +87,9 @@ class BranchContext:
     run_dir: Path
     model_discovery: ModelDiscovery
     stage_index: int
+    generation_round: int = 1
+    branch_history: tuple[Mapping[str, Any], ...] = ()
+    execution_settings: Mapping[str, Any] = field(default_factory=dict)
 
 
 class ExperimentBranch(Protocol):
@@ -111,6 +116,9 @@ def _candidate(
     config.update(changes)
     config["experiment_branch"] = branch
     config["branch_cost_level"] = cost_level
+    config["parent_candidate_hash"] = stable_hash(source.config)
+    config["applied_branches"] = list(dict.fromkeys([*(source.config.get("applied_branches") or []), branch]))
+    config.setdefault("ablation_from_baseline", False)
     anchor_suffix = stable_hash(source.config)[:6]
     return Candidate(
         name=f"{branch}:{label}:from-{anchor_suffix}",
@@ -121,23 +129,55 @@ def _candidate(
     )
 
 
-def _baseline_provenance_valid(context: BranchContext) -> tuple[bool, str | None]:
-    if context.anchor.config.get("backend") != "production_midterm":
+def _candidate_provenance_valid(candidate: Candidate) -> tuple[bool, str | None]:
+    if candidate.config.get("backend") != "production_midterm":
         return False, "branch anchor is not a production_midterm Candidate"
-    manifests = [Path(str(value)) for value in context.anchor.config.get("manifest_paths") or []]
+    manifests = [Path(str(value)) for value in candidate.config.get("manifest_paths") or []]
     if not manifests or any(not path.exists() for path in manifests):
         return False, "production MidTerm manifests are missing"
-    expected = context.anchor.config.get("manifest_sha256") or {}
+    expected = candidate.config.get("manifest_sha256") or {}
     if any(expected.get(str(path.resolve())) != sha256_file(path) for path in manifests):
         return False, "production MidTerm manifest hash mismatch"
     return True, None
+
+
+def _derived_dimensions(anchor: Candidate, **overrides: Any) -> dict[str, Any]:
+    """Carry every already-won representation dimension into a rebuilt artifact."""
+
+    query_path = anchor.config.get("query_artifact_path")
+    dimensions: dict[str, Any] = {
+        "query_representation": str(anchor.config.get("query_representation") or "original"),
+        "query_artifact_path": Path(str(query_path)) if query_path else None,
+        "query_artifact_variant": anchor.config.get("query_artifact_variant"),
+        "page_representation_name": str(anchor.config.get("page_representation") or "production"),
+        "embedding_model_id": str(anchor.config.get("embedding_model_id") or "production"),
+        "embedding_revision": anchor.config.get("embedding_model_revision"),
+        "embedding_local_path": anchor.config.get("embedding_model_path"),
+        "encoding_contract": anchor.config.get("encoding_contract"),
+        "include_field_vectors": anchor.config.get("reranker_method") == "multi_vector_maxsim",
+    }
+    dimensions.update(overrides)
+    return dimensions
+
+
+def _tuning_cost_provenance(
+    context: BranchContext,
+    *,
+    llm_calls: int = 0,
+    embedding_calls: int = 0,
+) -> dict[str, int]:
+    return {
+        "tuning_llm_calls": int(context.anchor.provenance.get("tuning_llm_calls") or 0) + llm_calls,
+        "tuning_embedding_calls": int(context.anchor.provenance.get("tuning_embedding_calls") or 0) + embedding_calls,
+    }
 
 
 class BaseBranch:
     spec: BranchSpec
 
     def validate_provenance(self, candidate: Candidate, context: BranchContext) -> tuple[bool, str | None]:
-        valid, reason = _baseline_provenance_valid(context)
+        del context
+        valid, reason = _candidate_provenance_valid(candidate)
         if not valid:
             return valid, reason
         artifact_path = candidate.config.get("derived_artifact_path")
@@ -180,7 +220,11 @@ class RetrievalControlBranch(BaseBranch):
         for axis, minimum in axes:
             baseline = int(context.anchor.config.get(axis) or minimum)
             axis_config = retrieval.get(axis) or {}
-            values = _relative_values(axis_config, baseline, minimum=minimum)
+            if context.generation_round == 1:
+                values = _relative_values(axis_config, baseline, minimum=minimum)
+            else:
+                step = max(1, int(axis_config.get("refine_step") or 1))
+                values = sorted({max(minimum, baseline - step), baseline, baseline + step})
             for value in values:
                 if value == baseline:
                     continue
@@ -201,74 +245,132 @@ class QueryRepresentationBranch(BaseBranch):
     spec = BranchSpec(
         name="QueryRepresentation",
         diagnostic_regimes=frozenset({"ranking_bottleneck", "candidate_coverage_bottleneck", "balanced_or_plateau"}),
-        cost_level="medium",
-        required_artifacts=("production_midterm_checkpoints", "frozen_query_text"),
+        cost_level="high",
+        required_artifacts=("production_midterm_checkpoints", "production_llm_config"),
         execution_adapter="DerivedQueryVectorAdapter",
         provenance_contract=("dataset_sha256", "query_artifact_sha256", "embedding_model", "manifest_sha256"),
-        resource_requirements={"llm": False, "embedding": True, "gpu": False},
+        resource_requirements={"llm": True, "embedding": True, "gpu": False},
         priority=20,
         initial_stage=False,
     )
 
     def generate(self, context: BranchContext) -> BranchOutcome:
-        query_texts = {turn.query_id: turn.question for turns in context.dataset.sessions.values() for turn in turns}
-        frozen = context.registry.discover_frozen_queries(
-            context.dataset.sha256,
-            query_text_by_id=query_texts,
-            base_candidate=context.anchor,
-            limit=4 if context.budget == "deep" else 2,
-        )
-        if not frozen:
+        if context.budget == "quick":
             return BranchOutcome(
                 self.spec.name,
-                "UNAVAILABLE",
-                reason="no exact-dataset frozen query representation with validated original-query identity",
+                "BUDGET_BLOCKED",
+                reason="quick budget does not generate new Query Prompt LLM artifacts",
             )
+        settings = (((context.search_space.get("search") or {}).get("stages") or {}).get("secondary") or {}).get(
+            "query_representation"
+        ) or {}
+        max_rounds = max(1, min(3, int(settings.get("max_rounds") or 3)))
+        if context.generation_round > max_rounds:
+            return BranchOutcome(self.spec.name, "EXHAUSTED", reason=f"max_rounds={max_rounds} reached")
+        variants = controlled_query_prompt_variants(
+            dataset=context.dataset,
+            anchor=context.anchor,
+            anchor_result=context.anchor_result,
+            tune_sessions=context.tune_sessions,
+            generation_round=context.generation_round,
+            variants_per_round=min(
+                int(settings.get("variants_per_round") or 3),
+                int(context.execution_settings.get("remaining_expensive_candidates") or 3),
+            ),
+        )
+        generator = QueryPromptArtifactGenerator(context.registry)
         builder = DerivedArtifactBuilder(context.registry)
         candidates: list[Candidate] = []
         embeddings = 0
         reused: list[str] = []
         failures: list[str] = []
-        for item in frozen:
+        llm_calls = 0
+        for variant in variants:
             try:
+                artifact = generator.generate(
+                    dataset=context.dataset,
+                    anchor=context.anchor,
+                    variant=variant,
+                    tune_sessions=context.tune_sessions,
+                    max_parallel_llm_calls=int(context.execution_settings.get("max_parallel_llm_calls") or 1),
+                )
+                llm_calls += artifact.llm_calls
                 result = builder.build(
                     dataset_sha256=context.dataset.sha256,
                     session_scope=tuple(sorted(context.dataset.sessions)),
-                    baseline=context.baseline,
-                    query_representation="bounded_reference_resolution",
-                    query_artifact_path=Path(str(item.config["query_artifact_path"])),
-                    query_artifact_variant=str(item.config["query_artifact_variant"]),
+                    baseline=context.anchor,
+                    **_derived_dimensions(
+                        context.anchor,
+                        query_representation="bounded_reference_resolution",
+                        query_artifact_path=artifact.path,
+                        query_artifact_variant=artifact.variant,
+                    ),
                 )
                 embeddings += result.embedding_calls
                 if result.reused:
                     reused.append(result.sha256)
+                if artifact.reused:
+                    reused.append(artifact.sha256)
                 candidates.append(
                     _candidate(
                         context,
                         branch=self.spec.name,
-                        label=str(item.config["query_artifact_variant"]).replace(":", "-"),
+                        label=f"round{context.generation_round}-{variant.optimization_direction}",
                         cost_level=self.spec.cost_level,
                         complexity=1,
-                        base=context.baseline,
                         provenance={
-                            **item.provenance,
+                            "dataset_sha256": context.dataset.sha256,
+                            "query_artifact_sha256": artifact.sha256,
+                            "parent_prompt_hash": variant.parent_prompt_hash,
+                            "prompt_hash": variant.prompt_hash,
+                            "prompt_text": variant.prompt_text,
+                            "generation_round": variant.generation_round,
+                            "optimization_direction": variant.optimization_direction,
+                            "analysis_session_ids": list(context.tune_sessions),
+                            "llm_calls": artifact.llm_calls,
+                            **_tuning_cost_provenance(
+                                context,
+                                llm_calls=artifact.llm_calls,
+                                embedding_calls=result.embedding_calls,
+                            ),
                             "derived_artifact_sha256": result.sha256,
                             "provenance_validated": True,
                         },
                         query_representation="bounded_reference_resolution",
-                        query_artifact_path=item.config["query_artifact_path"],
-                        query_artifact_variant=item.config["query_artifact_variant"],
+                        query_prompt_text=variant.prompt_text,
+                        query_prompt_hash=variant.prompt_hash,
+                        query_prompt_parent_hash=variant.parent_prompt_hash,
+                        query_prompt_generation_round=variant.generation_round,
+                        query_optimization_direction=variant.optimization_direction,
+                        query_artifact_path=str(artifact.path),
+                        query_artifact_sha256=artifact.sha256,
+                        query_artifact_variant=artifact.variant,
                         derived_artifact_path=str(result.path),
                         derived_artifact_sha256=result.sha256,
                     )
                 )
             except Exception as exc:
-                failures.append(f"{item.name}: {type(exc).__name__}: {exc}")
+                failures.append(f"{variant.optimization_direction}: {type(exc).__name__}: {exc}")
         return BranchOutcome(
             self.spec.name,
             "READY" if candidates else "UNAVAILABLE",
             candidates=candidates,
             reason="; ".join(failures) if failures else None,
+            provenance={
+                "generation_round": context.generation_round,
+                "analysis_session_ids": list(context.tune_sessions),
+                "variants": [
+                    {
+                        "parent_prompt_hash": variant.parent_prompt_hash,
+                        "prompt_text": variant.prompt_text,
+                        "prompt_hash": variant.prompt_hash,
+                        "generation_round": variant.generation_round,
+                        "optimization_direction": variant.optimization_direction,
+                    }
+                    for variant in variants
+                ],
+            },
+            llm_calls=llm_calls,
             embedding_calls=embeddings,
             reused_artifacts=reused,
         )
@@ -292,6 +394,7 @@ class PageRepresentationBranch(BaseBranch):
         ) or {}
         variants = list(config.get("values") or ["summary", "summary_keywords", "user_summary"])
         limit = 1 if context.budget == "quick" else 2 if context.budget == "standard" else len(variants)
+        limit = min(limit, int(context.execution_settings.get("remaining_expensive_candidates") or limit))
         builder = DerivedArtifactBuilder(context.registry)
         candidates: list[Candidate] = []
         embeddings = 0
@@ -304,8 +407,8 @@ class PageRepresentationBranch(BaseBranch):
                 result = builder.build(
                     dataset_sha256=context.dataset.sha256,
                     session_scope=tuple(sorted(context.dataset.sessions)),
-                    baseline=context.baseline,
-                    page_representation_name=str(variant),
+                    baseline=context.anchor,
+                    **_derived_dimensions(context.anchor, page_representation_name=str(variant)),
                 )
                 embeddings += result.embedding_calls
                 if result.reused:
@@ -317,8 +420,11 @@ class PageRepresentationBranch(BaseBranch):
                         label=str(variant),
                         cost_level=self.spec.cost_level,
                         complexity=2,
-                        base=context.baseline,
-                        provenance={"derived_artifact_sha256": result.sha256, "provenance_validated": True},
+                        provenance={
+                            "derived_artifact_sha256": result.sha256,
+                            "provenance_validated": True,
+                            **_tuning_cost_provenance(context, embedding_calls=result.embedding_calls),
+                        },
                         page_representation=str(variant),
                         derived_artifact_path=str(result.path),
                         derived_artifact_sha256=result.sha256,
@@ -353,7 +459,15 @@ class HybridRetrievalBranch(BaseBranch):
         config = (((context.search_space.get("search") or {}).get("stages") or {}).get("secondary") or {}).get(
             "lexical_hybrid"
         ) or {}
-        weights = (config.get("dense_weight") or {}).get("coarse") or [0.7, 0.85]
+        if "dense_bm25_fusion" not in set(config.get("methods") or ["dense_bm25_fusion"]):
+            return BranchOutcome(self.spec.name, "UNAVAILABLE", reason="dense_bm25_fusion is disabled")
+        weight_config = config.get("dense_weight") or {}
+        if context.generation_round == 1:
+            weights = weight_config.get("coarse") or [0.7, 0.85]
+        else:
+            center = float(context.anchor.config.get("dense_weight") or 0.7)
+            step = float(weight_config.get("refine_step") or 0.05)
+            weights = [center - 2 * step, center - step, center, center + step, center + 2 * step]
         limit = 1 if context.budget == "quick" else 2 if context.budget == "standard" else len(weights)
         candidates = [
             _candidate(
@@ -366,7 +480,7 @@ class HybridRetrievalBranch(BaseBranch):
                 dense_weight=float(weight),
             )
             for weight in weights[:limit]
-            if float(weight) < 1.0
+            if 0.0 <= float(weight) < 1.0 and float(weight) != float(context.anchor.config.get("dense_weight") or -1)
         ]
         return BranchOutcome(self.spec.name, "READY", candidates=candidates)
 
@@ -384,27 +498,46 @@ class RerankingBranch(BaseBranch):
     )
 
     def generate(self, context: BranchContext) -> BranchOutcome:
-        candidates = [
-            _candidate(
-                context,
-                branch=self.spec.name,
-                label="field_lexical",
-                cost_level=self.spec.cost_level,
-                complexity=2,
-                reranker_method="field_lexical",
-                reranker_dense_weight=0.75,
-                max_total_pages=max(
-                    context.ranking_depth, int(context.anchor.config.get("max_total_pages") or context.k)
-                ),
+        rerank_config = (((context.search_space.get("search") or {}).get("stages") or {}).get("secondary") or {}).get(
+            "reranking"
+        ) or {}
+        minimum_gap = float(rerank_config.get("min_deep_recall_gap_pp") or 0.0)
+        if float(context.diagnostic.get("recall_4k_minus_k_pp") or 0.0) < minimum_gap:
+            return BranchOutcome(
+                self.spec.name,
+                "NOT_TRIGGERED",
+                reason=f"deep recall gap is below min_deep_recall_gap_pp={minimum_gap}",
             )
-        ]
+        methods = set(rerank_config.get("methods") or ["field_lexical", "auto_discovered_cross_encoder"])
+        candidates = []
+        if "field_lexical" in methods:
+            candidates.append(
+                _candidate(
+                    context,
+                    branch=self.spec.name,
+                    label="field_lexical",
+                    cost_level=self.spec.cost_level,
+                    complexity=2,
+                    reranker_method="field_lexical",
+                    reranker_dense_weight=0.75,
+                    max_total_pages=max(
+                        context.ranking_depth, int(context.anchor.config.get("max_total_pages") or context.k)
+                    ),
+                )
+            )
         unavailable: list[str] = []
-        if context.budget == "deep":
+        method_limit = int(rerank_config.get("max_methods_standard") or 2) if context.budget == "standard" else 99
+        if context.budget in {"standard", "deep"} and "auto_discovered_cross_encoder" in methods:
+            allow_network = context.budget == "deep"
+            model_limit = int(rerank_config.get("max_models_deep" if allow_network else "max_models_standard") or 2)
             models = context.model_discovery.discover(
-                model_type="reranker", allow_network=True, general_limit=2, finance_limit=2
+                model_type="reranker",
+                allow_network=allow_network,
+                general_limit=model_limit,
+                finance_limit=1 if allow_network else 0,
             )
-            for model in models:
-                model = context.model_discovery.ensure_available(model, allow_download=True)
+            for model in models[: max(0, min(model_limit, method_limit - len(candidates)))]:
+                model = context.model_discovery.ensure_available(model, allow_download=allow_network)
                 model = context.model_discovery.smoke_test(
                     model, device="cuda" if context.model_discovery.resources.gpu_count else "cpu"
                 )
@@ -418,7 +551,6 @@ class RerankingBranch(BaseBranch):
                         label=f"cross_encoder={model.model_id.replace('/', '--')}",
                         cost_level=self.spec.cost_level,
                         complexity=3,
-                        base=context.baseline,
                         provenance={"model_discovery": model.serializable(), "provenance_validated": True},
                         reranker_method="cross_encoder",
                         reranker_model_id=model.model_id,
@@ -433,7 +565,9 @@ class RerankingBranch(BaseBranch):
         return BranchOutcome(
             self.spec.name,
             "READY",
-            candidates=candidates,
+            candidates=candidates[
+                : int(context.execution_settings.get("remaining_expensive_candidates") or len(candidates))
+            ],
             reason="; ".join(unavailable) if unavailable else None,
         )
 
@@ -452,11 +586,23 @@ class EmbeddingBranch(BaseBranch):
 
     def generate(self, context: BranchContext) -> BranchOutcome:
         allow_network = context.budget == "deep"
+        settings = (((context.search_space.get("search") or {}).get("stages") or {}).get("secondary") or {}).get(
+            "embedding_models"
+        ) or {}
+        max_models = int(
+            settings.get("max_models_deep" if allow_network else "max_models_standard") or (4 if allow_network else 2)
+        )
+        max_models = min(
+            max_models, int(context.execution_settings.get("remaining_expensive_candidates") or max_models)
+        )
+        discovery = settings.get("discovery") or {}
+        general_limit = min(max_models, int(discovery.get("general_semantic_limit") or 2))
+        finance_limit = min(max_models - general_limit, int(discovery.get("finance_domain_limit") or 2))
         models = context.model_discovery.discover(
             model_type="embedding",
             allow_network=allow_network,
-            general_limit=2,
-            finance_limit=2,
+            general_limit=general_limit,
+            finance_limit=max(0, finance_limit),
         )
         if not models:
             return BranchOutcome(self.spec.name, "UNAVAILABLE", reason="no resource-compatible local/discovered model")
@@ -478,10 +624,14 @@ class EmbeddingBranch(BaseBranch):
                 result = builder.build(
                     dataset_sha256=context.dataset.sha256,
                     session_scope=tuple(sorted(context.dataset.sessions)),
-                    baseline=context.baseline,
-                    embedding_model_id=model.model_id,
-                    embedding_revision=model.revision,
-                    embedding_local_path=model.local_path,
+                    baseline=context.anchor,
+                    **_derived_dimensions(
+                        context.anchor,
+                        embedding_model_id=model.model_id,
+                        embedding_revision=model.revision,
+                        embedding_local_path=model.local_path,
+                        encoding_contract=model.encoding_contract,
+                    ),
                     device="cuda" if context.model_discovery.resources.gpu_count else "cpu",
                 )
                 embeddings += result.embedding_calls
@@ -494,14 +644,16 @@ class EmbeddingBranch(BaseBranch):
                         label=model.model_id.replace("/", "--"),
                         cost_level=self.spec.cost_level,
                         complexity=3,
-                        base=context.baseline,
                         provenance={
                             "model_discovery": model.serializable(),
                             "derived_artifact_sha256": result.sha256,
                             "provenance_validated": True,
+                            **_tuning_cost_provenance(context, embedding_calls=result.embedding_calls),
                         },
                         embedding_model_id=model.model_id,
                         embedding_model_revision=model.revision,
+                        embedding_model_path=model.local_path,
+                        encoding_contract=model.encoding_contract,
                         derived_artifact_path=str(result.path),
                         derived_artifact_sha256=result.sha256,
                     )
@@ -531,31 +683,37 @@ class FieldAwareMultiVectorBranch(BaseBranch):
     )
 
     def generate(self, context: BranchContext) -> BranchOutcome:
-        candidates = [
-            _candidate(
-                context,
-                branch=self.spec.name,
-                label="lexical_fields",
-                cost_level=self.spec.cost_level,
-                complexity=3,
-                reranker_method="field_lexical",
-                field_weights={"summary": 0.5, "keywords": 0.3, "user_input": 0.2},
-                reranker_dense_weight=0.7,
-                max_total_pages=max(
-                    context.ranking_depth, int(context.anchor.config.get("max_total_pages") or context.k)
-                ),
+        settings = (((context.search_space.get("search") or {}).get("stages") or {}).get("secondary") or {}).get(
+            "advanced_representation"
+        ) or {}
+        methods = set(settings.get("methods") or ["field_aware_lexical", "multi_vector_maxsim"])
+        candidates = []
+        if "field_aware_lexical" in methods:
+            candidates.append(
+                _candidate(
+                    context,
+                    branch=self.spec.name,
+                    label="lexical_fields",
+                    cost_level=self.spec.cost_level,
+                    complexity=3,
+                    reranker_method="field_lexical",
+                    field_weights={"summary": 0.5, "keywords": 0.3, "user_input": 0.2},
+                    reranker_dense_weight=0.7,
+                    max_total_pages=max(
+                        context.ranking_depth, int(context.anchor.config.get("max_total_pages") or context.k)
+                    ),
+                )
             )
-        ]
         embeddings = 0
         reused: list[str] = []
         reason = None
-        if context.budget == "deep":
+        if context.budget == "deep" and "multi_vector_maxsim" in methods:
             try:
                 result = DerivedArtifactBuilder(context.registry).build(
                     dataset_sha256=context.dataset.sha256,
                     session_scope=tuple(sorted(context.dataset.sessions)),
-                    baseline=context.baseline,
-                    include_field_vectors=True,
+                    baseline=context.anchor,
+                    **_derived_dimensions(context.anchor, include_field_vectors=True),
                 )
                 embeddings += result.embedding_calls
                 if result.reused:
@@ -567,8 +725,11 @@ class FieldAwareMultiVectorBranch(BaseBranch):
                         label="maxsim_fields",
                         cost_level=self.spec.cost_level,
                         complexity=4,
-                        base=context.baseline,
-                        provenance={"derived_artifact_sha256": result.sha256, "provenance_validated": True},
+                        provenance={
+                            "derived_artifact_sha256": result.sha256,
+                            "provenance_validated": True,
+                            **_tuning_cost_provenance(context, embedding_calls=result.embedding_calls),
+                        },
                         reranker_method="multi_vector_maxsim",
                         derived_artifact_path=str(result.path),
                         derived_artifact_sha256=result.sha256,
@@ -580,6 +741,11 @@ class FieldAwareMultiVectorBranch(BaseBranch):
                 )
             except Exception as exc:
                 reason = f"multi-vector unavailable: {type(exc).__name__}: {exc}"
+        if context.budget == "standard":
+            candidates = candidates[: max(1, int(settings.get("max_methods_standard") or 1))]
+        candidates = candidates[
+            : int(context.execution_settings.get("remaining_expensive_candidates") or len(candidates))
+        ]
         return BranchOutcome(
             self.spec.name,
             "READY",
@@ -590,27 +756,14 @@ class FieldAwareMultiVectorBranch(BaseBranch):
         )
 
 
-def _prompt_hashes(value: Any) -> set[str]:
-    result: set[str] = set()
-    if isinstance(value, Mapping):
-        for key, item in value.items():
-            if "prompt" in str(key).lower() and "hash" in str(key).lower() and isinstance(item, str):
-                result.add(item)
-            result.update(_prompt_hashes(item))
-    elif isinstance(value, list):
-        for item in value:
-            result.update(_prompt_hashes(item))
-    return result
-
-
 class MemoryWriteAddPromptBranch(BaseBranch):
     spec = BranchSpec(
         name="MemoryWriteAddPrompt",
         diagnostic_regimes=frozenset({"candidate_coverage_bottleneck"}),
         cost_level="expensive",
         required_artifacts=("production_generated_pages", "prompt_hash", "model_config"),
-        execution_adapter="FrozenGeneratedRankingAdapter",
-        provenance_contract=("dataset_sha256", "prompt_hash", "model_config", "ranking_sha256"),
+        execution_adapter="ProductionGeneratedSourceAdapter",
+        provenance_contract=("dataset_sha256", "prompt_hash", "model_config", "manifest_sha256"),
         resource_requirements={"llm": True, "embedding": True, "network": True},
         priority=30,
     )
@@ -620,51 +773,113 @@ class MemoryWriteAddPromptBranch(BaseBranch):
             return BranchOutcome(
                 self.spec.name, "BUDGET_BLOCKED", reason="only budget=deep permits Add/Prompt branches"
             )
+        expensive = ((context.search_space.get("search") or {}).get("stages") or {}).get("expensive") or {}
+        if expensive.get("require_frontier_candidate", True) and not context.anchor_result:
+            return BranchOutcome(self.spec.name, "NOT_TRIGGERED", reason="a Tune frontier anchor is required")
+        tune_scope = set(context.tune_sessions)
+        tune_failures = [
+            row
+            for row in context.anchor_result.requirement_rows
+            if str(row.get("session_id") or "") in tune_scope and not bool(row.get("hit_at_k"))
+        ]
+        variants = controlled_page_prompt_variants(
+            context.diagnostic,
+            {
+                "missed_at_k": len(tune_failures),
+                "present_at_2k": sum(bool(row.get("hit_at_2k")) for row in tune_failures),
+                "present_at_4k": sum(bool(row.get("hit_at_4k")) for row in tune_failures),
+                "missing_at_4k": sum(not bool(row.get("hit_at_4k")) for row in tune_failures),
+            },
+        )
+        configured_variants = {
+            str(value)
+            for section in ("memory_write_prompt", "page_summary_prompt")
+            for value in ((expensive.get(section) or {}).get("variants") or [])
+            if str(value) not in {"production_add", "production_summary"}
+        }
+        if configured_variants:
+            variants = {name: value for name, value in variants.items() if name in configured_variants}
+        max_candidates = max(1, int(expensive.get("max_prompt_candidates") or 4))
+        max_candidates = min(
+            max_candidates,
+            int(context.execution_settings.get("remaining_expensive_candidates") or max_candidates),
+        )
+        base_manifests = [Path(str(value)) for value in context.anchor.config.get("manifest_paths") or []]
+        if not base_manifests:
+            return BranchOutcome(self.spec.name, "UNAVAILABLE", reason="production source manifest is missing")
+        source_manifest = load_json(base_manifests[0])
+        memory_config_path = Path(str(source_manifest["memory_config_path"]))
+        llm_mode = str(source_manifest.get("llm_mode") or "real")
+        session_turn_counts = {session_id: len(turns) for session_id, turns in context.dataset.sessions.items()}
         candidates: list[Candidate] = []
-        unavailable: list[str] = []
-        for item in context.registry.discover_frozen_rankings(context.dataset.sha256, limit=16):
-            metadata_path = Path(str(item.provenance.get("metadata_path") or ""))
-            if not metadata_path.exists():
-                continue
-            try:
-                hashes = sorted(_prompt_hashes(load_json(metadata_path)))
-            except (OSError, json.JSONDecodeError, ValueError):
-                continue
-            if not hashes:
-                unavailable.append(f"{item.name}: prompt hash absent")
-                continue
+        for label, variant in list(variants.items())[:max_candidates]:
+            prompt = str(variant["prompt"])
+            prompt_hash = hashlib.sha256(prompt.encode()).hexdigest()
+            identity = {
+                "schema": 2,
+                "kind": "production_midterm_prompt_variant",
+                "dataset_sha256": context.dataset.sha256,
+                "memory_config_sha256": sha256_file(memory_config_path),
+                "production_prompt_hashes": source_manifest.get("prompt_hashes") or {},
+                "page_summary_prompt_hash": prompt_hash,
+                "context_mode": variant["context_mode"],
+                "llm_mode": llm_mode,
+                "artifact_schema": 1,
+            }
+            source_root = context.registry.cache_root / "production_variants" / stable_hash(identity)
             candidates.append(
-                Candidate(
-                    name=f"{self.spec.name}:{item.name}",
-                    stage=f"stage_{context.stage_index}_{self.spec.name}",
-                    config={
-                        **item.config,
-                        "experiment_branch": self.spec.name,
-                        "branch_cost_level": self.spec.cost_level,
+                _candidate(
+                    context,
+                    branch=self.spec.name,
+                    label=label,
+                    cost_level=self.spec.cost_level,
+                    complexity=4,
+                    provenance={
+                        "dataset_sha256": context.dataset.sha256,
+                        "prompt_hash": prompt_hash,
+                        "prompt_text": prompt,
+                        "prompt_variant": label,
+                        "prompt_kind": variant["kind"],
+                        "context_mode": variant["context_mode"],
+                        "generation_deferred_until_screening": True,
+                        "provenance_validated": True,
                     },
-                    provenance={**item.provenance, "prompt_hashes": hashes, "provenance_validated": True},
-                    complexity=context.anchor.complexity + 4,
+                    source_generation_spec={
+                        "dataset_path": context.dataset.path,
+                        "dataset_sha256": context.dataset.sha256,
+                        "session_turn_counts": session_turn_counts,
+                        "memory_config_path": str(memory_config_path.resolve()),
+                        "llm_mode": llm_mode,
+                        "page_summary_prompt": prompt,
+                        "context_mode": str(variant["context_mode"]),
+                        "source_variant": label,
+                        "source_identity": identity,
+                        "source_root": str(source_root.resolve()),
+                        "session_order": sorted(context.dataset.sessions),
+                    },
+                    page_summary_prompt_hash=prompt_hash,
+                    source_variant=label,
                 )
             )
         return BranchOutcome(
             self.spec.name,
             "READY" if candidates else "UNAVAILABLE",
             candidates=candidates,
-            reason=(
-                "; ".join(unavailable[:5])
-                if unavailable
-                else "no exact-dataset frozen Add/Page prompt artifact with prompt hash; generation requires configured variants"
-            ),
+            provenance={
+                "production_reference": context.anchor.name,
+                "generation_policy": "screening_sessions_then_promoted_tune_then_validation",
+                "generated_variants": [
+                    {
+                        "name": label,
+                        "prompt_hash": hashlib.sha256(str(value["prompt"]).encode()).hexdigest(),
+                        "prompt_text": value["prompt"],
+                        "context_mode": value["context_mode"],
+                        "kind": value["kind"],
+                    }
+                    for label, value in variants.items()
+                ],
+            },
         )
-
-    def validate_provenance(self, candidate: Candidate, context: BranchContext) -> tuple[bool, str | None]:
-        del context
-        path = Path(str(candidate.config.get("ranking_path") or ""))
-        if not path.exists() or candidate.config.get("ranking_sha256") != sha256_file(path):
-            return False, "frozen generated ranking hash mismatch"
-        if not candidate.provenance.get("prompt_hashes"):
-            return False, "prompt hash is absent"
-        return True, None
 
 
 class BranchRegistry:
@@ -694,20 +909,37 @@ class BranchRegistry:
         *,
         regime: str,
         max_cost_level: str,
-        attempted: set[str],
+        attempt_counts: Mapping[str, int],
+        exhausted: set[str],
         initial_stage: bool,
         limit: int,
         enabled: set[str] | None = None,
+        branch_settings: Mapping[str, Any] | None = None,
     ) -> list[ExperimentBranch]:
         max_cost = COST_RANK[max_cost_level]
+        settings = branch_settings or {}
+
+        def max_rounds(branch: ExperimentBranch) -> int:
+            value = settings.get(branch.spec.name) or {}
+            return max(1, int(value.get("max_rounds") or 1)) if isinstance(value, Mapping) else 1
+
         eligible = [
             branch
             for branch in self.ordered()
-            if branch.spec.name not in attempted
+            if branch.spec.name not in exhausted
+            and int(attempt_counts.get(branch.spec.name, 0)) < max_rounds(branch)
             and (enabled is None or branch.spec.name in enabled)
             and COST_RANK[branch.spec.cost_level] <= max_cost
             and (branch.spec.initial_stage if initial_stage else regime in branch.spec.diagnostic_regimes)
         ]
+        eligible.sort(
+            key=lambda branch: (
+                int(attempt_counts.get(branch.spec.name, 0)) == 0,
+                COST_RANK[branch.spec.cost_level],
+                branch.spec.priority,
+                branch.spec.name,
+            )
+        )
         return eligible[:limit]
 
     def generate(self, branch: ExperimentBranch, context: BranchContext) -> BranchOutcome:

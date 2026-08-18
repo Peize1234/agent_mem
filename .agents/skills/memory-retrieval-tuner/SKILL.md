@@ -125,6 +125,10 @@ R@K = top K 内满足的 Gold requirement 数量
 - `experiment_branches.py`：Branch Registry 与实验 adapter；
 - `staged_search.py`：Tune-only successive filtering；
 - `derived_artifacts.py`：Query/Page/Session/field 向量派生与 content-addressed cache；
+- `prompt_artifacts.py`：Query Prompt 受控迭代、逐 Query 原子缓存与恢复；
+- `source_prompt_variants.py`：Add/Page Summary 受控 Prompt 和 tuner-only context wrapper；
+- `generated_source_artifacts.py`：Add/Page Prompt 候选按 screening/Tune/Validation Session 延迟物化；
+- `encoding_contract.py`：模型自己的 Query/Document encoding contract；
 - `model_discovery.py`：本地优先的 Hugging Face 发现、下载与 smoke；
 - `benchmark_support.py` / `production_runtime.py`：自包含 benchmark schema 与生产 runtime wrapper；
 - `production_midterm_adapter.py`：生产 checkpoint 生成和隔离 replay。
@@ -277,7 +281,7 @@ split_manifest.json
 - dense/keyword score weight；
 - 在现有 artifact 支持下的低成本 lexical fusion。
 
-所有实验通过 Branch Registry 注册。首阶段运行 `RetrievalControl`；后续诊断可开启 frozen Query representation、派生 Page representation、dense+Qdrant-BM25、field-aware 或 reranking。改变 Page/Query/embedding 的 Branch 必须生成或复用派生 artifact，不能冒充 production baseline。
+所有实验通过 Branch Registry 注册。首阶段运行 `RetrievalControl`；后续诊断可开启 Query Prompt 迭代、派生 Page representation、dense+Qdrant-BM25、field-aware 或 reranking。新 dataset 不要求预先存在 frozen Query/Page artifact：完全匹配 provenance 时复用，否则自动生成。改变 Page/Query/embedding 的 Branch 必须生成或复用派生 artifact，不能冒充 production baseline。
 
 使用分阶段搜索，不要直接跑完整 Cartesian grid。
 
@@ -317,7 +321,11 @@ split_manifest.json
 
 搜索循环必须是：生成 Candidate → Tune → frontier/prune → 重新诊断 → 选择下一 Branch。Validation 仅在循环停止后运行。停止原因必须来自 budget、`min_improvement_pp`/`patience_stages`、frontier convergence、数据质量或资源约束，不得固定写成 validation selected。
 
-高成本 Embedding/Reranker Candidate 先在 Tune Session 子集 screening，明显低于 baseline 者不进入完整 Tune。
+Branch Candidate 默认从当前 Tune frontier anchor 继承已经验证的维度；只有显式 ablation 才可设置 `ablation_from_baseline=true`。Branch 以 `(name, generation_round, effective config hash)` 跟踪，同一 Branch 可以 coarse → refine 后再次进入；`max_rounds`、全局 `max_stages`、candidate hash 去重和 patience 共同防止循环。
+
+`QueryRepresentation` 最多运行三轮，每轮以当前最佳 Query Prompt 为 parent 生成最多三个受控方向，并始终保留 production/original 结果作为全局参照。失败模式只来自 Tune requirement rows；固定后的 Prompt 可以在 Validation Query 上执行，但 Validation 指标和 Gold 不得进入 Prompt 生成或选方向。任一轮低于 `min_improvement_pp`、全部变体无提升、original 仍优或 frontier 不再保留该方向时提前停止。
+
+高成本 Embedding/Reranker Candidate 先在 Tune Session 子集 screening，明显低于当前 frontier anchor 者不进入完整 Tune。
 
 Budget 约束实验层级：`quick` 至多 medium、禁止下载/LLM generation；`standard` 至多 high、模型仅使用本地 cache；`deep` 才允许 expensive Branch、联网模型发现/下载和有明确 provenance 的新生成。各 profile 还分别约束 stage、Branch、Candidate 和 validation frontier 数量。
 
@@ -325,11 +333,13 @@ Budget 约束实验层级：`quick` 至多 medium、禁止下载/LLM generation�
 
 ### 7. 模型自动发现
 
-Embedding/Reranker Branch 使用 `model_discovery.py`：先扫描 Hugging Face cache；`budget=deep` 且本地候选不足时再联网搜索。按中文/多语言、retrieval/reranking、金融信号、model card、License、参数量及 GPU/RAM/磁盘筛选；下载复用 HF cache，记录 model ID、revision、source、License、选择原因和资源状态。gated、下载失败或资源不足必须记录 `UNAVAILABLE`，不能中止整次搜索。
+Embedding/Reranker Branch 使用 `model_discovery.py`：先扫描 Hugging Face cache；`budget=deep` 且本地候选不足时再联网搜索。`standard` 可运行本地已有的 embedding 和 reranker，但禁止联网下载。筛选优先读取 model card/config 中的 MTEB/C-MTEB/FinMTEB、retrieval/reranking results、语言、architecture、License 与参数量，不以名称/downloads 代替 Benchmark 实测。下载复用 HF cache，记录 model ID、immutable revision、source、License、选择原因和资源状态。gated、下载失败或资源不足必须记录 `UNAVAILABLE`，不能中止整次搜索。
+
+每个 embedding 必须先解析并记录 encoding contract，包括 Query/Document prefix 或 instruction、`prompt_name`、normalization 和 pooling。无法从模型自己的 config/model card 或已知官方 family contract 可靠确定时，标记 `UNAVAILABLE`；禁止裸 `SentenceTransformer.encode(text)` 后把结果当作模型能力。
 
 ### 8. 高成本 LLM Search
 
-只对最优 Candidate，或诊断明确表明 representation generation 是瓶颈时运行。
+只对 frontier Candidate，且诊断明确表明 representation generation 是瓶颈时运行。
 
 潜在搜索分支：
 
@@ -347,6 +357,8 @@ Embedding/Reranker Branch 使用 `model_discovery.py`：先扫描 Hugging Face c
 - 缓存生成的 artifact；
 - 不要为了让 ablation 看起来“新鲜”而重新生成已有且有效的 frozen artifact；
 - 两个 prompt variant 如果 provenance 无法区分，则禁止直接比较。
+
+在 `budget=deep` 的 coverage 诊断下，`MemoryWriteAddPrompt` 对当前 dataset 通过隔离的真实 `AsyncMemory.add → MidTermUpdater → Page/Session embedding` 链路生成 conservative Add、context-aware Add、evidence-focused summary 和诊断驱动 summary。候选创建时只冻结生成规范；screening 只物化 screening Sessions，只有晋级候选才继续补全 Tune，Validation 在搜索停止后才物化 held-out Sessions。Production Add/Summary 由当前 anchor/baseline 作为参照，不重复生成。Context wrapper 仅改变摘要模型当时可见的输入，不改变原始 Page dialogue、source-turn lineage 或生产代码。
 
 ### 9. Validation
 

@@ -7,11 +7,12 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Protocol, Sequence
 
+from .encoding_contract import SentenceTransformerEncodingAdapter, resolve_encoding_contract
 from .io_utils import atomic_write_json
 
 
 MODEL_KINDS = {"embedding", "reranker"}
-FINANCE_MARKERS = {"finance", "financial", "finbert", "fin", "财经", "金融"}
+FINANCE_MARKERS = {"finance", "financial", "finbert", "finmteb", "财经", "金融"}
 MULTILINGUAL_MARKERS = {"multilingual", "chinese", "zh", "bge", "gte", "e5", "qwen", "m3"}
 
 
@@ -46,6 +47,7 @@ class ModelCandidate:
     selection_reason: str = ""
     resource_usage: dict[str, Any] = field(default_factory=dict)
     metadata_evidence: dict[str, Any] = field(default_factory=dict)
+    encoding_contract: dict[str, Any] | None = None
     error: str | None = None
 
     def serializable(self) -> dict[str, Any]:
@@ -144,12 +146,40 @@ def _metadata_evidence(data: Mapping[str, Any]) -> dict[str, Any]:
         values = value if isinstance(value, (list, tuple, set)) else [value]
         return [str(item) for item in values if str(item).strip()]
 
+    model_index = card.get("model-index") or card.get("model_index") or []
+    benchmark_results: list[dict[str, Any]] = []
+
+    def collect_results(value: Any) -> None:
+        if isinstance(value, Mapping):
+            if value.get("task") or value.get("dataset") or value.get("metrics"):
+                benchmark_results.append(
+                    {
+                        key: value.get(key)
+                        for key in ("task", "dataset", "metrics", "name", "type")
+                        if value.get(key) not in (None, "")
+                    }
+                )
+            for nested in value.values():
+                collect_results(nested)
+        elif isinstance(value, (list, tuple)):
+            for nested in value:
+                collect_results(nested)
+
+    collect_results(model_index)
+    config = _as_mapping(data.get("config") or {})
+    architectures = string_values(config.get("architectures") or card.get("architecture"))
+    benchmark_text = " ".join(str(value) for value in benchmark_results).lower()
     return {
         "pipeline_tag": str(data.get("pipeline_tag") or "") or None,
         "library_name": str(data.get("library_name") or "") or None,
         "languages": string_values(card.get("language") or card.get("languages")),
         "datasets": string_values(card.get("datasets") or card.get("dataset")),
-        "benchmark_metadata_present": bool(card.get("model-index") or card.get("model_index")),
+        "architectures": architectures,
+        "benchmark_results": benchmark_results[:40],
+        "benchmark_metadata_present": bool(benchmark_results),
+        "mteb_evidence": any(marker in benchmark_text for marker in ("mteb", "c-mteb", "cmteb")),
+        "finance_benchmark_evidence": any(marker in benchmark_text for marker in ("finmteb", "finance", "financial")),
+        "retrieval_benchmark_evidence": any(marker in benchmark_text for marker in ("retrieval", "rerank")),
     }
 
 
@@ -181,12 +211,59 @@ def _task_match(model_id: str, tags: Sequence[str], model_type: str) -> bool:
 
 
 def _candidate_score(candidate: ModelCandidate, *, finance: bool) -> tuple[float, int, str]:
-    text = " ".join([candidate.model_id, *candidate.tags]).lower()
+    evidence = candidate.metadata_evidence
+    text = " ".join(
+        [
+            candidate.model_id,
+            *candidate.tags,
+            *[str(value) for value in evidence.get("languages") or []],
+            *[str(value) for value in evidence.get("datasets") or []],
+            str(evidence.get("benchmark_results") or ""),
+        ]
+    ).lower()
     multilingual = sum(marker in text for marker in MULTILINGUAL_MARKERS)
     domain = sum(marker in text for marker in FINANCE_MARKERS)
     license_bonus = 1 if candidate.license and candidate.license.lower() not in {"unknown", "other"} else 0
+    benchmark_bonus = 6 * int(bool(evidence.get("retrieval_benchmark_evidence")))
+    benchmark_bonus += 5 * int(bool(evidence.get("mteb_evidence")))
+    benchmark_bonus += 10 * int(finance and bool(evidence.get("finance_benchmark_evidence")))
     domain_fit = domain if finance else multilingual
-    return float(domain_fit * 10 + multilingual * 3 + license_bonus), candidate.downloads, candidate.model_id
+    return (
+        float(domain_fit * 10 + multilingual * 3 + license_bonus + benchmark_bonus),
+        candidate.downloads,
+        candidate.model_id,
+    )
+
+
+def _is_finance_candidate(candidate: ModelCandidate) -> bool:
+    evidence = candidate.metadata_evidence
+    if evidence.get("finance_benchmark_evidence"):
+        return True
+    tokens = set(re.findall(r"[a-z0-9]+|[\u4e00-\u9fff]+", " ".join([candidate.model_id, *candidate.tags]).lower()))
+    return bool(tokens & FINANCE_MARKERS)
+
+
+def _local_metadata(snapshot: Path) -> dict[str, Any]:
+    def read(name: str) -> Mapping[str, Any]:
+        path = snapshot / name
+        if not path.exists():
+            return {}
+        try:
+            value = __import__("json").loads(path.read_text(encoding="utf-8"))
+            return value if isinstance(value, Mapping) else {}
+        except (OSError, ValueError):
+            return {}
+
+    config = read("config.json")
+    sentence_config = read("config_sentence_transformers.json")
+    return {
+        "library_name": "sentence-transformers" if (snapshot / "modules.json").exists() else None,
+        "architectures": list(config.get("architectures") or []),
+        "normalize_embeddings": bool(sentence_config.get("similarity_fn_name") == "cosine"),
+        "tags": ["sentence-transformers"] if (snapshot / "modules.json").exists() else [],
+        "benchmark_results": [],
+        "benchmark_metadata_present": False,
+    }
 
 
 class ModelDiscovery:
@@ -252,14 +329,18 @@ class ModelDiscovery:
                 continue
             revisions = metadata.get("revisions") or []
             refs = metadata.get("refs") or {}
+            revision = str(refs.get("main") or revisions[-1]) if refs.get("main") or revisions else None
+            snapshot = Path(str(metadata["cache_root"])) / "snapshots" / str(revision) if revision else None
+            local_evidence = _local_metadata(snapshot) if snapshot and snapshot.exists() else {}
             candidates[model_id] = ModelCandidate(
                 model_id=model_id,
                 model_type=model_type,
                 source="local_huggingface_cache",
-                revision=str(refs.get("main") or revisions[-1]) if refs.get("main") or revisions else None,
+                revision=revision,
                 tags=list(tags),
-                local_path=str(metadata["cache_root"]),
+                local_path=str(snapshot if snapshot and snapshot.exists() else metadata["cache_root"]),
                 cache_status="CACHED",
+                metadata_evidence=local_evidence,
             )
         if allow_network:
             queries = (
@@ -283,7 +364,13 @@ class ModelDiscovery:
                             cached = local.get(candidate.model_id)
                             if cached:
                                 candidate.cache_status = "CACHED"
-                                candidate.local_path = str(cached["cache_root"])
+                                revisions = cached.get("revisions") or []
+                                refs = cached.get("refs") or {}
+                                revision = (
+                                    str(refs.get("main") or revisions[-1]) if refs.get("main") or revisions else None
+                                )
+                                snapshot = Path(str(cached["cache_root"])) / "snapshots" / str(revision)
+                                candidate.local_path = str(snapshot if snapshot.exists() else cached["cache_root"])
                             candidates.setdefault(candidate.model_id, candidate)
             except Exception as exc:
                 self.events.append({"model_type": model_type, "status": "SEARCH_UNAVAILABLE", "reason": str(exc)})
@@ -305,11 +392,7 @@ class ModelDiscovery:
         )
         general = sorted(screened, key=lambda item: _candidate_score(item, finance=False), reverse=True)
         finance = sorted(
-            [
-                item
-                for item in screened
-                if any(marker in " ".join([item.model_id, *item.tags]).lower() for marker in FINANCE_MARKERS)
-            ],
+            [item for item in screened if _is_finance_candidate(item)],
             key=lambda item: _candidate_score(item, finance=True),
             reverse=True,
         )
@@ -324,7 +407,7 @@ class ModelDiscovery:
         for candidate in [*general_selected, *finance[:finance_limit]]:
             if candidate.model_id not in {item.model_id for item in selected}:
                 candidate.selection_reason = (
-                    f"{candidate.selection_reason}; selected by metadata for multilingual/Chinese retrieval"
+                    f"{candidate.selection_reason}; selected by model-card/config evidence for multilingual/Chinese retrieval"
                     + (" and finance-domain signals" if candidate in finance else "")
                     + f"; license={candidate.license or 'unknown'}, downloads={candidate.downloads}"
                     + (
@@ -354,6 +437,8 @@ class ModelDiscovery:
             if not candidate.revision:
                 match = re.search(r"/snapshots/([^/]+)", candidate.local_path)
                 candidate.revision = match.group(1) if match else None
+            if not candidate.revision:
+                raise RuntimeError("Hugging Face cache did not expose an immutable model revision")
         except Exception as exc:
             candidate.status = "UNAVAILABLE"
             candidate.error = f"{type(exc).__name__}: {exc}"
@@ -371,7 +456,17 @@ class ModelDiscovery:
                 from sentence_transformers import SentenceTransformer
 
                 model = SentenceTransformer(candidate.local_path or candidate.model_id, device=device)
-                vectors = model.encode(["贵州茅台经营现金流", "profit and cash flow"], convert_to_numpy=True)
+                contract, reason = resolve_encoding_contract(
+                    model_id=candidate.model_id,
+                    local_path=candidate.local_path,
+                    metadata_evidence={**candidate.metadata_evidence, "tags": candidate.tags},
+                )
+                if contract is None:
+                    raise RuntimeError(reason or "encoding contract unavailable")
+                candidate.encoding_contract = contract.serializable()
+                vectors = SentenceTransformerEncodingAdapter(model, contract).encode(
+                    ["贵州茅台经营现金流", "profit and cash flow"], action="search"
+                )
                 if len(vectors) != 2 or not len(vectors[0]):
                     raise RuntimeError("embedding smoke test returned invalid vectors")
                 candidate.resource_usage["embedding_dimension"] = int(len(vectors[0]))

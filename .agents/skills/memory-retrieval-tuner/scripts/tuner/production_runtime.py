@@ -84,6 +84,8 @@ class DeterministicTunerLLM:
         system = str(messages[0].get("content", "")) if messages else ""
         user = str(messages[-1].get("content", "")) if messages else ""
         payload = self._safe_json(user)
+        if "resolved_query" in system and payload.get("current_query"):
+            return json.dumps({"resolved_query": str(payload["current_query"])}, ensure_ascii=False)
         if "attribute_catalog" in user and "current_profile" in user:
             return json.dumps({"operations": [], "unmapped_facts": []}, ensure_ascii=False)
         if "existing_session" in payload and "new_page" in payload:

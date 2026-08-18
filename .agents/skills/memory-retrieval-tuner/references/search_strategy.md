@@ -134,7 +134,7 @@ Default.
 - full cheap search;
 - diagnostic branch selection;
 - high-cost Branches are allowed, but model candidates must already be local;
-- at most 5 Tune stages and 2 Branches per stage;
+- at most 8 Tune stages and 2 Branches per stage;
 - validate top 3–5.
 
 ### deep
@@ -145,7 +145,7 @@ For final research runs.
 - multiple justified secondary branches;
 - expensive prompt variants with exact provenance;
 - online model discovery/download after metadata screening;
-- at most 8 Tune stages and 3 Branches per stage;
+- at most 12 Tune stages and 3 Branches per stage;
 - repeated/folded validation where feasible;
 - robustness analysis.
 
@@ -175,15 +175,9 @@ Start from dimensions that can usually be evaluated with frozen artifacts or ine
 
 ### B1. Query representation
 
-Candidate order:
+Keep `original` as the production reference in every round. On a new dataset, generate up to three controlled Prompt directions around the current best Prompt, cache every Query independently, screen/Tune them using Tune Sessions only, and repeat around a winning direction for at most three rounds. Reuse an artifact only when dataset, parent Candidate, Prompt/model config and immutable hashes match exactly.
 
-1. `original`;
-2. `bounded_reference_resolution` if an exact-dataset frozen query artifact is available; embed it once with the production model and cache the vector derivative;
-3. other low-risk query representations already present in the repository.
-
-Do not assume bounded reference resolution is better.
-
-Avoid generic free-form rewrite by default unless diagnostics justify it.
+Prompt direction selection may summarize missed Tune Query patterns without reading Gold answers or Validation rows. Stop this Branch when a round does not reach `min_improvement_pp`, all variants fail to improve, original remains best, the direction leaves the frontier, resources are exhausted, or round three completes. Do not assume a historical reference-resolution winner transfers.
 
 ### B2. Page representation
 
@@ -299,11 +293,11 @@ Open branches only when justified.
 
 Search when candidate coverage is poor or representation changes fail.
 
-Start with the current production model. Scan the local Hugging Face cache first. Under `budget=deep`, dynamically search model metadata when local candidates are insufficient. Select up to roughly two suitable multilingual/general and two finance-domain candidates, without padding the pool with poor fits.
+Start with the current production model. Scan the local Hugging Face cache first. Under `budget=deep`, dynamically search model metadata when local candidates are insufficient. Select up to roughly two suitable multilingual/general and two finance-domain candidates, without padding the pool with poor fits. Prefer model-card/config evidence from MTEB, C-MTEB, FinMTEB and retrieval results over model-name or download-count heuristics.
 
 For each candidate record model ID, immutable revision, model type, source, License, selection rationale, resource estimate and cache/download state. Run metadata screening, download/cache validation, smoke testing, Tune-subset screening, then full Tune only for survivors. A gated model, unavailable dependency or resource failure is `UNAVAILABLE`, not a run failure.
 
-A new embedding model must use the same text representation and evaluation contract.
+A new embedding model must use the same text representation and evaluation contract. Resolve and record the model-owned Query/Document prefix or instruction, `prompt_name`, normalization and pooling first. If an instruction-tuned model's contract cannot be determined reliably, mark it `UNAVAILABLE` rather than bare-encoding it.
 
 ### Lexical / hybrid retrieval
 
@@ -321,7 +315,7 @@ Search when R@(4K) is strong but R@K is weak.
 
 Do not rerank a tiny candidate pool that already excludes the Gold.
 
-Use the production-routed Page pool. The built-in lightweight field-aware reranker is always available; cross-encoder candidates use the same local-first/dynamic discovery contract as embedding models.
+Use the production-routed Page pool and require the configured R@(4K)-minus-R@K gap. The built-in lightweight field-aware reranker is always available. `standard` may use a compatible cross-encoder already in local cache; only `deep` may discover or download a new one.
 
 ### Field-aware / multi-vector
 
@@ -341,20 +335,23 @@ Built-in Branches are RetrievalControl, QueryRepresentation, PageRepresentation,
 
 ## 10. Stage D — expensive LLM search
 
-Only run when the top candidates justify the cost.
+Only run when a frontier Candidate and the diagnosis justify the cost.
 
 ### Memory-write / Add prompt
 
 Use when Page content itself is missing dependency-bearing evidence.
 
-Variants may include:
+For a new dataset, `budget=deep` runs the isolated production Add → eviction → Page/Session generation → embedding chain. Variants include:
 
 - production Add;
-- conservative/local-context Add;
+- conservative Add;
 - context-aware Add;
-- task/evidence-focused summary.
+- evidence-focused Page Summary;
+- one diagnosis-controlled Page Summary.
 
-Historical variants are priors, not guaranteed improvements.
+Production Add/Summary remains the unchanged reference. Context is limited to runtime-visible previous dialogue and never replaces persisted raw Page dialogue. Historical variants are priors, not guaranteed improvements, and workbook answers are never substituted for Page Summary.
+
+Prompt candidates are lazy production-source specifications. Materialize only the configured screening Sessions first; complete all Tune Sessions only for promoted candidates, and generate held-out Session artifacts only after Tune search has stopped. Persist each Session independently so a resumed run never repeats completed Add, summary, or embedding calls.
 
 ### Query prompt
 
@@ -375,7 +372,7 @@ For every variant record:
 - generated artifact count;
 - cache reuse count.
 
-Reuse a valid frozen artifact rather than regenerate it.
+Reuse a valid same-provenance artifact rather than regenerate it. A different dataset's frozen artifact is a prior only and never makes a new-dataset Branch executable.
 
 ## 11. Search algorithm
 
@@ -390,6 +387,8 @@ For each stage:
 5. Combine only surviving dimensions.
 6. Re-run diagnostics on the Tune frontier.
 7. Stop when `min_improvement_pp`/`patience_stages`, frontier convergence, budget, data quality, or resource constraints say to stop.
+
+Candidates inherit the current frontier anchor by default so winning retrieval controls, representations and models compose. A baseline-only ablation must set `ablation_from_baseline=true`. Track Branch rounds separately from Branch names: a winning numeric Branch may re-enter for coarse-to-fine refinement, while effective Candidate config hashes prevent duplicate execution. Branch-specific `max_rounds` and global `max_stages` prevent infinite loops.
 
 Validation is not available to this loop. Only after a stop reason is frozen may the frontier be evaluated on held-out Sessions.
 

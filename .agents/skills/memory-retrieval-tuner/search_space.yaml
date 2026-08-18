@@ -69,7 +69,6 @@ budget:
   default: standard
   profiles:
     quick:
-      max_cheap_candidates: 12
       max_stages: 3
       max_cost_level: medium
       max_branches_per_stage: 1
@@ -79,8 +78,7 @@ budget:
       max_expensive_candidates: 0
       validation_frontier: 2
     standard:
-      max_cheap_candidates: 30
-      max_stages: 5
+      max_stages: 8
       max_cost_level: high
       max_branches_per_stage: 2
       max_candidates_per_stage: 12
@@ -89,8 +87,7 @@ budget:
       max_expensive_candidates: 6
       validation_frontier: 5
     deep:
-      max_cheap_candidates: 80
-      max_stages: 8
+      max_stages: 12
       max_cost_level: expensive
       max_branches_per_stage: 3
       max_candidates_per_stage: 16
@@ -127,43 +124,31 @@ search:
   branch_registry:
     RetrievalControl:
       enabled: true
-      cost_level: cheap
+      max_rounds: 2
     QueryRepresentation:
       enabled: true
-      cost_level: medium
+      max_rounds: 3
     HybridRetrieval:
       enabled: true
-      cost_level: medium
+      max_rounds: 2
     Reranking:
       enabled: true
-      cost_level: high
+      max_rounds: 1
     Embedding:
       enabled: true
-      cost_level: high
+      max_rounds: 1
     FieldAwareMultiVector:
       enabled: true
-      cost_level: high
+      max_rounds: 1
     PageRepresentation:
       enabled: true
-      cost_level: high
+      max_rounds: 1
     MemoryWriteAddPrompt:
       enabled: true
-      cost_level: expensive
+      max_rounds: 1
 
   stages:
     cheap:
-      query_representation:
-        enabled: frozen_artifact
-        reason: exact-dataset frozen query text is embedded once with the production model and cached
-        values:
-          - original
-
-      page_representation:
-        enabled: production_only_in_cheap
-        reason: derived Page vectors are a diagnostic high-cost branch, not part of initial retrieval controls
-        values:
-          - production
-
       retrieval:
         enabled: true
 
@@ -178,6 +163,7 @@ search:
             - 5
             - 15
           min_value_expression: "evaluation.k"
+          refine_step: 2
 
         top_k_sessions:
           mode: around_baseline
@@ -187,6 +173,7 @@ search:
             - 1
             - 2
           min_value: 1
+          refine_step: 1
 
         max_total_pages:
           mode: around_baseline
@@ -196,6 +183,7 @@ search:
             - 10
             - 30
           min_value_expression: "evaluation.k"
+          refine_step: 5
 
         session_similarity_threshold:
           enabled: false
@@ -214,37 +202,24 @@ search:
           reason: affects production Session assignment and requires regenerated Sessions
 
     secondary:
+      query_representation:
+        max_rounds: 3
+        variants_per_round: 3
+
       page_representation:
-        enabled: diagnostic
-        trigger_any:
-          - candidate_coverage_bottleneck
-          - session_instability
-          - balanced_or_plateau
         values:
           - summary
           - summary_keywords
           - user_summary
 
       embedding_models:
-        enabled: diagnostic
-        trigger: candidate_coverage_bottleneck
         discovery:
-          local_cache_first: true
-          online_when_budget_deep: true
           general_semantic_limit: 2
           finance_domain_limit: 2
-          metadata_screening: true
-          smoke_test: true
-          tune_subset_screening: true
         max_models_standard: 2
         max_models_deep: 4
 
       lexical_hybrid:
-        enabled: diagnostic
-        trigger_any:
-          - lexical_miss_pattern
-          - exact_entity_or_identifier_dependency
-          - dense_candidate_coverage_weak
         methods:
           - dense_bm25_fusion
         dense_weight:
@@ -257,50 +232,35 @@ search:
           refine_step: 0.05
 
       reranking:
-        enabled: diagnostic
-        trigger: ranking_bottleneck
         min_deep_recall_gap_pp: 15.0
         methods:
           - field_lexical
           - auto_discovered_cross_encoder
         max_methods_standard: 2
+        max_models_standard: 2
+        max_models_deep: 3
 
       advanced_representation:
-        enabled: diagnostic
         methods:
           - field_aware_lexical
           - multi_vector_maxsim
         max_methods_standard: 1
 
     expensive:
-      enabled: diagnostic
-      reason: use exact-provenance frozen variants first; new generation requires configured prompt variants and budget=deep
       require_frontier_candidate: true
-
-      query_prompt:
-        variants:
-          - production_or_original
-          - bounded_reference_resolution
-          - existing_repo_prompt_variants
+      max_prompt_candidates: 4
 
       memory_write_prompt:
         variants:
           - production_add
-          - conservative_or_minimum_change_add
+          - conservative_add
           - context_aware_add
-          - existing_repo_add_variants
 
       page_summary_prompt:
         variants:
           - production_summary
-          - existing_repo_summary_variants
-
-      generation:
-        cache: true
-        record_prompt_hash: true
-        record_model_config: true
-        record_llm_calls: true
-        regenerate_valid_frozen_artifact: false
+          - evidence_focused_summary
+          - diagnostic_controlled_summary
 
 diagnostics:
   ranking_bottleneck:
@@ -317,22 +277,14 @@ diagnostics:
     max_stddev_pp: 12.0
     max_worst_session_gap_from_macro_pp: 20.0
 
-  overfit:
-    compare_tune_validation: true
-
 execution:
-  session_isolation: true
-  fail_if_failed_turns_gt: 0
   max_parallel_sessions: 4
   max_parallel_candidates: 4
   max_parallel_llm_calls: 4
-  cache_embeddings: true
   cache_rankings_depth:
     # Store rankings deeper than K so changing K can often reuse ranking artifacts.
     multiplier_of_k: 4
     minimum: 20
-  preserve_existing_results: true
-  modify_production_mem0: false
 
 repository:
   prefer_reuse:

@@ -6,6 +6,7 @@ from typing import Any, Mapping, Sequence
 
 from .artifact_registry import ArtifactRegistry, load_frozen_query_overrides
 from .benchmark_support import expand_env_placeholders, load_json
+from .encoding_contract import EncodingContract, SentenceTransformerEncodingAdapter
 from .io_utils import load_json as load_json_file
 from .io_utils import sha256_file, stable_hash
 from .models import Candidate
@@ -56,17 +57,14 @@ class _ProductionEncoder(_Encoder):
 
 
 class _SentenceTransformerEncoder(_Encoder):
-    def __init__(self, model_id_or_path: str, *, device: str):
+    def __init__(self, model_id_or_path: str, *, device: str, contract: EncodingContract):
         from sentence_transformers import SentenceTransformer
 
         self.model = SentenceTransformer(model_id_or_path, device=device)
+        self.adapter = SentenceTransformerEncodingAdapter(self.model, contract)
 
     def encode(self, texts: Sequence[str], *, action: str) -> list[list[float]]:
-        del action
-        if not texts:
-            return []
-        values = self.model.encode(list(texts), convert_to_numpy=True, normalize_embeddings=False)
-        return [[float(value) for value in vector] for vector in values]
+        return self.adapter.encode(texts, action=action)
 
 
 def _point_fingerprint(point: Mapping[str, Any]) -> str:
@@ -106,6 +104,7 @@ class DerivedArtifactBuilder:
         embedding_model_id: str = "production",
         embedding_revision: str | None = None,
         embedding_local_path: str | None = None,
+        encoding_contract: Mapping[str, Any] | None = None,
         include_field_vectors: bool = False,
         device: str = "cpu",
     ) -> DerivedArtifactResult:
@@ -117,13 +116,17 @@ class DerivedArtifactBuilder:
             "dataset_sha256": dataset_sha256,
             "session_scope": sorted(session_scope),
             "production_config": {
-                "manifests": manifest_hashes,
+                "manifest_sha256": sorted(manifest_hashes.values()),
                 "midterm": {
                     key: baseline.config.get(key) for key in ("top_k_sessions", "top_k_pages", "max_total_pages")
                 },
             },
             "prompt_hashes": load_json(manifests[0]).get("prompt_hashes") or {},
-            "model": {"id": embedding_model_id, "revision": embedding_revision},
+            "model": {
+                "id": embedding_model_id,
+                "revision": embedding_revision,
+                "encoding_contract": dict(encoding_contract or {}),
+            },
             "query_representation": query_representation,
             "query_artifact_sha256": query_artifact_sha,
             "query_artifact_variant": query_artifact_variant,
@@ -153,7 +156,13 @@ class DerivedArtifactBuilder:
             if embedding_model_id == "production":
                 encoder = _ProductionEncoder(manifests[0])
             else:
-                encoder = _SentenceTransformerEncoder(embedding_local_path or embedding_model_id, device=device)
+                if not encoding_contract:
+                    raise ValueError("non-production embedding model requires a validated encoding contract")
+                encoder = _SentenceTransformerEncoder(
+                    embedding_local_path or embedding_model_id,
+                    device=device,
+                    contract=EncodingContract(**dict(encoding_contract)),
+                )
 
             query_ids = sorted(selected)
             query_texts = {

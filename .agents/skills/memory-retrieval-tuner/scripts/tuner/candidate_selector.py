@@ -9,6 +9,11 @@ def _metric(result: CandidateResult, name: str) -> float:
     return float(result.metrics.get(name) or 0.0)
 
 
+def _cost(result: CandidateResult, name: str, fallback: int) -> int:
+    value = result.metrics.get(name)
+    return int(value) if value is not None else fallback
+
+
 def tune_frontier(results: Sequence[CandidateResult], *, tolerance_pp: float, limit: int) -> list[CandidateResult]:
     valid = [result for result in results if result.status == "VALID"]
     if not valid:
@@ -24,8 +29,8 @@ def tune_frontier(results: Sequence[CandidateResult], *, tolerance_pp: float, li
             -_metric(result, "mrr"),
             -_metric(result, "recall_at_2k"),
             -_metric(result, "recall_at_4k"),
-            result.llm_calls,
-            result.embedding_calls,
+            _cost(result, "tuning_llm_calls", result.llm_calls),
+            _cost(result, "tuning_embedding_calls", result.embedding_calls),
             result.runtime_seconds,
             result.complexity,
             result.name,
@@ -84,8 +89,8 @@ def select_best(
             -_metric(result, "mrr"),
             -_metric(result, "recall_at_2k"),
             -_metric(result, "recall_at_4k"),
-            result.llm_calls,
-            result.embedding_calls,
+            _cost(result, "tuning_llm_calls", result.llm_calls),
+            _cost(result, "tuning_embedding_calls", result.embedding_calls),
             result.runtime_seconds,
             result.complexity,
             result.name,

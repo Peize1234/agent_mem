@@ -19,6 +19,7 @@ from .candidate_selector import select_best
 from .dataset_audit import audit_dataset
 from .evaluate_candidate import candidate_hash, combine_candidate_results, evaluate_candidate
 from .experiment_branches import BranchRegistry
+from .generated_source_artifacts import prepare_generated_source_candidate
 from .io_utils import append_jsonl, load_json, stable_hash, write_jsonl
 from .model_discovery import ModelDiscovery, ResourceEnvelope
 from .models import Candidate, CandidateResult, Dataset
@@ -128,10 +129,16 @@ def _diagnose(best: CandidateResult, audit: Mapping[str, Any], space: Mapping[st
     gap_pp = (float(metrics.get("recall_at_4k") or 0) - float(metrics.get("recall_at_k") or 0)) * 100.0
     deep_recall = float(metrics.get("recall_at_4k") or 0) * 100.0
     stddev_pp = float(metrics.get("session_stddev") or 0) * 100.0
+    worst_gap_pp = (
+        float(metrics.get("macro_session_recall_at_k") or 0) - float(metrics.get("worst_session_recall_at_k") or 0)
+    ) * 100.0
     settings = space.get("diagnostics") or {}
+    instability = settings.get("session_instability") or {}
     if audit.get("warnings"):
         regime = "data_artifact_suspicion"
-    elif stddev_pp >= float((settings.get("session_instability") or {}).get("max_stddev_pp", 12.0)):
+    elif stddev_pp >= float(instability.get("max_stddev_pp", 12.0)) or worst_gap_pp >= float(
+        instability.get("max_worst_session_gap_from_macro_pp", 20.0)
+    ):
         regime = "session_instability"
     elif gap_pp >= float((settings.get("ranking_bottleneck") or {}).get("min_recall_4k_minus_k_pp", 20.0)):
         regime = "ranking_bottleneck"
@@ -139,7 +146,13 @@ def _diagnose(best: CandidateResult, audit: Mapping[str, Any], space: Mapping[st
         regime = "candidate_coverage_bottleneck"
     else:
         regime = "balanced_or_plateau"
-    return {"regime": regime, "recall_4k_minus_k_pp": gap_pp, "recall_4k_percent": deep_recall, "stddev_pp": stddev_pp}
+    return {
+        "regime": regime,
+        "recall_4k_minus_k_pp": gap_pp,
+        "recall_4k_percent": deep_recall,
+        "stddev_pp": stddev_pp,
+        "worst_session_gap_from_macro_pp": worst_gap_pp,
+    }
 
 
 def _evaluate_many(
@@ -157,8 +170,6 @@ def _evaluate_many(
     trace_path: Path,
 ) -> list[CandidateResult]:
     results: list[CandidateResult] = []
-    candidate_parallelism = min(execution["max_parallel_candidates"], len(candidates) or 1)
-    session_parallelism = execution["max_parallel_sessions"] if candidate_parallelism == 1 else 1
 
     def run(candidate: Candidate, sessions_limit: int) -> CandidateResult:
         return evaluate_candidate(
@@ -180,7 +191,7 @@ def _evaluate_many(
             name=candidate.name,
             candidate_hash=candidate_hash(dataset.sha256, candidate),
             stage=candidate.stage,
-            config=candidate.config,
+            config=copy.deepcopy(candidate.config),
             metrics={},
             requirement_rows=[],
             session_rows=[],
@@ -192,8 +203,46 @@ def _evaluate_many(
             status="INVALID",
         )
 
+    prepared_candidates: list[Candidate] = []
+    for candidate in candidates:
+        try:
+            prepared = prepare_generated_source_candidate(
+                candidate,
+                sessions=sessions,
+                registry=registry,
+                run_dir=run_dir,
+                ranking_depth=ranking_depth,
+                max_parallel_sessions=int(execution.get("max_parallel_sessions") or 1),
+                max_parallel_llm_calls=int(execution.get("max_parallel_llm_calls") or 1),
+                gpu_count=int(execution.get("gpu_count") or 0),
+            )
+        except Exception as exc:
+            append_jsonl(
+                trace_path,
+                {
+                    "scope": scope,
+                    "candidate": candidate.name,
+                    "status": "INVALID",
+                    "error": f"source generation failed: {type(exc).__name__}: {exc}",
+                },
+            )
+            results.append(invalid_result(candidate))
+            continue
+        if prepared is not candidate:
+            # Candidate is frozen, but these dictionaries intentionally carry its
+            # progressively materialized, content-addressed artifacts across
+            # screening, full Tune, Validation, and final evaluation.
+            candidate.config.clear()
+            candidate.config.update(prepared.config)
+            candidate.provenance.clear()
+            candidate.provenance.update(prepared.provenance)
+        prepared_candidates.append(candidate)
+
+    candidate_parallelism = min(execution["max_parallel_candidates"], len(prepared_candidates) or 1)
+    session_parallelism = execution["max_parallel_sessions"] if candidate_parallelism == 1 else 1
+
     with ThreadPoolExecutor(max_workers=max(1, candidate_parallelism)) as executor:
-        futures = {executor.submit(run, candidate, session_parallelism): candidate for candidate in candidates}
+        futures = {executor.submit(run, candidate, session_parallelism): candidate for candidate in prepared_candidates}
         for future in as_completed(futures):
             candidate = futures[future]
             try:
@@ -308,11 +357,18 @@ def _resolve_shortterm_window(
     }
 
 
+def _artifact_cache_root(config: TunerConfig, run_dir: Path) -> Path:
+    # The resume directory is the durable run identity. Derive its sibling
+    # cache so callers need not repeat a custom output_dir on every resume.
+    return run_dir.parent / ".cache" if config.resume else config.output_root.resolve() / ".cache"
+
+
 def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
     started = time.perf_counter()
-    if config.k < 1:
-        raise ValueError("k must be >= 1")
     space = _load_space(skill_root, config.overrides)
+    min_k = int((space.get("evaluation") or {}).get("min_k", 1))
+    if config.k < min_k:
+        raise ValueError(f"k must be >= {min_k}")
     if config.budget not in (space.get("budget") or {}).get("profiles", {}):
         raise ValueError(f"Unknown budget: {config.budget}")
     if config.target not in (space.get("target") or {}).get("allowed", []):
@@ -354,9 +410,10 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
     loso = split["method"] == "leave_one_session_out"
     tune_sessions = sorted(dataset.sessions) if loso else split["tune_sessions"]
     profile = (space.get("budget") or {}).get("profiles", {})[config.budget]
-    registry = ArtifactRegistry(config.output_root.resolve() / ".cache", Path("exp/results").resolve())
+    registry = ArtifactRegistry(_artifact_cache_root(config, run_dir), Path("exp/results").resolve())
     session_turn_counts = {session_id: len(turns) for session_id, turns in dataset.sessions.items()}
     generated_source = False
+    source_generation_stats: dict[str, Any] = {}
     execution["source_worker_parallelism"] = 0
     midterm_baseline = registry.discover_production_midterm(
         dataset_sha256=dataset.sha256,
@@ -398,7 +455,9 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
             llm_mode=config.llm_mode,
             max_parallel_sessions=execution["max_parallel_sessions"],
             max_parallel_llm_calls=execution["max_parallel_llm_calls"],
+            generation_stats=source_generation_stats,
         )
+        generated_source = bool(source_generation_stats.get("generated_sessions", True))
         production_config, production_provenance = production_candidate_from_manifests(manifest_paths)
         midterm_baseline = Candidate(
             name="baseline",
@@ -470,6 +529,7 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         ranking_depth=ranking_depth,
         evaluate=evaluate_tune_candidates,
         diagnose=lambda result: _diagnose(result, audit, space),
+        execution_settings=execution,
     )
     write_jsonl(run_dir / "branch_trace.jsonl", search_result.branch_events)
     tune_results = search_result.tune_results
@@ -621,8 +681,20 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
             "resumed": bool(config.resume),
         }
     )
-    source_llm_calls = int(midterm_baseline.provenance.get("llm_calls") or 0) if generated_source else 0
-    source_embedding_calls = int(midterm_baseline.provenance.get("embedding_calls") or 0) if generated_source else 0
+    source_llm_calls = (
+        int(source_generation_stats.get("llm_calls") or 0)
+        if "llm_calls" in source_generation_stats
+        else int(midterm_baseline.provenance.get("llm_calls") or 0)
+        if generated_source
+        else 0
+    )
+    source_embedding_calls = (
+        int(source_generation_stats.get("embedding_calls") or 0)
+        if "embedding_calls" in source_generation_stats
+        else int(midterm_baseline.provenance.get("embedding_calls") or 0)
+        if generated_source
+        else 0
+    )
     evaluation_llm_calls = sum(result.llm_calls for result in evaluation_results)
     evaluation_embedding_calls = sum(result.embedding_calls for result in evaluation_results)
     if full_memory_regression_result is None:
@@ -693,6 +765,7 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
             full_memory_regression_baseline.provenance if full_memory_regression_baseline is not None else None
         ),
         "production_source_generated": generated_source,
+        "production_source_generation_stats": source_generation_stats,
         "midterm_baseline_full_metrics": midterm_baseline_full.metrics,
         "full_memory_regression": full_memory_regression,
         "branch_registry": branch_registry.describe(),

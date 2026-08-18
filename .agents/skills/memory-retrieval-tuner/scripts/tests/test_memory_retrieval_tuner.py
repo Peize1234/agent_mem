@@ -30,10 +30,17 @@ from tuner.evaluate_candidate import (  # noqa: E402
 )
 from tuner.experiment_branches import (  # noqa: E402
     ALL_REGIMES,
+    BranchContext,
     BranchOutcome,
     BranchRegistry,
     BranchSpec,
+    MemoryWriteAddPromptBranch,
+    QueryRepresentationBranch,
+    RerankingBranch,
+    _derived_dimensions,
 )
+from tuner.generated_source_artifacts import prepare_generated_source_candidate  # noqa: E402
+from tuner.encoding_contract import EncodingContract, SentenceTransformerEncodingAdapter  # noqa: E402
 from tuner.io_utils import sha256_file  # noqa: E402
 from tuner.model_discovery import ModelCandidate, ModelDiscovery, ResourceEnvelope  # noqa: E402
 from tuner.models import Candidate, CandidateResult, Dataset, Requirement, Turn  # noqa: E402
@@ -41,6 +48,7 @@ import tuner.orchestrator as orchestrator  # noqa: E402
 import tuner.production_midterm_adapter as production_adapter  # noqa: E402
 from tuner.orchestrator import (  # noqa: E402
     TunerConfig,
+    _artifact_cache_root,
     _evaluate_loso_many,
     _resolve_shortterm_window,
 )
@@ -51,7 +59,8 @@ from tuner.production_midterm_adapter import (  # noqa: E402
     production_candidate_from_manifests,
 )
 from tuner.split_sessions import create_or_load_split  # noqa: E402
-from tuner.staged_search import run_staged_search  # noqa: E402
+from tuner.prompt_artifacts import controlled_query_prompt_variants  # noqa: E402
+from tuner.staged_search import candidate_config_hash, run_staged_search  # noqa: E402
 
 
 def make_turn(session: str, index: int, gold: tuple[Requirement, ...] = ()) -> Turn:
@@ -176,6 +185,20 @@ def test_shortterm_window_is_derived_and_mismatch_is_detected() -> None:
             {"dataset": {"shortterm_qa_turns": 3}},
             {"midterm": {"short_term_capacity": 5}},
         )
+
+
+def test_resume_derives_cache_from_run_directory(tmp_path: Path) -> None:
+    run_dir = tmp_path / "custom-output" / "run-id"
+    resumed = TunerConfig(
+        dataset=tmp_path / "dataset.xlsx",
+        output_root=tmp_path / "unrelated-default",
+        resume=run_dir,
+    )
+    fresh = TunerConfig(dataset=tmp_path / "dataset.xlsx", output_root=tmp_path / "fresh-output")
+    assert _artifact_cache_root(resumed, run_dir) == tmp_path / "custom-output" / ".cache"
+    assert _artifact_cache_root(fresh, tmp_path / "fresh-output" / "run") == (
+        tmp_path / "fresh-output" / ".cache"
+    ).resolve()
 
 
 def test_loso_executes_every_frozen_fold(tmp_path: Path) -> None:
@@ -1256,3 +1279,541 @@ def test_budget_profiles_gate_real_cost_levels() -> None:
     assert profiles["standard"]["max_cost_level"] == "high"
     assert profiles["deep"]["max_cost_level"] == "expensive"
     assert profiles["quick"]["max_stages"] < profiles["deep"]["max_stages"]
+
+
+def _production_branch_inputs(tmp_path: Path, dataset: Dataset) -> tuple[Candidate, Path]:
+    memory_config = tmp_path / "memory.json"
+    memory_config.write_text(
+        json.dumps(
+            {
+                "llm": {"provider": "mock", "config": {"model": "test-model"}},
+                "midterm": {"enabled": True, "short_term_capacity": 6},
+            }
+        ),
+        encoding="utf-8",
+    )
+    manifests: list[Path] = []
+    for session_id, turns in dataset.sessions.items():
+        source_dir = tmp_path / "production" / session_id
+        source_dir.mkdir(parents=True, exist_ok=True)
+        checkpoints = source_dir / "production_midterm_checkpoints.jsonl"
+        checkpoint_rows = [
+            {
+                "query_id": turn.query_id,
+                "query": turn.question,
+                "query_vector": [1.0, 0.0],
+                "filters": {"run_id": session_id},
+                "pages": [],
+                "sessions": [],
+                "source_turn_ids_by_job": {},
+            }
+            for turn in turns
+        ]
+        checkpoints.write_text(
+            "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in checkpoint_rows),
+            encoding="utf-8",
+        )
+        manifest = source_dir / "production_midterm_manifest.json"
+        manifest.write_text(
+            json.dumps(
+                {
+                    "schema": 1,
+                    "status": "COMPLETE",
+                    "dataset_sha256": dataset.sha256,
+                    "session_id": session_id,
+                    "memory_config_path": str(memory_config),
+                    "memory_config_sha256": sha256_file(memory_config),
+                    "llm_mode": "mock",
+                    "checkpoints_path": str(checkpoints),
+                    "checkpoints_sha256": sha256_file(checkpoints),
+                    "prompt_hashes": {"page_summary": "production"},
+                    "production_config": {"top_k_sessions": 5, "top_k_pages": 5, "max_total_pages": 5},
+                    "effective_memory_config": {"vector_store": {"config": {"bm25_language": "en"}}},
+                    "failed_turns": 0,
+                    "llm_calls": 0,
+                    "embedding_calls": 0,
+                }
+            ),
+            encoding="utf-8",
+        )
+        manifests.append(manifest)
+    candidate = Candidate(
+        name="baseline",
+        stage="baseline",
+        config={
+            "backend": "production_midterm",
+            "retrieval_contract": "production_midterm_v1",
+            "retrieval_method": "dense",
+            "query_representation": "original",
+            "page_representation": "production",
+            "top_k_sessions": 5,
+            "top_k_pages": 5,
+            "max_total_pages": 5,
+            "manifest_paths": [str(manifest) for manifest in manifests],
+            "manifest_sha256": {str(manifest.resolve()): sha256_file(manifest) for manifest in manifests},
+        },
+    )
+    return candidate, manifests[0]
+
+
+def _branch_context(
+    tmp_path: Path,
+    dataset: Dataset,
+    baseline: Candidate,
+    *,
+    budget: str = "standard",
+    generation_round: int = 1,
+    model_discovery: Any = None,
+    search_space: dict[str, Any] | None = None,
+) -> BranchContext:
+    return BranchContext(
+        dataset=dataset,
+        baseline=baseline,
+        anchor=baseline,
+        anchor_result=result("baseline", 0.4),
+        diagnostic={
+            "regime": "candidate_coverage_bottleneck",
+            "recall_4k_minus_k_pp": 30.0,
+        },
+        search_space=search_space
+        or {
+            "search": {
+                "stages": {
+                    "secondary": {
+                        "query_representation": {"max_rounds": 3, "variants_per_round": 3},
+                        "reranking": {"min_deep_recall_gap_pp": 15.0},
+                    },
+                    "expensive": {"require_frontier_candidate": True, "max_prompt_candidates": 4},
+                }
+            }
+        },
+        budget=budget,
+        k=5,
+        ranking_depth=20,
+        tune_sessions=(next(iter(dataset.sessions)),),
+        registry=ArtifactRegistry(tmp_path / "cache", tmp_path / "results"),
+        run_dir=tmp_path / "run",
+        model_discovery=model_discovery,
+        stage_index=generation_round,
+        generation_round=generation_round,
+        execution_settings={"max_parallel_sessions": 2, "max_parallel_llm_calls": 2},
+    )
+
+
+def test_new_dataset_generates_three_query_variants_and_resumes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import tuner.derived_artifacts as derived_artifacts
+    from tuner.prompt_artifacts import QueryPromptArtifactGenerator
+
+    dataset = make_dataset(tmp_path, 2)
+    baseline, _ = _production_branch_inputs(tmp_path, dataset)
+
+    class FakeEncoder:
+        def __init__(self, manifest_path: Path):
+            del manifest_path
+
+        def encode(self, texts: list[str], *, action: str) -> list[list[float]]:
+            del action
+            return [[float(len(text)), 1.0] for text in texts]
+
+    class FakeLLM:
+        def __init__(self) -> None:
+            self.calls = 0
+            self.active = 0
+            self.max_active = 0
+            self.lock = threading.Lock()
+
+        def generate_response(self, messages: list[dict[str, str]], **_: Any) -> str:
+            payload = json.loads(messages[-1]["content"])
+            with self.lock:
+                self.calls += 1
+                self.active += 1
+                self.max_active = max(self.max_active, self.active)
+            time.sleep(0.002)
+            with self.lock:
+                self.active -= 1
+            return json.dumps({"resolved_query": f"{payload['current_query']} 已消解"}, ensure_ascii=False)
+
+    llm = FakeLLM()
+    monkeypatch.setattr(derived_artifacts, "_ProductionEncoder", FakeEncoder)
+    monkeypatch.setattr(QueryPromptArtifactGenerator, "_create_llm", lambda self, config, mode: llm)
+    context = _branch_context(tmp_path, dataset, baseline)
+    branch = QueryRepresentationBranch()
+    first = BranchRegistry([branch]).generate(branch, context)
+    assert first.status == "READY"
+    assert len(first.candidates) == 3
+    assert {item.config["query_prompt_generation_round"] for item in first.candidates} == {1}
+    assert first.provenance["analysis_session_ids"] == [context.tune_sessions[0]]
+    assert all(Path(item.config["query_artifact_path"]).exists() for item in first.candidates)
+    assert llm.max_active <= 2
+    calls_after_first = llm.calls
+
+    second = BranchRegistry([branch]).generate(branch, context)
+    assert second.status == "READY"
+    assert len(second.candidates) == 3
+    assert second.llm_calls == 0
+    assert llm.calls == calls_after_first
+    payload = json.loads(Path(first.candidates[0].config["query_artifact_path"]).read_text(encoding="utf-8"))["payload"]
+    assert payload["analysis_session_ids"] == [context.tune_sessions[0]]
+    assert set(payload["generated_session_ids"]) == set(dataset.sessions)
+
+
+def test_query_prompt_variants_are_capped_at_three_rounds_and_three_per_round(tmp_path: Path) -> None:
+    dataset = make_dataset(tmp_path, 2)
+    baseline = Candidate(name="baseline", stage="baseline", config={"query_representation": "original"})
+    baseline_result = result("baseline", 0.4)
+    for generation_round in (1, 2, 3):
+        variants = controlled_query_prompt_variants(
+            dataset=dataset,
+            anchor=baseline,
+            anchor_result=baseline_result,
+            tune_sessions=(next(iter(dataset.sessions)),),
+            generation_round=generation_round,
+            variants_per_round=99,
+        )
+        assert len(variants) == 3
+        assert {variant.generation_round for variant in variants} == {generation_round}
+    assert not controlled_query_prompt_variants(
+        dataset=dataset,
+        anchor=baseline,
+        anchor_result=baseline_result,
+        tune_sessions=tuple(dataset.sessions),
+        generation_round=4,
+        variants_per_round=3,
+    )
+
+
+class _RoundBranch:
+    def __init__(self, name: str = "CoarseRefine", *, improve: bool = True):
+        self.improve = improve
+        self.spec = BranchSpec(
+            name=name,
+            diagnostic_regimes=ALL_REGIMES,
+            cost_level="cheap",
+            required_artifacts=("checkpoint",),
+            execution_adapter="test",
+            provenance_contract=("dataset",),
+            resource_requirements={},
+            priority=1,
+            initial_stage=True,
+        )
+
+    def generate(self, context: BranchContext) -> BranchOutcome:
+        gain = 0.05 * context.generation_round if self.improve else 0.0
+        candidate = Candidate(
+            name=f"{self.spec.name}-round-{context.generation_round}",
+            stage=f"stage-{context.stage_index}",
+            config={
+                **context.anchor.config,
+                "coarse_refine_round": context.generation_round,
+                "gain": gain,
+                "branch_cost_level": "cheap",
+            },
+        )
+        return BranchOutcome(self.spec.name, "READY", [candidate])
+
+    def validate_provenance(self, candidate: Candidate, context: BranchContext) -> tuple[bool, None]:
+        del candidate, context
+        return True, None
+
+
+def _run_round_search(tmp_path: Path, branch: Any, *, max_rounds: int) -> Any:
+    dataset = make_dataset(tmp_path, 3)
+    baseline = Candidate(name="baseline", stage="baseline", config={"gain": 0.0})
+
+    def evaluate(candidates: Any, sessions: Any, scope: str) -> list[CandidateResult]:
+        del sessions, scope
+        return [result(candidate.name, 0.4 + float(candidate.config.get("gain") or 0.0)) for candidate in candidates]
+
+    return run_staged_search(
+        dataset=dataset,
+        baseline=baseline,
+        baseline_result=result("baseline", 0.4),
+        tune_sessions=tuple(dataset.sessions),
+        registry=BranchRegistry([branch]),
+        artifact_registry=None,
+        model_discovery=None,
+        run_dir=tmp_path,
+        search_space={
+            "selection": {"min_improvement_pp": 0.25, "patience_stages": 2},
+            "search": {"branch_registry": {branch.spec.name: {"enabled": True, "max_rounds": max_rounds}}},
+        },
+        budget="standard",
+        profile={"max_stages": 5, "max_cost_level": "high", "max_candidates_per_stage": 4},
+        k=5,
+        ranking_depth=20,
+        evaluate=evaluate,
+        diagnose=lambda _: {"regime": "ranking_bottleneck"},
+    )
+
+
+def test_same_branch_can_reenter_for_coarse_refine(tmp_path: Path) -> None:
+    search = _run_round_search(tmp_path, _RoundBranch(), max_rounds=2)
+    assert [event["generation_round"] for event in search.branch_events] == [1, 2]
+    assert search.frontier[0].name == "CoarseRefine-round-2"
+
+
+def test_query_branch_stops_early_without_improvement(tmp_path: Path) -> None:
+    search = _run_round_search(tmp_path, _RoundBranch("QueryRepresentation", improve=False), max_rounds=3)
+    assert [event["generation_round"] for event in search.branch_events] == [1]
+
+
+def test_query_branch_never_exceeds_three_rounds(tmp_path: Path) -> None:
+    search = _run_round_search(tmp_path, _RoundBranch("QueryRepresentation", improve=True), max_rounds=3)
+    assert [event["generation_round"] for event in search.branch_events] == [1, 2, 3]
+
+
+def test_candidate_config_hash_deduplicates_branch_bookkeeping() -> None:
+    left = {
+        "top_k_pages": 10,
+        "experiment_branch": "A",
+        "branch_cost_level": "cheap",
+        "parent_candidate_hash": "one",
+        "applied_branches": ["A"],
+    }
+    right = {
+        "top_k_pages": 10,
+        "experiment_branch": "B",
+        "branch_cost_level": "high",
+        "parent_candidate_hash": "two",
+        "applied_branches": ["A", "B"],
+    }
+    assert candidate_config_hash(left) == candidate_config_hash(right)
+
+
+def test_deep_memory_write_generates_current_dataset_artifacts_without_frozen_rankings(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import tuner.generated_source_artifacts as generated_sources
+
+    dataset = make_dataset(tmp_path, 2)
+    baseline, _ = _production_branch_inputs(tmp_path, dataset)
+    generated_session_sets: list[tuple[str, ...]] = []
+
+    def fake_generate(**kwargs: Any) -> list[Path]:
+        generated_session_sets.append(tuple(kwargs["session_ids"]))
+        root = Path(kwargs["source_root"])
+        paths = []
+        for session_id in kwargs["session_ids"]:
+            path = root / session_id / "production_midterm_manifest.json"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(
+                json.dumps(
+                    {
+                        "session_id": session_id,
+                        "production_config": {"top_k_sessions": 5, "top_k_pages": 5, "max_total_pages": 5},
+                        "effective_memory_config": {"vector_store": {"config": {"bm25_language": "en"}}},
+                        "failed_turns": 0,
+                        "llm_calls": 2,
+                        "embedding_calls": 5,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            paths.append(path)
+        kwargs["generation_stats"].update(
+            {"generated_sessions": len(paths), "reused_sessions": 0, "llm_calls": 2, "embedding_calls": 5}
+        )
+        return paths
+
+    monkeypatch.setattr(generated_sources, "generate_production_sources", fake_generate)
+    discovery = SimpleNamespace(resources=SimpleNamespace(gpu_count=0))
+    context = _branch_context(tmp_path, dataset, baseline, budget="deep", model_discovery=discovery)
+    branch = MemoryWriteAddPromptBranch()
+    outcome = BranchRegistry([branch]).generate(branch, context)
+    assert outcome.status == "READY"
+    assert len(outcome.candidates) == 4
+    assert {candidate.config["source_variant"] for candidate in outcome.candidates} == {
+        "conservative_add",
+        "context_aware_add",
+        "evidence_focused_summary",
+        "diagnostic_controlled_summary",
+    }
+    assert outcome.llm_calls == 0
+    assert outcome.embedding_calls == 0
+    assert generated_session_sets == []
+
+    screening_session = next(iter(dataset.sessions))
+    prepared = prepare_generated_source_candidate(
+        outcome.candidates[0],
+        sessions=[screening_session],
+        registry=context.registry,
+        run_dir=context.run_dir,
+        ranking_depth=context.ranking_depth,
+        max_parallel_sessions=2,
+        max_parallel_llm_calls=2,
+        gpu_count=0,
+    )
+    assert generated_session_sets == [(screening_session,)]
+    assert prepared.config["source_variant"] == "conservative_add"
+    assert prepared.provenance["deferred_generation_stats"]["llm_calls"] == 2
+    assert prepared.provenance["deferred_generation_stats"]["embedding_calls"] == 5
+    selected_manifest = next(
+        Path(path)
+        for path in prepared.config["manifest_paths"]
+        if json.loads(Path(path).read_text(encoding="utf-8"))["session_id"] == screening_session
+    )
+    assert "production_variants" in str(selected_manifest)
+
+
+def test_later_branch_combines_with_frontier_anchor(tmp_path: Path) -> None:
+    class Retrieval(_StaticBranch):
+        def generate(self, context: Any) -> BranchOutcome:
+            return BranchOutcome(
+                self.spec.name,
+                "READY",
+                [
+                    Candidate(
+                        name="retrieval-winner",
+                        stage="stage-1",
+                        config={**context.anchor.config, "top_k_sessions": 6, "gain": 0.1},
+                    )
+                ],
+            )
+
+    class Embedding(_StaticBranch):
+        def generate(self, context: Any) -> BranchOutcome:
+            return BranchOutcome(
+                self.spec.name,
+                "READY",
+                [
+                    Candidate(
+                        name="combined-winner",
+                        stage="stage-2",
+                        config={**context.anchor.config, "embedding_model_id": "local/model", "gain": 0.15},
+                    )
+                ],
+            )
+
+    dataset = make_dataset(tmp_path, 3)
+    baseline = Candidate(name="baseline", stage="baseline", config={"top_k_sessions": 5, "gain": 0.0})
+    registry = BranchRegistry(
+        [
+            Retrieval("Retrieval", initial=True, priority=1, gain=0.1),
+            Embedding("Embedding", initial=False, priority=2, gain=0.15),
+        ]
+    )
+
+    def evaluate(candidates: Any, sessions: Any, scope: str) -> list[CandidateResult]:
+        del sessions, scope
+        return [result(candidate.name, 0.4 + candidate.config["gain"]) for candidate in candidates]
+
+    search = run_staged_search(
+        dataset=dataset,
+        baseline=baseline,
+        baseline_result=result("baseline", 0.4),
+        tune_sessions=tuple(dataset.sessions),
+        registry=registry,
+        artifact_registry=None,
+        model_discovery=None,
+        run_dir=tmp_path,
+        search_space={"selection": {"min_improvement_pp": 0.25, "patience_stages": 2}},
+        budget="standard",
+        profile={"max_stages": 3, "max_cost_level": "medium", "max_candidates_per_stage": 3},
+        k=5,
+        ranking_depth=20,
+        evaluate=evaluate,
+        diagnose=lambda _: {"regime": "ranking_bottleneck"},
+    )
+    assert search.candidates["combined-winner"].config["top_k_sessions"] == 6
+
+
+def test_derived_artifact_rebuild_preserves_frontier_dimensions(tmp_path: Path) -> None:
+    query_artifact = tmp_path / "queries.json"
+    query_artifact.write_text("{}", encoding="utf-8")
+    anchor = Candidate(
+        name="combined",
+        stage="tune",
+        config={
+            "query_representation": "bounded_reference_resolution",
+            "query_artifact_path": str(query_artifact),
+            "query_artifact_variant": "generated:v1",
+            "page_representation": "summary_keywords",
+            "embedding_model_id": "local/embedding",
+            "embedding_model_revision": "immutable-revision",
+            "embedding_model_path": "/models/embedding",
+            "encoding_contract": {"query_prefix": "query: ", "document_prefix": "passage: "},
+            "reranker_method": "multi_vector_maxsim",
+        },
+    )
+    dimensions = _derived_dimensions(anchor, page_representation_name="user_summary")
+    assert dimensions == {
+        "query_representation": "bounded_reference_resolution",
+        "query_artifact_path": query_artifact,
+        "query_artifact_variant": "generated:v1",
+        "page_representation_name": "user_summary",
+        "embedding_model_id": "local/embedding",
+        "embedding_revision": "immutable-revision",
+        "embedding_local_path": "/models/embedding",
+        "encoding_contract": {"query_prefix": "query: ", "document_prefix": "passage: "},
+        "include_field_vectors": True,
+    }
+
+
+@pytest.mark.parametrize(("budget", "expected_network"), [("standard", False), ("deep", True)])
+def test_reranker_budget_uses_local_first_and_network_only_for_deep(
+    tmp_path: Path,
+    budget: str,
+    expected_network: bool,
+) -> None:
+    dataset = make_dataset(tmp_path, 1)
+    baseline, _ = _production_branch_inputs(tmp_path, dataset)
+
+    class FakeDiscovery:
+        resources = SimpleNamespace(gpu_count=0)
+
+        def __init__(self) -> None:
+            self.allow_network: list[bool] = []
+
+        def discover(self, *, allow_network: bool, **_: Any) -> list[ModelCandidate]:
+            self.allow_network.append(allow_network)
+            return [ModelCandidate("local/zh-reranker", "reranker", "local_huggingface_cache")]
+
+        def ensure_available(self, candidate: ModelCandidate, *, allow_download: bool) -> ModelCandidate:
+            assert allow_download is expected_network
+            candidate.status = "AVAILABLE"
+            candidate.local_path = "/tmp/local-reranker"
+            return candidate
+
+        def smoke_test(self, candidate: ModelCandidate, *, device: str) -> ModelCandidate:
+            del device
+            candidate.status = "SMOKE_PASSED"
+            return candidate
+
+    discovery = FakeDiscovery()
+    context = _branch_context(tmp_path, dataset, baseline, budget=budget, model_discovery=discovery)
+    outcome = RerankingBranch().generate(context)
+    assert outcome.status == "READY"
+    assert discovery.allow_network == [expected_network]
+    assert any(candidate.config.get("reranker_method") == "cross_encoder" for candidate in outcome.candidates)
+
+
+def test_model_specific_encoding_contract_is_applied() -> None:
+    class FakeModel:
+        def __init__(self) -> None:
+            self.calls: list[tuple[list[str], dict[str, Any]]] = []
+
+        def encode(self, texts: list[str], **kwargs: Any) -> list[list[float]]:
+            self.calls.append((texts, kwargs))
+            return [[1.0, 0.0] for _ in texts]
+
+    model = FakeModel()
+    contract = EncodingContract(
+        query_prefix="query: ",
+        document_prefix="passage: ",
+        query_prompt_name="query",
+        normalize_embeddings=True,
+        pooling="mean",
+        source="test-model-card",
+    )
+    adapter = SentenceTransformerEncodingAdapter(model, contract)
+    adapter.encode(["现金流"], action="search")
+    adapter.encode(["经营现金流改善"], action="add")
+    assert model.calls[0][0] == ["query: 现金流"]
+    assert model.calls[0][1]["prompt_name"] == "query"
+    assert model.calls[0][1]["normalize_embeddings"] is True
+    assert model.calls[1][0] == ["passage: 经营现金流改善"]
+    assert "prompt_name" not in model.calls[1][1]
