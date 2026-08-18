@@ -177,6 +177,8 @@ Start from dimensions that can usually be evaluated with frozen artifacts or ine
 
 Keep `original` as the production reference in every round. On a new dataset, generate up to three controlled Prompt directions around the current best Prompt, cache every Query independently, screen/Tune them using Tune Sessions only, and repeat around a winning direction for at most three rounds. Reuse an artifact only when dataset, parent Candidate, Prompt/model config and immutable hashes match exactly.
 
+Derive rewrite history from every production manifest's exact `memory_config.midterm.short_term_capacity / 2`. History entries are QA turns, not messages. Pass only prior QA turns still visible in production ShortTerm; reject missing, odd/non-positive, or manifest/config-inconsistent capacities. Include both window units, the history policy, and production config hash in artifact identity so an old wider-window artifact cannot resume.
+
 Prompt direction selection may summarize missed Tune Query patterns without reading Gold answers or Validation rows. Stop this Branch when a round does not reach `min_improvement_pp`, all variants fail to improve, original remains best, the direction leaves the frontier, resources are exhausted, or round three completes. Do not assume a historical reference-resolution winner transfers.
 
 ### B2. Page representation
@@ -388,7 +390,7 @@ For each stage:
 4. Keep candidates within the configured frontier tolerance of the best, plus any diagnostically unique candidate.
 5. Combine only surviving dimensions.
 6. Re-run diagnostics on the Tune frontier.
-7. Stop when `min_improvement_pp`/`patience_stages`, frontier convergence, budget, data quality, or resource constraints say to stop.
+7. Treat patience/frontier convergence as a hard stop only after the current diagnosis has no meaningful untried or refinable budget-eligible Branch. Otherwise record a soft patience event and continue the configured cheap-to-expensive coverage order.
 
 Candidates inherit the current frontier anchor by default so winning retrieval controls, representations and models compose. A baseline-only ablation must set `ablation_from_baseline=true`. Track Branch rounds separately from Branch names: a winning numeric Branch may re-enter for coarse-to-fine refinement, while effective Candidate config hashes prevent duplicate execution. Branch-specific `max_rounds` and global `max_stages` prevent infinite loops.
 
@@ -453,13 +455,15 @@ This prevents selecting a fragile +0.1 pp configuration over a simpler stable on
 Stop when any of the following applies:
 
 - budget exhausted;
-- no meaningful tune improvement for the configured patience;
-- frontier converged;
+- no meaningful tune improvement for the configured patience after relevant Branch coverage;
+- frontier converged after relevant Branch coverage;
 - diagnostic evidence says the remaining bottleneck is dataset quality;
 - expensive branch cost exceeds configured budget without expected benefit;
 - all budget-eligible diagnostic Branches have been attempted or are unavailable.
 
 Always record the stop reason.
+
+For each stage and final stop, record the diagnostic regime plus relevant, attempted (including generation rounds/effective config hashes), exhausted, remaining, revisitable, and budget/resource-blocked Branches. Use `converged_after_relevant_branch_coverage`, `stage_budget_exhausted`, `resource_budget_exhausted`, `no_applicable_branch`, `frontier_converged`, or `data_artifact_suspicion` as the corresponding auditable terminal reason.
 
 ## 15. Resume and cache
 

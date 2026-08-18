@@ -319,11 +319,11 @@ split_manifest.json
 - `FieldAwareMultiVector`；
 - `MemoryWriteAddPrompt`。
 
-搜索循环必须是：生成 Candidate → Tune → frontier/prune → 重新诊断 → 选择下一 Branch。Validation 仅在循环停止后运行。停止原因必须来自 budget、`min_improvement_pp`/`patience_stages`、frontier convergence、数据质量或资源约束，不得固定写成 validation selected。
+搜索循环必须是：生成 Candidate → Tune → frontier/prune → 重新诊断 → 选择下一 Branch。Validation 仅在循环停止后运行。停止原因必须来自 budget、`min_improvement_pp`/`patience_stages`、frontier convergence、数据质量或资源约束，不得固定写成 validation selected。按 `search.branch_coverage` 审计当前诊断下的 relevant、attempted、exhausted、remaining 和 blocked Branch；patience 只在 relevant Branch 已覆盖且没有可 refine 的工作时硬停止，否则记录 `PATIENCE_SOFT_EXHAUSTED` 并继续由低成本向高成本推进。
 
 Branch Candidate 默认从当前 Tune frontier anchor 继承已经验证的维度；只有显式 ablation 才可设置 `ablation_from_baseline=true`。Branch 以 `(name, generation_round, effective config hash)` 跟踪，同一 Branch 可以 coarse → refine 后再次进入；`max_rounds`、全局 `max_stages`、candidate hash 去重和 patience 共同防止循环。
 
-`QueryRepresentation` 最多运行三轮，每轮以当前最佳 Query Prompt 为 parent 生成最多三个受控方向，并始终保留 production/original 结果作为全局参照。失败模式只来自 Tune requirement rows；固定后的 Prompt 可以在 Validation Query 上执行，但 Validation 指标和 Gold 不得进入 Prompt 生成或选方向。任一轮低于 `min_improvement_pp`、全部变体无提升、original 仍优或 frontier 不再保留该方向时提前停止。
+`QueryRepresentation` 最多运行三轮，每轮以当前最佳 Query Prompt 为 parent 生成最多三个受控方向，并始终保留 production/original 结果作为全局参照。Rewrite history 必须由每份 production manifest 验证的 `memory_config.midterm.short_term_capacity / 2` 推导，只包含当前 Query 之前仍在 production ShortTerm 的 QA；缺失、非正偶数或 manifest/config 不一致时失败，不能使用默认窗口。artifact identity 必须记录 message/QA window、history policy 和 production config hash。失败模式只来自 Tune requirement rows；Validation 指标、Gold、未来轮次和已离开 ShortTerm 的历史不得进入 Prompt。任一轮低于 `min_improvement_pp`、全部变体无提升、original 仍优或 frontier 不再保留该方向时提前停止。
 
 高成本 Embedding/Reranker Candidate 先在 Tune Session 子集 screening，明显低于当前 frontier anchor 者不进入完整 Tune。
 
@@ -335,7 +335,7 @@ Budget 约束实验层级：`quick` 至多 medium、禁止下载/LLM generation�
 
 Embedding/Reranker Branch 使用 `model_discovery.py`。`standard` 只扫描并使用本地 cache，禁止联网；`deep` 将本地 cache 与在线发现结果按 `model_id + immutable revision` 合并、去重，再用同一质量规则排序和截取候选，最后才根据 cache 状态决定复用或下载。cache 命中只降低成本，不能增加模型的实验优先级。
 
-筛选优先读取 model card/config/model-index 中的 MTEB/C-MTEB/FinMTEB、multilingual retrieval、retrieval/reranking、语言、architecture、License 与参数量。可可靠解析的实际 metric 写入结构化 `benchmark_scores`；原始分数只在相同 benchmark、task、dataset、metric 内归一化和比较，禁止跨 Benchmark 直接相加。名称、tags 和 downloads 只作为 metadata 缺失时的弱证据。下载复用 HF cache；相同 model ID 与 revision 已存在时不再次调用下载，并记录 source、License、选择原因和资源状态。gated、下载失败或资源不足必须记录 `UNAVAILABLE`，不能中止整次搜索。
+筛选优先读取 model card/config/model-index 中的 MTEB/C-MTEB/FinMTEB、multilingual retrieval、retrieval/reranking、语言、architecture、License 与参数量。可可靠解析的实际 metric 写入结构化 `benchmark_scores`；原始分数只在相同 benchmark、task、dataset、metric 内归一化和比较，禁止跨 Benchmark 直接相加，也禁止因为 model card 报告条目更多而奖励质量分。名称、tags 和 downloads 只作为 metadata 缺失时的弱证据。下载复用 HF cache；相同 model ID 与 revision 已存在时不再次调用下载，并记录 source、License、选择原因和资源状态。gated、下载失败或资源不足必须记录 `UNAVAILABLE`，不能中止整次搜索。
 
 每个 embedding 必须先解析并记录 encoding contract，包括 Query/Document prefix 或 instruction、`prompt_name`、normalization 和 pooling。无法从模型自己的 config/model card 或已知官方 family contract 可靠确定时，标记 `UNAVAILABLE`；禁止裸 `SentenceTransformer.encode(text)` 后把结果当作模型能力。
 

@@ -18,8 +18,9 @@ from .models import Candidate, CandidateResult, Dataset, Turn
 from .production_runtime import DeterministicTunerLLM, TunerPolicyLLM
 
 
-PROMPT_ARTIFACT_SCHEMA = 2
+PROMPT_ARTIFACT_SCHEMA = 3
 PRODUCTION_QUERY_PROMPT_IDENTITY = "production-original-query-no-rewrite-v1"
+PRODUCTION_SHORTTERM_HISTORY_POLICY = "production_visible_prior_qa_turns_v1"
 
 
 def _parent_candidate_identity(candidate: Candidate) -> str:
@@ -59,6 +60,16 @@ class QueryArtifactResult:
     llm_calls: int
     failed_calls: int
     identity: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class ProductionShortTermContract:
+    memory_config_path: Path
+    memory_config: dict[str, Any]
+    shortterm_capacity_messages: int
+    shortterm_qa_turns: int
+    history_policy: str
+    production_config_hash: str
 
 
 _ROUND_DIRECTIONS = {
@@ -194,13 +205,77 @@ class QueryPromptArtifactGenerator:
         self._llm_factory = llm_factory
 
     @staticmethod
-    def _memory_config(candidate: Candidate) -> tuple[Path, dict[str, Any]]:
+    def _production_shortterm_contract(candidate: Candidate) -> ProductionShortTermContract:
         manifests = [Path(str(value)) for value in candidate.config.get("manifest_paths") or []]
         if not manifests:
             raise ValueError("Query generation requires production MidTerm manifests")
-        manifest = load_json(manifests[0])
-        path = Path(str(manifest["memory_config_path"]))
-        return path, load_json(path)
+        contracts: list[tuple[Path, dict[str, Any], str, int, int]] = []
+        for manifest_path in manifests:
+            manifest = load_json(manifest_path)
+            raw_config_path = manifest.get("memory_config_path")
+            if not raw_config_path:
+                raise ValueError(f"production manifest is missing memory_config_path: {manifest_path}")
+            config_path = Path(str(raw_config_path))
+            if not config_path.is_absolute():
+                config_path = (manifest_path.parent / config_path).resolve()
+            if not config_path.exists():
+                raise ValueError(f"production memory config does not exist: {config_path}")
+            config_sha = sha256_file(config_path)
+            declared_sha = str(manifest.get("memory_config_sha256") or "")
+            if not declared_sha:
+                raise ValueError(f"production manifest is missing memory_config_sha256: {manifest_path}")
+            if declared_sha != config_sha:
+                raise ValueError(f"production manifest memory_config_sha256 mismatch: {manifest_path}")
+            memory_config = load_json(config_path)
+            capacity = (memory_config.get("midterm") or {}).get("short_term_capacity")
+            if capacity is None:
+                raise ValueError("memory_config.midterm.short_term_capacity is required for Query history")
+            try:
+                capacity_messages = int(capacity)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    "memory_config.midterm.short_term_capacity must be a positive even message count"
+                ) from exc
+            if capacity_messages <= 0 or capacity_messages % 2:
+                raise ValueError("memory_config.midterm.short_term_capacity must be a positive even message count")
+            qa_turns = capacity_messages // 2
+            manifest_qa_turns = manifest.get("shortterm_qa_turns")
+            if manifest_qa_turns is None:
+                raise ValueError(f"production manifest is missing shortterm_qa_turns: {manifest_path}")
+            if int(manifest_qa_turns) != qa_turns:
+                raise ValueError(
+                    f"production manifest/config ShortTerm mismatch: manifest={manifest_qa_turns} QA turns, "
+                    f"config={qa_turns} QA turns"
+                )
+            for config_section in (manifest.get("production_config"), manifest.get("effective_memory_config")):
+                if not isinstance(config_section, Mapping):
+                    continue
+                midterm = config_section.get("midterm") if "midterm" in config_section else config_section
+                if not isinstance(midterm, Mapping) or midterm.get("short_term_capacity") is None:
+                    continue
+                if int(midterm["short_term_capacity"]) != capacity_messages:
+                    raise ValueError(f"production manifest effective ShortTerm config mismatch: {manifest_path}")
+            contracts.append((config_path, memory_config, config_sha, capacity_messages, qa_turns))
+
+        config_hashes = {item[2] for item in contracts}
+        capacities = {(item[3], item[4]) for item in contracts}
+        if len(config_hashes) != 1 or len(capacities) != 1:
+            raise ValueError("production MidTerm manifests disagree on memory config or ShortTerm window")
+        config_path, memory_config, config_sha, capacity_messages, qa_turns = contracts[0]
+        production_config_hash = stable_hash(
+            {
+                "memory_config_sha256": config_sha,
+                "midterm": memory_config.get("midterm") or {},
+            }
+        )
+        return ProductionShortTermContract(
+            memory_config_path=config_path,
+            memory_config=memory_config,
+            shortterm_capacity_messages=capacity_messages,
+            shortterm_qa_turns=qa_turns,
+            history_policy=PRODUCTION_SHORTTERM_HISTORY_POLICY,
+            production_config_hash=production_config_hash,
+        )
 
     def _create_llm(self, config: Mapping[str, Any], llm_mode: str) -> Any:
         if self._llm_factory is not None:
@@ -229,15 +304,10 @@ class QueryPromptArtifactGenerator:
         tune_sessions: Sequence[str],
         max_parallel_llm_calls: int,
     ) -> QueryArtifactResult:
-        memory_config_path, memory_config = self._memory_config(anchor)
+        shortterm = self._production_shortterm_contract(anchor)
+        memory_config = shortterm.memory_config
         llm_mode = str(load_json(Path(str(anchor.config["manifest_paths"][0]))).get("llm_mode") or "real")
         model_config = redact_secrets(memory_config.get("llm") or {})
-        production_config_hash = stable_hash(
-            {
-                "memory_config_sha256": sha256_file(memory_config_path),
-                "midterm": memory_config.get("midterm") or {},
-            }
-        )
         identity = {
             "schema": PROMPT_ARTIFACT_SCHEMA,
             "kind": "query_representation",
@@ -248,7 +318,10 @@ class QueryPromptArtifactGenerator:
             "prompt_generation_round": variant.generation_round,
             "optimization_direction": variant.optimization_direction,
             "model_config": model_config,
-            "production_config_hash": production_config_hash,
+            "shortterm_capacity_messages": shortterm.shortterm_capacity_messages,
+            "shortterm_qa_turns": shortterm.shortterm_qa_turns,
+            "history_policy": shortterm.history_policy,
+            "production_config_hash": shortterm.production_config_hash,
             "analysis_session_scope": sorted(tune_sessions),
             "query_representation": "bounded_reference_resolution",
         }
@@ -284,7 +357,7 @@ class QueryPromptArtifactGenerator:
             history: list[dict[str, str]] = []
             for turn in turns:
                 turns_by_id[turn.query_id] = turn
-                history_by_query[turn.query_id] = list(history[-6:])
+                history_by_query[turn.query_id] = list(history[-shortterm.shortterm_qa_turns :])
                 history.append({"user": turn.question, "assistant": turn.answer})
 
         def produce() -> dict[str, Any]:
@@ -375,6 +448,10 @@ class QueryPromptArtifactGenerator:
                 "optimization_direction": variant.optimization_direction,
                 "model_config": model_config,
                 "dataset_sha256": dataset.sha256,
+                "shortterm_capacity_messages": shortterm.shortterm_capacity_messages,
+                "shortterm_qa_turns": shortterm.shortterm_qa_turns,
+                "history_policy": shortterm.history_policy,
+                "production_config_hash": shortterm.production_config_hash,
                 "analysis_session_ids": sorted(tune_sessions),
                 "generated_session_ids": sorted(dataset.sessions),
                 "llm_calls": calls,

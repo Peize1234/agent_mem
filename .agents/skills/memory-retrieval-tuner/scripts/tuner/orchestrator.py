@@ -532,6 +532,21 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         execution_settings=execution,
     )
     write_jsonl(run_dir / "branch_trace.jsonl", search_result.branch_events)
+    for stage in search_result.stage_history:
+        append_jsonl(
+            trace_path,
+            {
+                "scope": "search_policy",
+                "status": stage.get("status"),
+                "stage_index": stage.get("stage_index"),
+                "diagnostic_before": stage.get("diagnostic_before"),
+                "diagnostic_after": stage.get("diagnostic_after"),
+                "branches": stage.get("branches"),
+                "coverage_before": stage.get("coverage_before"),
+                "coverage_after": stage.get("coverage_after"),
+                "patience_decision": stage.get("patience_decision"),
+            },
+        )
     tune_results = search_result.tune_results
     diagnostics = search_result.diagnostics[-1]
     skipped = list(search_result.skipped_branches)
@@ -772,6 +787,7 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         "stage_history": search_result.stage_history,
         "diagnostics_history": search_result.diagnostics,
         "branch_events": search_result.branch_events,
+        "branch_coverage": search_result.coverage_audit,
         "model_discovery_path": str(run_dir / "model_discovery.json"),
         "resource_envelope": {
             "gpu_count": resources.gpu_count,

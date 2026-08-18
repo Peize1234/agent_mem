@@ -204,6 +204,8 @@ Always report:
 
 Do not claim an end-to-end gain solely from a local MidTerm percentage.
 
+The same boundary applies to Query rewrite context. Convert production `short_term_capacity` messages to QA turns exactly and never expose evicted QA turns to the rewrite model; doing so lets Query representation bypass the MidTerm retrieval problem being measured.
+
 ## 11. OR-group semantics
 
 Some older datasets contained OR Gold groups.

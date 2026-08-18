@@ -147,6 +147,38 @@ search:
       enabled: true
       max_rounds: 1
 
+  # Patience may stop only after the current diagnosis has no meaningful
+  # untried/refinable budget-eligible Branch. Cost rank is applied before
+  # this within-regime priority, preserving cheap -> high -> expensive escalation.
+  branch_coverage:
+    candidate_coverage_bottleneck:
+      relevant:
+        RetrievalControl: {priority: 10, minimum_attempts: 1}
+        HybridRetrieval: {priority: 20, minimum_attempts: 1}
+        Embedding: {priority: 30, minimum_attempts: 1}
+        QueryRepresentation: {priority: 40, minimum_attempts: 1}
+        PageRepresentation: {priority: 50, minimum_attempts: 1}
+        FieldAwareMultiVector: {priority: 60, minimum_attempts: 1}
+        MemoryWriteAddPrompt: {priority: 70, minimum_attempts: 1}
+    ranking_bottleneck:
+      relevant:
+        RetrievalControl: {priority: 10, minimum_attempts: 1}
+        HybridRetrieval: {priority: 20, minimum_attempts: 1}
+        Reranking: {priority: 30, minimum_attempts: 1}
+        FieldAwareMultiVector: {priority: 40, minimum_attempts: 1}
+        QueryRepresentation: {priority: 50, minimum_attempts: 1}
+    session_instability:
+      relevant:
+        RetrievalControl: {priority: 10, minimum_attempts: 1}
+        PageRepresentation: {priority: 20, minimum_attempts: 1}
+        MemoryWriteAddPrompt: {priority: 30, minimum_attempts: 1}
+    balanced_or_plateau:
+      relevant:
+        RetrievalControl: {priority: 10, minimum_attempts: 1}
+        HybridRetrieval: {priority: 20, minimum_attempts: 1}
+        QueryRepresentation: {priority: 30, minimum_attempts: 1}
+        PageRepresentation: {priority: 40, minimum_attempts: 1}
+
   stages:
     cheap:
       retrieval:

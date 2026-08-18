@@ -194,6 +194,7 @@ def write_outputs(
         )
     if not branch_events:
         lines.append("- None")
+    coverage = dict(run_metadata.get("branch_coverage") or {})
     lines.extend(
         (
             "",
@@ -201,6 +202,12 @@ def write_outputs(
             "",
             f"- Classification: `{diagnostics.get('regime')}`",
             f"- Evidence: `{dict(diagnostics)}`",
+            f"- Relevant branches: `{coverage.get('relevant_branches', [])}`",
+            f"- Attempted branches: `{coverage.get('attempted_branches', {})}`",
+            f"- Exhausted branches: `{coverage.get('exhausted_branches', [])}`",
+            f"- Remaining branches: `{coverage.get('remaining_branches', [])}`",
+            f"- Budget/resource blocked branches: `{coverage.get('blocked_branches', [])}`",
+            f"- Relevant branch coverage complete: `{coverage.get('relevant_coverage_complete')}`",
             f"- Skipped branches: `{list(skipped_branches)}`",
             f"- Stop reason: `{stop_reason}`",
             f"- OVERFIT configs: `{list(overfit)}`",

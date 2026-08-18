@@ -496,13 +496,19 @@ def _candidate_score_value(candidate: ModelCandidate, *, finance: bool) -> float
     domain = sum(marker in text for marker in FINANCE_MARKERS)
     license_bonus = 1 if candidate.license and candidate.license.lower() not in {"unknown", "other"} else 0
     relative = float((evidence.get("benchmark_relative_scores") or {}).get("finance" if finance else "general") or 0)
-    score_count = min(10, int(evidence.get("quality_benchmark_score_count") or 0))
-    benchmark_bonus = 35.0 * relative + 1.5 * score_count
-    benchmark_bonus += 5 * int(bool(evidence.get("retrieval_benchmark_evidence")))
-    benchmark_bonus += 4 * int(bool(evidence.get("mteb_evidence")))
-    benchmark_bonus += 10 * int(finance and bool(evidence.get("finance_benchmark_evidence")))
+    comparable_scores = evidence.get("benchmark_comparisons") or []
+    architecture_text = " ".join(str(value) for value in evidence.get("architectures") or []).lower()
+    architecture_bonus = 1.5 * int(
+        any(marker in architecture_text for marker in ("encoder", "embedding", "sentence", "crossencoder"))
+    )
+    benchmark_presence = 5 * int(bool(evidence.get("retrieval_benchmark_evidence")))
+    benchmark_presence += 4 * int(bool(evidence.get("mteb_evidence")))
+    benchmark_presence += 10 * int(finance and bool(evidence.get("finance_benchmark_evidence")))
     domain_fit = domain if finance else multilingual
-    return float(domain_fit * 10 + multilingual * 3 + license_bonus + benchmark_bonus)
+    metadata_fallback = domain_fit * 10 + multilingual * 3 + license_bonus + architecture_bonus + benchmark_presence
+    if comparable_scores:
+        return float(50.0 * relative + 0.2 * metadata_fallback)
+    return float(metadata_fallback)
 
 
 def _candidate_score(candidate: ModelCandidate, *, finance: bool) -> tuple[float, int, str]:

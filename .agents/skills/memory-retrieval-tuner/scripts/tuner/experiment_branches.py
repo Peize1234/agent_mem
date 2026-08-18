@@ -44,6 +44,13 @@ class BranchSpec:
         return value
 
 
+@dataclass(frozen=True)
+class BranchCoverageRule:
+    branch_name: str
+    priority: int
+    minimum_attempts: int = 1
+
+
 @dataclass
 class BranchOutcome:
     branch_name: str
@@ -327,6 +334,10 @@ class QueryRepresentationBranch(BaseBranch):
                             "generation_round": variant.generation_round,
                             "optimization_direction": variant.optimization_direction,
                             "analysis_session_ids": list(context.tune_sessions),
+                            "shortterm_capacity_messages": artifact.identity["shortterm_capacity_messages"],
+                            "shortterm_qa_turns": artifact.identity["shortterm_qa_turns"],
+                            "history_policy": artifact.identity["history_policy"],
+                            "production_config_hash": artifact.identity["production_config_hash"],
                             "llm_calls": artifact.llm_calls,
                             **_tuning_cost_provenance(
                                 context,
@@ -759,7 +770,7 @@ class FieldAwareMultiVectorBranch(BaseBranch):
 class MemoryWriteAddPromptBranch(BaseBranch):
     spec = BranchSpec(
         name="MemoryWriteAddPrompt",
-        diagnostic_regimes=frozenset({"candidate_coverage_bottleneck"}),
+        diagnostic_regimes=frozenset({"candidate_coverage_bottleneck", "session_instability"}),
         cost_level="expensive",
         required_artifacts=("production_generated_pages", "prompt_hash", "model_config"),
         execution_adapter="ProductionGeneratedSourceAdapter",
@@ -904,6 +915,123 @@ class BranchRegistry:
             key=lambda branch: (COST_RANK[branch.spec.cost_level], branch.spec.priority, branch.spec.name),
         )
 
+    @staticmethod
+    def _max_rounds(branch: ExperimentBranch, branch_settings: Mapping[str, Any]) -> int:
+        value = branch_settings.get(branch.spec.name) or {}
+        return max(1, int(value.get("max_rounds") or 1)) if isinstance(value, Mapping) else 1
+
+    def _coverage_rules(
+        self,
+        *,
+        regime: str,
+        coverage_policy: Mapping[str, Any] | None,
+    ) -> list[BranchCoverageRule]:
+        configured = (coverage_policy or {}).get(regime) or {}
+        relevant = configured.get("relevant") if isinstance(configured, Mapping) else None
+        rules: list[BranchCoverageRule] = []
+        if isinstance(relevant, Mapping):
+            for name, raw_rule in relevant.items():
+                if name not in self._branches:
+                    continue
+                values = raw_rule if isinstance(raw_rule, Mapping) else {}
+                rules.append(
+                    BranchCoverageRule(
+                        branch_name=str(name),
+                        priority=int(values.get("priority") or self._branches[str(name)].spec.priority),
+                        minimum_attempts=max(1, int(values.get("minimum_attempts") or 1)),
+                    )
+                )
+        if rules:
+            return rules
+        return [
+            BranchCoverageRule(branch.spec.name, branch.spec.priority, 1)
+            for branch in self.ordered()
+            if regime in branch.spec.diagnostic_regimes
+        ]
+
+    def coverage(
+        self,
+        *,
+        regime: str,
+        max_cost_level: str,
+        attempt_counts: Mapping[str, int],
+        exhausted: set[str],
+        exhaustion_reasons: Mapping[str, str],
+        enabled: set[str] | None,
+        branch_settings: Mapping[str, Any] | None,
+        coverage_policy: Mapping[str, Any] | None,
+        remaining_expensive_candidates: int,
+        branch_history: Mapping[str, list[dict[str, Any]]] | None = None,
+    ) -> dict[str, Any]:
+        settings = branch_settings or {}
+        rules = self._coverage_rules(regime=regime, coverage_policy=coverage_policy)
+        max_cost = COST_RANK[max_cost_level]
+        relevant: list[str] = []
+        attempted: dict[str, Any] = {}
+        exhausted_rows: list[dict[str, Any]] = []
+        blocked: list[dict[str, Any]] = []
+        remaining: list[tuple[tuple[int, int, int, str], str]] = []
+        revisitable: list[str] = []
+        for rule in rules:
+            branch = self._branches[rule.branch_name]
+            name = branch.spec.name
+            relevant.append(name)
+            attempts = int(attempt_counts.get(name, 0))
+            max_rounds = self._max_rounds(branch, settings)
+            if attempts:
+                attempted[name] = {
+                    "attempts": attempts,
+                    "max_rounds": max_rounds,
+                    "minimum_attempts": rule.minimum_attempts,
+                    "rounds": list((branch_history or {}).get(name) or []),
+                }
+            reason: str | None = None
+            if enabled is not None and name not in enabled:
+                reason = "disabled by search.branch_registry"
+            elif regime not in branch.spec.diagnostic_regimes:
+                reason = f"not relevant to adapter regime={regime}"
+            elif COST_RANK[branch.spec.cost_level] > max_cost:
+                reason = f"budget blocks cost={branch.spec.cost_level} above max_cost={max_cost_level}"
+            elif name in exhausted:
+                exhausted_rows.append(
+                    {
+                        "branch": name,
+                        "attempts": attempts,
+                        "reason": exhaustion_reasons.get(name, "branch declared exhausted"),
+                    }
+                )
+                continue
+            elif attempts >= max_rounds:
+                exhausted_rows.append(
+                    {"branch": name, "attempts": attempts, "reason": f"max_rounds={max_rounds} reached"}
+                )
+                continue
+            elif branch.spec.cost_level in {"high", "expensive"} and remaining_expensive_candidates <= 0:
+                reason = "max_expensive_candidates exhausted"
+            if reason:
+                blocked.append({"branch": name, "attempts": attempts, "reason": reason})
+                continue
+            if attempts:
+                revisitable.append(name)
+            minimum_unmet = 0 if attempts < rule.minimum_attempts else 1
+            remaining.append(
+                (
+                    (COST_RANK[branch.spec.cost_level], minimum_unmet, rule.priority, name),
+                    name,
+                )
+            )
+        remaining_names = [name for _, name in sorted(remaining)]
+        return {
+            "diagnostic_regime": regime,
+            "relevant_branches": relevant,
+            "attempted_branches": attempted,
+            "exhausted_branches": exhausted_rows,
+            "remaining_branches": remaining_names,
+            "revisitable_branches": [name for name in remaining_names if name in revisitable],
+            "blocked_branches": blocked,
+            "relevant_coverage_complete": not remaining_names,
+        }
+
     def select(
         self,
         *,
@@ -915,31 +1043,28 @@ class BranchRegistry:
         limit: int,
         enabled: set[str] | None = None,
         branch_settings: Mapping[str, Any] | None = None,
+        coverage_policy: Mapping[str, Any] | None = None,
+        remaining_expensive_candidates: int = 0,
+        exhaustion_reasons: Mapping[str, str] | None = None,
+        branch_history: Mapping[str, list[dict[str, Any]]] | None = None,
     ) -> list[ExperimentBranch]:
-        max_cost = COST_RANK[max_cost_level]
-        settings = branch_settings or {}
-
-        def max_rounds(branch: ExperimentBranch) -> int:
-            value = settings.get(branch.spec.name) or {}
-            return max(1, int(value.get("max_rounds") or 1)) if isinstance(value, Mapping) else 1
-
-        eligible = [
-            branch
-            for branch in self.ordered()
-            if branch.spec.name not in exhausted
-            and int(attempt_counts.get(branch.spec.name, 0)) < max_rounds(branch)
-            and (enabled is None or branch.spec.name in enabled)
-            and COST_RANK[branch.spec.cost_level] <= max_cost
-            and (branch.spec.initial_stage if initial_stage else regime in branch.spec.diagnostic_regimes)
-        ]
-        eligible.sort(
-            key=lambda branch: (
-                int(attempt_counts.get(branch.spec.name, 0)) == 0,
-                COST_RANK[branch.spec.cost_level],
-                branch.spec.priority,
-                branch.spec.name,
-            )
+        snapshot = self.coverage(
+            regime=regime,
+            max_cost_level=max_cost_level,
+            attempt_counts=attempt_counts,
+            exhausted=exhausted,
+            exhaustion_reasons=exhaustion_reasons or {},
+            enabled=enabled,
+            branch_settings=branch_settings,
+            coverage_policy=coverage_policy,
+            remaining_expensive_candidates=remaining_expensive_candidates,
+            branch_history=branch_history,
         )
+        eligible = [
+            self._branches[name]
+            for name in snapshot["remaining_branches"]
+            if not initial_stage or self._branches[name].spec.initial_stage
+        ]
         return eligible[:limit]
 
     def generate(self, branch: ExperimentBranch, context: BranchContext) -> BranchOutcome:

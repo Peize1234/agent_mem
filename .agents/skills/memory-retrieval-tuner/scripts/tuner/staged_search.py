@@ -23,6 +23,7 @@ class StageSearchResult:
     branch_events: list[dict[str, Any]]
     skipped_branches: list[dict[str, Any]]
     stop_reason: str
+    coverage_audit: dict[str, Any] = field(default_factory=dict)
     llm_calls: int = 0
     embedding_calls: int = 0
     reused_artifacts: list[str] = field(default_factory=list)
@@ -147,6 +148,7 @@ def run_staged_search(
     skipped: list[dict[str, Any]] = []
     attempt_counts: dict[str, int] = {}
     exhausted: set[str] = set()
+    exhaustion_reasons: dict[str, str] = {}
     branch_history: dict[str, list[dict[str, Any]]] = {}
     seen_hashes = {candidate_config_hash(baseline.config)}
     no_improvement_stages = 0
@@ -158,6 +160,7 @@ def run_staged_search(
     reused_artifacts: set[str] = set()
     stop_reason = "stage_budget_exhausted"
     branch_settings = (search_space.get("search") or {}).get("branch_registry") or {}
+    coverage_policy = (search_space.get("search") or {}).get("branch_coverage") or {}
     enabled_branches = (
         {
             str(name)
@@ -169,11 +172,65 @@ def run_staged_search(
     )
     expensive_candidates_used = 0
 
+    def mark_exhausted(name: str, reason: str) -> None:
+        exhausted.add(name)
+        exhaustion_reasons[name] = reason
+
+    def coverage_snapshot(regime: str) -> dict[str, Any]:
+        return registry.coverage(
+            regime=regime,
+            max_cost_level=max_cost,
+            attempt_counts=attempt_counts,
+            exhausted=exhausted,
+            exhaustion_reasons=exhaustion_reasons,
+            enabled=enabled_branches,
+            branch_settings=branch_settings,
+            coverage_policy=coverage_policy,
+            remaining_expensive_candidates=max(0, max_expensive_candidates - expensive_candidates_used),
+            branch_history=branch_history,
+        )
+
+    def terminal_reason(snapshot: Mapping[str, Any]) -> str:
+        if snapshot.get("blocked_branches"):
+            return "resource_budget_exhausted"
+        if any(
+            str(row.get("reason") or "").startswith(("UNAVAILABLE:", "BUDGET_BLOCKED:"))
+            for row in snapshot.get("exhausted_branches") or []
+        ):
+            return "resource_budget_exhausted"
+        if snapshot.get("relevant_branches"):
+            return "converged_after_relevant_branch_coverage"
+        return "no_applicable_branch"
+
+    def record_policy_event(
+        *,
+        stage_index: int,
+        status: str,
+        reason: str,
+        snapshot: Mapping[str, Any],
+    ) -> None:
+        branch_events.append(
+            {
+                "stage_index": stage_index,
+                "branch": "__search_policy__",
+                "diagnostic_regime": snapshot.get("diagnostic_regime"),
+                "status": status,
+                "reason": reason,
+                "candidate_names": [],
+                "candidate_count": 0,
+                "provenance": {"coverage": dict(snapshot)},
+                "llm_calls": 0,
+                "embedding_calls": 0,
+                "reused_artifacts": [],
+            }
+        )
+
     diagnostic = diagnose(baseline_result)
     diagnostics.append({"after_stage": 0, **diagnostic})
 
     for stage_index in range(1, max_stages + 1):
         initial = stage_index == 1
+        coverage_before = coverage_snapshot(str(diagnostic["regime"]))
         selected = registry.select(
             regime=str(diagnostic["regime"]),
             max_cost_level=max_cost,
@@ -183,11 +240,13 @@ def run_staged_search(
             limit=max_branches,
             enabled=enabled_branches,
             branch_settings=branch_settings,
+            coverage_policy=coverage_policy,
+            remaining_expensive_candidates=max(0, max_expensive_candidates - expensive_candidates_used),
+            exhaustion_reasons=exhaustion_reasons,
+            branch_history=branch_history,
         )
         if not selected:
-            stop_reason = (
-                "no_budget_eligible_initial_branch" if initial else "no_applicable_branch_within_resource_budget"
-            )
+            stop_reason = "no_applicable_branch" if initial else terminal_reason(coverage_before)
             break
         anchor_result = frontier[0] if frontier else _best(tune_results)
         anchor = candidate_by_name[anchor_result.name]
@@ -195,13 +254,13 @@ def run_staged_search(
         stage_outcomes: list[dict[str, Any]] = []
         candidate_branches: dict[str, str] = {}
         stage_expensive_generated = 0
+        executed_branches: list[str] = []
         for branch in selected:
-            attempt_counts[branch.spec.name] = int(attempt_counts.get(branch.spec.name, 0)) + 1
+            next_round = int(attempt_counts.get(branch.spec.name, 0)) + 1
             remaining_expensive = max(
                 0, max_expensive_candidates - expensive_candidates_used - stage_expensive_generated
             )
             if branch.spec.cost_level in {"high", "expensive"} and remaining_expensive == 0:
-                exhausted.add(branch.spec.name)
                 event = {
                     "stage_index": stage_index,
                     "branch": branch.spec.name,
@@ -214,12 +273,14 @@ def run_staged_search(
                     "llm_calls": 0,
                     "embedding_calls": 0,
                     "reused_artifacts": [],
-                    "generation_round": attempt_counts[branch.spec.name],
+                    "generation_round": next_round,
                 }
                 branch_events.append(event)
                 stage_outcomes.append(event)
                 skipped.append({"branch": branch.spec.name, "reason": event["reason"], "status": event["status"]})
                 continue
+            attempt_counts[branch.spec.name] = next_round
+            executed_branches.append(branch.spec.name)
             context = BranchContext(
                 dataset=dataset,
                 baseline=baseline,
@@ -245,6 +306,9 @@ def run_staged_search(
             outcome = registry.generate(branch, context)
             event = outcome.event(stage_index=stage_index, diagnostic_regime=str(diagnostic["regime"]))
             event["generation_round"] = attempt_counts[branch.spec.name]
+            event["effective_config_hashes"] = [
+                candidate_config_hash(candidate.config) for candidate in outcome.candidates
+            ]
             branch_events.append(event)
             stage_outcomes.append(event)
             total_llm_calls += outcome.llm_calls
@@ -252,8 +316,10 @@ def run_staged_search(
             reused_artifacts.update(outcome.reused_artifacts)
             if outcome.status != "READY":
                 skipped.append({"branch": branch.spec.name, "reason": outcome.reason, "status": outcome.status})
-                if outcome.status in {"EXHAUSTED", "BUDGET_BLOCKED", "NOT_TRIGGERED"}:
-                    exhausted.add(branch.spec.name)
+                mark_exhausted(
+                    branch.spec.name,
+                    f"{outcome.status}: {outcome.reason or 'branch produced no executable Candidate'}",
+                )
             for candidate in outcome.candidates:
                 candidate_branches[candidate.name] = branch.spec.name
             if branch.spec.cost_level in {"high", "expensive"}:
@@ -280,13 +346,28 @@ def run_staged_search(
                     "candidate_count": 0,
                     "improvement_pp": 0.0,
                     "status": "NO_EXECUTABLE_CANDIDATE",
+                    "coverage_before": coverage_before,
                 }
             )
             no_improvement_stages += 1
-            exhausted.update(branch.spec.name for branch in selected)
+            for name in executed_branches:
+                mark_exhausted(name, "no unique executable Candidate was generated")
+            coverage_after = coverage_snapshot(str(diagnostic["regime"]))
+            history[-1]["coverage_after"] = coverage_after
             if no_improvement_stages >= patience:
-                stop_reason = "patience_exhausted_no_executable_candidates"
-                break
+                if coverage_after["remaining_branches"]:
+                    history[-1]["patience_decision"] = "patience_soft_exhausted"
+                    record_policy_event(
+                        stage_index=stage_index,
+                        status="PATIENCE_SOFT_EXHAUSTED",
+                        reason="no executable Candidate, but relevant Branch coverage remains",
+                        snapshot=coverage_after,
+                    )
+                    no_improvement_stages = 0
+                    frontier_convergence_stages = 0
+                else:
+                    stop_reason = terminal_reason(coverage_after)
+                    break
             continue
 
         costly = [
@@ -321,13 +402,28 @@ def run_staged_search(
                     "screening": screening_metadata,
                     "improvement_pp": 0.0,
                     "status": "ALL_CANDIDATES_PRUNED_BY_SCREENING",
+                    "coverage_before": coverage_before,
                 }
             )
             no_improvement_stages += 1
-            exhausted.update(branch.spec.name for branch in selected)
+            for name in executed_branches:
+                mark_exhausted(name, "all generated Candidates were pruned by Tune screening")
+            coverage_after = coverage_snapshot(str(diagnostic["regime"]))
+            history[-1]["coverage_after"] = coverage_after
             if no_improvement_stages >= patience:
-                stop_reason = "patience_exhausted_after_screening"
-                break
+                if coverage_after["remaining_branches"]:
+                    history[-1]["patience_decision"] = "patience_soft_exhausted"
+                    record_policy_event(
+                        stage_index=stage_index,
+                        status="PATIENCE_SOFT_EXHAUSTED",
+                        reason="screening found no survivor, but relevant Branch coverage remains",
+                        snapshot=coverage_after,
+                    )
+                    no_improvement_stages = 0
+                    frontier_convergence_stages = 0
+                else:
+                    stop_reason = terminal_reason(coverage_after)
+                    break
             continue
 
         for candidate in stage_candidates:
@@ -359,10 +455,13 @@ def run_staged_search(
                 "frontier": list(signature),
                 "diagnostic_after": dict(diagnostic),
                 "status": "COMPLETE",
+                "coverage_before": coverage_before,
             }
         )
         valid_by_name = {result.name: result for result in stage_results if result.status == "VALID"}
         for branch in selected:
+            if branch.spec.name not in executed_branches:
+                continue
             branch_results = [
                 valid_by_name[name]
                 for name, branch_name in candidate_branches.items()
@@ -378,42 +477,89 @@ def run_staged_search(
                 "best_candidate": best_branch.name if best_branch is not None else None,
                 "improvement_pp": branch_improvement_pp,
                 "candidate_count": len(branch_results),
+                "effective_config_hashes": sorted(
+                    {
+                        candidate_config_hash(candidate_by_name[name].config)
+                        for name, branch_name in candidate_branches.items()
+                        if branch_name == branch.spec.name and name in candidate_by_name
+                    }
+                ),
                 "frontier_winner": best_branch is not None and frontier and best_branch.name == frontier[0].name,
             }
             branch_history.setdefault(branch.spec.name, []).append(round_record)
             if not branch_results or branch_improvement_pp < min_improvement_pp:
-                exhausted.add(branch.spec.name)
+                mark_exhausted(
+                    branch.spec.name,
+                    "no valid Candidate met min_improvement_pp "
+                    f"({branch_improvement_pp:+.3f} < {min_improvement_pp:+.3f})",
+                )
             if branch.spec.name == "QueryRepresentation" and (
                 best_branch is None
                 or branch_improvement_pp < min_improvement_pp
                 or not any(result.name == best_branch.name for result in frontier)
             ):
-                exhausted.add(branch.spec.name)
+                mark_exhausted(
+                    branch.spec.name,
+                    "Query round had no qualifying frontier improvement; later rounds are not meaningful",
+                )
         previous_best = current_best
         previous_frontier_signature = signature
+        coverage_after = coverage_snapshot(str(diagnostic["regime"]))
+        history[-1]["coverage_after"] = coverage_after
         if diagnostic["regime"] == "data_artifact_suspicion":
-            stop_reason = "dataset_quality_diagnostic_suppressed_further_search"
+            stop_reason = "data_artifact_suspicion"
             break
-        if frontier_convergence_stages >= patience:
-            stop_reason = "frontier_converged"
-            break
-        if no_improvement_stages >= patience:
-            stop_reason = "min_improvement_patience_exhausted"
-            break
+        convergence_triggered = frontier_convergence_stages >= patience
+        patience_triggered = no_improvement_stages >= patience
+        if convergence_triggered or patience_triggered:
+            if coverage_after["remaining_branches"]:
+                trigger = "frontier convergence" if convergence_triggered else "global patience"
+                history[-1]["patience_decision"] = "patience_soft_exhausted"
+                record_policy_event(
+                    stage_index=stage_index,
+                    status="PATIENCE_SOFT_EXHAUSTED",
+                    reason=f"{trigger} reached, but meaningful relevant Branch work remains",
+                    snapshot=coverage_after,
+                )
+                no_improvement_stages = 0
+                frontier_convergence_stages = 0
+            elif convergence_triggered:
+                history[-1]["patience_decision"] = "hard_stop_after_coverage"
+                stop_reason = "frontier_converged"
+                break
+            else:
+                history[-1]["patience_decision"] = "hard_stop_after_coverage"
+                stop_reason = terminal_reason(coverage_after)
+                break
     else:
         stop_reason = "stage_budget_exhausted"
 
+    final_coverage = coverage_snapshot(str(diagnostic["regime"]))
+    record_policy_event(
+        stage_index=len(history),
+        status="SEARCH_STOP",
+        reason=stop_reason,
+        snapshot=final_coverage,
+    )
     attempted_specs = {branch.spec.name: branch.spec for branch in registry.ordered()}
-    for name, spec in attempted_specs.items():
+    final_relevant = set(final_coverage["relevant_branches"])
+    final_blocked = {row["branch"]: row["reason"] for row in final_coverage["blocked_branches"]}
+    for name in attempted_specs:
         if not attempt_counts.get(name):
+            if name not in final_relevant:
+                reason = f"not relevant to final diagnostic={diagnostic['regime']}"
+                status = "NOT_RELEVANT"
+            elif name in final_blocked:
+                reason = final_blocked[name]
+                status = "BUDGET_OR_RESOURCE_BLOCKED"
+            else:
+                reason = f"remaining when search stopped: {stop_reason}"
+                status = "NOT_ATTEMPTED"
             skipped.append(
                 {
                     "branch": name,
-                    "status": "NOT_SELECTED",
-                    "reason": (
-                        f"not selected before stop={stop_reason}; cost={spec.cost_level}; "
-                        f"regimes={sorted(spec.diagnostic_regimes)}"
-                    ),
+                    "status": status,
+                    "reason": reason,
                 }
             )
     return StageSearchResult(
@@ -425,6 +571,7 @@ def run_staged_search(
         branch_events=branch_events,
         skipped_branches=skipped,
         stop_reason=stop_reason,
+        coverage_audit=final_coverage,
         llm_calls=total_llm_calls,
         embedding_calls=total_embedding_calls,
         reused_artifacts=sorted(reused_artifacts),

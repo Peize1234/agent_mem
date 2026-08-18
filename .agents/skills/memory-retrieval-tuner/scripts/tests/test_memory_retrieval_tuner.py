@@ -47,6 +47,7 @@ from tuner.model_discovery import (  # noqa: E402
     ModelDiscovery,
     ResourceEnvelope,
     _annotate_relative_benchmark_scores,
+    _candidate_score_value,
     _metadata_evidence,
 )
 from tuner.models import Candidate, CandidateResult, Dataset, Requirement, Turn  # noqa: E402
@@ -65,7 +66,12 @@ from tuner.production_midterm_adapter import (  # noqa: E402
     production_candidate_from_manifests,
 )
 from tuner.split_sessions import create_or_load_split  # noqa: E402
-from tuner.prompt_artifacts import controlled_query_prompt_variants  # noqa: E402
+from tuner.prompt_artifacts import (  # noqa: E402
+    PRODUCTION_SHORTTERM_HISTORY_POLICY,
+    QueryPromptArtifactGenerator,
+    QueryPromptVariant,
+    controlled_query_prompt_variants,
+)
 from tuner.staged_search import candidate_config_hash, run_staged_search  # noqa: E402
 
 
@@ -1209,7 +1215,7 @@ def test_staged_loop_rediagnoses_and_never_uses_validation(tmp_path: Path) -> No
     assert len(search.diagnostics) == 3
     assert diagnoses == ["baseline", "cheap", "secondary"]
     assert scopes == ["stage_1_tune", "stage_2_tune"]
-    assert search.stop_reason == "no_applicable_branch_within_resource_budget"
+    assert search.stop_reason == "converged_after_relevant_branch_coverage"
     assert search.frontier[0].name == "secondary"
 
 
@@ -1420,6 +1426,50 @@ def test_model_benchmark_scores_are_structured_and_compared_only_like_for_like()
     assert finance.metadata_evidence["benchmark_comparisons"] == []
 
 
+def test_model_score_does_not_reward_benchmark_entry_count() -> None:
+    common_result = {
+        "task": {"type": "Retrieval"},
+        "dataset": {"name": "T2Retrieval"},
+        "metrics": [{"type": "ndcg_at_10", "value": 0.7}],
+    }
+
+    def candidate(model_id: str, *, extra_entries: int) -> ModelCandidate:
+        results = [common_result]
+        results.extend(
+            {
+                "task": {"type": "Retrieval"},
+                "dataset": {"name": f"PrivateDataset{index}"},
+                "metrics": [{"type": "ndcg_at_10", "value": 0.7}],
+            }
+            for index in range(extra_entries)
+        )
+        evidence = _metadata_evidence(
+            {
+                "tags": ["sentence-similarity", "zh"],
+                "cardData": {"license": "apache-2.0", "model-index": [{"name": "C-MTEB", "results": results}]},
+            }
+        )
+        return ModelCandidate(
+            model_id,
+            "embedding",
+            "test",
+            revision="revision",
+            license="apache-2.0",
+            tags=["sentence-similarity", "zh"],
+            metadata_evidence=evidence,
+        )
+
+    concise = candidate("test/concise-card", extra_entries=0)
+    verbose = candidate("test/verbose-card", extra_entries=8)
+    _annotate_relative_benchmark_scores([concise, verbose])
+
+    assert concise.metadata_evidence["quality_benchmark_score_count"] == 1
+    assert verbose.metadata_evidence["quality_benchmark_score_count"] == 9
+    assert _candidate_score_value(concise, finance=False) == pytest.approx(
+        _candidate_score_value(verbose, finance=False)
+    )
+
+
 def test_exact_cached_revision_reuses_snapshot_without_download(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1486,13 +1536,19 @@ def test_budget_profiles_gate_real_cost_levels() -> None:
     assert profiles["quick"]["max_stages"] < profiles["deep"]["max_stages"]
 
 
-def _production_branch_inputs(tmp_path: Path, dataset: Dataset) -> tuple[Candidate, Path]:
-    memory_config = tmp_path / "memory.json"
+def _production_branch_inputs(
+    tmp_path: Path,
+    dataset: Dataset,
+    *,
+    short_term_capacity: int = 6,
+) -> tuple[Candidate, Path]:
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    memory_config = tmp_path / f"memory-{short_term_capacity}.json"
     memory_config.write_text(
         json.dumps(
             {
                 "llm": {"provider": "mock", "config": {"model": "test-model"}},
-                "midterm": {"enabled": True, "short_term_capacity": 6},
+                "midterm": {"enabled": True, "short_term_capacity": short_term_capacity},
             }
         ),
         encoding="utf-8",
@@ -1528,11 +1584,17 @@ def _production_branch_inputs(tmp_path: Path, dataset: Dataset) -> tuple[Candida
                     "session_id": session_id,
                     "memory_config_path": str(memory_config),
                     "memory_config_sha256": sha256_file(memory_config),
+                    "shortterm_qa_turns": short_term_capacity // 2,
                     "llm_mode": "mock",
                     "checkpoints_path": str(checkpoints),
                     "checkpoints_sha256": sha256_file(checkpoints),
                     "prompt_hashes": {"page_summary": "production"},
-                    "production_config": {"top_k_sessions": 5, "top_k_pages": 5, "max_total_pages": 5},
+                    "production_config": {
+                        "short_term_capacity": short_term_capacity,
+                        "top_k_sessions": 5,
+                        "top_k_pages": 5,
+                        "max_total_pages": 5,
+                    },
                     "effective_memory_config": {"vector_store": {"config": {"bm25_language": "en"}}},
                     "failed_turns": 0,
                     "llm_calls": 0,
@@ -1610,7 +1672,6 @@ def test_new_dataset_generates_three_query_variants_and_resumes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import tuner.derived_artifacts as derived_artifacts
-    from tuner.prompt_artifacts import QueryPromptArtifactGenerator
 
     dataset = make_dataset(tmp_path, 2)
     baseline, _ = _production_branch_inputs(tmp_path, dataset)
@@ -1663,6 +1724,104 @@ def test_new_dataset_generates_three_query_variants_and_resumes(
     payload = json.loads(Path(first.candidates[0].config["query_artifact_path"]).read_text(encoding="utf-8"))["payload"]
     assert payload["analysis_session_ids"] == [context.tune_sessions[0]]
     assert set(payload["generated_session_ids"]) == set(dataset.sessions)
+
+
+@pytest.mark.parametrize(("capacity_messages", "expected_history"), [(6, (2, 3, 4)), (8, (1, 2, 3, 4))])
+def test_query_history_uses_exact_production_shortterm_window(
+    tmp_path: Path,
+    capacity_messages: int,
+    expected_history: tuple[int, ...],
+) -> None:
+    session_id = "S001_历史窗口"
+    turns = tuple(make_turn(session_id, index) for index in range(6))
+    dataset = Dataset(
+        path=str(tmp_path / "history.xlsx"),
+        sha256="b" * 64,
+        sessions={session_id: turns},
+    )
+    baseline, _ = _production_branch_inputs(
+        tmp_path / f"capacity-{capacity_messages}",
+        dataset,
+        short_term_capacity=capacity_messages,
+    )
+    captured: dict[str, dict[str, Any]] = {}
+
+    class CapturingLLM:
+        def generate_response(self, messages: list[dict[str, str]], **_: Any) -> str:
+            request = json.loads(messages[-1]["content"])
+            captured[request["current_query"]] = request
+            return json.dumps({"resolved_query": request["current_query"]}, ensure_ascii=False)
+
+    generator = QueryPromptArtifactGenerator(
+        ArtifactRegistry(tmp_path / f"cache-{capacity_messages}", tmp_path / "legacy"),
+        llm_factory=lambda _config, _mode: CapturingLLM(),
+    )
+    artifact = generator.generate(
+        dataset=dataset,
+        anchor=baseline,
+        variant=QueryPromptVariant(
+            prompt_text="只使用 production 可见历史",
+            prompt_hash="query-history-contract",
+            parent_prompt_hash="production",
+            generation_round=1,
+            optimization_direction="explicit_coreference_resolution",
+        ),
+        tune_sessions=(session_id,),
+        max_parallel_llm_calls=1,
+    )
+
+    current = turns[4]
+    request = captured[current.question]
+    assert set(request) == {"current_query", "recent_history"}
+    assert [row["user"] for row in request["recent_history"]] == [
+        turns[index - 1].question for index in expected_history
+    ]
+    visible_questions = [row["user"] for row in request["recent_history"]]
+    if capacity_messages == 8:
+        assert turns[0].question in visible_questions
+    else:
+        assert turns[0].question not in visible_questions
+    assert turns[5].question not in json.dumps(request, ensure_ascii=False)
+    assert artifact.identity["shortterm_capacity_messages"] == capacity_messages
+    assert artifact.identity["shortterm_qa_turns"] == capacity_messages // 2
+    assert artifact.identity["history_policy"] == PRODUCTION_SHORTTERM_HISTORY_POLICY
+    assert artifact.identity["production_config_hash"]
+    stored = json.loads(artifact.path.read_text(encoding="utf-8"))["payload"]
+    assert stored["shortterm_qa_turns"] == capacity_messages // 2
+    assert stored["history_policy"] == PRODUCTION_SHORTTERM_HISTORY_POLICY
+
+
+@pytest.mark.parametrize(
+    ("invalid_mode", "error_match"),
+    [
+        ("missing_capacity", "short_term_capacity is required"),
+        ("odd_capacity", "positive even message count"),
+        ("manifest_mismatch", "manifest/config ShortTerm mismatch"),
+    ],
+)
+def test_query_history_rejects_invalid_or_inconsistent_production_window(
+    tmp_path: Path,
+    invalid_mode: str,
+    error_match: str,
+) -> None:
+    dataset = make_dataset(tmp_path, 1)
+    baseline, manifest_path = _production_branch_inputs(tmp_path, dataset)
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    config_path = Path(manifest["memory_config_path"])
+    memory_config = json.loads(config_path.read_text(encoding="utf-8"))
+    if invalid_mode == "missing_capacity":
+        memory_config["midterm"].pop("short_term_capacity")
+    elif invalid_mode == "odd_capacity":
+        memory_config["midterm"]["short_term_capacity"] = 7
+    else:
+        manifest["shortterm_qa_turns"] = 4
+    config_path.write_text(json.dumps(memory_config), encoding="utf-8")
+    manifest["memory_config_sha256"] = sha256_file(config_path)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    baseline.config["manifest_sha256"] = {str(manifest_path.resolve()): sha256_file(manifest_path)}
+
+    with pytest.raises(ValueError, match=error_match):
+        QueryPromptArtifactGenerator._production_shortterm_contract(baseline)
 
 
 def test_query_prompt_variants_are_capped_at_three_rounds_and_three_per_round(tmp_path: Path) -> None:
@@ -1756,18 +1915,154 @@ def _run_round_search(tmp_path: Path, branch: Any, *, max_rounds: int) -> Any:
 
 def test_same_branch_can_reenter_for_coarse_refine(tmp_path: Path) -> None:
     search = _run_round_search(tmp_path, _RoundBranch(), max_rounds=2)
-    assert [event["generation_round"] for event in search.branch_events] == [1, 2]
+    assert [event["generation_round"] for event in search.branch_events if event["branch"] != "__search_policy__"] == [
+        1,
+        2,
+    ]
     assert search.frontier[0].name == "CoarseRefine-round-2"
 
 
 def test_query_branch_stops_early_without_improvement(tmp_path: Path) -> None:
     search = _run_round_search(tmp_path, _RoundBranch("QueryRepresentation", improve=False), max_rounds=3)
-    assert [event["generation_round"] for event in search.branch_events] == [1]
+    assert [event["generation_round"] for event in search.branch_events if event["branch"] != "__search_policy__"] == [
+        1
+    ]
 
 
 def test_query_branch_never_exceeds_three_rounds(tmp_path: Path) -> None:
     search = _run_round_search(tmp_path, _RoundBranch("QueryRepresentation", improve=True), max_rounds=3)
-    assert [event["generation_round"] for event in search.branch_events] == [1, 2, 3]
+    assert [event["generation_round"] for event in search.branch_events if event["branch"] != "__search_policy__"] == [
+        1,
+        2,
+        3,
+    ]
+
+
+class _CoverageBranch:
+    def __init__(self, name: str, *, cost_level: str, priority: int, initial: bool = False):
+        self.spec = BranchSpec(
+            name=name,
+            diagnostic_regimes=frozenset({"candidate_coverage_bottleneck"}),
+            cost_level=cost_level,
+            required_artifacts=("checkpoint",),
+            execution_adapter="test",
+            provenance_contract=("dataset",),
+            resource_requirements={},
+            priority=priority,
+            initial_stage=initial,
+        )
+
+    def generate(self, context: BranchContext) -> BranchOutcome:
+        candidate = Candidate(
+            name=f"{self.spec.name}-round-{context.generation_round}",
+            stage=f"stage-{context.stage_index}",
+            config={
+                **context.anchor.config,
+                f"coverage_{self.spec.name}": context.generation_round,
+                "branch_cost_level": self.spec.cost_level,
+                "gain": 0.0,
+            },
+        )
+        return BranchOutcome(self.spec.name, "READY", [candidate])
+
+    def validate_provenance(self, candidate: Candidate, context: BranchContext) -> tuple[bool, None]:
+        del candidate, context
+        return True, None
+
+
+def _run_coverage_search(
+    tmp_path: Path,
+    *,
+    max_stages: int = 8,
+    max_expensive_candidates: int = 20,
+) -> Any:
+    import yaml
+
+    dataset = make_dataset(tmp_path, 3)
+    baseline = Candidate(name="baseline", stage="baseline", config={"gain": 0.0})
+    branches = [
+        _CoverageBranch("RetrievalControl", cost_level="cheap", priority=10, initial=True),
+        _CoverageBranch("HybridRetrieval", cost_level="medium", priority=20),
+        _CoverageBranch("Embedding", cost_level="high", priority=30),
+        _CoverageBranch("QueryRepresentation", cost_level="high", priority=40),
+        _CoverageBranch("PageRepresentation", cost_level="high", priority=50),
+        _CoverageBranch("FieldAwareMultiVector", cost_level="high", priority=60),
+        _CoverageBranch("MemoryWriteAddPrompt", cost_level="expensive", priority=70),
+    ]
+    search_space = yaml.safe_load((SCRIPTS.parent / "search_space.yaml").read_text(encoding="utf-8"))
+    search_space["selection"]["patience_stages"] = 1
+
+    def evaluate(candidates: Any, sessions: Any, scope: str) -> list[CandidateResult]:
+        del sessions, scope
+        return [result(candidate.name, 0.4 + float(candidate.config.get("gain") or 0.0)) for candidate in candidates]
+
+    return run_staged_search(
+        dataset=dataset,
+        baseline=baseline,
+        baseline_result=result("baseline", 0.4),
+        tune_sessions=tuple(dataset.sessions),
+        registry=BranchRegistry(branches),
+        artifact_registry=None,
+        model_discovery=None,
+        run_dir=tmp_path,
+        search_space=search_space,
+        budget="deep",
+        profile={
+            "max_stages": max_stages,
+            "max_cost_level": "expensive",
+            "max_branches_per_stage": 1,
+            "max_candidates_per_stage": 8,
+            "screening_sessions": 1,
+            "tune_frontier": 8,
+            "max_expensive_candidates": max_expensive_candidates,
+        },
+        k=5,
+        ranking_depth=20,
+        evaluate=evaluate,
+        diagnose=lambda _: {"regime": "candidate_coverage_bottleneck"},
+    )
+
+
+def test_deep_patience_waits_for_relevant_coverage_and_memory_write(tmp_path: Path) -> None:
+    search = _run_coverage_search(tmp_path)
+    attempted = [event["branch"] for event in search.branch_events if event["branch"] != "__search_policy__"]
+    assert attempted == [
+        "RetrievalControl",
+        "HybridRetrieval",
+        "Embedding",
+        "QueryRepresentation",
+        "PageRepresentation",
+        "FieldAwareMultiVector",
+        "MemoryWriteAddPrompt",
+    ]
+    assert any(event["status"] == "PATIENCE_SOFT_EXHAUSTED" for event in search.branch_events)
+    assert search.stop_reason == "converged_after_relevant_branch_coverage"
+    assert search.coverage_audit["remaining_branches"] == []
+    assert search.coverage_audit["relevant_coverage_complete"] is True
+    assert set(search.coverage_audit["attempted_branches"]) == set(attempted)
+    assert all(stage.get("coverage_after") for stage in search.stage_history)
+    stop_event = search.branch_events[-1]
+    assert stop_event["status"] == "SEARCH_STOP"
+    assert stop_event["provenance"]["coverage"]["exhausted_branches"]
+
+
+def test_stage_and_expensive_resource_budgets_remain_hard_stops(tmp_path: Path) -> None:
+    stage_limited = _run_coverage_search(tmp_path / "stage", max_stages=2)
+    assert stage_limited.stop_reason == "stage_budget_exhausted"
+    assert "QueryRepresentation" in stage_limited.coverage_audit["remaining_branches"]
+
+    resource_limited = _run_coverage_search(
+        tmp_path / "resource",
+        max_stages=8,
+        max_expensive_candidates=0,
+    )
+    assert resource_limited.stop_reason == "resource_budget_exhausted"
+    blocked = {row["branch"]: row["reason"] for row in resource_limited.coverage_audit["blocked_branches"]}
+    assert blocked["MemoryWriteAddPrompt"] == "max_expensive_candidates exhausted"
+    assert any(
+        row["branch"] == "MemoryWriteAddPrompt" and row["status"] == "BUDGET_OR_RESOURCE_BLOCKED"
+        for row in resource_limited.skipped_branches
+    )
 
 
 def test_candidate_config_hash_deduplicates_branch_bookkeeping() -> None:
