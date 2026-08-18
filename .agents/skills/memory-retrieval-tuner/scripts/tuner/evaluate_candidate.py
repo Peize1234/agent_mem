@@ -1,160 +1,20 @@
 from __future__ import annotations
 
-import math
-import re
 import statistics
 import time
-from collections import Counter, defaultdict
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-try:
-    from exp.benchmark.midterm_retrieval_eval import ChineseBM25Index, normalized_score_fuse
-    BM25_BACKEND = "repository:exp.benchmark.midterm_retrieval_eval"
-except ImportError:
-    BM25_BACKEND = "compatibility_fallback:jieba_or_regex:v1"
-
-    class ChineseBM25Index:  # type: ignore[no-redef]
-        """Compatibility fallback when the repository package is not installed editable."""
-
-        def __init__(
-            self,
-            pages: Sequence[Mapping[str, Any]],
-            texts: Mapping[str, str],
-            *,
-            k1: float = 1.5,
-            b: float = 0.75,
-        ):
-            self.pages = list(pages)
-            self.k1 = k1
-            self.b = b
-            self.tokens = {str(page["page_id"]): self.tokenize(texts[str(page["page_id"])]) for page in pages}
-            lengths = [len(value) for value in self.tokens.values()]
-            self.avg_length = statistics.fmean(lengths) if lengths else 1.0
-            document_frequency: Counter[str] = Counter()
-            for value in self.tokens.values():
-                document_frequency.update(set(value))
-            count = len(self.pages)
-            self.idf = {
-                token: math.log(1.0 + (count - frequency + 0.5) / (frequency + 0.5))
-                for token, frequency in document_frequency.items()
-            }
-
-        @staticmethod
-        def tokenize(text: str) -> list[str]:
-            try:
-                import jieba
-
-                return [token.strip().lower() for token in jieba.cut(text) if token.strip()]
-            except ImportError:
-                return re.findall(r"[A-Za-z0-9_.%-]+|[\u4e00-\u9fff]", text.lower())
-
-        def rank(self, query: str) -> list[dict[str, Any]]:
-            query_tokens = set(self.tokenize(query))
-            rows: list[dict[str, Any]] = []
-            for page in self.pages:
-                page_id = str(page["page_id"])
-                tokens = self.tokens[page_id]
-                frequencies = Counter(tokens)
-                length = len(tokens)
-                score = 0.0
-                for token in query_tokens:
-                    frequency = frequencies.get(token, 0)
-                    if not frequency:
-                        continue
-                    denominator = frequency + self.k1 * (
-                        1.0 - self.b + self.b * length / max(self.avg_length, 1e-9)
-                    )
-                    score += self.idf.get(token, 0.0) * frequency * (self.k1 + 1.0) / denominator
-                rows.append({"page_id": page_id, "source_turn_id": page_id, "score": score})
-            rows.sort(key=lambda row: (-float(row["score"]), str(row["page_id"])))
-            for rank, row in enumerate(rows, start=1):
-                row["rank"] = rank
-            return rows
-
-    def normalized_score_fuse(  # type: ignore[no-redef]
-        dense: Sequence[Mapping[str, Any]], sparse: Sequence[Mapping[str, Any]], *, dense_weight: float
-    ) -> list[dict[str, Any]]:
-        def normalize(ranking: Sequence[Mapping[str, Any]]) -> dict[str, float]:
-            values = [float(item.get("score") or 0.0) for item in ranking]
-            if not values:
-                return {}
-            low, high = min(values), max(values)
-            if math.isclose(low, high):
-                return {str(item["page_id"]): float(high > 0) for item in ranking}
-            return {str(item["page_id"]): (float(item.get("score") or 0.0) - low) / (high - low) for item in ranking}
-
-        dense_scores, sparse_scores = normalize(dense), normalize(sparse)
-        source_ids = {
-            str(item["page_id"]): str(item.get("source_turn_id") or item["page_id"]) for item in [*dense, *sparse]
-        }
-        rows = [
-            {
-                "page_id": page_id,
-                "source_turn_id": source_ids[page_id],
-                "score": dense_weight * dense_scores.get(page_id, 0.0)
-                + (1.0 - dense_weight) * sparse_scores.get(page_id, 0.0),
-            }
-            for page_id in source_ids
-        ]
-        rows.sort(key=lambda row: (-float(row["score"]), str(row["page_id"])))
-        return [{**row, "rank": rank} for rank, row in enumerate(rows, start=1)]
-
-from .artifact_registry import ArtifactRegistry, load_frozen_query_overrides
+from .artifact_registry import ArtifactRegistry
 from .io_utils import atomic_write_json, load_jsonl, stable_hash
 from .models import Candidate, CandidateResult, Dataset, Requirement, Turn
+from .production_midterm_adapter import PRODUCTION_BACKEND, ProductionMidtermAdapter, load_checkpoints
 
 
 def candidate_hash(dataset_sha256: str, candidate: Candidate) -> str:
     return stable_hash({"dataset_sha256": dataset_sha256, "config": candidate.config})
-
-
-def _keywords(text: str, limit: int = 12) -> str:
-    tokens = re.findall(r"[A-Za-z][A-Za-z0-9_.%-]*|\d+(?:\.\d+)?%?|[\u4e00-\u9fff]{2,8}", text)
-    seen: set[str] = set()
-    selected: list[str] = []
-    for token in tokens:
-        if token in seen:
-            continue
-        seen.add(token)
-        selected.append(token)
-        if len(selected) >= limit:
-            break
-    return " ".join(selected)
-
-
-def _page_text(turn: Turn, representation: str) -> str:
-    if representation == "summary":
-        return turn.answer
-    if representation == "summary_keywords":
-        return f"{turn.answer}\nKeywords: {_keywords(turn.question + ' ' + turn.answer)}"
-    if representation == "question_only":
-        return turn.question
-    if representation in {"production", "summary_keywords_raw_user", "full"}:
-        return f"{turn.answer}\nKeywords: {_keywords(turn.question + ' ' + turn.answer)}\nUser: {turn.question}"
-    raise ValueError(f"Unknown page representation: {representation}")
-
-
-def _query_text(
-    turn: Turn,
-    config: Mapping[str, Any],
-    query_overrides: Mapping[str, str] | None = None,
-) -> str:
-    representation = str(config.get("query_representation") or "original")
-    if representation == "original":
-        return turn.question
-    overrides = query_overrides or config.get("query_overrides") or {}
-    if representation == "bounded_reference_resolution" and turn.query_id in overrides:
-        return str(overrides[turn.query_id])
-    raise ValueError(f"Query representation {representation!r} has no validated frozen artifact")
-
-
-def _visible_turns(turn: Turn, session_turns: Sequence[Turn], target: str, shortterm_window: int) -> list[Turn]:
-    if target == "all_memory":
-        return list(session_turns[: turn.turn_index])
-    # MidTerm and the offline LongTerm proxy only see turns evicted from ShortTerm.
-    return list(session_turns[: max(0, turn.turn_index - shortterm_window)])
 
 
 def _eligible_requirements(turn: Turn, session_turns: Sequence[Turn], target: str, shortterm_window: int) -> list[Requirement]:
@@ -163,52 +23,19 @@ def _eligible_requirements(turn: Turn, session_turns: Sequence[Turn], target: st
     shortterm_ids = {
         item.query_id for item in session_turns[max(0, turn.turn_index - shortterm_window) : turn.turn_index]
     }
-    return [requirement for requirement in turn.requirements if not any(member in shortterm_ids for member in requirement.members)]
-
-
-def _rank_offline(
-    turn: Turn,
-    visible: Sequence[Turn],
-    config: Mapping[str, Any],
-    query_overrides: Mapping[str, str] | None = None,
-) -> list[dict[str, Any]]:
-    if not visible:
-        return []
-    pages = [{"page_id": item.query_id, "source_turn_id": item.query_id} for item in visible]
-    representation = str(config.get("page_representation") or "production")
-    texts = {item.query_id: _page_text(item, representation) for item in visible}
-    query = _query_text(turn, config, query_overrides)
-    primary = ChineseBM25Index(pages, texts).rank(query)
-    method = str(config.get("retrieval_method") or "bm25")
-    if method == "question_bm25":
-        question_texts = {item.query_id: item.question for item in visible}
-        ranking = ChineseBM25Index(pages, question_texts).rank(query)
-    elif method == "hybrid_bm25":
-        question_texts = {item.query_id: item.question for item in visible}
-        secondary = ChineseBM25Index(pages, question_texts).rank(query)
-        ranking = normalized_score_fuse(primary, secondary, dense_weight=float(config.get("embedding_similarity_weight", 0.75)))
-    elif method == "bm25":
-        ranking = primary
-    else:
-        raise ValueError(f"Unknown retrieval method: {method}")
-
-    ranking = [dict(row) for row in ranking]
-    for rank, row in enumerate(ranking, start=1):
-        row["rank"] = rank
-    return ranking
+    return [
+        requirement
+        for requirement in turn.requirements
+        if not any(member in shortterm_ids for member in requirement.members)
+    ]
 
 
 def _apply_retrieval_controls(
     ranking: Sequence[Mapping[str, Any]], config: Mapping[str, Any], ranking_depth: int
 ) -> list[dict[str, Any]]:
+    del config
     rows = [dict(row) for row in ranking]
-    threshold = float(config.get("page_similarity_threshold", 0.0))
-    if threshold > 0 and rows:
-        high = max(float(row.get("score") or 0.0) for row in rows)
-        if high > 0:
-            rows = [row for row in rows if float(row.get("score") or 0.0) / high >= threshold]
-    limit = min(int(config.get("top_k_pages") or len(rows)), ranking_depth)
-    rows = rows[:limit]
+    rows = rows[:ranking_depth]
     for rank, row in enumerate(rows, start=1):
         row["rank"] = rank
     return rows
@@ -272,14 +99,12 @@ def _rank_session(
     ranking_depth: int,
     registry: ArtifactRegistry,
     frozen: Mapping[str, Sequence[Mapping[str, Any]]] | None,
-    query_overrides: Mapping[str, str] | None,
+    checkpoints: Mapping[str, Mapping[str, Any]] | None,
+    run_dir: Path,
+    candidate_id: str,
 ) -> tuple[dict[str, list[dict[str, Any]]], bool]:
-    ranking_config = {
-        key: value
-        for key, value in candidate.config.items()
-        if key not in {"top_k_pages", "page_similarity_threshold"}
-    }
-    raw_depth = max(ranking_depth, int(candidate.config.get("top_k_pages") or ranking_depth))
+    ranking_config = dict(candidate.config)
+    raw_depth = ranking_depth
     identity = {
         "schema": 1,
         "dataset_sha256": dataset.sha256,
@@ -301,21 +126,35 @@ def _rank_session(
     session_turns = dataset.sessions[session_id]
     grouped = {}
     flat: list[dict[str, Any]] = []
+    adapter = (
+        ProductionMidtermAdapter(
+            run_dir=run_dir,
+            candidate_hash=candidate_id,
+            session_id=session_id,
+            ranking_depth=raw_depth,
+        )
+        if candidate.config.get("backend") == PRODUCTION_BACKEND
+        else None
+    )
     for turn in session_turns:
         if not _eligible_requirements(turn, session_turns, target, shortterm_window):
             continue
-        visible = _visible_turns(turn, session_turns, target, shortterm_window)
         backend = candidate.config.get("backend")
         if backend in {"frozen_ranking", "production_trace"}:
             if backend == "production_trace" and turn.query_id not in (frozen or {}):
                 raise ValueError(f"Production trace is incomplete for eligible Query {turn.query_id}")
             ranking = [dict(row) for row in (frozen or {}).get(turn.query_id, [])]
-            visible_ids = {item.query_id for item in visible}
-            ranking = [row for row in ranking if str(row["page_id"]) in visible_ids]
             if backend == "frozen_ranking" and not ranking:
                 raise ValueError(f"Frozen ranking is incomplete for eligible Query {turn.query_id}")
+        elif backend == PRODUCTION_BACKEND:
+            checkpoint = (checkpoints or {}).get(turn.query_id)
+            if checkpoint is None:
+                raise ValueError(f"Production checkpoint is incomplete for eligible Query {turn.query_id}")
+            ranking = adapter.rank(checkpoint, candidate.config) if adapter is not None else []
         else:
-            ranking = _rank_offline(turn, visible, candidate.config, query_overrides)
+            raise ValueError(
+                f"Candidate {candidate.name} does not use a supported production/frozen backend: {backend!r}"
+            )
         raw_ranking = ranking[:raw_depth]
         grouped[turn.query_id] = _apply_retrieval_controls(raw_ranking, candidate.config, ranking_depth)
         flat.extend({"query_id": turn.query_id, **row} for row in raw_ranking)
@@ -422,6 +261,54 @@ def _aggregate(session_results: Sequence[Mapping[str, Any]]) -> tuple[dict[str, 
     return metrics, requirement_rows, session_rows
 
 
+def combine_candidate_results(
+    results: Sequence[CandidateResult],
+    *,
+    target: str,
+) -> CandidateResult:
+    """Combine independently evaluated LOSO folds without hiding fold boundaries."""
+    if not results:
+        raise ValueError("Cannot combine an empty Candidate result set")
+    first = results[0]
+    if any(result.candidate_hash != first.candidate_hash for result in results):
+        raise ValueError("LOSO fold results belong to different Candidates")
+
+    session_results: list[dict[str, Any]] = []
+    for result in results:
+        requirements_by_session: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for row in result.requirement_rows:
+            requirements_by_session[str(row["session_id"])].append(dict(row))
+        for session_row in result.session_rows:
+            session_id = str(session_row["session_id"])
+            session_results.append(
+                {
+                    "metrics": dict(session_row),
+                    "requirements": requirements_by_session.get(session_id, []),
+                }
+            )
+
+    metrics, requirement_rows, session_rows = _aggregate(session_results)
+    metrics[f"{target}_recall_at_k"] = metrics["recall_at_k"]
+    return CandidateResult(
+        name=first.name,
+        candidate_hash=first.candidate_hash,
+        stage=first.stage,
+        config=first.config,
+        metrics=metrics,
+        requirement_rows=requirement_rows,
+        session_rows=session_rows,
+        runtime_seconds=sum(result.runtime_seconds for result in results),
+        work_seconds=sum(result.work_seconds for result in results),
+        cache_hits=sum(result.cache_hits for result in results),
+        cache_misses=sum(result.cache_misses for result in results),
+        llm_calls=sum(result.llm_calls for result in results),
+        embedding_calls=sum(result.embedding_calls for result in results),
+        reused_artifacts=sorted({value for result in results for value in result.reused_artifacts}),
+        complexity=first.complexity,
+        status="VALID" if all(result.status == "VALID" for result in results) else "INVALID",
+    )
+
+
 def _production_layer_metrics(
     dataset: Dataset,
     sessions: Sequence[str],
@@ -473,9 +360,9 @@ def evaluate_candidate(
         frozen = _load_production_trace_rankings(candidate.config, target)
     else:
         frozen = None
-    query_overrides = (
-        load_frozen_query_overrides(candidate.config)
-        if candidate.config.get("query_artifact_path")
+    checkpoints = (
+        load_checkpoints(candidate.config.get("manifest_paths") or [])
+        if backend == PRODUCTION_BACKEND
         else None
     )
     candidate_id = candidate_hash(dataset.sha256, candidate)
@@ -513,7 +400,9 @@ def evaluate_candidate(
             ranking_depth=ranking_depth,
             registry=registry,
             frozen=frozen,
-            query_overrides=query_overrides,
+            checkpoints=checkpoints,
+            run_dir=run_dir,
+            candidate_id=candidate_id,
         )
         result = _evaluate_session(
             dataset,
@@ -573,6 +462,9 @@ def evaluate_candidate(
     trace_hashes = candidate.provenance.get("trace_sha256") or {}
     if isinstance(trace_hashes, Mapping):
         reused_artifacts.extend(str(value) for value in trace_hashes.values())
+    manifest_hashes = candidate.provenance.get("manifests") or {}
+    if isinstance(manifest_hashes, Mapping):
+        reused_artifacts.extend(str(value) for value in manifest_hashes.values())
     return CandidateResult(
         name=candidate.name,
         candidate_hash=candidate_id,

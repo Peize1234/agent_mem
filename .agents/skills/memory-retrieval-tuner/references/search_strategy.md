@@ -183,25 +183,22 @@ Avoid generic free-form rewrite by default unless diagnostics justify it.
 
 ### B2. Page representation
 
-Candidate order:
-
-1. current production representation;
-2. `summary`;
-3. `summary_keywords`;
-4. `summary_keywords_raw_user` / full representation;
-5. other existing field combinations.
-
-Prefer offline recomposition of already generated fields over new LLM calls.
+The executable adapter currently evaluates only the production Page representation. A representation variant is
+eligible only after a registered production generator has produced Page/Session artifacts with exact dataset,
+prompt, model, and source-turn provenance. Workbook answers must never be substituted for generated Page summaries.
 
 ### B3. Retrieval controls
 
-Coarse search:
+Implemented query-time coarse search:
 
 - candidate pool / `top_k_pages`;
 - `top_k_sessions`;
-- similarity thresholds;
 - maximum total pages;
-- dense versus keyword weights.
+- production dense Page retrieval;
+- Qdrant BM25+dense Page-score fusion inside production dense Session routing.
+
+Session assignment thresholds and embedding/keyword assignment weights alter generated Session artifacts. They are
+not query-time knobs and are skipped unless matching regenerated production artifacts exist.
 
 Do not run all Cartesian combinations. Use coordinate or successive-halving style search:
 

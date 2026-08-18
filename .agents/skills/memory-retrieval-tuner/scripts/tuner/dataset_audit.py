@@ -70,7 +70,15 @@ def load_benchmark_dataset(path: Path, sessions: Sequence[str] | None = None) ->
                 headers = next(rows)
             except StopIteration:
                 continue
-            index = _header_index(headers, sheet_name)
+            try:
+                index = _header_index(headers, sheet_name)
+            except ValueError:
+                explicitly_requested = bool(
+                    requested and (sheet_name.upper() in requested or sheet_code in requested)
+                )
+                if explicitly_requested:
+                    raise
+                continue
             turns: list[Turn] = []
             for row in rows:
                 values = list(row)
@@ -102,6 +110,13 @@ def load_benchmark_dataset(path: Path, sessions: Sequence[str] | None = None) ->
                     )
                 )
             if turns:
+                if not any(re.fullmatch(r"S\d{3}-Q\d{3}", turn.query_id, re.IGNORECASE) for turn in turns):
+                    explicitly_requested = bool(
+                        requested and (sheet_name.upper() in requested or sheet_code in requested)
+                    )
+                    if explicitly_requested:
+                        raise ValueError(f"Sheet {sheet_name} contains no valid Session Query IDs")
+                    continue
                 loaded[sheet_name] = tuple(turns)
     finally:
         workbook.close()
@@ -119,7 +134,7 @@ def _normalize_template(question: str) -> str:
 
 def _source_run_check(source_run: Path | None, expected_query_ids: set[str]) -> dict[str, Any]:
     if source_run is None:
-        return {"required": False, "status": "NOT_REQUIRED_FOR_OFFLINE_EVALUATION"}
+        return {"required": False, "status": "AUTO_DISCOVERY_OR_PRODUCTION_GENERATION"}
     result_file = source_run / "recall_turn_results.jsonl" if source_run.is_dir() else source_run
     if not result_file.exists():
         return {"required": True, "status": "INCOMPLETE", "reason": f"missing {result_file}"}

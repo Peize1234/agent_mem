@@ -63,6 +63,23 @@ def _query_artifact_variants(rows: list[dict[str, Any]]) -> dict[str, dict[str, 
     return variants
 
 
+def _production_config_fingerprint(config: Mapping[str, Any]) -> str:
+    llm = dict(config.get("llm") or {})
+    llm_config = {
+        key: value
+        for key, value in dict(llm.get("config") or {}).items()
+        if key not in {"api_key", "base_url"}
+    }
+    return stable_hash(
+        {
+            "llm": {"provider": llm.get("provider"), "config": llm_config},
+            "embedder": config.get("embedder"),
+            "midterm": config.get("midterm"),
+            "benchmark_runtime": config.get("benchmark_runtime"),
+        }
+    )
+
+
 def load_frozen_query_overrides(config: Mapping[str, Any]) -> dict[str, str]:
     path = Path(str(config["query_artifact_path"]))
     variants = _query_artifact_variants(load_jsonl(path))
@@ -168,6 +185,10 @@ class ArtifactRegistry:
             except (OSError, json.JSONDecodeError):
                 continue
             if not _contains_value(metadata, dataset_sha256):
+                continue
+            if not _contains_value(metadata, "production_midterm_v1"):
+                # Legacy flat-Page rankings do not prove that production
+                # Session routing and Page retrieval were both applied.
                 continue
             local_rankings = {
                 path.resolve()
@@ -311,6 +332,7 @@ class ArtifactRegistry:
         dataset_path: Path,
         dataset_sha256: str,
         session_query_counts: Mapping[str, int],
+        memory_config_path: Path | None = None,
     ) -> Candidate | None:
         """Find a complete production recall trace with exact dataset provenance."""
         trace_paths: set[Path] = set()
@@ -341,11 +363,23 @@ class ArtifactRegistry:
 
         rows_by_session: dict[str, list[dict[str, Any]]] = {}
         selected_path_by_session: dict[str, Path] = {}
+        config_fingerprints: dict[str, str] = {}
+        expected_config_fingerprint = (
+            _production_config_fingerprint(load_json(memory_config_path)) if memory_config_path is not None else None
+        )
         for trace_path in sorted(trace_paths):
             try:
                 rows = load_jsonl(trace_path)
             except (OSError, ValueError, json.JSONDecodeError):
                 continue
+            if expected_config_fingerprint is not None:
+                effective_path = trace_path.parent / "effective_memory_config.json"
+                if not effective_path.exists():
+                    continue
+                effective_fingerprint = _production_config_fingerprint(load_json(effective_path))
+                if effective_fingerprint != expected_config_fingerprint:
+                    continue
+                config_fingerprints[str(trace_path)] = effective_fingerprint
             grouped: dict[str, list[dict[str, Any]]] = {}
             for row in rows:
                 session_id = str(row.get("session_id") or row.get("sheet_name") or "")
@@ -366,11 +400,20 @@ class ArtifactRegistry:
             return None
         selected_paths = sorted(set(selected_path_by_session.values()))
         trace_sha256 = {str(path): sha256_file(path) for path in selected_paths}
+        production_midterm_config: dict[str, Any] = {}
+        first_effective = selected_paths[0].parent / "effective_memory_config.json"
+        if first_effective.exists():
+            production_midterm_config = dict(load_json(first_effective).get("midterm") or {})
         return Candidate(
             name="baseline",
             stage="baseline",
             config={
+                **production_midterm_config,
                 "backend": "production_trace",
+                "retrieval_contract": "production_midterm_v1",
+                "retrieval_method": "dense",
+                "query_representation": "original",
+                "page_representation": "production",
                 "trace_paths": [str(path) for path in selected_paths],
                 "trace_sha256": trace_sha256,
                 "dataset_sha256": dataset_sha256,
@@ -383,8 +426,77 @@ class ArtifactRegistry:
                     session_id: str(path) for session_id, path in sorted(selected_path_by_session.items())
                 },
                 "provenance_validated": True,
+                "retrieval_contract": "production_midterm_v1",
                 "failed_turns": 0,
+                "config_fingerprints": {
+                    str(path): config_fingerprints[str(path)]
+                    for path in selected_paths
+                    if str(path) in config_fingerprints
+                },
+                "prompt_provenance": "legacy source git commit; explicit prompt hashes unavailable",
             },
+            complexity=0,
+        )
+
+    def discover_production_midterm(
+        self,
+        *,
+        dataset_sha256: str,
+        session_turn_counts: Mapping[str, int],
+        ranking_depth: int,
+        memory_config_path: Path,
+        llm_mode: str,
+        source_run: Path | None = None,
+    ) -> Candidate | None:
+        """Find complete replayable checkpoints created from the production MidTerm pipeline."""
+        from .production_midterm_adapter import production_candidate_from_manifests
+
+        roots = [self.results_root]
+        if source_run is not None:
+            roots.insert(0, source_run if source_run.is_dir() else source_run.parent)
+        candidates: dict[str, Path] = {}
+        expected_memory_config_sha256 = sha256_file(memory_config_path)
+        expected_prompt_hashes: dict[str, str] | None = None
+        for root in roots:
+            for manifest_path in root.glob("**/production_midterm_manifest.json"):
+                try:
+                    manifest = load_json(manifest_path)
+                except (OSError, json.JSONDecodeError):
+                    continue
+                session_id = str(manifest.get("session_id") or "")
+                if (
+                    manifest.get("status") != "COMPLETE"
+                    or manifest.get("dataset_sha256") != dataset_sha256
+                    or session_id not in session_turn_counts
+                    or int(manifest.get("turn_count") or 0) != int(session_turn_counts[session_id])
+                    or int(manifest.get("failed_turns") or 0) != 0
+                    or int(manifest.get("ranking_depth") or 0) < ranking_depth
+                    or manifest.get("memory_config_sha256") != expected_memory_config_sha256
+                    or str(manifest.get("llm_mode") or "real") != llm_mode
+                ):
+                    continue
+                checkpoints = Path(str(manifest.get("checkpoints_path") or ""))
+                if (
+                    not checkpoints.exists()
+                    or manifest.get("checkpoints_sha256") != sha256_file(checkpoints)
+                ):
+                    continue
+                if expected_prompt_hashes is None:
+                    from .production_midterm_adapter import production_prompt_hashes
+
+                    expected_prompt_hashes = production_prompt_hashes()
+                if manifest.get("prompt_hashes") != expected_prompt_hashes:
+                    continue
+                candidates.setdefault(session_id, manifest_path.resolve())
+        if set(candidates) != set(session_turn_counts):
+            return None
+        paths = [candidates[session_id] for session_id in session_turn_counts]
+        config, provenance = production_candidate_from_manifests(paths)
+        return Candidate(
+            name="baseline",
+            stage="baseline",
+            config=config,
+            provenance=provenance,
             complexity=0,
         )
 

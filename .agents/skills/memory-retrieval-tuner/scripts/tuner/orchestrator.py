@@ -16,9 +16,10 @@ from .artifact_registry import ArtifactRegistry
 from .build_report import write_outputs
 from .candidate_selector import select_best, tune_frontier
 from .dataset_audit import audit_dataset
-from .evaluate_candidate import BM25_BACKEND, evaluate_candidate
+from .evaluate_candidate import combine_candidate_results, evaluate_candidate
 from .io_utils import append_jsonl, load_json, stable_hash
 from .models import Candidate, CandidateResult, Dataset
+from .production_midterm_adapter import generate_production_sources, production_candidate_from_manifests
 from .split_sessions import create_or_load_split
 
 
@@ -33,6 +34,8 @@ class TunerConfig:
     output_root: Path = Path("exp/results/auto_tuning")
     resume: Path | None = None
     source_run: Path | None = None
+    memory_config: Path = Path("exp/benchmark/memory_config.json")
+    llm_mode: str = "real"
     max_parallel_sessions: int | None = None
     max_parallel_candidates: int | None = None
     max_parallel_llm_calls: int | None = None
@@ -97,26 +100,6 @@ def _execution_settings(config: TunerConfig, space: Mapping[str, Any]) -> dict[s
     }
 
 
-def _baseline(k: int, ranking_depth: int) -> Candidate:
-    values = {
-        "backend": "offline_repository_adapter",
-        "query_representation": "original",
-        "page_representation": "production",
-        "retrieval_method": "bm25",
-        "top_k_pages": ranking_depth,
-        "page_similarity_threshold": 0.0,
-    }
-    if BM25_BACKEND.startswith("compatibility_fallback"):
-        values["backend_implementation"] = BM25_BACKEND
-    return Candidate(
-        name="baseline",
-        stage="baseline",
-        config=values,
-        provenance={"adapter": "exp.benchmark.midterm_retrieval_eval.ChineseBM25Index", "k": k},
-        complexity=0,
-    )
-
-
 def _candidate(name: str, stage: str, baseline: Candidate, complexity: int = 1, **changes: Any) -> Candidate:
     values = dict(baseline.config)
     values.update(changes)
@@ -131,53 +114,35 @@ def _cheap_candidates(
     k: int,
     ranking_depth: int,
 ) -> list[Candidate]:
+    if baseline.config.get("backend") != "production_midterm":
+        return []
     candidates: list[Candidate] = []
-    page_values = (((space.get("search") or {}).get("stages") or {}).get("cheap") or {}).get(
-        "page_representation", {}
-    ).get("values", [])
-    for representation in page_values:
-        if representation == "production":
-            continue
-        candidates.append(
-            _candidate(
-                f"page:{representation}",
-                "cheap_page_representation",
-                baseline,
-                page_representation=representation,
+    baseline_sessions = int(baseline.config.get("top_k_sessions") or 5)
+    baseline_pages = int(baseline.config.get("top_k_pages") or 5)
+    baseline_total = int(baseline.config.get("max_total_pages") or 5)
+    for value in sorted({max(1, baseline_sessions - 1), baseline_sessions + 1, baseline_sessions + 2}):
+        if value != baseline_sessions:
+            candidates.append(
+                _candidate(f"top_k_sessions:{value}", "cheap_session_routing", baseline, top_k_sessions=value)
             )
-        )
+    for value in sorted({max(1, baseline_pages - 2), baseline_pages + 3, max(k, 2 * k)}):
+        if value != baseline_pages:
+            candidates.append(_candidate(f"top_k_pages:{value}", "cheap_page_pool", baseline, top_k_pages=value))
+    for value in sorted({max(k, baseline_total), 2 * k, min(ranking_depth, 4 * k)}):
+        if value != baseline_total:
+            candidates.append(
+                _candidate(f"max_total_pages:{value}", "cheap_result_cap", baseline, max_total_pages=value)
+            )
     candidates.extend(
-        [
-            _candidate("retrieval:question_bm25", "cheap_retrieval", baseline, retrieval_method="question_bm25"),
-            _candidate(
-                "retrieval:hybrid_w0.50",
-                "cheap_retrieval",
-                baseline,
-                retrieval_method="hybrid_bm25",
-                embedding_similarity_weight=0.50,
-                complexity=2,
-            ),
-            _candidate(
-                "retrieval:hybrid_w0.75",
-                "cheap_retrieval",
-                baseline,
-                retrieval_method="hybrid_bm25",
-                embedding_similarity_weight=0.75,
-                complexity=2,
-            ),
-            *[
-                _candidate(
-                    f"candidate_pool:{pool}",
-                    "cheap_candidate_pool",
-                    baseline,
-                    top_k_pages=pool,
-                )
-                for pool in sorted({k, 2 * k, max(k, ranking_depth - 5)})
-                if pool != int(baseline.config.get("top_k_pages") or ranking_depth)
-            ],
-            _candidate("threshold:0.20", "cheap_threshold", baseline, page_similarity_threshold=0.20),
-            _candidate("threshold:0.40", "cheap_threshold", baseline, page_similarity_threshold=0.40),
-        ]
+        _candidate(
+            f"dense_bm25:w{weight:.2f}",
+            "cheap_hybrid",
+            baseline,
+            retrieval_method="dense_bm25_fusion",
+            dense_weight=weight,
+            complexity=2,
+        )
+        for weight in (0.7, 0.85)
     )
     # This is coordinate search: every candidate changes one axis from baseline.
     return candidates[:maximum]
@@ -203,27 +168,39 @@ def _diagnose(best: CandidateResult, audit: Mapping[str, Any], space: Mapping[st
 
 
 def _secondary_candidates(baseline: Candidate, regime: str) -> list[Candidate]:
+    if baseline.config.get("backend") != "production_midterm":
+        return []
     if regime == "ranking_bottleneck":
         return [
             _candidate(
                 f"secondary:hybrid_w{weight:.2f}",
                 "secondary_ranking",
                 baseline,
-                retrieval_method="hybrid_bm25",
-                embedding_similarity_weight=weight,
+                retrieval_method="dense_bm25_fusion",
+                dense_weight=weight,
                 complexity=2,
             )
             for weight in (0.60, 0.70, 0.85)
         ]
     if regime == "candidate_coverage_bottleneck":
         return [
-            _candidate("secondary:full", "secondary_coverage", baseline, page_representation="full"),
-            _candidate("secondary:summary_keywords", "secondary_coverage", baseline, page_representation="summary_keywords"),
+            _candidate(
+                "secondary:wider_sessions",
+                "secondary_coverage",
+                baseline,
+                top_k_sessions=int(baseline.config.get("top_k_sessions") or 5) + 3,
+                top_k_pages=int(baseline.config.get("top_k_pages") or 5) + 5,
+                max_total_pages=max(20, int(baseline.config.get("max_total_pages") or 5)),
+            ),
         ]
     if regime == "session_instability":
         return [
-            _candidate("secondary:simple_summary", "secondary_stability", baseline, page_representation="summary"),
-            _candidate("secondary:original_simple", "secondary_stability", baseline),
+            _candidate(
+                "secondary:conservative_routing",
+                "secondary_stability",
+                baseline,
+                top_k_sessions=max(1, int(baseline.config.get("top_k_sessions") or 5) - 1),
+            ),
         ]
     return []
 
@@ -305,6 +282,48 @@ def _evaluate_many(
     return sorted(results, key=lambda result: result.name)
 
 
+def _evaluate_loso_many(
+    dataset: Dataset,
+    candidates: Sequence[Candidate],
+    folds: Sequence[Mapping[str, Any]],
+    *,
+    partition: str,
+    scope: str,
+    config: TunerConfig,
+    shortterm_window: int,
+    ranking_depth: int,
+    registry: ArtifactRegistry,
+    run_dir: Path,
+    execution: dict[str, Any],
+    trace_path: Path,
+) -> list[CandidateResult]:
+    """Evaluate every LOSO fold explicitly, then aggregate the frozen fold results."""
+    if partition not in {"tune_sessions", "validation_sessions"}:
+        raise ValueError(f"Unknown LOSO partition: {partition}")
+    by_candidate: dict[str, list[CandidateResult]] = {candidate.name: [] for candidate in candidates}
+    for fold in folds:
+        fold_number = int(fold["fold"])
+        fold_results = _evaluate_many(
+            dataset,
+            candidates,
+            list(fold[partition]),
+            scope=f"{scope}_fold_{fold_number}",
+            config=config,
+            shortterm_window=shortterm_window,
+            ranking_depth=ranking_depth,
+            registry=registry,
+            run_dir=run_dir,
+            execution=execution,
+            trace_path=trace_path,
+        )
+        for result in fold_results:
+            by_candidate[result.name].append(result)
+    return sorted(
+        [combine_candidate_results(by_candidate[candidate.name], target=config.target) for candidate in candidates],
+        key=lambda result: result.name,
+    )
+
+
 def _load_space(skill_root: Path, overrides: Mapping[str, Any]) -> dict[str, Any]:
     with (skill_root / "search_space.yaml").open(encoding="utf-8") as handle:
         values = yaml.safe_load(handle)
@@ -353,72 +372,83 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         source_run=config.source_run,
     )
     split = create_or_load_split(dataset, output_dir=run_dir, seed=seed, shortterm_window=shortterm_window)
+    loso = split["method"] == "leave_one_session_out"
+    tune_sessions = sorted(dataset.sessions) if loso else split["tune_sessions"]
     profile = (space.get("budget") or {}).get("profiles", {})[config.budget]
     registry = ArtifactRegistry(config.output_root.resolve() / ".cache", Path("exp/results").resolve())
-    offline_anchor = _baseline(config.k, ranking_depth)
-    production_baseline = registry.discover_production_trace(
+    session_turn_counts = {session_id: len(turns) for session_id, turns in dataset.sessions.items()}
+    generated_source = False
+    production_baseline = registry.discover_production_midterm(
+        dataset_sha256=dataset.sha256,
+        session_turn_counts=session_turn_counts,
+        ranking_depth=ranking_depth,
+        memory_config_path=config.memory_config,
+        llm_mode=config.llm_mode,
+        source_run=config.source_run,
+    )
+    production_trace = registry.discover_production_trace(
         dataset_path=Path(dataset.path),
         dataset_sha256=dataset.sha256,
-        session_query_counts={session_id: len(turns) for session_id, turns in dataset.sessions.items()},
+        session_query_counts=session_turn_counts,
+        memory_config_path=config.memory_config,
     )
-    baseline = production_baseline or offline_anchor
+    if production_baseline is None and production_trace is None:
+        generated_source = True
+        manifest_paths = generate_production_sources(
+            dataset_path=Path(dataset.path),
+            dataset_sha256=dataset.sha256,
+            session_ids=sorted(dataset.sessions),
+            session_turn_counts=session_turn_counts,
+            memory_config_path=config.memory_config,
+            run_dir=run_dir,
+            ranking_depth=ranking_depth,
+            llm_mode=config.llm_mode,
+            max_parallel_sessions=execution["max_parallel_sessions"],
+        )
+        production_config, production_provenance = production_candidate_from_manifests(manifest_paths)
+        production_baseline = Candidate(
+            name="baseline",
+            stage="baseline",
+            config=production_config,
+            provenance=production_provenance,
+            complexity=0,
+        )
+    baseline = production_baseline or production_trace
+    if baseline is None:
+        raise RuntimeError("Unable to establish a complete production MidTerm baseline")
 
-    baseline_tune = _evaluate_many(
-        dataset,
-        [baseline],
-        split["tune_sessions"],
-        scope="tune",
-        config=config,
-        shortterm_window=shortterm_window,
-        ranking_depth=ranking_depth,
-        registry=registry,
-        run_dir=run_dir,
-        execution=execution,
-        trace_path=trace_path,
-    )[0]
+    def evaluate_tune_candidates(candidates: Sequence[Candidate]) -> list[CandidateResult]:
+        common = {
+            "config": config,
+            "shortterm_window": shortterm_window,
+            "ranking_depth": ranking_depth,
+            "registry": registry,
+            "run_dir": run_dir,
+            "execution": execution,
+            "trace_path": trace_path,
+        }
+        if loso:
+            return _evaluate_loso_many(
+                dataset,
+                candidates,
+                split["folds"],
+                partition="tune_sessions",
+                scope="tune_loso",
+                **common,
+            )
+        return _evaluate_many(dataset, candidates, tune_sessions, scope="tune", **common)
+
+    baseline_tune = evaluate_tune_candidates([baseline])[0]
     maximum_cheap = int(profile["max_cheap_candidates"])
     generic_cheap = _cheap_candidates(
-        offline_anchor,
+        baseline,
         space,
         maximum_cheap,
         k=config.k,
         ranking_depth=ranking_depth,
     )
-    frozen_queries = registry.discover_frozen_queries(
-        dataset.sha256,
-        query_text_by_id={
-            turn.query_id: turn.question
-            for session_turns in dataset.sessions.values()
-            for turn in session_turns
-        },
-        base_candidate=offline_anchor,
-        limit=min(4, maximum_cheap),
-    )
-    cheap = [*frozen_queries, *generic_cheap][:maximum_cheap]
-    if production_baseline is not None and maximum_cheap > 0:
-        cheap = [
-            Candidate(
-                name="offline:original_bm25",
-                stage="cheap_offline_adapter",
-                config=offline_anchor.config,
-                provenance=offline_anchor.provenance,
-                complexity=offline_anchor.complexity,
-            ),
-            *cheap,
-        ][:maximum_cheap]
-    cheap_results = _evaluate_many(
-        dataset,
-        cheap,
-        split["tune_sessions"],
-        scope="tune",
-        config=config,
-        shortterm_window=shortterm_window,
-        ranking_depth=ranking_depth,
-        registry=registry,
-        run_dir=run_dir,
-        execution=execution,
-        trace_path=trace_path,
-    )
+    cheap = generic_cheap[:maximum_cheap]
+    cheap_results = evaluate_tune_candidates(cheap)
     tune_results = [baseline_tune, *cheap_results]
     tolerance = float((space.get("selection") or {}).get("tie_tolerance_pp", 0.25))
     provisional = tune_frontier(tune_results, tolerance_pp=tolerance, limit=max(2, int(profile["validation_frontier"])))
@@ -426,49 +456,42 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
     diagnostics = _diagnose(best_tune, audit, space)
     skipped: list[dict[str, Any]] = []
 
-    secondary = _secondary_candidates(offline_anchor, str(diagnostics["regime"]))
+    secondary = _secondary_candidates(baseline, str(diagnostics["regime"]))
     max_branches = int(profile["max_secondary_branches"])
     secondary = secondary[: max_branches * 3]
     if secondary:
-        secondary_results = _evaluate_many(
-            dataset,
-            secondary,
-            split["tune_sessions"],
-            scope="tune",
-            config=config,
-            shortterm_window=shortterm_window,
-            ranking_depth=ranking_depth,
-            registry=registry,
-            run_dir=run_dir,
-            execution=execution,
-            trace_path=trace_path,
-        )
+        secondary_results = evaluate_tune_candidates(secondary)
         tune_results.extend(secondary_results)
     else:
         skipped.append({"branch": "secondary", "reason": f"diagnostic regime {diagnostics['regime']} did not justify it"})
-    skipped.append(
-        {
-            "branch": "top_k_sessions",
-            "reason": "generic source-turn adapter has no Session router; production trace is read-only",
-        }
+    if baseline.config.get("backend") != "production_midterm":
+        skipped.append(
+            {
+                "branch": "production_contract_cheap_search",
+                "reason": "complete production trace exists, but replayable Page/Session checkpoints are unavailable",
+            }
+        )
+    skipped.extend(
+        [
+            {
+                "branch": "session_assignment_thresholds",
+                "reason": "changes production Session generation and requires a separately frozen LLM-generated source run",
+            },
+            {
+                "branch": "page_or_summary_representation",
+                "reason": "changes production Page embeddings/generation; no exact-provenance regenerated artifact was available",
+            },
+            {
+                "branch": "alternative_embedding_model",
+                "reason": "no exact production-contract embedding checkpoint was available in this run",
+            },
+        ]
     )
 
     frozen_limit = max(2, int(profile["max_expensive_candidates"]))
     frozen = registry.discover_frozen_rankings(dataset.sha256, limit=frozen_limit)
     if frozen:
-        replay_results = _evaluate_many(
-            dataset,
-            frozen,
-            split["tune_sessions"],
-            scope="tune",
-            config=config,
-            shortterm_window=shortterm_window,
-            ranking_depth=ranking_depth,
-            registry=registry,
-            run_dir=run_dir,
-            execution=execution,
-            trace_path=trace_path,
-        )
+        replay_results = evaluate_tune_candidates(frozen)
         tune_results.extend(replay_results)
     else:
         skipped.append({"branch": "frozen_replay", "reason": "no complete exact-provenance frozen ranking found"})
@@ -485,29 +508,53 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
             }
         )
 
+    if production_trace is None:
+        skipped.append(
+            {
+                "branch": "final_longterm_union_regression",
+                "reason": "no exact complete production full-memory trace; MidTerm source generation intentionally avoided extra LongTerm LLM extraction",
+            }
+        )
+
     frontier = tune_frontier(tune_results, tolerance_pp=tolerance, limit=int(profile["validation_frontier"]))
     if baseline_tune.name not in {result.name for result in frontier}:
         frontier.append(baseline_tune)
     validation_sessions = split["validation_sessions"] or split["tune_sessions"]
     validation_scope = "validation" if split["validation_sessions"] else "exploratory"
-    if split["method"] == "leave_one_session_out":
+    if loso:
         validation_sessions = [fold["validation_sessions"][0] for fold in split["folds"]]
         validation_scope = "validation_loso"
     candidate_by_name = {candidate.name: candidate for candidate in [baseline, *cheap, *secondary, *frozen]}
     validation_candidates = [candidate_by_name[result.name] for result in frontier if result.name in candidate_by_name]
-    validation_results = _evaluate_many(
-        dataset,
-        validation_candidates,
-        validation_sessions,
-        scope=validation_scope,
-        config=config,
-        shortterm_window=shortterm_window,
-        ranking_depth=ranking_depth,
-        registry=registry,
-        run_dir=run_dir,
-        execution=execution,
-        trace_path=trace_path,
-    )
+    if loso:
+        validation_results = _evaluate_loso_many(
+            dataset,
+            validation_candidates,
+            split["folds"],
+            partition="validation_sessions",
+            scope=validation_scope,
+            config=config,
+            shortterm_window=shortterm_window,
+            ranking_depth=ranking_depth,
+            registry=registry,
+            run_dir=run_dir,
+            execution=execution,
+            trace_path=trace_path,
+        )
+    else:
+        validation_results = _evaluate_many(
+            dataset,
+            validation_candidates,
+            validation_sessions,
+            scope=validation_scope,
+            config=config,
+            shortterm_window=shortterm_window,
+            ranking_depth=ranking_depth,
+            registry=registry,
+            run_dir=run_dir,
+            execution=execution,
+            trace_path=trace_path,
+        )
     tune_by_name = {result.name: result for result in tune_results}
     validation_by_name = {result.name: result for result in validation_results}
     baseline_validation = validation_by_name["baseline"]
@@ -522,6 +569,9 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
             )
         ),
     )
+    if loso:
+        selection["validation_protocol"] = "leave_one_session_out_out_of_fold"
+        selection["fold_count"] = len(split["folds"])
 
     baseline_full = _evaluate_many(
         dataset,
@@ -553,9 +603,20 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
     # Selection metrics remain held-out; result files contain the complete selected-candidate evaluation.
     best.requirement_rows = final_result.requirement_rows
     best.session_rows = final_result.session_rows
-    if config.target == "midterm" and baseline_full.metrics.get("longterm_recall_at_k") is not None:
-        best.metrics["longterm_recall_at_k"] = baseline_full.metrics["longterm_recall_at_k"]
-        best.metrics["longterm_metric_source"] = "unchanged_production_baseline"
+    if config.target == "midterm":
+        for key in (
+            "shortterm_coverage",
+            "target_layer_union",
+            "all_memory_union",
+            "query_completion",
+            "longterm_recall_at_k",
+            "all_memory_recall_at_k",
+        ):
+            if final_result.metrics.get(key) is not None:
+                best.metrics[key] = final_result.metrics[key]
+        if baseline_full.metrics.get("longterm_recall_at_k") is not None:
+            best.metrics["longterm_recall_at_k"] = baseline_full.metrics["longterm_recall_at_k"]
+            best.metrics["longterm_metric_source"] = "unchanged_production_baseline"
 
     total_work = sum(result.work_seconds for result in [*tune_results, *validation_results, baseline_full, final_result])
     wall = time.perf_counter() - started
@@ -604,6 +665,7 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         "cumulative_serial_work_seconds": cumulative_work,
         "parallel_time_saved_seconds": max(0.0, cumulative_work - cumulative_runtime),
         "llm_calls": int(previous_metadata.get("llm_calls") or 0)
+        + (int(baseline.provenance.get("llm_calls") or 0) if generated_source else 0)
         + sum(result.llm_calls for result in tune_results),
         "embedding_calls": int(previous_metadata.get("embedding_calls") or 0)
         + sum(result.embedding_calls for result in tune_results),
@@ -614,6 +676,7 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         "source_run": str(config.source_run) if config.source_run else None,
         "baseline_backend": baseline.config.get("backend"),
         "baseline_provenance": baseline.provenance,
+        "production_source_generated": generated_source,
         "baseline_full_metrics": baseline_full.metrics,
         "attempts": attempts,
     }

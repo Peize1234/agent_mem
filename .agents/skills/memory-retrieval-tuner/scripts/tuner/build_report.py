@@ -108,7 +108,8 @@ def write_outputs(
         "## Split",
         "",
         f"- Method: `{split.get('method')}` ({split.get('confidence')})",
-        f"- Tune Sessions: {', '.join(split.get('tune_sessions') or [])}",
+        f"- Tune Sessions: "
+        f"{'fold-specific (N-1 Sessions per fold)' if split.get('method') == 'leave_one_session_out' else ', '.join(split.get('tune_sessions') or [])}",
         f"- Validation Sessions: "
         f"{'every Session held out once across LOSO folds' if split.get('method') == 'leave_one_session_out' else ', '.join(split.get('validation_sessions') or []) or 'none (exploratory)'}",
         "",
@@ -186,10 +187,11 @@ def write_outputs(
             "",
             "## Limitations",
             "",
-            f"- Baseline backend: `{run_metadata.get('baseline_backend')}`. Exact complete production traces are preferred; "
-            "the source-turn BM25 adapter is used only as a fallback/candidate.",
-            "- Frozen rankings are compared only when dataset hash and source IDs validate; incomplete artifacts are excluded.",
-            "- New LLM prompt generation is intentionally deferred and skipped unless a repository-native generator with matching provenance is available.",
+            f"- Baseline backend: `{run_metadata.get('baseline_backend')}`; no source-turn BM25 fallback is permitted.",
+            f"- Baseline prompt provenance: `{(run_metadata.get('baseline_provenance') or {}).get('prompt_provenance') or 'explicit prompt hashes validated'}`.",
+            "- Frozen rankings are eligible only when dataset provenance and the `production_midterm_v1` retrieval contract validate.",
+            "- Query/Page/embedding branches without a production-contract adapter are reported as skipped, not evaluated by a surrogate.",
+            "- New LLM prompt generation is deferred unless a repository-native generator with exact prompt/model provenance is available.",
         )
     )
     atomic_write_text(run_dir / "final_report.md", "\n".join(lines) + "\n")

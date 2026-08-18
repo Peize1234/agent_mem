@@ -82,9 +82,10 @@ def create_or_load_split(
             }
             for index, held_out in enumerate(ordered)
         ]
-        # Search is frozen against the first fold; every fold is preserved for replay/robustness reporting.
-        tune = folds[0]["tune_sessions"]
-        validation = folds[0]["validation_sessions"]
+        # There is no privileged first fold. The orchestrator aggregates tune
+        # and out-of-fold validation results across every frozen fold.
+        tune = []
+        validation = []
         confidence = "low_leave_one_session_out"
     else:
         method = "exploratory_only"
@@ -104,7 +105,7 @@ def create_or_load_split(
         "session_stats": weights,
         "frozen": True,
     }
-    if set(tune) & set(validation):
+    if method != "leave_one_session_out" and set(tune) & set(validation):
         raise AssertionError("Tune and validation Sessions overlap")
     atomic_write_json(path, manifest)
     return manifest

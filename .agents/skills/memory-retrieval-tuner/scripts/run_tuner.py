@@ -34,6 +34,8 @@ KNOWN_KEYS = {
     "resume",
     "output_dir",
     "source_run",
+    "memory_config",
+    "llm_mode",
     "max_parallel_sessions",
     "max_parallel_candidates",
     "max_parallel_llm_calls",
@@ -75,6 +77,8 @@ def parse_args(argv: list[str] | None = None) -> TunerConfig:
     parser.add_argument("--resume")
     parser.add_argument("--output-dir")
     parser.add_argument("--source-run")
+    parser.add_argument("--memory-config")
+    parser.add_argument("--llm-mode", choices=("real", "mock"))
     parser.add_argument("--max-parallel-sessions", type=int)
     parser.add_argument("--max-parallel-candidates", type=int)
     parser.add_argument("--max-parallel-llm-calls", type=int)
@@ -109,6 +113,9 @@ def parse_args(argv: list[str] | None = None) -> TunerConfig:
     source_run = Path(str(values["source_run"])) if values.get("source_run") else None
     if source_run and not source_run.is_absolute():
         source_run = REPO_ROOT / source_run
+    memory_config = Path(str(values.get("memory_config") or "exp/benchmark/memory_config.json"))
+    if not memory_config.is_absolute():
+        memory_config = REPO_ROOT / memory_config
     return TunerConfig(
         dataset=dataset,
         k=int(values.get("k") or 5),
@@ -119,6 +126,8 @@ def parse_args(argv: list[str] | None = None) -> TunerConfig:
         output_root=output_root,
         resume=resume,
         source_run=source_run,
+        memory_config=memory_config,
+        llm_mode=str(values.get("llm_mode") or "real"),
         max_parallel_sessions=(
             int(values["max_parallel_sessions"]) if values.get("max_parallel_sessions") is not None else None
         ),

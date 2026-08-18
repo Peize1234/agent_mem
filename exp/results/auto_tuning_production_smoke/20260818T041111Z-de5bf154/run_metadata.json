@@ -1,0 +1,94 @@
+{
+  "status": "COMPLETE",
+  "dataset": "/home/peize/Code/htzq/mem0/exp/金融分析数据集_前10个Session长短期记忆再平衡.xlsx",
+  "dataset_sha256": "161f550721955ec056d0c9612d74eb8cc67d255a8cb36a1412bd8575b201a0f2",
+  "k": 5,
+  "secondary_cutoffs": [
+    10,
+    20
+  ],
+  "ranking_cache_depth": 20,
+  "budget": "quick",
+  "target": "midterm",
+  "seed": 42,
+  "run_dir": "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_production_smoke/20260818T041111Z-de5bf154",
+  "execution": {
+    "cpu_count": 8,
+    "available_memory_gib": 8.733318328857422,
+    "gpu_count": 1,
+    "max_parallel_sessions": 4,
+    "max_parallel_candidates": 2,
+    "max_parallel_llm_calls": 4,
+    "adaptive_reductions": []
+  },
+  "runtime_seconds": 6.982713585006422,
+  "attempt_runtime_seconds": 6.982713585006422,
+  "estimated_serial_work_seconds": 0.14496650000364752,
+  "cumulative_runtime_seconds": 6.982713585006422,
+  "cumulative_serial_work_seconds": 0.14496650000364752,
+  "parallel_time_saved_seconds": 0.0,
+  "llm_calls": 0,
+  "embedding_calls": 0,
+  "reused_artifacts": [
+    "470b7a9cc0507b2febd5f0657886cc6158176fd2956edbe7d2dc3180683b9578",
+    "a2e96a531c7106ee381eac0e8ff5c91c1fff6452543507f0b8748432ebae3ecd",
+    "ed8b3dd6d21d8d91b6afa3b0ba812280a33c323b7e11e811b70f28a4424e4be8"
+  ],
+  "failed_turns": 0,
+  "stop_reason": "validation_frontier_selected",
+  "resume_supported": true,
+  "source_run": null,
+  "baseline_backend": "production_trace",
+  "baseline_provenance": {
+    "dataset": "/home/peize/Code/htzq/mem0/exp/金融分析数据集_前10个Session长短期记忆再平衡.xlsx",
+    "dataset_sha256": "161f550721955ec056d0c9612d74eb8cc67d255a8cb36a1412bd8575b201a0f2",
+    "trace_sha256": {
+      "/home/peize/Code/htzq/mem0/exp/results/recall_rebalanced_s001_s010_isolated/S001/recall_turn_results.jsonl": "a2e96a531c7106ee381eac0e8ff5c91c1fff6452543507f0b8748432ebae3ecd",
+      "/home/peize/Code/htzq/mem0/exp/results/recall_rebalanced_s001_s010_isolated/S002/recall_turn_results.jsonl": "ed8b3dd6d21d8d91b6afa3b0ba812280a33c323b7e11e811b70f28a4424e4be8",
+      "/home/peize/Code/htzq/mem0/exp/results/recall_rebalanced_s001_s010_isolated/S003/recall_turn_results.jsonl": "470b7a9cc0507b2febd5f0657886cc6158176fd2956edbe7d2dc3180683b9578"
+    },
+    "session_trace_paths": {
+      "S001_贵州茅台_投研": "/home/peize/Code/htzq/mem0/exp/results/recall_rebalanced_s001_s010_isolated/S001/recall_turn_results.jsonl",
+      "S002_贵州茅台_内审": "/home/peize/Code/htzq/mem0/exp/results/recall_rebalanced_s001_s010_isolated/S002/recall_turn_results.jsonl",
+      "S003_比亚迪_风委": "/home/peize/Code/htzq/mem0/exp/results/recall_rebalanced_s001_s010_isolated/S003/recall_turn_results.jsonl"
+    },
+    "provenance_validated": true,
+    "retrieval_contract": "production_midterm_v1",
+    "failed_turns": 0,
+    "config_fingerprints": {
+      "/home/peize/Code/htzq/mem0/exp/results/recall_rebalanced_s001_s010_isolated/S001/recall_turn_results.jsonl": "e5b4287aa1445315942c6db1055034323eed8aa6f2230f4806bc20eee82a2979",
+      "/home/peize/Code/htzq/mem0/exp/results/recall_rebalanced_s001_s010_isolated/S002/recall_turn_results.jsonl": "e5b4287aa1445315942c6db1055034323eed8aa6f2230f4806bc20eee82a2979",
+      "/home/peize/Code/htzq/mem0/exp/results/recall_rebalanced_s001_s010_isolated/S003/recall_turn_results.jsonl": "e5b4287aa1445315942c6db1055034323eed8aa6f2230f4806bc20eee82a2979"
+    },
+    "prompt_provenance": "legacy source git commit; explicit prompt hashes unavailable"
+  },
+  "production_source_generated": false,
+  "baseline_full_metrics": {
+    "evaluated_query_count": 108,
+    "eligible_requirement_count": 108,
+    "recall_at_k": 0.5277777777777778,
+    "recall_at_2k": 0.5277777777777778,
+    "recall_at_4k": 0.6018518518518519,
+    "macro_session_recall_at_k": 0.5411263666412408,
+    "session_stddev": 0.07572747384235104,
+    "worst_session_recall_at_k": 0.43478260869565216,
+    "mrr": 0.3422227883119696,
+    "mean_gold_rank": 3.876923076923077,
+    "median_gold_rank": 2,
+    "shortterm_coverage": 0.52,
+    "target_layer_union": 0.7733333333333333,
+    "all_memory_union": 0.6755555555555556,
+    "query_completion": 0.6755555555555556,
+    "midterm_recall_at_k": 0.5277777777777778,
+    "longterm_recall_at_k": 0.4166666666666667,
+    "all_memory_recall_at_k": 0.6755555555555556
+  },
+  "attempts": [
+    {
+      "completed_at": "2026-08-18T04:11:18.085963+00:00",
+      "runtime_seconds": 6.982713585006422,
+      "serial_work_seconds": 0.14496650000364752,
+      "resumed": false
+    }
+  ]
+}

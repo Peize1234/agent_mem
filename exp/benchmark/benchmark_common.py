@@ -229,7 +229,11 @@ def load_dataset(
             index_by_name = {name: index for index, name in enumerate(headers) if name}
             missing = sorted(required_columns - set(index_by_name))
             if missing:
-                raise ValueError(f"Sheet {sheet_name} 缺少字段：{', '.join(missing)}")
+                if requested:
+                    raise ValueError(f"Sheet {sheet_name} 缺少字段：{', '.join(missing)}")
+                # Workbooks may contain audit/readme/helper Sheets. Only Sheets
+                # carrying the benchmark schema are Sessions.
+                continue
 
             turns: list[BenchmarkTurn] = []
             for zero_based_index, row in enumerate(rows):
@@ -272,6 +276,10 @@ def load_dataset(
                 )
 
             if not turns:
+                continue
+            if not any(TURN_ID_PATTERN.fullmatch(turn.turn_id) for turn in turns):
+                if requested:
+                    raise ValueError(f"Sheet {sheet_name} 不包含合法 Session 编号")
                 continue
             validate_session_turns(sheet_name, turns)
             sessions.append(BenchmarkSession(session_id=sheet_name, sheet_name=sheet_name, turns=tuple(turns)))

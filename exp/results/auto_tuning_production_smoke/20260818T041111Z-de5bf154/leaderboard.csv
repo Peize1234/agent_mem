@@ -1,0 +1,2 @@
+candidate,stage,tune_R@5,validation_R@5,validation_macro_R@5,validation_R@10,validation_R@20,validation_MRR,session_stddev,LLM_calls,embedding_calls,runtime_seconds,status
+baseline,baseline,0.5277777777777778,0.5277777777777778,0.5411263666412408,0.5277777777777778,0.6018518518518519,0.3422227883119696,0.07572747384235104,0,0,0.4098149959972943,VALID

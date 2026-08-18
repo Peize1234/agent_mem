@@ -288,7 +288,7 @@ Prior work included many expensive experiments that were informative but did not
 The reusable lesson is to order experiments by cost:
 
 1. reuse existing rankings/artifacts;
-2. offline Query/Page recomposition;
+2. production-checkpoint replay with frozen Query/Page/Session vectors;
 3. numeric retrieval parameters;
 4. additional embeddings;
 5. reranking;

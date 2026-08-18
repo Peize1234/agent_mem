@@ -1,6 +1,6 @@
 ---
 name: memory-retrieval-tuner
-description: Automatically audit a memory benchmark, run a staged retrieval-parameter search, validate generalization across sessions, and recommend a stable configuration. Use when changing datasets or tuning Short/Mid/Long memory retrieval. R@K is configurable; K defaults to 5.
+description: Automatically audit a memory benchmark, run production-faithful MidTerm retrieval tuning, validate generalization across sessions, and recommend a stable configuration. Use when changing datasets or tuning MidTerm memory retrieval. R@K is configurable; K defaults to 5.
 ---
 
 # Memory Retrieval Tuner
@@ -35,11 +35,13 @@ Optional:
 
 - `k`: recall cutoff used by the primary metric `R@K`. Default: `5`.
 - `budget`: `quick | standard | deep`. Default: `standard`.
-- `target`: `midterm | longterm | all_memory`. Default: `midterm`.
+- `target`: currently only `midterm`. ShortTerm, LongTerm, and union metrics are final regression checks.
 - `sessions`: optional Session subset.
 - `seed`: split/search seed. Default comes from `search_space.yaml`.
 - `resume`: existing tuning run directory to resume.
 - `output_dir`: output root. Default: `exp/results/auto_tuning`.
+- `memory_config`: production-compatible Memory config used when a new source run is required. Default: `exp/benchmark/memory_config.json`.
+- `llm_mode`: `real | mock`. Default: `real`; `mock` is infrastructure/smoke-test only.
 - `overrides`: explicit search-space overrides.
 
 Invocation examples:
@@ -70,9 +72,14 @@ python .agents/skills/memory-retrieval-tuner/scripts/run_tuner.py \
 Pass `resume=<existing_run_dir>` to resume an interrupted run. Pass concurrency overrides as
 `max_parallel_sessions=N`, `max_parallel_candidates=N`, and `max_parallel_llm_calls=N`.
 
-The generic backend performs a no-new-LLM offline search and replays only frozen artifacts whose dataset and
-provenance validate. If a production source run must be audited, pass `source_run=<path>`; an incomplete source run
-is a hard audit failure.
+The baseline never falls back to a source-turn BM25 surrogate. It must come from either a complete production trace
+or replayable `production_midterm_v1` checkpoints. If neither exists, the tuner starts isolated Session subprocesses
+and runs the real `AsyncMemory.add -> MidTermUpdater -> MidTermMemory -> MidTermRetriever` pipeline. Pass
+`source_run=<path>` to pin an existing source run; an incomplete source run is a hard audit failure.
+
+`production_midterm_adapter` freezes query-time production Page and Session payloads, dense vectors, query vectors,
+and source-job lineage. It does not construct Page summaries from workbook answers. Cheap candidates reload those
+artifacts into Candidate/Session-isolated Qdrant + SQLite runtimes and call production `MidTermRetriever`.
 
 ## Metric contract
 
@@ -208,6 +215,23 @@ Never “tune around” a broken benchmark.
 
 Run or reconstruct the current production baseline using the same dataset, Session scope, routing rules, metric `k`, and evaluation code that candidates will use.
 
+The production contract is:
+
+```text
+AsyncMemory.add
+-> SQLite ShortTerm QA eviction
+-> production Page summary prompt
+-> production Page embedding/write
+-> dense+keyword Session assignment and production Session merge
+-> unchanged Query embedding
+-> dense Session routing
+-> dense Page retrieval within routed Sessions
+-> global Page-score dedupe/sort/cap
+```
+
+Query-time dense+BM25 fusion is a benchmark-only candidate extension. It must retain production Session routing and
+operate on production-generated Page payloads. It is never labeled as the production baseline.
+
 Record:
 
 - primary R@K;
@@ -256,6 +280,11 @@ Typical dimensions:
 - session/page limits;
 - dense/keyword score weights;
 - inexpensive lexical fusion where existing artifacts permit it.
+
+Only claim branches implemented against the production contract. The current generic adapter supports production
+dense retrieval, `top_k_sessions`, `top_k_pages`, `max_total_pages`, and dense+Qdrant-BM25 Page fusion. Query rewrite,
+Page representation, alternate embeddings, Session-assignment weights/thresholds, rerankers, and prompt variants
+must be skipped unless an exact-provenance production artifact/adapter is present.
 
 Use staged search, not a full Cartesian grid.
 
