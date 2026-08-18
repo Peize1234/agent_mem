@@ -1,0 +1,66 @@
+{
+  "candidate": "baseline",
+  "config": {
+    "enabled": true,
+    "short_term_capacity": 6,
+    "session_similarity_threshold": 0.6,
+    "embedding_similarity_weight": 0.7,
+    "keyword_overlap_weight": 0.3,
+    "top_k_sessions": 5,
+    "top_k_pages": 5,
+    "max_total_pages": 5,
+    "backend": "production_midterm",
+    "retrieval_contract": "production_midterm_v1",
+    "retrieval_method": "dense",
+    "query_representation": "original",
+    "page_representation": "production",
+    "bm25_language": "zh",
+    "manifest_paths": [
+      "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_synthetic_smoke/20260818T052651Z-0c9525a5/production_source/S001_smoke/production_midterm_manifest.json",
+      "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_synthetic_smoke/20260818T052651Z-0c9525a5/production_source/S002_smoke/production_midterm_manifest.json",
+      "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_synthetic_smoke/20260818T052651Z-0c9525a5/production_source/S003_smoke/production_midterm_manifest.json"
+    ],
+    "manifest_sha256": {
+      "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_synthetic_smoke/20260818T052651Z-0c9525a5/production_source/S001_smoke/production_midterm_manifest.json": "9b0e1c9e51d4bad0a846160d334dd223bc0263f89b6d3e3918ebdf81b85563e6",
+      "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_synthetic_smoke/20260818T052651Z-0c9525a5/production_source/S002_smoke/production_midterm_manifest.json": "a92160be4576661833d91f8dde93816758ff2735dc59da7c619826109746bf90",
+      "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_synthetic_smoke/20260818T052651Z-0c9525a5/production_source/S003_smoke/production_midterm_manifest.json": "433d6c40eefea860c03f2edd5c765e12214a5db9c0433b3a8761c4a577ad2f02"
+    }
+  },
+  "validation_metrics": {
+    "evaluated_query_count": 6,
+    "eligible_requirement_count": 6,
+    "recall_at_k": 1.0,
+    "recall_at_2k": 1.0,
+    "recall_at_4k": 1.0,
+    "macro_session_recall_at_k": 1.0,
+    "session_stddev": 0.0,
+    "worst_session_recall_at_k": 1.0,
+    "mrr": 0.8333333333333334,
+    "mean_gold_rank": 1.3333333333333333,
+    "median_gold_rank": 1.0,
+    "shortterm_coverage": 0.0,
+    "target_layer_union": 1.0,
+    "all_memory_union": null,
+    "query_completion": null,
+    "midterm_recall_at_k": 1.0
+  },
+  "selection": {
+    "primary": "validation_requirement_recall_at_k",
+    "tie_tolerance_pp": 0.25,
+    "near_tied_candidates": [
+      "baseline",
+      "top_k_sessions:6"
+    ],
+    "tie_breakers": [
+      "macro_session_recall_at_k",
+      "session_stability",
+      "mrr",
+      "recall_at_2k",
+      "recall_at_4k",
+      "lower_cost",
+      "lower_complexity"
+    ],
+    "validation_protocol": "leave_one_session_out_out_of_fold",
+    "fold_count": 3
+  }
+}

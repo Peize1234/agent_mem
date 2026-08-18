@@ -1,0 +1,60 @@
+{
+  "dataset_sha256": "fec90195ede22b9adc5428b9f7c91787538f73a55f9a1376492bb81da26f08c4",
+  "seed": 42,
+  "shortterm_qa_turns": 3,
+  "unit": "session",
+  "method": "leave_one_session_out",
+  "confidence": "low_leave_one_session_out",
+  "tune_sessions": [],
+  "validation_sessions": [],
+  "folds": [
+    {
+      "fold": 1,
+      "tune_sessions": [
+        "S002_smoke",
+        "S003_smoke"
+      ],
+      "validation_sessions": [
+        "S001_smoke"
+      ]
+    },
+    {
+      "fold": 2,
+      "tune_sessions": [
+        "S001_smoke",
+        "S002_smoke"
+      ],
+      "validation_sessions": [
+        "S003_smoke"
+      ]
+    },
+    {
+      "fold": 3,
+      "tune_sessions": [
+        "S001_smoke",
+        "S003_smoke"
+      ],
+      "validation_sessions": [
+        "S002_smoke"
+      ]
+    }
+  ],
+  "session_stats": {
+    "S001_smoke": {
+      "eligible_requirements": 2,
+      "long_dependencies": 2,
+      "queries": 6
+    },
+    "S002_smoke": {
+      "eligible_requirements": 2,
+      "long_dependencies": 2,
+      "queries": 6
+    },
+    "S003_smoke": {
+      "eligible_requirements": 2,
+      "long_dependencies": 2,
+      "queries": 6
+    }
+  },
+  "frozen": true
+}

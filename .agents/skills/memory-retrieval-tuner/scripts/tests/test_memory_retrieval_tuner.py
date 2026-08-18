@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import sys
+import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -16,6 +18,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from exp.benchmark.benchmark_common import load_dataset  # noqa: E402
 from exp.benchmark.memory_gold_groups import parse_gold_requirements  # noqa: E402
 from tuner.artifact_registry import ArtifactRegistry  # noqa: E402
+from tuner.build_report import write_outputs  # noqa: E402
 from tuner.candidate_selector import classify_overfit, select_best  # noqa: E402
 from tuner.dataset_audit import DatasetAuditFailed, audit_dataset  # noqa: E402
 from tuner.evaluate_candidate import (  # noqa: E402
@@ -25,9 +28,16 @@ from tuner.evaluate_candidate import (  # noqa: E402
     evaluate_candidate,
 )
 from tuner.models import Candidate, CandidateResult, Dataset, Requirement, Turn  # noqa: E402
-from tuner.orchestrator import TunerConfig, _evaluate_loso_many  # noqa: E402
+import tuner.orchestrator as orchestrator  # noqa: E402
+import tuner.production_midterm_adapter as production_adapter  # noqa: E402
+from tuner.orchestrator import (  # noqa: E402
+    TunerConfig,
+    _evaluate_loso_many,
+    _resolve_shortterm_window,
+)
 from tuner.production_midterm_adapter import (  # noqa: E402
     ProductionMidtermAdapter,
+    generate_production_sources,
     isolated_runtime_layout,
     production_candidate_from_manifests,
 )
@@ -135,6 +145,26 @@ def test_session_split_policy(tmp_path: Path, count: int, method: str, validatio
         assert sorted(fold["validation_sessions"][0] for fold in split["folds"]) == sorted(dataset.sessions)
         assert all(len(fold["tune_sessions"]) == count - 1 for fold in split["folds"])
     assert create_or_load_split(dataset, output_dir=output, seed=42, shortterm_window=3) == split
+
+
+def test_shortterm_window_is_derived_and_mismatch_is_detected() -> None:
+    actual, validation = _resolve_shortterm_window(
+        {"dataset": {"shortterm_qa_turns": 2}},
+        {"midterm": {"short_term_capacity": 6}},
+    )
+    assert actual == 3
+    assert validation == {
+        "status": "OVERRIDDEN_BY_PRODUCTION_CONFIG",
+        "dataset_config_qa_turns": 2,
+        "production_capacity_messages": 6,
+        "actual_qa_turns": 3,
+        "source": "memory_config.midterm.short_term_capacity / 2",
+    }
+    with pytest.raises(ValueError, match="positive even message count"):
+        _resolve_shortterm_window(
+            {"dataset": {"shortterm_qa_turns": 3}},
+            {"midterm": {"short_term_capacity": 5}},
+        )
 
 
 def test_loso_executes_every_frozen_fold(tmp_path: Path) -> None:
@@ -294,6 +324,7 @@ def test_production_adapter_manifest_and_runtime_isolation(tmp_path: Path) -> No
                     "checkpoints_path": str(checkpoints),
                     "failed_turns": 0,
                     "llm_calls": index,
+                    "embedding_calls": index * 10,
                 }
             ),
             encoding="utf-8",
@@ -305,6 +336,7 @@ def test_production_adapter_manifest_and_runtime_isolation(tmp_path: Path) -> No
     assert config["bm25_language"] == "zh"
     assert provenance["source"] == "real AsyncMemory Add/MidTerm pipeline"
     assert provenance["llm_calls"] == 3
+    assert provenance["embedding_calls"] == 30
     ProductionMidtermAdapter.supported(config)
     with pytest.raises(ValueError, match="regenerated production artifacts"):
         ProductionMidtermAdapter.supported({**config, "page_representation": "summary"})
@@ -314,6 +346,63 @@ def test_production_adapter_manifest_and_runtime_isolation(tmp_path: Path) -> No
     third = isolated_runtime_layout(tmp_path, candidate_hash="candidate-a", session_id="S002")
     assert len({first.root, second.root, third.root}) == 3
     assert all(layout.sqlite_path.exists() for layout in (first, second, third))
+
+
+def test_production_source_workers_respect_llm_concurrency_limit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dataset_path = tmp_path / "dataset.xlsx"
+    dataset_path.write_bytes(b"dataset")
+    memory_config = tmp_path / "memory_config.json"
+    memory_config.write_text("{}", encoding="utf-8")
+    lock = threading.Lock()
+    active = 0
+    max_active = 0
+
+    def fake_run(command: list[str], **_: object) -> object:
+        nonlocal active, max_active
+        with lock:
+            active += 1
+            max_active = max(max_active, active)
+        try:
+            time.sleep(0.05)
+            spec = json.loads(Path(command[-1]).read_text(encoding="utf-8"))
+            output_dir = Path(spec["output_dir"])
+            checkpoints = output_dir / "production_midterm_checkpoints.jsonl"
+            checkpoints.write_text("", encoding="utf-8")
+            (output_dir / "production_midterm_manifest.json").write_text(
+                json.dumps(
+                    {
+                        "status": "COMPLETE",
+                        "turn_count": 1,
+                        "failed_turns": 0,
+                        "checkpoints_path": str(checkpoints),
+                    }
+                ),
+                encoding="utf-8",
+            )
+        finally:
+            with lock:
+                active -= 1
+        return production_adapter.subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(production_adapter.subprocess, "run", fake_run)
+    session_ids = [f"S{index:03d}_test" for index in range(1, 5)]
+    paths = generate_production_sources(
+        dataset_path=dataset_path,
+        dataset_sha256="dataset-sha",
+        session_ids=session_ids,
+        session_turn_counts={session_id: 1 for session_id in session_ids},
+        memory_config_path=memory_config,
+        run_dir=tmp_path / "run",
+        ranking_depth=20,
+        llm_mode="real",
+        max_parallel_sessions=4,
+        max_parallel_llm_calls=2,
+    )
+    assert len(paths) == 4
+    assert 1 < max_active <= 2
 
 
 def test_production_adapter_calls_real_midterm_retriever(tmp_path: Path) -> None:
@@ -428,6 +517,52 @@ def test_candidate_selection_near_tie_and_overfit() -> None:
     assert overfit == ["complex"]
 
 
+def test_report_marks_missing_full_memory_trace_as_na(tmp_path: Path) -> None:
+    baseline = result("baseline", 0.5)
+    baseline.metrics["midterm_recall_at_k"] = 0.5
+    reason = "No complete production trace is available"
+    write_outputs(
+        run_dir=tmp_path,
+        dataset_audit={
+            "dataset": "dataset.xlsx",
+            "dataset_sha256": "sha",
+            "session_count": 1,
+            "query_count": 1,
+            "gold_requirement_count": 1,
+            "status": "OK",
+            "warnings": [],
+        },
+        split={"method": "exploratory_only", "confidence": "exploratory", "tune_sessions": ["S001"]},
+        k=5,
+        baseline_tune=baseline,
+        baseline_validation=baseline,
+        tune_results=[baseline],
+        validation_by_name={"baseline": baseline},
+        best=baseline,
+        selection={},
+        overfit=[],
+        skipped_branches=[],
+        diagnostics={},
+        stop_reason="test",
+        run_metadata={
+            "shortterm_qa_turns": 3,
+            "shortterm_window_validation": {"status": "MATCH"},
+            "full_memory_regression": {
+                "status": "SKIPPED",
+                "backend": None,
+                "reason": reason,
+                "metrics": None,
+            },
+            "midterm_baseline_backend": "production_midterm",
+            "full_memory_regression_baseline_backend": None,
+        },
+    )
+    report = (tmp_path / "final_report.md").read_text(encoding="utf-8")
+    assert "Regression ShortTerm coverage: N/A" in report
+    assert "Regression LongTerm R@5: N/A" in report
+    assert reason in report
+
+
 def test_ranking_cache_reuse_across_k(tmp_path: Path) -> None:
     registry = ArtifactRegistry(tmp_path / "cache", tmp_path / "results")
     identity = {"dataset": "x", "candidate": "y"}
@@ -483,6 +618,177 @@ def test_production_trace_discovery_checks_completeness(tmp_path: Path) -> None:
         )
         is None
     )
+
+
+def test_trace_does_not_replace_midterm_checkpoints_and_regression_is_separate(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dataset_path = tmp_path / "dataset.xlsx"
+    sessions = {}
+    for index in range(1, 9):
+        code = f"S{index:03d}"
+        sessions[f"{code}_test"] = [
+            (f"{code}-Q001", ""),
+            (f"{code}-Q002", ""),
+            (f"{code}-Q003", ""),
+            (f"{code}-Q004", ""),
+            (f"{code}-Q005", f"{code}-Q001"),
+        ]
+    write_workbook(dataset_path, sessions)
+    memory_config = tmp_path / "memory_config.json"
+    memory_config.write_text(
+        json.dumps(
+            {
+                "midterm": {
+                    "enabled": True,
+                    "short_term_capacity": 6,
+                    "top_k_sessions": 5,
+                    "top_k_pages": 5,
+                    "max_total_pages": 5,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    trace_candidate = Candidate(
+        name="baseline",
+        stage="baseline",
+        config={"backend": "production_trace", "trace_paths": ["trace.jsonl"]},
+        provenance={"trace_sha256": {"trace.jsonl": "trace-sha"}},
+    )
+    generated = False
+    observed: list[tuple[str, str, str]] = []
+
+    monkeypatch.setattr(ArtifactRegistry, "discover_production_midterm", lambda self, **kwargs: None)
+    monkeypatch.setattr(
+        ArtifactRegistry,
+        "discover_production_trace",
+        lambda self, **kwargs: trace_candidate,
+    )
+    monkeypatch.setattr(ArtifactRegistry, "discover_frozen_rankings", lambda self, *args, **kwargs: [])
+
+    def fake_generate(**_: object) -> list[Path]:
+        nonlocal generated
+        generated = True
+        return [tmp_path / "manifest.json"]
+
+    monkeypatch.setattr(orchestrator, "generate_production_sources", fake_generate)
+    monkeypatch.setattr(
+        orchestrator,
+        "production_candidate_from_manifests",
+        lambda paths: (
+            {
+                "backend": "production_midterm",
+                "retrieval_method": "dense",
+                "top_k_sessions": 5,
+                "top_k_pages": 5,
+                "max_total_pages": 5,
+            },
+            {"llm_calls": 2, "embedding_calls": 11, "source": "test production source"},
+        ),
+    )
+    monkeypatch.setattr(orchestrator, "_gpu_count", lambda: 0)
+    monkeypatch.setattr(orchestrator, "_memory_gib", lambda: 16.0)
+
+    def fake_evaluate_many(
+        dataset: Dataset,
+        candidates: list[Candidate] | tuple[Candidate, ...],
+        session_ids: list[str] | tuple[str, ...],
+        *,
+        scope: str,
+        **_: object,
+    ) -> list[CandidateResult]:
+        values = []
+        for candidate in candidates:
+            backend = str(candidate.config.get("backend"))
+            observed.append((scope, candidate.name, backend))
+            if backend == "production_trace":
+                recall = 0.99
+            elif candidate.name == "top_k_sessions:6":
+                recall = 0.70
+            else:
+                recall = 0.50
+            metrics = {
+                "evaluated_query_count": len(session_ids),
+                "eligible_requirement_count": len(session_ids),
+                "recall_at_k": recall,
+                "recall_at_2k": recall,
+                "recall_at_4k": recall,
+                "macro_session_recall_at_k": recall,
+                "session_stddev": 0.0,
+                "worst_session_recall_at_k": recall,
+                "mrr": recall,
+                "midterm_recall_at_k": recall,
+                "shortterm_coverage": 0.25,
+                "target_layer_union": 0.60,
+                "all_memory_union": None,
+                "query_completion": None,
+            }
+            if backend == "production_trace":
+                metrics.update(
+                    {
+                        "longterm_recall_at_k": 0.40,
+                        "all_memory_recall_at_k": 0.80,
+                        "all_memory_union": 0.80,
+                        "query_completion": 0.80,
+                    }
+                )
+            values.append(
+                CandidateResult(
+                    name=candidate.name,
+                    candidate_hash=candidate.name,
+                    stage=candidate.stage,
+                    config=candidate.config,
+                    metrics=metrics,
+                    requirement_rows=[],
+                    session_rows=[],
+                    runtime_seconds=0.01,
+                    work_seconds=0.01,
+                    cache_hits=0,
+                    cache_misses=len(session_ids),
+                    complexity=candidate.complexity,
+                )
+            )
+        return values
+
+    monkeypatch.setattr(orchestrator, "_evaluate_many", fake_evaluate_many)
+    run_dir = orchestrator.run_tuning(
+        TunerConfig(
+            dataset=dataset_path,
+            budget="quick",
+            output_root=tmp_path / "results",
+            memory_config=memory_config,
+            max_parallel_sessions=4,
+            max_parallel_llm_calls=2,
+        ),
+        skill_root=SCRIPTS.parent,
+    )
+
+    metadata = json.loads((run_dir / "run_metadata.json").read_text(encoding="utf-8"))
+    best = json.loads((run_dir / "best_config.json").read_text(encoding="utf-8"))
+    report = (run_dir / "final_report.md").read_text(encoding="utf-8")
+    assert generated
+    assert metadata["midterm_baseline_backend"] == "production_midterm"
+    assert metadata["full_memory_regression_baseline_backend"] == "production_trace"
+    assert metadata["source_generation_llm_calls"] == 2
+    assert metadata["source_generation_embedding_calls"] == 11
+    assert metadata["llm_calls"] == 2
+    assert metadata["embedding_calls"] == 11
+    assert metadata["execution"]["source_worker_parallelism"] == 2
+    assert metadata["shortterm_qa_turns"] == 3
+    assert best["candidate"] == "top_k_sessions:6"
+    assert best["validation_metrics"]["recall_at_k"] == pytest.approx(0.70)
+    cheap_names = {name for scope, name, _ in observed if scope == "tune"}
+    assert {"top_k_sessions:6", "top_k_pages:8", "max_total_pages:10"} <= cheap_names
+    assert all(
+        scope == "full_memory_regression"
+        for scope, _, backend in observed
+        if backend == "production_trace"
+    )
+    assert metadata["full_memory_regression"]["metrics"]["longterm_recall_at_k"] == 0.40
+    assert "Regression LongTerm R@5: 0.4000" in report
+    assert "Regression All-memory R@5 / query completion: 0.8000 / 0.8000" in report
 
 
 def test_frozen_query_artifact_discovery_validates_dataset_and_original_query(tmp_path: Path) -> None:

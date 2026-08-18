@@ -92,6 +92,14 @@ def write_outputs(
     def displayed(validation: CandidateResult | None, metric: str) -> str:
         return f"{float(validation.metrics.get(metric) or 0):.4f}" if validation else "—"
 
+    regression = dict(run_metadata.get("full_memory_regression") or {})
+    regression_metrics = regression.get("metrics") if regression.get("status") == "AVAILABLE" else None
+
+    def regression_metric(name: str) -> str:
+        if not isinstance(regression_metrics, Mapping):
+            return "N/A"
+        return optional_metric(regression_metrics, name)
+
     lines = [
         "# Memory Retrieval Tuning Report",
         "",
@@ -104,6 +112,8 @@ def write_outputs(
         f"- Audit: **{dataset_audit.get('status')}**",
         f"- Primary metric: **R@{k}**",
         f"- Deeper diagnostics: **R@{2 * k} / R@{4 * k}**",
+        f"- ShortTerm window: **{run_metadata.get('shortterm_qa_turns')} QA turns** "
+        f"(`{(run_metadata.get('shortterm_window_validation') or {}).get('status')}`)",
         "",
         "## Split",
         "",
@@ -127,14 +137,15 @@ def write_outputs(
         "",
         "## Memory-layer metrics",
         "",
-        f"- ShortTerm coverage: {float(best.metrics.get('shortterm_coverage') or 0):.4f}",
-        f"- MidTerm R@{k}: {optional_metric(best.metrics, 'midterm_recall_at_k')}",
-        f"- LongTerm R@{k}: {optional_metric(best.metrics, 'longterm_recall_at_k')} "
-        f"({best.metrics.get('longterm_metric_source') or 'candidate'})",
-        f"- Short+target union: {optional_metric(best.metrics, 'target_layer_union')}",
-        f"- All-memory R@{k} / query completion: {optional_metric(best.metrics, 'all_memory_union')} / "
-        f"{optional_metric(best.metrics, 'query_completion')}",
-        f"- Production baseline layer metrics: `{run_metadata.get('baseline_full_metrics')}`",
+        f"- MidTerm winner R@{k}: {optional_metric(best.metrics, 'midterm_recall_at_k')}",
+        f"- Full-memory regression: `{regression.get('status') or 'SKIPPED'}` "
+        f"(backend: `{regression.get('backend')}`)",
+        f"- Regression ShortTerm coverage: {regression_metric('shortterm_coverage')}",
+        f"- Regression LongTerm R@{k}: {regression_metric('longterm_recall_at_k')}",
+        f"- Regression Short+Mid union: {regression_metric('target_layer_union')}",
+        f"- Regression All-memory R@{k} / query completion: "
+        f"{regression_metric('all_memory_union')} / {regression_metric('query_completion')}",
+        f"- Regression skipped reason: {regression.get('reason') or 'N/A'}",
         "",
         "## Tune and validation finalists",
         "",
@@ -168,6 +179,9 @@ def write_outputs(
             "",
             f"- New LLM calls: {run_metadata.get('llm_calls', 0)}",
             f"- Embedding calls: {run_metadata.get('embedding_calls', 0)}",
+            f"- Source generation LLM / embedding calls: "
+            f"{run_metadata.get('source_generation_llm_calls', 0)} / "
+            f"{run_metadata.get('source_generation_embedding_calls', 0)}",
             f"- Reused artifacts: {run_metadata.get('reused_artifacts', [])}",
             f"- Runtime: {float(run_metadata.get('runtime_seconds') or 0):.3f}s",
             f"- Actual concurrency: `{run_metadata.get('execution')}`",
@@ -187,8 +201,12 @@ def write_outputs(
             "",
             "## Limitations",
             "",
-            f"- Baseline backend: `{run_metadata.get('baseline_backend')}`; no source-turn BM25 fallback is permitted.",
-            f"- Baseline prompt provenance: `{(run_metadata.get('baseline_provenance') or {}).get('prompt_provenance') or 'explicit prompt hashes validated'}`.",
+            f"- MidTerm baseline backend: `{run_metadata.get('midterm_baseline_backend')}`; "
+            "winner selection uses only production-checkpoint MidTerm validation.",
+            f"- Full-memory regression baseline backend: "
+            f"`{run_metadata.get('full_memory_regression_baseline_backend')}`; it never enters winner selection.",
+            f"- MidTerm baseline prompt provenance: "
+            f"`{(run_metadata.get('midterm_baseline_provenance') or {}).get('prompt_provenance') or 'explicit prompt hashes validated'}`.",
             "- Frozen rankings are eligible only when dataset provenance and the `production_midterm_v1` retrieval contract validate.",
             "- Query/Page/embedding branches without a production-contract adapter are reported as skipped, not evaluated by a surrogate.",
             "- New LLM prompt generation is deferred unless a repository-native generator with exact prompt/model provenance is available.",

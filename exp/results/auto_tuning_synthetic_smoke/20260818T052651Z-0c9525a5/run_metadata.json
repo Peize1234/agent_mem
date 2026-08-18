@@ -1,0 +1,127 @@
+{
+  "status": "COMPLETE",
+  "dataset": "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_synthetic_smoke/smoke_dataset.xlsx",
+  "dataset_sha256": "fec90195ede22b9adc5428b9f7c91787538f73a55f9a1376492bb81da26f08c4",
+  "k": 5,
+  "secondary_cutoffs": [
+    10,
+    20
+  ],
+  "ranking_cache_depth": 20,
+  "budget": "quick",
+  "target": "midterm",
+  "seed": 42,
+  "shortterm_qa_turns": 3,
+  "shortterm_window_validation": {
+    "status": "MATCH",
+    "dataset_config_qa_turns": 3,
+    "production_capacity_messages": 6,
+    "actual_qa_turns": 3,
+    "source": "memory_config.midterm.short_term_capacity / 2"
+  },
+  "run_dir": "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_synthetic_smoke/20260818T052651Z-0c9525a5",
+  "execution": {
+    "cpu_count": 8,
+    "available_memory_gib": 8.705585479736328,
+    "gpu_count": 1,
+    "max_parallel_sessions": 3,
+    "max_parallel_candidates": 2,
+    "max_parallel_llm_calls": 2,
+    "adaptive_reductions": [],
+    "source_worker_parallelism": 2
+  },
+  "runtime_seconds": 47.86297380200267,
+  "attempt_runtime_seconds": 47.86297380200267,
+  "estimated_serial_work_seconds": 11.627279940978042,
+  "cumulative_runtime_seconds": 47.86297380200267,
+  "cumulative_serial_work_seconds": 11.627279940978042,
+  "parallel_time_saved_seconds": 0.0,
+  "llm_calls": 15,
+  "embedding_calls": 63,
+  "source_generation_llm_calls": 15,
+  "source_generation_embedding_calls": 63,
+  "evaluation_llm_calls": 0,
+  "evaluation_embedding_calls": 0,
+  "reused_artifacts": [
+    "433d6c40eefea860c03f2edd5c765e12214a5db9c0433b3a8761c4a577ad2f02",
+    "9b0e1c9e51d4bad0a846160d334dd223bc0263f89b6d3e3918ebdf81b85563e6",
+    "a92160be4576661833d91f8dde93816758ff2735dc59da7c619826109746bf90"
+  ],
+  "failed_turns": 0,
+  "stop_reason": "validation_frontier_selected",
+  "resume_supported": true,
+  "source_run": null,
+  "baseline_backend": "production_midterm",
+  "baseline_provenance": {
+    "adapter": "tuner.production_midterm_adapter.ProductionMidtermAdapter",
+    "production_classes": [
+      "mem0.memory.midterm.MidTermMemory",
+      "mem0.memory.midterm_retriever.MidTermRetriever"
+    ],
+    "source": "real AsyncMemory Add/MidTerm pipeline",
+    "retrieval_contract": "production_midterm_v1",
+    "manifests": {
+      "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_synthetic_smoke/20260818T052651Z-0c9525a5/production_source/S001_smoke/production_midterm_manifest.json": "9b0e1c9e51d4bad0a846160d334dd223bc0263f89b6d3e3918ebdf81b85563e6",
+      "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_synthetic_smoke/20260818T052651Z-0c9525a5/production_source/S002_smoke/production_midterm_manifest.json": "a92160be4576661833d91f8dde93816758ff2735dc59da7c619826109746bf90",
+      "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_synthetic_smoke/20260818T052651Z-0c9525a5/production_source/S003_smoke/production_midterm_manifest.json": "433d6c40eefea860c03f2edd5c765e12214a5db9c0433b3a8761c4a577ad2f02"
+    },
+    "failed_turns": 0,
+    "llm_calls": 15,
+    "embedding_calls": 63,
+    "candidate_name": "baseline"
+  },
+  "midterm_baseline_backend": "production_midterm",
+  "midterm_baseline_provenance": {
+    "adapter": "tuner.production_midterm_adapter.ProductionMidtermAdapter",
+    "production_classes": [
+      "mem0.memory.midterm.MidTermMemory",
+      "mem0.memory.midterm_retriever.MidTermRetriever"
+    ],
+    "source": "real AsyncMemory Add/MidTerm pipeline",
+    "retrieval_contract": "production_midterm_v1",
+    "manifests": {
+      "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_synthetic_smoke/20260818T052651Z-0c9525a5/production_source/S001_smoke/production_midterm_manifest.json": "9b0e1c9e51d4bad0a846160d334dd223bc0263f89b6d3e3918ebdf81b85563e6",
+      "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_synthetic_smoke/20260818T052651Z-0c9525a5/production_source/S002_smoke/production_midterm_manifest.json": "a92160be4576661833d91f8dde93816758ff2735dc59da7c619826109746bf90",
+      "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_synthetic_smoke/20260818T052651Z-0c9525a5/production_source/S003_smoke/production_midterm_manifest.json": "433d6c40eefea860c03f2edd5c765e12214a5db9c0433b3a8761c4a577ad2f02"
+    },
+    "failed_turns": 0,
+    "llm_calls": 15,
+    "embedding_calls": 63,
+    "candidate_name": "baseline"
+  },
+  "full_memory_regression_baseline_backend": null,
+  "full_memory_regression_baseline_provenance": null,
+  "production_source_generated": true,
+  "midterm_baseline_full_metrics": {
+    "evaluated_query_count": 6,
+    "eligible_requirement_count": 6,
+    "recall_at_k": 1.0,
+    "recall_at_2k": 1.0,
+    "recall_at_4k": 1.0,
+    "macro_session_recall_at_k": 1.0,
+    "session_stddev": 0.0,
+    "worst_session_recall_at_k": 1.0,
+    "mrr": 0.8333333333333334,
+    "mean_gold_rank": 1.3333333333333333,
+    "median_gold_rank": 1.0,
+    "shortterm_coverage": 0.0,
+    "target_layer_union": 1.0,
+    "all_memory_union": null,
+    "query_completion": null,
+    "midterm_recall_at_k": 1.0
+  },
+  "full_memory_regression": {
+    "status": "SKIPPED",
+    "backend": null,
+    "reason": "No complete production trace is available; ShortTerm/LongTerm/All-memory/Union regression was not inferred from MidTerm checkpoints.",
+    "metrics": null
+  },
+  "attempts": [
+    {
+      "completed_at": "2026-08-18T05:27:39.215036+00:00",
+      "runtime_seconds": 47.86297380200267,
+      "serial_work_seconds": 11.627279940978042,
+      "resumed": false
+    }
+  ]
+}

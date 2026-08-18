@@ -1,0 +1,4 @@
+session_id,evaluated_query_count,eligible_requirement_count,recall_at_k,recall_at_2k,recall_at_4k,mrr,mean_gold_rank,median_gold_rank,shortterm_coverage,shortterm_requirement_count,total_gold_requirement_count,target_layer_union,all_memory_union,query_completion
+S001_smoke,2,2,1.0,1.0,1.0,0.75,1.5,1.5,0.0,0,2,1.0,,
+S002_smoke,2,2,1.0,1.0,1.0,1.0,1.0,1.0,0.0,0,2,1.0,,
+S003_smoke,2,2,1.0,1.0,1.0,0.75,1.5,1.5,0.0,0,2,1.0,,

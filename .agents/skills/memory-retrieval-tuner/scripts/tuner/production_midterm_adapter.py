@@ -457,6 +457,7 @@ def generate_production_sources(
     ranking_depth: int,
     llm_mode: str,
     max_parallel_sessions: int,
+    max_parallel_llm_calls: int,
 ) -> list[Path]:
     """Generate missing production artifacts in isolated subprocesses."""
     from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -529,11 +530,26 @@ def generate_production_sources(
         return manifest_path
 
     paths: dict[str, Path] = {}
-    with ThreadPoolExecutor(max_workers=max(1, min(max_parallel_sessions, len(session_ids)))) as executor:
+    worker_count = source_worker_parallelism(
+        session_count=len(session_ids),
+        max_parallel_sessions=max_parallel_sessions,
+        max_parallel_llm_calls=max_parallel_llm_calls,
+    )
+    with ThreadPoolExecutor(max_workers=worker_count) as executor:
         futures = {executor.submit(run_session, session_id): session_id for session_id in session_ids}
         for future in as_completed(futures):
             paths[futures[future]] = future.result()
     return [paths[session_id] for session_id in session_ids]
+
+
+def source_worker_parallelism(
+    *,
+    session_count: int,
+    max_parallel_sessions: int,
+    max_parallel_llm_calls: int,
+) -> int:
+    """Cap isolated workers so their single MidTerm LLM lane cannot exceed the LLM limit."""
+    return max(1, min(session_count, max_parallel_sessions, max_parallel_llm_calls))
 
 
 def load_checkpoints(manifest_paths: Sequence[str | Path]) -> dict[str, dict[str, Any]]:
@@ -585,6 +601,7 @@ def production_candidate_from_manifests(
         "manifests": config["manifest_sha256"],
         "failed_turns": sum(int(item.get("failed_turns") or 0) for item in manifests),
         "llm_calls": sum(int(item.get("llm_calls") or 0) for item in manifests),
+        "embedding_calls": sum(int(item.get("embedding_calls") or 0) for item in manifests),
         "candidate_name": name,
     }
     return config, provenance

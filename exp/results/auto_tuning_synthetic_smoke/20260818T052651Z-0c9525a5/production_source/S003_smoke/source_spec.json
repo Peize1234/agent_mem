@@ -1,0 +1,10 @@
+{
+  "dataset_path": "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_synthetic_smoke/smoke_dataset.xlsx",
+  "session_id": "S003_smoke",
+  "output_dir": "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_synthetic_smoke/20260818T052651Z-0c9525a5/production_source/S003_smoke",
+  "runtime_dir": "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_synthetic_smoke/20260818T052651Z-0c9525a5/production_runtimes/production-source/S003_smoke",
+  "collection_name": "mrt_source_62edfea33b9fb25d",
+  "memory_config_path": "/home/peize/Code/htzq/mem0/exp/benchmark/memory_config.json",
+  "ranking_depth": 20,
+  "llm_mode": "mock"
+}

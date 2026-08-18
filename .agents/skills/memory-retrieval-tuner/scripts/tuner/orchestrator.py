@@ -19,7 +19,11 @@ from .dataset_audit import audit_dataset
 from .evaluate_candidate import combine_candidate_results, evaluate_candidate
 from .io_utils import append_jsonl, load_json, stable_hash
 from .models import Candidate, CandidateResult, Dataset
-from .production_midterm_adapter import generate_production_sources, production_candidate_from_manifests
+from .production_midterm_adapter import (
+    generate_production_sources,
+    production_candidate_from_manifests,
+    source_worker_parallelism,
+)
 from .split_sessions import create_or_load_split
 
 
@@ -330,6 +334,30 @@ def _load_space(skill_root: Path, overrides: Mapping[str, Any]) -> dict[str, Any
     return _deep_merge(values, overrides)
 
 
+def _resolve_shortterm_window(
+    space: Mapping[str, Any],
+    memory_config: Mapping[str, Any],
+) -> tuple[int, dict[str, Any]]:
+    configured_turns = int((space.get("dataset") or {}).get("shortterm_qa_turns", 3))
+    capacity = (memory_config.get("midterm") or {}).get("short_term_capacity")
+    if capacity is None:
+        raise ValueError("memory_config.midterm.short_term_capacity is required")
+    capacity_messages = int(capacity)
+    if capacity_messages <= 0 or capacity_messages % 2:
+        raise ValueError(
+            "memory_config.midterm.short_term_capacity must be a positive even message count"
+        )
+    production_turns = capacity_messages // 2
+    status = "MATCH" if configured_turns == production_turns else "OVERRIDDEN_BY_PRODUCTION_CONFIG"
+    return production_turns, {
+        "status": status,
+        "dataset_config_qa_turns": configured_turns,
+        "production_capacity_messages": capacity_messages,
+        "actual_qa_turns": production_turns,
+        "source": "memory_config.midterm.short_term_capacity / 2",
+    }
+
+
 def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
     started = time.perf_counter()
     if config.k < 1:
@@ -362,7 +390,8 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
     if not trace_path.exists():
         trace_path.touch()
 
-    shortterm_window = int((space.get("dataset") or {}).get("shortterm_qa_turns", 3))
+    memory_config_values = load_json(config.memory_config)
+    shortterm_window, shortterm_window_validation = _resolve_shortterm_window(space, memory_config_values)
     dataset, audit = audit_dataset(
         config.dataset,
         output_dir=run_dir,
@@ -378,7 +407,8 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
     registry = ArtifactRegistry(config.output_root.resolve() / ".cache", Path("exp/results").resolve())
     session_turn_counts = {session_id: len(turns) for session_id, turns in dataset.sessions.items()}
     generated_source = False
-    production_baseline = registry.discover_production_midterm(
+    execution["source_worker_parallelism"] = 0
+    midterm_baseline = registry.discover_production_midterm(
         dataset_sha256=dataset.sha256,
         session_turn_counts=session_turn_counts,
         ranking_depth=ranking_depth,
@@ -386,14 +416,27 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         llm_mode=config.llm_mode,
         source_run=config.source_run,
     )
-    production_trace = registry.discover_production_trace(
+    full_memory_regression_baseline = registry.discover_production_trace(
         dataset_path=Path(dataset.path),
         dataset_sha256=dataset.sha256,
         session_query_counts=session_turn_counts,
         memory_config_path=config.memory_config,
     )
-    if production_baseline is None and production_trace is None:
+    if full_memory_regression_baseline is not None:
+        full_memory_regression_baseline = Candidate(
+            name="full_memory_regression_baseline",
+            stage="regression_baseline",
+            config=full_memory_regression_baseline.config,
+            provenance=full_memory_regression_baseline.provenance,
+            complexity=full_memory_regression_baseline.complexity,
+        )
+    if midterm_baseline is None:
         generated_source = True
+        execution["source_worker_parallelism"] = source_worker_parallelism(
+            session_count=len(dataset.sessions),
+            max_parallel_sessions=execution["max_parallel_sessions"],
+            max_parallel_llm_calls=execution["max_parallel_llm_calls"],
+        )
         manifest_paths = generate_production_sources(
             dataset_path=Path(dataset.path),
             dataset_sha256=dataset.sha256,
@@ -404,18 +447,18 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
             ranking_depth=ranking_depth,
             llm_mode=config.llm_mode,
             max_parallel_sessions=execution["max_parallel_sessions"],
+            max_parallel_llm_calls=execution["max_parallel_llm_calls"],
         )
         production_config, production_provenance = production_candidate_from_manifests(manifest_paths)
-        production_baseline = Candidate(
+        midterm_baseline = Candidate(
             name="baseline",
             stage="baseline",
             config=production_config,
             provenance=production_provenance,
             complexity=0,
         )
-    baseline = production_baseline or production_trace
-    if baseline is None:
-        raise RuntimeError("Unable to establish a complete production MidTerm baseline")
+    if midterm_baseline is None or midterm_baseline.config.get("backend") != "production_midterm":
+        raise RuntimeError("Unable to establish a replayable production MidTerm baseline")
 
     def evaluate_tune_candidates(candidates: Sequence[Candidate]) -> list[CandidateResult]:
         common = {
@@ -438,10 +481,10 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
             )
         return _evaluate_many(dataset, candidates, tune_sessions, scope="tune", **common)
 
-    baseline_tune = evaluate_tune_candidates([baseline])[0]
+    baseline_tune = evaluate_tune_candidates([midterm_baseline])[0]
     maximum_cheap = int(profile["max_cheap_candidates"])
     generic_cheap = _cheap_candidates(
-        baseline,
+        midterm_baseline,
         space,
         maximum_cheap,
         k=config.k,
@@ -456,7 +499,7 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
     diagnostics = _diagnose(best_tune, audit, space)
     skipped: list[dict[str, Any]] = []
 
-    secondary = _secondary_candidates(baseline, str(diagnostics["regime"]))
+    secondary = _secondary_candidates(midterm_baseline, str(diagnostics["regime"]))
     max_branches = int(profile["max_secondary_branches"])
     secondary = secondary[: max_branches * 3]
     if secondary:
@@ -464,13 +507,6 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         tune_results.extend(secondary_results)
     else:
         skipped.append({"branch": "secondary", "reason": f"diagnostic regime {diagnostics['regime']} did not justify it"})
-    if baseline.config.get("backend") != "production_midterm":
-        skipped.append(
-            {
-                "branch": "production_contract_cheap_search",
-                "reason": "complete production trace exists, but replayable Page/Session checkpoints are unavailable",
-            }
-        )
     skipped.extend(
         [
             {
@@ -508,7 +544,7 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
             }
         )
 
-    if production_trace is None:
+    if full_memory_regression_baseline is None:
         skipped.append(
             {
                 "branch": "final_longterm_union_regression",
@@ -524,7 +560,9 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
     if loso:
         validation_sessions = [fold["validation_sessions"][0] for fold in split["folds"]]
         validation_scope = "validation_loso"
-    candidate_by_name = {candidate.name: candidate for candidate in [baseline, *cheap, *secondary, *frozen]}
+    candidate_by_name = {
+        candidate.name: candidate for candidate in [midterm_baseline, *cheap, *secondary, *frozen]
+    }
     validation_candidates = [candidate_by_name[result.name] for result in frontier if result.name in candidate_by_name]
     if loso:
         validation_results = _evaluate_loso_many(
@@ -573,9 +611,9 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         selection["validation_protocol"] = "leave_one_session_out_out_of_fold"
         selection["fold_count"] = len(split["folds"])
 
-    baseline_full = _evaluate_many(
+    midterm_baseline_full = _evaluate_many(
         dataset,
-        [baseline],
+        [midterm_baseline],
         sorted(dataset.sessions),
         scope="baseline_final",
         config=config,
@@ -603,27 +641,36 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
     # Selection metrics remain held-out; result files contain the complete selected-candidate evaluation.
     best.requirement_rows = final_result.requirement_rows
     best.session_rows = final_result.session_rows
-    if config.target == "midterm":
-        for key in (
-            "shortterm_coverage",
-            "target_layer_union",
-            "all_memory_union",
-            "query_completion",
-            "longterm_recall_at_k",
-            "all_memory_recall_at_k",
-        ):
-            if final_result.metrics.get(key) is not None:
-                best.metrics[key] = final_result.metrics[key]
-        if baseline_full.metrics.get("longterm_recall_at_k") is not None:
-            best.metrics["longterm_recall_at_k"] = baseline_full.metrics["longterm_recall_at_k"]
-            best.metrics["longterm_metric_source"] = "unchanged_production_baseline"
 
-    total_work = sum(result.work_seconds for result in [*tune_results, *validation_results, baseline_full, final_result])
+    full_memory_regression_result: CandidateResult | None = None
+    if full_memory_regression_baseline is not None:
+        full_memory_regression_result = _evaluate_many(
+            dataset,
+            [full_memory_regression_baseline],
+            sorted(dataset.sessions),
+            scope="full_memory_regression",
+            config=config,
+            shortterm_window=shortterm_window,
+            ranking_depth=ranking_depth,
+            registry=registry,
+            run_dir=run_dir,
+            execution=execution,
+            trace_path=trace_path,
+        )[0]
+
+    evaluation_results = [
+        *tune_results,
+        *validation_results,
+        midterm_baseline_full,
+        final_result,
+        *([full_memory_regression_result] if full_memory_regression_result is not None else []),
+    ]
+    total_work = sum(result.work_seconds for result in evaluation_results)
     wall = time.perf_counter() - started
     reused = sorted(
         {
             artifact
-            for result in [*tune_results, *validation_results, baseline_full, final_result]
+            for result in evaluation_results
             for artifact in result.reused_artifacts
             if artifact
         }
@@ -646,6 +693,30 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
             "resumed": bool(config.resume),
         }
     )
+    source_llm_calls = int(midterm_baseline.provenance.get("llm_calls") or 0) if generated_source else 0
+    source_embedding_calls = (
+        int(midterm_baseline.provenance.get("embedding_calls") or 0) if generated_source else 0
+    )
+    evaluation_llm_calls = sum(result.llm_calls for result in evaluation_results)
+    evaluation_embedding_calls = sum(result.embedding_calls for result in evaluation_results)
+    if full_memory_regression_result is None:
+        full_memory_regression = {
+            "status": "SKIPPED",
+            "backend": None,
+            "reason": (
+                "No complete production trace is available; ShortTerm/LongTerm/All-memory/Union "
+                "regression was not inferred from MidTerm checkpoints."
+            ),
+            "metrics": None,
+        }
+    else:
+        full_memory_regression = {
+            "status": "AVAILABLE",
+            "backend": full_memory_regression_baseline.config.get("backend"),
+            "reason": None,
+            "metrics": full_memory_regression_result.metrics,
+        }
+
     run_metadata = {
         "status": "COMPLETE",
         "dataset": dataset.path,
@@ -656,6 +727,8 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         "budget": config.budget,
         "target": config.target,
         "seed": seed,
+        "shortterm_qa_turns": shortterm_window,
+        "shortterm_window_validation": shortterm_window_validation,
         "run_dir": str(run_dir),
         "execution": execution,
         "runtime_seconds": cumulative_runtime,
@@ -665,19 +738,33 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         "cumulative_serial_work_seconds": cumulative_work,
         "parallel_time_saved_seconds": max(0.0, cumulative_work - cumulative_runtime),
         "llm_calls": int(previous_metadata.get("llm_calls") or 0)
-        + (int(baseline.provenance.get("llm_calls") or 0) if generated_source else 0)
-        + sum(result.llm_calls for result in tune_results),
+        + source_llm_calls
+        + evaluation_llm_calls,
         "embedding_calls": int(previous_metadata.get("embedding_calls") or 0)
-        + sum(result.embedding_calls for result in tune_results),
+        + source_embedding_calls
+        + evaluation_embedding_calls,
+        "source_generation_llm_calls": source_llm_calls,
+        "source_generation_embedding_calls": source_embedding_calls,
+        "evaluation_llm_calls": evaluation_llm_calls,
+        "evaluation_embedding_calls": evaluation_embedding_calls,
         "reused_artifacts": sorted(set(previous_metadata.get("reused_artifacts") or []) | set(reused)),
         "failed_turns": 0,
         "stop_reason": stop_reason,
         "resume_supported": True,
         "source_run": str(config.source_run) if config.source_run else None,
-        "baseline_backend": baseline.config.get("backend"),
-        "baseline_provenance": baseline.provenance,
+        "baseline_backend": midterm_baseline.config.get("backend"),
+        "baseline_provenance": midterm_baseline.provenance,
+        "midterm_baseline_backend": midterm_baseline.config.get("backend"),
+        "midterm_baseline_provenance": midterm_baseline.provenance,
+        "full_memory_regression_baseline_backend": full_memory_regression.get("backend"),
+        "full_memory_regression_baseline_provenance": (
+            full_memory_regression_baseline.provenance
+            if full_memory_regression_baseline is not None
+            else None
+        ),
         "production_source_generated": generated_source,
-        "baseline_full_metrics": baseline_full.metrics,
+        "midterm_baseline_full_metrics": midterm_baseline_full.metrics,
+        "full_memory_regression": full_memory_regression,
         "attempts": attempts,
     }
     write_outputs(

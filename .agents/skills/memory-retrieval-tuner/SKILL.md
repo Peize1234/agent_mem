@@ -72,14 +72,16 @@ python .agents/skills/memory-retrieval-tuner/scripts/run_tuner.py \
 Pass `resume=<existing_run_dir>` to resume an interrupted run. Pass concurrency overrides as
 `max_parallel_sessions=N`, `max_parallel_candidates=N`, and `max_parallel_llm_calls=N`.
 
-The baseline never falls back to a source-turn BM25 surrogate. It must come from either a complete production trace
-or replayable `production_midterm_v1` checkpoints. If neither exists, the tuner starts isolated Session subprocesses
-and runs the real `AsyncMemory.add -> MidTermUpdater -> MidTermMemory -> MidTermRetriever` pipeline. Pass
+The MidTerm tuning baseline never falls back to a source-turn BM25 surrogate or a production trace. It must come from
+replayable `production_midterm_v1` checkpoints. If they do not exist, the tuner starts isolated Session subprocesses
+and runs the real `AsyncMemory.add -> MidTermUpdater -> MidTermMemory -> MidTermRetriever` pipeline. A complete
+production trace is discovered separately and is used only for final ShortTerm/LongTerm/All-memory regression. Pass
 `source_run=<path>` to pin an existing source run; an incomplete source run is a hard audit failure.
 
 `production_midterm_adapter` freezes query-time production Page and Session payloads, dense vectors, query vectors,
 and source-job lineage. It does not construct Page summaries from workbook answers. Cheap candidates reload those
 artifacts into Candidate/Session-isolated Qdrant + SQLite runtimes and call production `MidTermRetriever`.
+Source worker concurrency is capped by both `max_parallel_sessions` and `max_parallel_llm_calls`.
 
 ## Metric contract
 
@@ -162,6 +164,8 @@ Validate:
 - retrieval candidate pool is at least `k`;
 - any `R@(2K)` / `R@(4K)` report cutoff does not exceed available candidates without being clearly marked as capped;
 - configuration is serialized into run metadata.
+- `dataset.shortterm_qa_turns` matches `memory_config.midterm.short_term_capacity / 2`; use the production-derived
+  QA-turn window and record any override explicitly.
 
 Create:
 
@@ -213,7 +217,12 @@ Never “tune around” a broken benchmark.
 
 ### 2. Establish baseline
 
-Run or reconstruct the current production baseline using the same dataset, Session scope, routing rules, metric `k`, and evaluation code that candidates will use.
+Establish two independent baselines:
+
+- `midterm_baseline`: replayable `production_midterm_v1` checkpoints; this is the only baseline used by tuning,
+  validation, and winner selection.
+- `full_memory_regression_baseline`: an optional complete production trace used only after selection for
+  ShortTerm/LongTerm/All-memory/Union regression. Report `N/A` plus a skip reason when it is unavailable.
 
 The production contract is:
 

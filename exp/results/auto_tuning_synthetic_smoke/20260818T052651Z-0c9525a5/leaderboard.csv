@@ -1,0 +1,10 @@
+candidate,stage,tune_R@5,validation_R@5,validation_macro_R@5,validation_R@10,validation_R@20,validation_MRR,session_stddev,LLM_calls,embedding_calls,runtime_seconds,status
+baseline,baseline,1.0,1.0,1.0,1.0,1.0,0.8333333333333334,0.0,0,0,0.7020296020127716,VALID
+top_k_sessions:6,cheap_session_routing,1.0,1.0,1.0,1.0,1.0,0.8333333333333334,0.0,0,0,1.35972480399505,VALID
+max_total_pages:10,cheap_result_cap,1.0,,,,,,,0,0,1.4850179060013033,NOT_VALIDATED
+max_total_pages:20,cheap_result_cap,1.0,,,,,,,0,0,1.4638228060066467,NOT_VALIDATED
+top_k_pages:10,cheap_page_pool,1.0,,,,,,,0,0,1.4367290049922303,NOT_VALIDATED
+top_k_pages:3,cheap_page_pool,1.0,,,,,,,0,0,1.2232066040014615,NOT_VALIDATED
+top_k_pages:8,cheap_page_pool,1.0,,,,,,,0,0,1.443825406000542,NOT_VALIDATED
+top_k_sessions:4,cheap_session_routing,1.0,,,,,,,0,0,1.2922901040001307,NOT_VALIDATED
+top_k_sessions:7,cheap_session_routing,1.0,,,,,,,0,0,1.2806071049999446,NOT_VALIDATED
