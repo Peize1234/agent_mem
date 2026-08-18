@@ -17,7 +17,9 @@ def candidate_hash(dataset_sha256: str, candidate: Candidate) -> str:
     return stable_hash({"dataset_sha256": dataset_sha256, "config": candidate.config})
 
 
-def _eligible_requirements(turn: Turn, session_turns: Sequence[Turn], target: str, shortterm_window: int) -> list[Requirement]:
+def _eligible_requirements(
+    turn: Turn, session_turns: Sequence[Turn], target: str, shortterm_window: int
+) -> list[Requirement]:
     if target == "all_memory":
         return list(turn.requirements)
     shortterm_ids = {
@@ -66,9 +68,7 @@ def _load_frozen_rankings(config: Mapping[str, Any]) -> dict[str, list[dict[str,
     return grouped
 
 
-def _load_production_trace_rankings(
-    config: Mapping[str, Any], target: str
-) -> dict[str, list[dict[str, Any]]]:
+def _load_production_trace_rankings(config: Mapping[str, Any], target: str) -> dict[str, list[dict[str, Any]]]:
     field = {
         "midterm": "mid_retrieved_turn_ids",
         "longterm": "long_retrieved_turn_ids",
@@ -180,7 +180,9 @@ def _evaluate_session(
             item.query_id for item in session_turns[max(0, turn.turn_index - shortterm_window) : turn.turn_index]
         ]
         shortterm_total += len(turn.requirements)
-        shortterm_hits += sum(any(member in shortterm_ids for member in requirement.members) for requirement in turn.requirements)
+        shortterm_hits += sum(
+            any(member in shortterm_ids for member in requirement.members) for requirement in turn.requirements
+        )
         eligible = _eligible_requirements(turn, session_turns, target, shortterm_window)
         if not eligible:
             continue
@@ -205,8 +207,10 @@ def _evaluate_session(
                 }
             )
     total = len(requirement_rows)
+
     def recall(field: str) -> float:
         return sum(bool(row[field]) for row in requirement_rows) / total if total else 0.0
+
     ranks = [int(row["best_rank"]) for row in requirement_rows if row["best_rank"] is not None]
     metrics = {
         "session_id": session_id,
@@ -230,12 +234,16 @@ def _evaluate_session(
     return {"metrics": metrics, "requirements": requirement_rows}
 
 
-def _aggregate(session_results: Sequence[Mapping[str, Any]]) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
+def _aggregate(
+    session_results: Sequence[Mapping[str, Any]],
+) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
     session_rows = [dict(result["metrics"]) for result in session_results]
     requirement_rows = [dict(row) for result in session_results for row in result["requirements"]]
     total = len(requirement_rows)
+
     def hit(field: str) -> float:
         return sum(bool(row[field]) for row in requirement_rows) / total if total else 0.0
+
     ranks = [int(row["best_rank"]) for row in requirement_rows if row["best_rank"] is not None]
     recalls = [float(row["recall_at_k"]) for row in session_rows]
     total_gold = sum(int(row["total_gold_requirement_count"]) for row in session_rows)
@@ -361,9 +369,7 @@ def evaluate_candidate(
     else:
         frozen = None
     checkpoints = (
-        load_checkpoints(candidate.config.get("manifest_paths") or [])
-        if backend == PRODUCTION_BACKEND
-        else None
+        load_checkpoints(candidate.config.get("manifest_paths") or []) if backend == PRODUCTION_BACKEND else None
     )
     candidate_id = candidate_hash(dataset.sha256, candidate)
     cache_hits = 0

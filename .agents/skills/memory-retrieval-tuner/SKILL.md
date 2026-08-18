@@ -40,7 +40,7 @@ description: 自动审查记忆 Benchmark，基于生产一致的 MidTerm 检索
 - `seed`：数据划分/搜索随机种子，默认从 `search_space.yaml` 读取。
 - `resume`：已有调参运行目录，用于恢复运行。
 - `output_dir`：输出根目录，默认：`exp/results/auto_tuning`。
-- `memory_config`：生成新 source run 时使用的生产兼容 Memory 配置，默认：`exp/benchmark/memory_config.json`。
+- `memory_config`：生成新 source run 时使用的生产兼容 Memory 配置，默认：本 Skill 的 `memory_config.json`；可覆盖为部署侧只读配置。
 - `llm_mode`：`real | mock`，默认：`real`；`mock` 仅用于基础设施测试和 smoke test。
 - `overrides`：显式指定的搜索空间覆盖项。
 
@@ -110,28 +110,26 @@ R@K = top K 内满足的 Gold requirement 数量
 
 1. 现有 Benchmark / Evaluation 代码；
 2. 实验 adapter / 配置覆盖；
-3. `exp/benchmark/` 或本 Skill `scripts/` 下的新代码。
+3. 本 Skill `scripts/` 下的新 adapter；`exp/benchmark/` 仅作为 legacy 参考，不得成为核心运行依赖。
 
 只有当用户明确要求落地所选配置时，才允许修改生产代码。
 
-## 仓库复用原则
+## 自包含与历史复用原则
 
-编写新的实验代码前，先检查本地仓库，优先复用当前已有的等价组件。常见可复用路径可能包括：
+核心运行不能 import `exp/benchmark/`。通用数据/Gold 解析、production runtime wrapper、检索原语、Branch、模型发现和派生 artifact 构建均位于 `scripts/tuner/`。`exp/benchmark/` 只作为寻找历史方法的 legacy 来源，`exp/results/` 只作为 provenance 可验证的 frozen artifact 来源。
 
-- `exp/benchmark/benchmark_common.py`
-- `exp/benchmark/benchmark_memory.py`
-- `exp/benchmark/run_recall_benchmark.py`
-- `exp/benchmark/run_recall_isolated_sessions.py`
-- `exp/benchmark/midterm_retrieval_eval.py`
-- `exp/benchmark/diagnose_midterm_page_recall.py`
-- `exp/benchmark/diagnose_page_representation.py`
-- 现有 query-rewrite/reference-resolution ablation
-- 现有 embedding/BM25/reranking ablation
-- `exp/results/` 下已有的 frozen Page/Query/embedding/ranking artifact
+新增能力前先搜索历史实现，将可泛化的最小算法或 artifact contract 抽入 Skill；不要整份复制单数据集脚本，也不要把历史 winner 固化为默认。frozen artifact 必须通过 dataset、prompt/model、representation、production config 和内容 hash 校验。
 
-路径可能发生变化。必须先确认本地实际存在的文件；如果某个列出的文件不存在，应搜索当前等价实现，而不是直接重新写一份。
+主要模块：
 
-当 frozen artifact 与当前 dataset/config 在语义上兼容，并且 provenance 可以验证时，应优先复用。不能仅因为文件名看起来相似就复用 artifact。
+- `experiment_branches.py`：Branch Registry 与实验 adapter；
+- `staged_search.py`：Tune-only successive filtering；
+- `derived_artifacts.py`：Query/Page/Session/field 向量派生与 content-addressed cache；
+- `model_discovery.py`：本地优先的 Hugging Face 发现、下载与 smoke；
+- `benchmark_support.py` / `production_runtime.py`：自包含 benchmark schema 与生产 runtime wrapper；
+- `production_midterm_adapter.py`：生产 checkpoint 生成和隔离 replay。
+
+默认 `memory_config.json` 也随 Skill 提供，CLI 启动和核心执行不要求 `exp/benchmark/` 存在。它只作为实验 source 配置模板使用；调参不会回写该文件或部署侧配置。
 
 ## 工作流程
 
@@ -279,7 +277,7 @@ split_manifest.json
 - dense/keyword score weight；
 - 在现有 artifact 支持下的低成本 lexical fusion。
 
-只能声称已经支持与生产 contract 对齐的搜索分支。当前 generic adapter 支持 production dense retrieval、`top_k_sessions`、`top_k_pages`、`max_total_pages` 以及 dense+Qdrant-BM25 Page fusion。Query rewrite、Page representation、alternative embedding、Session-assignment weight/threshold、reranker 和 prompt variant，除非存在 provenance 精确匹配的生产 artifact/adapter，否则必须跳过。
+所有实验通过 Branch Registry 注册。首阶段运行 `RetrievalControl`；后续诊断可开启 frozen Query representation、派生 Page representation、dense+Qdrant-BM25、field-aware 或 reranking。改变 Page/Query/embedding 的 Branch 必须生成或复用派生 artifact，不能冒充 production baseline。
 
 使用分阶段搜索，不要直接跑完整 Cartesian grid。
 
@@ -304,21 +302,32 @@ split_manifest.json
 
 具体规则遵循 `references/search_strategy.md`。
 
-### 6. Secondary Search
+### 6. 多阶段 Branch Search
 
-只有诊断结果明确支持时才运行。
+每个 Branch 必须声明名称、诊断 regime、cost level、required artifacts、candidate generation、execution adapter、provenance contract 和资源需求。当前 Registry 包含：
 
-潜在搜索分支：
+- `RetrievalControl`；
+- `QueryRepresentation`；
+- `PageRepresentation`；
+- `HybridRetrieval`；
+- `Reranking`；
+- `Embedding`；
+- `FieldAwareMultiVector`；
+- `MemoryWriteAddPrompt`。
 
-- alternative embedding model；
-- BM25 / dense+lexical fusion；
-- field-aware scoring；
-- candidate-pool expansion；
-- lightweight reranking。
+搜索循环必须是：生成 Candidate → Tune → frontier/prune → 重新诊断 → 选择下一 Branch。Validation 仅在循环停止后运行。停止原因必须来自 budget、`min_improvement_pp`/`patience_stages`、frontier convergence、数据质量或资源约束，不得固定写成 validation selected。
 
-在 provenance 有效时，应尽可能复用 cache/frozen artifact。
+高成本 Embedding/Reranker Candidate 先在 Tune Session 子集 screening，明显低于 baseline 者不进入完整 Tune。
 
-### 7. 高成本 LLM Search
+Budget 约束实验层级：`quick` 至多 medium、禁止下载/LLM generation；`standard` 至多 high、模型仅使用本地 cache；`deep` 才允许 expensive Branch、联网模型发现/下载和有明确 provenance 的新生成。各 profile 还分别约束 stage、Branch、Candidate 和 validation frontier 数量。
+
+如果诊断需要的 Branch 未注册，不要直接长期跳过：先用 `rg` 搜索 `exp/benchmark` 的历史实现；抽取通用算法/artifact contract 到 Skill adapter，补最小单测，注册后从当前 run 的 frozen stage 恢复。只有缺少模型、API、资源或必要 provenance 时才记录 `UNAVAILABLE`。
+
+### 7. 模型自动发现
+
+Embedding/Reranker Branch 使用 `model_discovery.py`：先扫描 Hugging Face cache；`budget=deep` 且本地候选不足时再联网搜索。按中文/多语言、retrieval/reranking、金融信号、model card、License、参数量及 GPU/RAM/磁盘筛选；下载复用 HF cache，记录 model ID、revision、source、License、选择原因和资源状态。gated、下载失败或资源不足必须记录 `UNAVAILABLE`，不能中止整次搜索。
+
+### 8. 高成本 LLM Search
 
 只对最优 Candidate，或诊断明确表明 representation generation 是瓶颈时运行。
 
@@ -339,7 +348,7 @@ split_manifest.json
 - 不要为了让 ablation 看起来“新鲜”而重新生成已有且有效的 frozen artifact；
 - 两个 prompt variant 如果 provenance 无法区分，则禁止直接比较。
 
-### 8. Validation
+### 9. Validation
 
 只有 Tune frontier 中保留下来的 Candidate 才进入 held-out Validation。
 
@@ -363,7 +372,7 @@ OVERFIT
 
 不得选择该 Candidate。
 
-### 9. 最终推荐
+### 10. 最终推荐
 
 推荐一个配置，并最多附带两个备选：
 

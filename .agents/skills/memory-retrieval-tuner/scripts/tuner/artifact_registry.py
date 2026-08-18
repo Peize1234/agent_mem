@@ -66,9 +66,7 @@ def _query_artifact_variants(rows: list[dict[str, Any]]) -> dict[str, dict[str, 
 def _production_config_fingerprint(config: Mapping[str, Any]) -> str:
     llm = dict(config.get("llm") or {})
     llm_config = {
-        key: value
-        for key, value in dict(llm.get("config") or {}).items()
-        if key not in {"api_key", "base_url"}
+        key: value for key, value in dict(llm.get("config") or {}).items() if key not in {"api_key", "base_url"}
     }
     return stable_hash(
         {
@@ -207,8 +205,12 @@ class ArtifactRegistry:
                     continue
                 if not rows or not all("query_id" in row for row in rows[: min(20, len(rows))]):
                     continue
-                variant_key = next((key for key in ("variant", "checkpoint", "method", "Candidate") if key in rows[0]), None)
-                variants = sorted({str(row.get(variant_key) or "default") for row in rows}) if variant_key else ["default"]
+                variant_key = next(
+                    (key for key in ("variant", "checkpoint", "method", "Candidate") if key in rows[0]), None
+                )
+                variants = (
+                    sorted({str(row.get(variant_key) or "default") for row in rows}) if variant_key else ["default"]
+                )
                 for variant in variants[:4]:
                     identity = (str(ranking_path.resolve()), variant)
                     if identity in seen:
@@ -292,7 +294,10 @@ class ArtifactRegistry:
                         continue
                     seen.add(identity)
                     matched_overrides = {query_id: overrides[query_id] for query_id in sorted(matched)}
-                    if all(matched_overrides[query_id].strip() == query_text_by_id[query_id].strip() for query_id in matched):
+                    if all(
+                        matched_overrides[query_id].strip() == query_text_by_id[query_id].strip()
+                        for query_id in matched
+                    ):
                         continue
                     override_hash = stable_hash(matched_overrides)
                     if override_hash in seen_override_hashes:
@@ -476,10 +481,7 @@ class ArtifactRegistry:
                 ):
                     continue
                 checkpoints = Path(str(manifest.get("checkpoints_path") or ""))
-                if (
-                    not checkpoints.exists()
-                    or manifest.get("checkpoints_sha256") != sha256_file(checkpoints)
-                ):
+                if not checkpoints.exists() or manifest.get("checkpoints_sha256") != sha256_file(checkpoints):
                     continue
                 if expected_prompt_hashes is None:
                     from .production_midterm_adapter import production_prompt_hashes
@@ -500,10 +502,12 @@ class ArtifactRegistry:
             complexity=0,
         )
 
-    def materialize_once(self, identity: Mapping[str, Any], producer: Callable[[], dict[str, Any]]) -> tuple[dict[str, Any], bool]:
+    def materialize_once(
+        self, identity: Mapping[str, Any], producer: Callable[[], dict[str, Any]]
+    ) -> tuple[dict[str, Any], bool]:
         """Generic resume primitive used by tests and future artifact branches."""
         key = stable_hash(identity)
-        path = self.cache_root / "artifacts" / key[:2] / f"{key}.json"
+        path = self.artifact_path(identity)
         if path.exists():
             value = load_json(path)
             if value.get("status") == "COMPLETE" and value.get("identity") == dict(identity):
@@ -517,3 +521,7 @@ class ArtifactRegistry:
             value = {"status": "COMPLETE", "identity": dict(identity), "payload": payload}
             atomic_write_json(path, value)
             return value, False
+
+    def artifact_path(self, identity: Mapping[str, Any]) -> Path:
+        key = stable_hash(identity)
+        return self.cache_root / "artifacts" / key[:2] / f"{key}.json"

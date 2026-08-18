@@ -70,17 +70,32 @@ budget:
   profiles:
     quick:
       max_cheap_candidates: 12
-      max_secondary_branches: 1
+      max_stages: 3
+      max_cost_level: medium
+      max_branches_per_stage: 1
+      max_candidates_per_stage: 8
+      screening_sessions: 1
+      tune_frontier: 3
       max_expensive_candidates: 0
       validation_frontier: 2
     standard:
       max_cheap_candidates: 30
-      max_secondary_branches: 2
+      max_stages: 5
+      max_cost_level: high
+      max_branches_per_stage: 2
+      max_candidates_per_stage: 12
+      screening_sessions: 2
+      tune_frontier: 5
       max_expensive_candidates: 6
       validation_frontier: 5
     deep:
       max_cheap_candidates: 80
-      max_secondary_branches: 4
+      max_stages: 8
+      max_cost_level: expensive
+      max_branches_per_stage: 3
+      max_candidates_per_stage: 16
+      screening_sessions: 2
+      tune_frontier: 8
       max_expensive_candidates: 16
       validation_frontier: 8
 
@@ -109,17 +124,43 @@ search:
   reuse_frozen_artifacts: true
   require_provenance_validation: true
 
+  branch_registry:
+    RetrievalControl:
+      enabled: true
+      cost_level: cheap
+    QueryRepresentation:
+      enabled: true
+      cost_level: medium
+    HybridRetrieval:
+      enabled: true
+      cost_level: medium
+    Reranking:
+      enabled: true
+      cost_level: high
+    Embedding:
+      enabled: true
+      cost_level: high
+    FieldAwareMultiVector:
+      enabled: true
+      cost_level: high
+    PageRepresentation:
+      enabled: true
+      cost_level: high
+    MemoryWriteAddPrompt:
+      enabled: true
+      cost_level: expensive
+
   stages:
     cheap:
       query_representation:
-        enabled: false
-        reason: requires a matching frozen query-vector artifact
+        enabled: frozen_artifact
+        reason: exact-dataset frozen query text is embedded once with the production model and cached
         values:
           - original
 
       page_representation:
-        enabled: false
-        reason: changes production Page embeddings and may require regenerated Page summaries
+        enabled: production_only_in_cheap
+        reason: derived Page vectors are a diagnostic high-cost branch, not part of initial retrieval controls
         values:
           - production
 
@@ -173,17 +214,30 @@ search:
           reason: affects production Session assignment and requires regenerated Sessions
 
     secondary:
-      embedding_models:
-        enabled: false
-        reason: requires production-contract Page, Session, and Query re-embedding checkpoints
-        trigger: candidate_coverage_bottleneck
-        # Keep the current production model first.
+      page_representation:
+        enabled: diagnostic
+        trigger_any:
+          - candidate_coverage_bottleneck
+          - session_instability
+          - balanced_or_plateau
         values:
-          - production
-          - BAAI/bge-small-zh-v1.5
-          - BAAI/bge-m3
-          - intfloat/multilingual-e5-base
-        max_models_standard: 3
+          - summary
+          - summary_keywords
+          - user_summary
+
+      embedding_models:
+        enabled: diagnostic
+        trigger: candidate_coverage_bottleneck
+        discovery:
+          local_cache_first: true
+          online_when_budget_deep: true
+          general_semantic_limit: 2
+          finance_domain_limit: 2
+          metadata_screening: true
+          smoke_test: true
+          tune_subset_screening: true
+        max_models_standard: 2
+        max_models_deep: 4
 
       lexical_hybrid:
         enabled: diagnostic
@@ -203,28 +257,24 @@ search:
           refine_step: 0.05
 
       reranking:
-        enabled: false
-        reason: no generic repository-native reranker adapter is currently implemented
+        enabled: diagnostic
         trigger: ranking_bottleneck
         min_deep_recall_gap_pp: 15.0
         methods:
-          - existing_repo_lightweight_reranker
-          - existing_repo_cross_encoder
-          - existing_repo_llm_reranker
+          - field_lexical
+          - auto_discovered_cross_encoder
         max_methods_standard: 2
 
       advanced_representation:
-        enabled: false
-        reason: no production-contract multi-vector adapter is currently implemented
+        enabled: diagnostic
         methods:
-          - field_aware
-          - multi_vector
-          - maxsim
+          - field_aware_lexical
+          - multi_vector_maxsim
         max_methods_standard: 1
 
     expensive:
-      enabled: false
-      reason: prompt variants require an explicitly registered production generator and exact provenance
+      enabled: diagnostic
+      reason: use exact-provenance frozen variants first; new generation requires configured prompt variants and budget=deep
       require_frontier_candidate: true
 
       query_prompt:
@@ -303,6 +353,8 @@ output:
     - dataset_audit.md
     - split_manifest.json
     - search_trace.jsonl
+    - branch_trace.jsonl
+    - model_discovery.json
     - leaderboard.csv
     - best_config.json
     - best_config_diff.json

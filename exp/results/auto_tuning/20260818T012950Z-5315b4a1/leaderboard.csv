@@ -1,4 +1,0 @@
-candidate,stage,tune_R@3,validation_R@3,validation_macro_R@3,validation_R@6,validation_R@12,validation_MRR,session_stddev,LLM_calls,embedding_calls,runtime_seconds,status
-baseline,baseline,0.5161290322580645,0.39814814814814814,0.42693236714975846,0.5277777777777778,0.5555555555555556,0.3422227883119696,0.1338810470241012,0,0,0.14759462499932852,VALID
-frozen:midterm_c3_rebalanced_s001_s010:default,frozen_replay,0.46774193548387094,,,,,,,0,0,0.38310616399758146,NOT_VALIDATED
-frozen:midterm_positive_transfer_ablation_s001_s010:default,frozen_replay,0.016129032258064516,,,,,,,0,0,0.3860328650007432,NOT_VALIDATED

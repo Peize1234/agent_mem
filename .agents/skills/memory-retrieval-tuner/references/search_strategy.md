@@ -121,7 +121,9 @@ Purpose: smoke test or rapid transfer.
 - dataset audit;
 - small cheap-search matrix;
 - no new LLM generation unless necessary;
-- at most 1 secondary branch;
+- at most medium-cost Branches;
+- no model download or new LLM generation;
+- at most 3 Tune stages and 1 Branch per stage;
 - validate top 2.
 
 ### standard
@@ -131,8 +133,8 @@ Default.
 - baseline;
 - full cheap search;
 - diagnostic branch selection;
-- 1–2 secondary branches;
-- limited expensive search for finalists;
+- high-cost Branches are allowed, but model candidates must already be local;
+- at most 5 Tune stages and 2 Branches per stage;
 - validate top 3–5.
 
 ### deep
@@ -141,7 +143,9 @@ For final research runs.
 
 - wider cheap search;
 - multiple justified secondary branches;
-- expensive prompt variants;
+- expensive prompt variants with exact provenance;
+- online model discovery/download after metadata screening;
+- at most 8 Tune stages and 3 Branches per stage;
 - repeated/folded validation where feasible;
 - robustness analysis.
 
@@ -174,7 +178,7 @@ Start from dimensions that can usually be evaluated with frozen artifacts or ine
 Candidate order:
 
 1. `original`;
-2. `bounded_reference_resolution` if an existing implementation/artifact is available;
+2. `bounded_reference_resolution` if an exact-dataset frozen query artifact is available; embed it once with the production model and cache the vector derivative;
 3. other low-risk query representations already present in the repository.
 
 Do not assume bounded reference resolution is better.
@@ -183,9 +187,7 @@ Avoid generic free-form rewrite by default unless diagnostics justify it.
 
 ### B2. Page representation
 
-The executable adapter currently evaluates only the production Page representation. A representation variant is
-eligible only after a registered production generator has produced Page/Session artifacts with exact dataset,
-prompt, model, and source-turn provenance. Workbook answers must never be substituted for generated Page summaries.
+Use the Page fields frozen by the production MidTerm checkpoint. Recompose controlled representations and re-embed them with a provenance-keyed derivative; keep production Session routing unless the Branch explicitly re-embeds Sessions. Never use workbook answers as Page summaries.
 
 ### B3. Retrieval controls
 
@@ -297,7 +299,9 @@ Open branches only when justified.
 
 Search when candidate coverage is poor or representation changes fail.
 
-Start with the current production model. Compare only a small curated set from `search_space.yaml`.
+Start with the current production model. Scan the local Hugging Face cache first. Under `budget=deep`, dynamically search model metadata when local candidates are insufficient. Select up to roughly two suitable multilingual/general and two finance-domain candidates, without padding the pool with poor fits.
+
+For each candidate record model ID, immutable revision, model type, source, License, selection rationale, resource estimate and cache/download state. Run metadata screening, download/cache validation, smoke testing, Tune-subset screening, then full Tune only for survivors. A gated model, unavailable dependency or resource failure is `UNAVAILABLE`, not a run failure.
 
 A new embedding model must use the same text representation and evaluation contract.
 
@@ -316,6 +320,24 @@ Search dense-heavy fusion weights first.
 Search when R@(4K) is strong but R@K is weak.
 
 Do not rerank a tiny candidate pool that already excludes the Gold.
+
+Use the production-routed Page pool. The built-in lightweight field-aware reranker is always available; cross-encoder candidates use the same local-first/dynamic discovery contract as embedding models.
+
+### Field-aware / multi-vector
+
+Use weighted production Page fields for the lightweight candidate. `multi_vector_maxsim` requires provenance-keyed field vectors and is a deep/high-cost variant. Do not label either variant as production behavior.
+
+### Branch Registry contract
+
+The orchestrator does not construct Branch-specific candidates. Every registered Branch declares:
+
+- name and diagnostic regimes;
+- cost level and resource requirements;
+- required artifacts;
+- candidate generator and execution adapter;
+- provenance contract.
+
+Built-in Branches are RetrievalControl, QueryRepresentation, PageRepresentation, HybridRetrieval, Reranking, Embedding, FieldAwareMultiVector and MemoryWriteAddPrompt. Add a new adapter to the registry when a diagnosis requires an unsupported technique; do not add another conditional candidate block to the orchestrator.
 
 ## 10. Stage D — expensive LLM search
 
@@ -366,7 +388,10 @@ For each stage:
 3. Rank by configured R@K.
 4. Keep candidates within the configured frontier tolerance of the best, plus any diagnostically unique candidate.
 5. Combine only surviving dimensions.
-6. Stop the stage when two successive expansions produce less than `min_improvement_pp` improvement, or the budget limit is reached.
+6. Re-run diagnostics on the Tune frontier.
+7. Stop when `min_improvement_pp`/`patience_stages`, frontier convergence, budget, data quality, or resource constraints say to stop.
+
+Validation is not available to this loop. Only after a stop reason is frozen may the frontier be evaluated on held-out Sessions.
 
 Avoid Bayesian/grid-search complexity until the parameter surface is actually numeric and cheap enough to justify it.
 
@@ -431,7 +456,7 @@ Stop when any of the following applies:
 - frontier converged;
 - diagnostic evidence says the remaining bottleneck is dataset quality;
 - expensive branch cost exceeds configured budget without expected benefit;
-- validation winner is stable and further candidates are practically tied.
+- all budget-eligible diagnostic Branches have been attempted or are unavailable.
 
 Always record the stop reason.
 

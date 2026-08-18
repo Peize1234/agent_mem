@@ -5,6 +5,8 @@ import sys
 import threading
 import time
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from openpyxl import Workbook, load_workbook
@@ -15,9 +17,8 @@ REPO_ROOT = next(path for path in Path(__file__).resolve().parents if (path / "p
 sys.path.insert(0, str(SCRIPTS))
 sys.path.insert(0, str(REPO_ROOT))
 
-from exp.benchmark.benchmark_common import load_dataset  # noqa: E402
-from exp.benchmark.memory_gold_groups import parse_gold_requirements  # noqa: E402
 from tuner.artifact_registry import ArtifactRegistry  # noqa: E402
+from tuner.benchmark_support import load_dataset, parse_gold_requirements  # noqa: E402
 from tuner.build_report import write_outputs  # noqa: E402
 from tuner.candidate_selector import classify_overfit, select_best  # noqa: E402
 from tuner.dataset_audit import DatasetAuditFailed, audit_dataset  # noqa: E402
@@ -27,6 +28,14 @@ from tuner.evaluate_candidate import (  # noqa: E402
     candidate_hash,
     evaluate_candidate,
 )
+from tuner.experiment_branches import (  # noqa: E402
+    ALL_REGIMES,
+    BranchOutcome,
+    BranchRegistry,
+    BranchSpec,
+)
+from tuner.io_utils import sha256_file  # noqa: E402
+from tuner.model_discovery import ModelCandidate, ModelDiscovery, ResourceEnvelope  # noqa: E402
 from tuner.models import Candidate, CandidateResult, Dataset, Requirement, Turn  # noqa: E402
 import tuner.orchestrator as orchestrator  # noqa: E402
 import tuner.production_midterm_adapter as production_adapter  # noqa: E402
@@ -42,6 +51,7 @@ from tuner.production_midterm_adapter import (  # noqa: E402
     production_candidate_from_manifests,
 )
 from tuner.split_sessions import create_or_load_split  # noqa: E402
+from tuner.staged_search import run_staged_search  # noqa: E402
 
 
 def make_turn(session: str, index: int, gold: tuple[Requirement, ...] = ()) -> Turn:
@@ -117,10 +127,11 @@ def test_evaluator_parameterizes_k(tmp_path: Path, k: int, expected: bool) -> No
     session = next(iter(dataset.sessions))
     target = dataset.sessions[session][-1]
     ranking = [
-        {"source_turn_id": f"S001-Q{index:03d}", "page_id": f"S001-Q{index:03d}"}
-        for index in (2, 3, 4, 8, 9, 10, 1)
+        {"source_turn_id": f"S001-Q{index:03d}", "page_id": f"S001-Q{index:03d}"} for index in (2, 3, 4, 8, 9, 10, 1)
     ]
-    evaluated = _evaluate_session(dataset, session, {target.query_id: ranking}, k=k, target="midterm", shortterm_window=3)
+    evaluated = _evaluate_session(
+        dataset, session, {target.query_id: ranking}, k=k, target="midterm", shortterm_window=3
+    )
     assert evaluated["requirements"][0]["hit_at_k"] is expected
 
 
@@ -228,6 +239,31 @@ def test_loso_executes_every_frozen_fold(tmp_path: Path) -> None:
     }
 
 
+def test_loso_prunes_invalid_candidate_without_aborting(tmp_path: Path) -> None:
+    dataset = make_dataset(tmp_path, 3)
+    split = create_or_load_split(dataset, output_dir=tmp_path / "split-invalid", seed=42, shortterm_window=3)
+    candidate = Candidate(name="invalid", stage="test", config={"backend": "not-supported"})
+    trace = tmp_path / "invalid-trace.jsonl"
+    trace.touch()
+    combined = _evaluate_loso_many(
+        dataset,
+        [candidate],
+        split["folds"],
+        partition="tune_sessions",
+        scope="invalid_loso",
+        config=TunerConfig(dataset=Path(dataset.path), k=5),
+        shortterm_window=3,
+        ranking_depth=20,
+        registry=ArtifactRegistry(tmp_path / "invalid-cache", tmp_path / "results"),
+        run_dir=tmp_path / "invalid-run",
+        execution={"max_parallel_candidates": 1, "max_parallel_sessions": 2, "adaptive_reductions": []},
+        trace_path=trace,
+    )
+    assert len(combined) == 1
+    assert combined[0].status == "INVALID"
+    assert combined[0].metrics["recall_at_k"] == 0.0
+
+
 def test_audit_future_dependency_and_cross_session(tmp_path: Path) -> None:
     future = tmp_path / "future.xlsx"
     write_workbook(future, {"S001_x": [("S001-Q001", "S001-Q002"), ("S001-Q002", "")]})
@@ -281,6 +317,53 @@ def test_auxiliary_sheet_is_not_a_session(tmp_path: Path) -> None:
     )
     assert list(dataset.sessions) == ["S001_x"]
     assert audit["session_count"] == 1
+
+
+def test_audit_accepts_complete_production_midterm_checkpoint_run(tmp_path: Path) -> None:
+    dataset_path = tmp_path / "dataset.xlsx"
+    write_workbook(
+        dataset_path,
+        {
+            "S001_x": [
+                ("S001-Q001", ""),
+                ("S001-Q002", ""),
+                ("S001-Q003", ""),
+                ("S001-Q004", ""),
+                ("S001-Q005", "S001-Q001"),
+            ]
+        },
+    )
+    source = tmp_path / "source/S001"
+    source.mkdir(parents=True)
+    checkpoints = source / "production_midterm_checkpoints.jsonl"
+    checkpoints.write_text(json.dumps({"query_id": "S001-Q005"}) + "\n", encoding="utf-8")
+    (source / "production_midterm_manifest.json").write_text(
+        json.dumps(
+            {
+                "status": "COMPLETE",
+                "dataset_sha256": sha256_file(dataset_path),
+                "session_id": "S001_x",
+                "turn_count": 5,
+                "failed_turns": 0,
+                "checkpoints_path": str(checkpoints),
+                "checkpoints_sha256": sha256_file(checkpoints),
+            }
+        ),
+        encoding="utf-8",
+    )
+    _, audit = audit_dataset(
+        dataset_path,
+        output_dir=tmp_path / "audit",
+        shortterm_qa_turns=3,
+        warning_config={
+            "explicit_history_target_leakage_ratio": 1.1,
+            "single_distance_concentration_ratio": 1.1,
+            "repeated_question_template_ratio": 1.1,
+        },
+        source_run=source.parent,
+    )
+    assert audit["source_run"]["status"] == "COMPLETE"
+    assert audit["source_run"]["kind"] == "production_midterm_checkpoints"
 
 
 def test_true_midterm_requirement_eligibility_for_or_gold(tmp_path: Path) -> None:
@@ -658,7 +741,8 @@ def test_trace_does_not_replace_midterm_checkpoints_and_regression_is_separate(
         provenance={"trace_sha256": {"trace.jsonl": "trace-sha"}},
     )
     generated = False
-    observed: list[tuple[str, str, str]] = []
+    observed: list[tuple[str, str, str, dict[str, object]]] = []
+    manifest_path = tmp_path / "manifest.json"
 
     monkeypatch.setattr(ArtifactRegistry, "discover_production_midterm", lambda self, **kwargs: None)
     monkeypatch.setattr(
@@ -671,7 +755,8 @@ def test_trace_does_not_replace_midterm_checkpoints_and_regression_is_separate(
     def fake_generate(**_: object) -> list[Path]:
         nonlocal generated
         generated = True
-        return [tmp_path / "manifest.json"]
+        manifest_path.write_text("{}", encoding="utf-8")
+        return [manifest_path]
 
     monkeypatch.setattr(orchestrator, "generate_production_sources", fake_generate)
     monkeypatch.setattr(
@@ -684,6 +769,8 @@ def test_trace_does_not_replace_midterm_checkpoints_and_regression_is_separate(
                 "top_k_sessions": 5,
                 "top_k_pages": 5,
                 "max_total_pages": 5,
+                "manifest_paths": [str(manifest_path.resolve())],
+                "manifest_sha256": {str(manifest_path.resolve()): sha256_file(manifest_path)},
             },
             {"llm_calls": 2, "embedding_calls": 11, "source": "test production source"},
         ),
@@ -702,10 +789,10 @@ def test_trace_does_not_replace_midterm_checkpoints_and_regression_is_separate(
         values = []
         for candidate in candidates:
             backend = str(candidate.config.get("backend"))
-            observed.append((scope, candidate.name, backend))
+            observed.append((scope, candidate.name, backend, dict(candidate.config)))
             if backend == "production_trace":
                 recall = 0.99
-            elif candidate.name == "top_k_sessions:6":
+            elif candidate.config.get("top_k_sessions") == 6:
                 recall = 0.70
             else:
                 recall = 0.50
@@ -777,15 +864,14 @@ def test_trace_does_not_replace_midterm_checkpoints_and_regression_is_separate(
     assert metadata["embedding_calls"] == 11
     assert metadata["execution"]["source_worker_parallelism"] == 2
     assert metadata["shortterm_qa_turns"] == 3
-    assert best["candidate"] == "top_k_sessions:6"
+    assert best["candidate"].startswith("RetrievalControl:top_k_sessions=6")
+    assert best["config"]["top_k_sessions"] == 6
     assert best["validation_metrics"]["recall_at_k"] == pytest.approx(0.70)
-    cheap_names = {name for scope, name, _ in observed if scope == "tune"}
-    assert {"top_k_sessions:6", "top_k_pages:8", "max_total_pages:10"} <= cheap_names
-    assert all(
-        scope == "full_memory_regression"
-        for scope, _, backend in observed
-        if backend == "production_trace"
-    )
+    cheap_configs = [value for scope, _, _, value in observed if scope == "stage_1_tune"]
+    assert any(value.get("top_k_sessions") != 5 for value in cheap_configs)
+    assert any(value.get("top_k_pages") != 5 for value in cheap_configs)
+    assert any(value.get("max_total_pages") != 5 for value in cheap_configs)
+    assert all(scope == "full_memory_regression" for scope, _, backend, _ in observed if backend == "production_trace")
     assert metadata["full_memory_regression"]["metrics"]["longterm_recall_at_k"] == 0.40
     assert "Regression LongTerm R@5: 0.4000" in report
     assert "Regression All-memory R@5 / query completion: 0.8000 / 0.8000" in report
@@ -821,9 +907,7 @@ def test_frozen_query_artifact_discovery_validates_dataset_and_original_query(tm
     registry = ArtifactRegistry(tmp_path / "cache", tmp_path / "results")
     discovered = registry.discover_frozen_queries(
         dataset.sha256,
-        query_text_by_id={
-            turn.query_id: turn.question for turns in dataset.sessions.values() for turn in turns
-        },
+        query_text_by_id={turn.query_id: turn.question for turns in dataset.sessions.values() for turn in turns},
         base_candidate=base,
     )
     assert len(discovered) == 1
@@ -976,3 +1060,199 @@ def test_k_change_reuses_deep_raw_ranking_cache(tmp_path: Path) -> None:
     reused = evaluate_candidate(candidate=same_ranking, **{**common, "k": 10})
     assert reused.cache_hits == 1
     assert reused.cache_misses == 0
+
+
+def test_branch_registry_exposes_required_experiment_contracts() -> None:
+    registry = BranchRegistry()
+    descriptions = {item["name"]: item for item in registry.describe()}
+    assert {
+        "RetrievalControl",
+        "QueryRepresentation",
+        "PageRepresentation",
+        "HybridRetrieval",
+        "Reranking",
+        "Embedding",
+        "FieldAwareMultiVector",
+        "MemoryWriteAddPrompt",
+    } <= set(descriptions)
+    for item in descriptions.values():
+        assert item["diagnostic_regimes"]
+        assert item["cost_level"] in {"cheap", "medium", "high", "expensive"}
+        assert item["required_artifacts"]
+        assert item["execution_adapter"]
+        assert item["provenance_contract"]
+        assert isinstance(item["resource_requirements"], dict)
+
+
+class _StaticBranch:
+    def __init__(self, name: str, *, initial: bool, priority: int, gain: float):
+        self.gain = gain
+        self.spec = BranchSpec(
+            name=name,
+            diagnostic_regimes=ALL_REGIMES,
+            cost_level="cheap" if initial else "medium",
+            required_artifacts=("checkpoint",),
+            execution_adapter="test",
+            provenance_contract=("dataset_sha256",),
+            resource_requirements={},
+            priority=priority,
+            initial_stage=initial,
+        )
+
+    def generate(self, context: Any) -> BranchOutcome:
+        candidate = Candidate(
+            name=self.spec.name.lower(),
+            stage=f"stage_{context.stage_index}",
+            config={**context.anchor.config, "gain": self.gain, "branch_cost_level": self.spec.cost_level},
+        )
+        return BranchOutcome(self.spec.name, "READY", [candidate])
+
+    def validate_provenance(self, candidate: Candidate, context: Any) -> tuple[bool, None]:
+        del candidate, context
+        return True, None
+
+
+def test_staged_loop_rediagnoses_and_never_uses_validation(tmp_path: Path) -> None:
+    dataset = make_dataset(tmp_path, 3)
+    baseline = Candidate(name="baseline", stage="baseline", config={"backend": "production_midterm", "gain": 0.0})
+
+    def measured(candidate: Candidate) -> CandidateResult:
+        recall = 0.40 + float(candidate.config.get("gain") or 0.0)
+        value = result(candidate.name, recall)
+        value.candidate_hash = candidate.name
+        value.stage = candidate.stage
+        value.config = candidate.config
+        value.metrics["recall_at_4k"] = min(1.0, recall + 0.30)
+        return value
+
+    baseline_result = measured(baseline)
+    scopes: list[str] = []
+
+    def evaluate(
+        candidates: list[Candidate] | tuple[Candidate, ...], sessions: Any, scope: str
+    ) -> list[CandidateResult]:
+        del sessions
+        scopes.append(scope)
+        return [measured(candidate) for candidate in candidates]
+
+    diagnoses: list[str] = []
+
+    def diagnose(candidate_result: CandidateResult) -> dict[str, Any]:
+        diagnoses.append(candidate_result.name)
+        return {
+            "regime": "ranking_bottleneck",
+            "recall_4k_minus_k_pp": 30.0,
+            "recall_4k_percent": 80.0,
+            "stddev_pp": 0.0,
+        }
+
+    registry = BranchRegistry(
+        [
+            _StaticBranch("Cheap", initial=True, priority=1, gain=0.10),
+            _StaticBranch("Secondary", initial=False, priority=2, gain=0.15),
+        ]
+    )
+    search = run_staged_search(
+        dataset=dataset,
+        baseline=baseline,
+        baseline_result=baseline_result,
+        tune_sessions=tuple(dataset.sessions),
+        registry=registry,
+        artifact_registry=None,
+        model_discovery=None,
+        run_dir=tmp_path,
+        search_space={"selection": {"tie_tolerance_pp": 0.25, "min_improvement_pp": 0.25, "patience_stages": 2}},
+        budget="quick",
+        profile={
+            "max_stages": 4,
+            "max_cost_level": "medium",
+            "max_branches_per_stage": 1,
+            "max_candidates_per_stage": 3,
+            "validation_frontier": 2,
+        },
+        k=5,
+        ranking_depth=20,
+        evaluate=evaluate,
+        diagnose=diagnose,
+    )
+    assert [stage["branches"] for stage in search.stage_history] == [["Cheap"], ["Secondary"]]
+    assert len(search.diagnostics) == 3
+    assert diagnoses == ["baseline", "cheap", "secondary"]
+    assert scopes == ["stage_1_tune", "stage_2_tune"]
+    assert search.stop_reason == "no_applicable_branch_within_resource_budget"
+    assert search.frontier[0].name == "secondary"
+
+
+def test_model_discovery_is_local_first_dynamic_and_failure_isolated(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cache = tmp_path / "hf" / "hub"
+    snapshot = cache / "models--local--zh-embedding" / "snapshots" / "abc123"
+    snapshot.mkdir(parents=True)
+
+    class FakeApi:
+        def list_models(self, **kwargs: Any) -> list[Any]:
+            query = str(kwargs.get("search") or "")
+            if "financial" in query or "finance" in query:
+                return [
+                    SimpleNamespace(
+                        modelId="dynamic/finance-zh-embedding",
+                        tags=["sentence-similarity", "zh", "finance"],
+                        sha="finance-revision",
+                        downloads=50,
+                        cardData={"license": "apache-2.0"},
+                        safetensors={"total": 10_000_000},
+                    )
+                ]
+            return [
+                SimpleNamespace(
+                    modelId="dynamic/multilingual-embedding",
+                    tags=["sentence-similarity", "multilingual"],
+                    sha="general-revision",
+                    downloads=100,
+                    cardData={"license": "mit"},
+                    safetensors={"total": 20_000_000},
+                )
+            ]
+
+    discovery = ModelDiscovery(
+        output_path=tmp_path / "models.json",
+        resources=ResourceEnvelope(0, None, 16.0, 100.0),
+        cache_root=cache,
+        api=FakeApi(),
+    )
+    candidates = discovery.discover(
+        model_type="embedding",
+        allow_network=True,
+        general_limit=2,
+        finance_limit=2,
+    )
+    ids = {candidate.model_id for candidate in candidates}
+    assert "local/zh-embedding" in ids
+    assert "dynamic/finance-zh-embedding" in ids
+    assert any(candidate.revision == "finance-revision" for candidate in candidates)
+
+    def unavailable(**_: Any) -> str:
+        raise PermissionError("gated model")
+
+    monkeypatch.setattr("huggingface_hub.snapshot_download", unavailable)
+    failed = discovery.ensure_available(
+        ModelCandidate("gated/model", "embedding", "huggingface_search"),
+        allow_download=True,
+    )
+    assert failed.status == "UNAVAILABLE"
+    assert "gated model" in str(failed.error)
+    payload = json.loads((tmp_path / "models.json").read_text(encoding="utf-8"))
+    assert any(item.get("status") == "UNAVAILABLE" for item in payload["models"])
+
+
+def test_budget_profiles_gate_real_cost_levels() -> None:
+    import yaml
+
+    space = yaml.safe_load((SCRIPTS.parent / "search_space.yaml").read_text(encoding="utf-8"))
+    profiles = space["budget"]["profiles"]
+    assert profiles["quick"]["max_cost_level"] == "medium"
+    assert profiles["standard"]["max_cost_level"] == "high"
+    assert profiles["deep"]["max_cost_level"] == "expensive"
+    assert profiles["quick"]["max_stages"] < profiles["deep"]["max_stages"]

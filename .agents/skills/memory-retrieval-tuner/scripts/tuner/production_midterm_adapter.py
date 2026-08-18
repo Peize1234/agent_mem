@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import hashlib
 import json
+import math
 import os
 import re
 import sqlite3
@@ -16,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from exp.benchmark.benchmark_common import (
+from .benchmark_support import (
     LineageTracker,
     load_dataset,
     load_json,
@@ -25,8 +26,15 @@ from exp.benchmark.benchmark_common import (
     safe_git_commit,
     wait_for_migration_jobs,
 )
-
 from .io_utils import atomic_write_json, load_jsonl, sha256_file, stable_hash, write_jsonl
+from .production_runtime import create_production_memory
+from .retrieval_primitives import (
+    cosine,
+    field_aware_score,
+    normalize_scores,
+    normalized_score_fuse,
+    page_representation,
+)
 
 
 ADAPTER_SCHEMA = 1
@@ -64,9 +72,7 @@ def isolated_runtime_layout(
     purpose: str = "candidate",
 ) -> RuntimeLayout:
     """Return a collision-free runtime for one Candidate/Session pair."""
-    namespace = stable_hash(
-        {"candidate_hash": candidate_hash, "session_id": session_id, "purpose": purpose}
-    )[:16]
+    namespace = stable_hash({"candidate_hash": candidate_hash, "session_id": session_id, "purpose": purpose})[:16]
     root = run_dir / "production_runtimes" / _safe_component(candidate_hash) / _safe_component(session_id)
     root.mkdir(parents=True, exist_ok=True)
     cache = root / "cache"
@@ -114,7 +120,6 @@ class AdapterPoint:
 
 
 def _hybrid_memory_class() -> type[Any]:
-    from exp.benchmark.midterm_retrieval_eval import normalized_score_fuse
     from mem0.memory.midterm import MidTermMemory, derived_output_is_visible
 
     class HybridMidTermMemory(MidTermMemory):
@@ -131,22 +136,21 @@ def _hybrid_memory_class() -> type[Any]:
             top_k: int = 5,
         ) -> list[Any]:
             dense = super().search_pages(query=query, filters=filters, top_k=top_k)
-            sparse = self.pages_store.keyword_search(query, top_k=top_k, filters=filters) or []
-            if not sparse:
+            sparse_result = self.pages_store.keyword_search(query, top_k=top_k, filters=filters)
+            if sparse_result is None and (
+                not getattr(self.pages_store, "_has_bm25_slot", False) or self.pages_store._get_bm25_encoder() is None
+            ):
                 raise RuntimeError("Qdrant BM25 sparse slot is unavailable for dense_bm25_fusion")
+            # A valid sparse query may simply have no term overlap.  That is a
+            # real hybrid result (dense-only for this Query), not an unavailable Branch.
+            sparse = list(sparse_result or [])
 
-            dense_rows = [
-                {"page_id": str(row.id), "score": float(getattr(row, "score", 0.0) or 0.0)}
-                for row in dense
-            ]
+            dense_rows = [{"page_id": str(row.id), "score": float(getattr(row, "score", 0.0) or 0.0)} for row in dense]
             sparse_rows = [
-                {"page_id": str(row.id), "score": float(getattr(row, "score", 0.0) or 0.0)}
-                for row in sparse
+                {"page_id": str(row.id), "score": float(getattr(row, "score", 0.0) or 0.0)} for row in sparse
             ]
             fused = normalized_score_fuse(dense_rows, sparse_rows, dense_weight=self._dense_weight)
-            payload_by_id = {
-                str(row.id): dict(getattr(row, "payload", None) or {}) for row in [*dense, *sparse]
-            }
+            payload_by_id = {str(row.id): dict(getattr(row, "payload", None) or {}) for row in [*dense, *sparse]}
             return [
                 AdapterPoint(
                     id=str(row["page_id"]),
@@ -300,10 +304,9 @@ class CountingEmbedding:
         self.calls += len(texts)
         return self.delegate.embed_batch(texts, *args, **kwargs)
 
+
 async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
     """Run the actual AsyncMemory Add -> MidTerm pipeline for one isolated Session."""
-    from exp.benchmark.benchmark_memory import create_benchmark_memory
-
     dataset_path = Path(str(spec["dataset_path"])).resolve()
     sheet_name = str(spec["session_id"])
     output_dir = Path(str(spec["output_dir"])).resolve()
@@ -331,7 +334,7 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
     )
     config.setdefault("background", {})["midterm_worker_count"] = 1
     config["background"]["longterm_worker_count"] = 1
-    memory = create_benchmark_memory(config, llm_mode=str(spec.get("llm_mode") or "real"))
+    memory = create_production_memory(config, llm_mode=str(spec.get("llm_mode") or "real"))
     counted = CountingLLM(memory.llm)
     counted_embedding = CountingEmbedding(memory.embedding_model)
     memory.llm = counted
@@ -483,8 +486,7 @@ def generate_production_sources(
                 and value.get("prompt_hashes") == prompt_hashes
                 and str(value.get("llm_mode") or "real") == llm_mode
                 and Path(str(value.get("checkpoints_path") or "")).exists()
-                and value.get("checkpoints_sha256")
-                == sha256_file(Path(str(value["checkpoints_path"])))
+                and value.get("checkpoints_sha256") == sha256_file(Path(str(value["checkpoints_path"])))
             ):
                 return manifest_path
         runtime = isolated_runtime_layout(
@@ -575,9 +577,7 @@ def production_candidate_from_manifests(
     if not manifests:
         raise ValueError("No production MidTerm manifests")
     config = deepcopy(manifests[0].get("production_config") or {})
-    vector_config = (
-        (manifests[0].get("effective_memory_config") or {}).get("vector_store") or {}
-    ).get("config") or {}
+    vector_config = ((manifests[0].get("effective_memory_config") or {}).get("vector_store") or {}).get("config") or {}
     config.update(
         {
             "backend": PRODUCTION_BACKEND,
@@ -616,16 +616,106 @@ class ProductionMidtermAdapter:
             purpose="replay",
         )
         self.ranking_depth = ranking_depth
+        self._cross_encoder: Any | None = None
 
     @staticmethod
     def supported(config: Mapping[str, Any]) -> None:
         method = str(config.get("retrieval_method") or "dense")
         if method not in SUPPORTED_RETRIEVAL_METHODS:
             raise ValueError(f"Unsupported production MidTerm retrieval method: {method}")
-        if str(config.get("page_representation") or "production") != "production":
+        has_derived = bool(config.get("derived_artifact_path"))
+        if str(config.get("page_representation") or "production") != "production" and not has_derived:
             raise ValueError("Page representation changes require regenerated production artifacts")
-        if str(config.get("query_representation") or "original") != "original":
+        if str(config.get("query_representation") or "original") != "original" and not has_derived:
             raise ValueError("Query representation requires a matching frozen query embedding artifact")
+
+    @staticmethod
+    def _derived_payload(config: Mapping[str, Any]) -> dict[str, Any] | None:
+        raw_path = config.get("derived_artifact_path")
+        if not raw_path:
+            return None
+        from .derived_artifacts import load_derived_payload
+
+        path = Path(str(raw_path))
+        if not path.exists() or sha256_file(path) != config.get("derived_artifact_sha256"):
+            raise ValueError("Derived artifact is missing or its SHA-256 does not match")
+        return load_derived_payload(path)
+
+    def _rerank_pages(
+        self,
+        rows: Sequence[Mapping[str, Any]],
+        *,
+        query: str,
+        query_vector: Sequence[float],
+        point_by_id: Mapping[str, Mapping[str, Any]],
+        derived: Mapping[str, Any] | None,
+        config: Mapping[str, Any],
+    ) -> list[Mapping[str, Any]]:
+        method = str(config.get("reranker_method") or "none")
+        if method == "none" or not rows:
+            return list(rows)
+        dense_rows = [{"page_id": str(row.get("id") or ""), "score": float(row.get("score") or 0.0)} for row in rows]
+        dense_scores = normalize_scores(dense_rows)
+        secondary: dict[str, float] = {}
+        language = str(config.get("bm25_language") or "zh")
+        if method == "field_lexical":
+            weights = config.get("field_weights") or {"summary": 0.5, "keywords": 0.3, "user_input": 0.2}
+            secondary = {
+                page_id: field_aware_score(
+                    query,
+                    point.get("payload") or {},
+                    field_weights=weights,
+                    language=language,
+                )
+                for page_id, point in point_by_id.items()
+            }
+        elif method == "multi_vector_maxsim":
+            if derived is None:
+                raise ValueError("multi_vector_maxsim requires a derived field-vector artifact")
+            from .derived_artifacts import point_fingerprint
+
+            field_vectors = derived.get("field_vectors") or {}
+            secondary = {
+                page_id: max(
+                    [
+                        cosine(query_vector, vector)
+                        for vector in field_vectors.get(point_fingerprint(point), {}).values()
+                    ]
+                    or [0.0]
+                )
+                for page_id, point in point_by_id.items()
+            }
+        elif method == "cross_encoder":
+            from sentence_transformers import CrossEncoder
+
+            if self._cross_encoder is None:
+                model_path = str(config.get("reranker_model_path") or config.get("reranker_model_id") or "")
+                if not model_path:
+                    raise ValueError("cross_encoder requires reranker_model_path or reranker_model_id")
+                self._cross_encoder = CrossEncoder(model_path)
+            page_ids = [str(row.get("id") or "") for row in rows]
+            texts = [
+                page_representation(point_by_id[page_id].get("payload") or {}, "production") for page_id in page_ids
+            ]
+            scores = self._cross_encoder.predict([[query, text] for text in texts])
+            secondary = {page_id: float(score) for page_id, score in zip(page_ids, scores)}
+            low, high = min(secondary.values()), max(secondary.values())
+            if not math.isclose(low, high):
+                secondary = {key: (value - low) / (high - low) for key, value in secondary.items()}
+        else:
+            raise ValueError(f"Unsupported reranker method: {method}")
+        dense_weight = float(config.get("reranker_dense_weight", 0.7))
+        reranked = sorted(
+            rows,
+            key=lambda row: (
+                -(
+                    dense_weight * dense_scores.get(str(row.get("id") or ""), 0.0)
+                    + (1.0 - dense_weight) * secondary.get(str(row.get("id") or ""), 0.0)
+                ),
+                str(row.get("id") or ""),
+            ),
+        )
+        return list(reranked)
 
     def rank(self, checkpoint: Mapping[str, Any], config: Mapping[str, Any]) -> list[dict[str, Any]]:
         from mem0.configs.base import MidTermMemoryConfig
@@ -634,8 +724,10 @@ class ProductionMidtermAdapter:
         from qdrant_client import QdrantClient
 
         self.supported(config)
-        query = str(checkpoint["query"])
-        query_vector = list(checkpoint["query_vector"])
+        derived = self._derived_payload(config)
+        query_id = str(checkpoint["query_id"])
+        query = str((derived or {}).get("query_texts", {}).get(query_id) or checkpoint["query"])
+        query_vector = list((derived or {}).get("query_vectors", {}).get(query_id) or checkpoint["query_vector"])
         dimensions = len(query_vector)
         if not dimensions:
             raise ValueError("Production checkpoint has no query vector")
@@ -651,13 +743,11 @@ class ProductionMidtermAdapter:
             "on_disk": False,
         }
         midterm_config = MidTermMemoryConfig(
-            **{
-                key: value
-                for key, value in config.items()
-                if key in MidTermMemoryConfig.model_fields
-            }
+            **{key: value for key, value in config.items() if key in MidTermMemoryConfig.model_fields}
         )
-        memory_class = _hybrid_memory_class() if config.get("retrieval_method") == "dense_bm25_fusion" else MidTermMemory
+        memory_class = (
+            _hybrid_memory_class() if config.get("retrieval_method") == "dense_bm25_fusion" else MidTermMemory
+        )
         extra = (
             {"dense_weight": float(config.get("dense_weight", 0.7))}
             if config.get("retrieval_method") == "dense_bm25_fusion"
@@ -678,11 +768,18 @@ class ProductionMidtermAdapter:
             **extra,
         )
         try:
+            point_by_kind_and_id: dict[str, dict[str, Mapping[str, Any]]] = {"pages": {}, "sessions": {}}
             for key, store in (("pages", memory.pages_store), ("sessions", memory.sessions_store)):
                 points = list(checkpoint.get(key) or [])
+                point_by_kind_and_id[key] = {str(point["id"]): point for point in points}
                 if points:
+                    from .derived_artifacts import point_fingerprint
+
+                    replacements = (derived or {}).get(f"{key[:-1]}_vectors") or {}
                     store.insert(
-                        vectors=[list(point["vector"]) for point in points],
+                        vectors=[
+                            list(replacements.get(point_fingerprint(point)) or point["vector"]) for point in points
+                        ],
                         ids=[str(point["id"]) for point in points],
                         payloads=[dict(point["payload"]) for point in points],
                     )
@@ -697,8 +794,17 @@ class ProductionMidtermAdapter:
                 for job_id, turn_ids in (checkpoint.get("source_turn_ids_by_job") or {}).items()
             }
             ranking: list[dict[str, Any]] = []
+            page_results = [row for row in results if row.get("source") == "mid_term_page"]
+            page_results = self._rerank_pages(
+                page_results,
+                query=query,
+                query_vector=query_vector,
+                point_by_id=point_by_kind_and_id["pages"],
+                derived=derived,
+                config=config,
+            )
             ordered_results = [
-                *[row for row in results if row.get("source") == "mid_term_page"],
+                *page_results,
                 *[row for row in results if row.get("source") == "mid_term_session"],
             ]
             seen_source_ids: set[str] = set()

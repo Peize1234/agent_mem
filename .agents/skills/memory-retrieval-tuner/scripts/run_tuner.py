@@ -12,7 +12,7 @@ import yaml
 SCRIPT_PATH = Path(__file__).resolve()
 SKILL_ROOT = SCRIPT_PATH.parents[1]
 for candidate in SCRIPT_PATH.parents:
-    if (candidate / "pyproject.toml").exists() and (candidate / "exp/benchmark").exists():
+    if (candidate / "pyproject.toml").exists() and (candidate / "mem0").is_dir():
         REPO_ROOT = candidate
         break
 else:
@@ -113,7 +113,7 @@ def parse_args(argv: list[str] | None = None) -> TunerConfig:
     source_run = Path(str(values["source_run"])) if values.get("source_run") else None
     if source_run and not source_run.is_absolute():
         source_run = REPO_ROOT / source_run
-    memory_config = Path(str(values.get("memory_config") or "exp/benchmark/memory_config.json"))
+    memory_config = Path(str(values.get("memory_config") or (SKILL_ROOT / "memory_config.json")))
     if not memory_config.is_absolute():
         memory_config = REPO_ROOT / memory_config
     return TunerConfig(

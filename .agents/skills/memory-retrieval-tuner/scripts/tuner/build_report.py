@@ -138,8 +138,7 @@ def write_outputs(
         "## Memory-layer metrics",
         "",
         f"- MidTerm winner R@{k}: {optional_metric(best.metrics, 'midterm_recall_at_k')}",
-        f"- Full-memory regression: `{regression.get('status') or 'SKIPPED'}` "
-        f"(backend: `{regression.get('backend')}`)",
+        f"- Full-memory regression: `{regression.get('status') or 'SKIPPED'}` (backend: `{regression.get('backend')}`)",
         f"- Regression ShortTerm coverage: {regression_metric('shortterm_coverage')}",
         f"- Regression LongTerm R@{k}: {regression_metric('longterm_recall_at_k')}",
         f"- Regression Short+Mid union: {regression_metric('target_layer_union')}",
@@ -164,6 +163,37 @@ def write_outputs(
             f"{displayed(validation, 'mrr')} | "
             f"{validation.status if validation else 'NOT_VALIDATED'} |"
         )
+    stage_history = list(run_metadata.get("stage_history") or [])
+    lines.extend(
+        (
+            "",
+            "## Staged successive filtering",
+            "",
+            f"- Executed stages: {len(stage_history)}",
+            f"- Stop reason: `{stop_reason}`",
+            "",
+            f"| Stage | Branches | Candidates | Best Tune R@{k} | Improvement pp | Diagnostic after |",
+            "|---:|---|---:|---:|---:|---|",
+        )
+    )
+    for stage in stage_history:
+        lines.append(
+            f"| {stage.get('stage_index')} | {', '.join(stage.get('branches') or [])} | "
+            f"{stage.get('candidate_count', 0)} | "
+            f"{float(stage.get('best_recall_at_k') or 0):.4f} | "
+            f"{float(stage.get('improvement_pp') or 0):+.2f} | "
+            f"{(stage.get('diagnostic_after') or {}).get('regime') or stage.get('status')} |"
+        )
+    branch_events = list(run_metadata.get("branch_events") or [])
+    lines.extend(("", "## Experiment Branches", ""))
+    for event in branch_events:
+        lines.append(
+            f"- Stage {event.get('stage_index')} `{event.get('branch')}`: "
+            f"**{event.get('status')}**, candidates={event.get('candidate_count', 0)}"
+            + (f", reason={event.get('reason')}" if event.get("reason") else "")
+        )
+    if not branch_events:
+        lines.append("- None")
     lines.extend(
         (
             "",
@@ -182,7 +212,11 @@ def write_outputs(
             f"- Source generation LLM / embedding calls: "
             f"{run_metadata.get('source_generation_llm_calls', 0)} / "
             f"{run_metadata.get('source_generation_embedding_calls', 0)}",
+            f"- Branch generation LLM / embedding calls: "
+            f"{run_metadata.get('branch_generation_llm_calls', 0)} / "
+            f"{run_metadata.get('branch_generation_embedding_calls', 0)}",
             f"- Reused artifacts: {run_metadata.get('reused_artifacts', [])}",
+            f"- Model discovery: `{run_metadata.get('model_discovery_path')}`",
             f"- Runtime: {float(run_metadata.get('runtime_seconds') or 0):.3f}s",
             f"- Actual concurrency: `{run_metadata.get('execution')}`",
             f"- Estimated serial work: {float(run_metadata.get('estimated_serial_work_seconds') or 0):.3f}s",

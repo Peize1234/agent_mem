@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from collections import Counter
 from pathlib import Path
@@ -7,10 +8,8 @@ from typing import Any, Mapping, Sequence
 
 from openpyxl import load_workbook
 
-from exp.benchmark.benchmark_common import load_dataset
-from exp.benchmark.memory_gold_groups import parse_gold_requirements
-
-from .io_utils import atomic_write_json, atomic_write_text, sha256_file
+from .benchmark_support import load_dataset, parse_gold_requirements
+from .io_utils import atomic_write_json, atomic_write_text, load_json, load_jsonl, sha256_file
 from .models import Dataset, Requirement, Turn
 
 
@@ -73,9 +72,7 @@ def load_benchmark_dataset(path: Path, sessions: Sequence[str] | None = None) ->
             try:
                 index = _header_index(headers, sheet_name)
             except ValueError:
-                explicitly_requested = bool(
-                    requested and (sheet_name.upper() in requested or sheet_code in requested)
-                )
+                explicitly_requested = bool(requested and (sheet_name.upper() in requested or sheet_code in requested))
                 if explicitly_requested:
                     raise
                 continue
@@ -85,7 +82,9 @@ def load_benchmark_dataset(path: Path, sessions: Sequence[str] | None = None) ->
 
                 def cell(key: str) -> str:
                     position = index.get(key)
-                    return str(values[position] or "").strip() if position is not None and position < len(values) else ""
+                    return (
+                        str(values[position] or "").strip() if position is not None and position < len(values) else ""
+                    )
 
                 query_id = cell("id").upper()
                 question = cell("question")
@@ -132,36 +131,84 @@ def _normalize_template(question: str) -> str:
     return value
 
 
-def _source_run_check(source_run: Path | None, expected_query_ids: set[str]) -> dict[str, Any]:
+def _source_run_check(
+    source_run: Path | None,
+    expected_query_ids: set[str],
+    *,
+    expected_checkpoint_query_ids: set[str],
+    expected_dataset_sha256: str,
+    expected_session_turn_counts: Mapping[str, int],
+) -> dict[str, Any]:
     if source_run is None:
         return {"required": False, "status": "AUTO_DISCOVERY_OR_PRODUCTION_GENERATION"}
     result_file = source_run / "recall_turn_results.jsonl" if source_run.is_dir() else source_run
-    if not result_file.exists():
-        return {"required": True, "status": "INCOMPLETE", "reason": f"missing {result_file}"}
-    actual: list[str] = []
-    failed = 0
-    for line in result_file.read_text(encoding="utf-8").splitlines():
-        if not line.strip():
-            continue
-        import json
+    if result_file.exists():
+        actual: list[str] = []
+        failed = 0
+        for row in load_jsonl(result_file):
+            query_id = str(row.get("turn_id") or row.get("query_id") or "").upper()
+            if query_id:
+                actual.append(query_id)
+            failed += int(bool(row.get("error")))
+        missing = sorted(expected_query_ids - set(actual))
+        duplicates = sorted(item for item, count in Counter(actual).items() if count > 1)
+        status = "COMPLETE" if not missing and not duplicates and failed == 0 else "INCOMPLETE"
+        return {
+            "required": True,
+            "kind": "full_production_trace",
+            "status": status,
+            "path": str(result_file),
+            "expected_queries": len(expected_query_ids),
+            "actual_unique_queries": len(set(actual)),
+            "failed_turns": failed,
+            "missing_queries": missing,
+            "duplicate_results": duplicates,
+        }
 
-        row = json.loads(line)
-        query_id = str(row.get("turn_id") or row.get("query_id") or "").upper()
-        if query_id:
-            actual.append(query_id)
-        failed += int(bool(row.get("error")))
-    missing = sorted(expected_query_ids - set(actual))
-    duplicates = sorted(item for item, count in Counter(actual).items() if count > 1)
-    status = "COMPLETE" if not missing and not duplicates and failed == 0 else "INCOMPLETE"
+    if not source_run.is_dir():
+        return {"required": True, "status": "INCOMPLETE", "reason": f"missing {result_file}"}
+    actual_checkpoints: list[str] = []
+    valid_sessions: set[str] = set()
+    invalid_manifests: list[str] = []
+    for manifest_path in source_run.glob("**/production_midterm_manifest.json"):
+        try:
+            manifest = load_json(manifest_path)
+            session_id = str(manifest.get("session_id") or "")
+            checkpoint_path = Path(str(manifest.get("checkpoints_path") or ""))
+            valid = (
+                manifest.get("status") == "COMPLETE"
+                and manifest.get("dataset_sha256") == expected_dataset_sha256
+                and session_id in expected_session_turn_counts
+                and int(manifest.get("turn_count") or 0) == expected_session_turn_counts[session_id]
+                and int(manifest.get("failed_turns") or 0) == 0
+                and checkpoint_path.exists()
+                and manifest.get("checkpoints_sha256") == sha256_file(checkpoint_path)
+            )
+            if not valid:
+                continue
+            valid_sessions.add(session_id)
+            actual_checkpoints.extend(
+                str(row.get("query_id") or "").upper() for row in load_jsonl(checkpoint_path) if row.get("query_id")
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            invalid_manifests.append(f"{manifest_path}: {type(exc).__name__}")
+    missing_sessions = sorted(set(expected_session_turn_counts) - valid_sessions)
+    missing_queries = sorted(expected_checkpoint_query_ids - set(actual_checkpoints))
+    duplicates = sorted(item for item, count in Counter(actual_checkpoints).items() if count > 1)
+    complete = not missing_sessions and not missing_queries and not duplicates
     return {
         "required": True,
-        "status": status,
-        "path": str(result_file),
-        "expected_queries": len(expected_query_ids),
-        "actual_unique_queries": len(set(actual)),
-        "failed_turns": failed,
-        "missing_queries": missing,
+        "kind": "production_midterm_checkpoints",
+        "status": "COMPLETE" if complete else "INCOMPLETE",
+        "path": str(source_run),
+        "expected_sessions": len(expected_session_turn_counts),
+        "actual_sessions": len(valid_sessions),
+        "expected_checkpoint_queries": len(expected_checkpoint_query_ids),
+        "actual_unique_checkpoint_queries": len(set(actual_checkpoints)),
+        "missing_sessions": missing_sessions,
+        "missing_queries": missing_queries,
         "duplicate_results": duplicates,
+        "invalid_manifests": invalid_manifests,
     }
 
 
@@ -249,12 +296,22 @@ def audit_dataset(
             {"code": "CROSS_SESSION_DEPENDENCY", "count": len(cross_session), "examples": cross_session[:20]}
         )
 
-    source_check = _source_run_check(source_run, {turn.query_id for turn in all_turns})
+    source_check = _source_run_check(
+        source_run,
+        {turn.query_id for turn in all_turns},
+        expected_checkpoint_query_ids={turn.query_id for turn in all_turns if turn.requirements},
+        expected_dataset_sha256=dataset.sha256,
+        expected_session_turn_counts={session_id: len(turns) for session_id, turns in dataset.sessions.items()},
+    )
     if source_check["status"] == "INCOMPLETE":
         hard_errors.append({"code": "INCOMPLETE_SOURCE_RUN", **source_check})
 
     gold_query_count = sum(bool(turn.requirements) for turn in all_turns)
-    leakage = [turn.query_id for turn in all_turns if any(pattern.search(turn.question) for pattern in EXPLICIT_HISTORY_PATTERNS)]
+    leakage = [
+        turn.query_id
+        for turn in all_turns
+        if any(pattern.search(turn.question) for pattern in EXPLICIT_HISTORY_PATTERNS)
+    ]
     leakage_ratio = len(leakage) / max(gold_query_count, 1)
     if leakage_ratio >= float(warning_config.get("explicit_history_target_leakage_ratio", 0.2)):
         warnings.append(

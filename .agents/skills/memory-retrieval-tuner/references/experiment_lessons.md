@@ -332,6 +332,10 @@ Likely reusable categories include:
 
 Verify current local paths and APIs before reuse.
 
+The reusable forms of these capabilities now live behind the Skill's Branch Registry and self-contained adapters. Treat the old `exp/benchmark` scripts as evidence and extraction sources, not runtime imports. New datasets should consume production checkpoints and content-addressed derivatives rather than the single-dataset snapshot formats directly.
+
+Model names in historical experiments are also priors. Embedding and reranker Branches should discover resource-compatible current candidates from the local Hugging Face cache and, under the deep budget, metadata search. Record unavailable/gated models instead of substituting a different model silently.
+
 ## 19. What should not be hard-coded into the Skill
 
 Do not hard-code:

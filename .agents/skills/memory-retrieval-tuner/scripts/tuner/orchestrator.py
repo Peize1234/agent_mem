@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import os
+import shutil
 import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -14,10 +15,12 @@ import yaml
 
 from .artifact_registry import ArtifactRegistry
 from .build_report import write_outputs
-from .candidate_selector import select_best, tune_frontier
+from .candidate_selector import select_best
 from .dataset_audit import audit_dataset
-from .evaluate_candidate import combine_candidate_results, evaluate_candidate
-from .io_utils import append_jsonl, load_json, stable_hash
+from .evaluate_candidate import candidate_hash, combine_candidate_results, evaluate_candidate
+from .experiment_branches import BranchRegistry
+from .io_utils import append_jsonl, load_json, stable_hash, write_jsonl
+from .model_discovery import ModelDiscovery, ResourceEnvelope
 from .models import Candidate, CandidateResult, Dataset
 from .production_midterm_adapter import (
     generate_production_sources,
@@ -25,6 +28,7 @@ from .production_midterm_adapter import (
     source_worker_parallelism,
 )
 from .split_sessions import create_or_load_split
+from .staged_search import run_staged_search
 
 
 @dataclass(frozen=True)
@@ -38,7 +42,7 @@ class TunerConfig:
     output_root: Path = Path("exp/results/auto_tuning")
     resume: Path | None = None
     source_run: Path | None = None
-    memory_config: Path = Path("exp/benchmark/memory_config.json")
+    memory_config: Path = Path(".agents/skills/memory-retrieval-tuner/memory_config.json")
     llm_mode: str = "real"
     max_parallel_sessions: int | None = None
     max_parallel_candidates: int | None = None
@@ -68,6 +72,21 @@ def _gpu_count() -> int:
         return len([line for line in output.splitlines() if line.strip()])
     except (FileNotFoundError, subprocess.SubprocessError):
         return 0
+
+
+def _gpu_memory_gib() -> float | None:
+    try:
+        output = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.free", "--format=csv,noheader,nounits"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
+        ).stdout
+        values = [float(line.strip()) / 1024 for line in output.splitlines() if line.strip()]
+        return min(values) if values else None
+    except (FileNotFoundError, subprocess.SubprocessError, ValueError):
+        return None
 
 
 def _memory_gib() -> float | None:
@@ -104,54 +123,6 @@ def _execution_settings(config: TunerConfig, space: Mapping[str, Any]) -> dict[s
     }
 
 
-def _candidate(name: str, stage: str, baseline: Candidate, complexity: int = 1, **changes: Any) -> Candidate:
-    values = dict(baseline.config)
-    values.update(changes)
-    return Candidate(name=name, stage=stage, config=values, complexity=complexity)
-
-
-def _cheap_candidates(
-    baseline: Candidate,
-    space: Mapping[str, Any],
-    maximum: int,
-    *,
-    k: int,
-    ranking_depth: int,
-) -> list[Candidate]:
-    if baseline.config.get("backend") != "production_midterm":
-        return []
-    candidates: list[Candidate] = []
-    baseline_sessions = int(baseline.config.get("top_k_sessions") or 5)
-    baseline_pages = int(baseline.config.get("top_k_pages") or 5)
-    baseline_total = int(baseline.config.get("max_total_pages") or 5)
-    for value in sorted({max(1, baseline_sessions - 1), baseline_sessions + 1, baseline_sessions + 2}):
-        if value != baseline_sessions:
-            candidates.append(
-                _candidate(f"top_k_sessions:{value}", "cheap_session_routing", baseline, top_k_sessions=value)
-            )
-    for value in sorted({max(1, baseline_pages - 2), baseline_pages + 3, max(k, 2 * k)}):
-        if value != baseline_pages:
-            candidates.append(_candidate(f"top_k_pages:{value}", "cheap_page_pool", baseline, top_k_pages=value))
-    for value in sorted({max(k, baseline_total), 2 * k, min(ranking_depth, 4 * k)}):
-        if value != baseline_total:
-            candidates.append(
-                _candidate(f"max_total_pages:{value}", "cheap_result_cap", baseline, max_total_pages=value)
-            )
-    candidates.extend(
-        _candidate(
-            f"dense_bm25:w{weight:.2f}",
-            "cheap_hybrid",
-            baseline,
-            retrieval_method="dense_bm25_fusion",
-            dense_weight=weight,
-            complexity=2,
-        )
-        for weight in (0.7, 0.85)
-    )
-    # This is coordinate search: every candidate changes one axis from baseline.
-    return candidates[:maximum]
-
-
 def _diagnose(best: CandidateResult, audit: Mapping[str, Any], space: Mapping[str, Any]) -> dict[str, Any]:
     metrics = best.metrics
     gap_pp = (float(metrics.get("recall_at_4k") or 0) - float(metrics.get("recall_at_k") or 0)) * 100.0
@@ -169,44 +140,6 @@ def _diagnose(best: CandidateResult, audit: Mapping[str, Any], space: Mapping[st
     else:
         regime = "balanced_or_plateau"
     return {"regime": regime, "recall_4k_minus_k_pp": gap_pp, "recall_4k_percent": deep_recall, "stddev_pp": stddev_pp}
-
-
-def _secondary_candidates(baseline: Candidate, regime: str) -> list[Candidate]:
-    if baseline.config.get("backend") != "production_midterm":
-        return []
-    if regime == "ranking_bottleneck":
-        return [
-            _candidate(
-                f"secondary:hybrid_w{weight:.2f}",
-                "secondary_ranking",
-                baseline,
-                retrieval_method="dense_bm25_fusion",
-                dense_weight=weight,
-                complexity=2,
-            )
-            for weight in (0.60, 0.70, 0.85)
-        ]
-    if regime == "candidate_coverage_bottleneck":
-        return [
-            _candidate(
-                "secondary:wider_sessions",
-                "secondary_coverage",
-                baseline,
-                top_k_sessions=int(baseline.config.get("top_k_sessions") or 5) + 3,
-                top_k_pages=int(baseline.config.get("top_k_pages") or 5) + 5,
-                max_total_pages=max(20, int(baseline.config.get("max_total_pages") or 5)),
-            ),
-        ]
-    if regime == "session_instability":
-        return [
-            _candidate(
-                "secondary:conservative_routing",
-                "secondary_stability",
-                baseline,
-                top_k_sessions=max(1, int(baseline.config.get("top_k_sessions") or 5) - 1),
-            ),
-        ]
-    return []
 
 
 def _evaluate_many(
@@ -242,6 +175,23 @@ def _evaluate_many(
             run_dir=run_dir,
         )
 
+    def invalid_result(candidate: Candidate) -> CandidateResult:
+        return CandidateResult(
+            name=candidate.name,
+            candidate_hash=candidate_hash(dataset.sha256, candidate),
+            stage=candidate.stage,
+            config=candidate.config,
+            metrics={},
+            requirement_rows=[],
+            session_rows=[],
+            runtime_seconds=0.0,
+            work_seconds=0.0,
+            cache_hits=0,
+            cache_misses=0,
+            complexity=candidate.complexity,
+            status="INVALID",
+        )
+
     with ThreadPoolExecutor(max_workers=max(1, candidate_parallelism)) as executor:
         futures = {executor.submit(run, candidate, session_parallelism): candidate for candidate in candidates}
         for future in as_completed(futures):
@@ -261,12 +211,14 @@ def _evaluate_many(
                             trace_path,
                             {"scope": scope, "candidate": candidate.name, "status": "INVALID", "error": str(retry_exc)},
                         )
+                        results.append(invalid_result(candidate))
                         continue
                 else:
                     append_jsonl(
                         trace_path,
                         {"scope": scope, "candidate": candidate.name, "status": "INVALID", "error": message},
                     )
+                    results.append(invalid_result(candidate))
                     continue
             results.append(result)
             append_jsonl(
@@ -344,9 +296,7 @@ def _resolve_shortterm_window(
         raise ValueError("memory_config.midterm.short_term_capacity is required")
     capacity_messages = int(capacity)
     if capacity_messages <= 0 or capacity_messages % 2:
-        raise ValueError(
-            "memory_config.midterm.short_term_capacity must be a positive even message count"
-        )
+        raise ValueError("memory_config.midterm.short_term_capacity must be a positive even message count")
     production_turns = capacity_messages // 2
     status = "MATCH" if configured_turns == production_turns else "OVERRIDDEN_BY_PRODUCTION_CONFIG"
     return production_turns, {
@@ -460,7 +410,11 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
     if midterm_baseline is None or midterm_baseline.config.get("backend") != "production_midterm":
         raise RuntimeError("Unable to establish a replayable production MidTerm baseline")
 
-    def evaluate_tune_candidates(candidates: Sequence[Candidate]) -> list[CandidateResult]:
+    def evaluate_tune_candidates(
+        candidates: Sequence[Candidate],
+        sessions_override: Sequence[str] | None = None,
+        scope: str = "tune",
+    ) -> list[CandidateResult]:
         common = {
             "config": config,
             "shortterm_window": shortterm_window,
@@ -470,79 +424,57 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
             "execution": execution,
             "trace_path": trace_path,
         }
-        if loso:
+        if loso and sessions_override is None:
             return _evaluate_loso_many(
                 dataset,
                 candidates,
                 split["folds"],
                 partition="tune_sessions",
-                scope="tune_loso",
+                scope=f"{scope}_loso",
                 **common,
             )
-        return _evaluate_many(dataset, candidates, tune_sessions, scope="tune", **common)
+        sessions_to_use = list(sessions_override) if sessions_override is not None else tune_sessions
+        return _evaluate_many(dataset, candidates, sessions_to_use, scope=scope, **common)
 
-    baseline_tune = evaluate_tune_candidates([midterm_baseline])[0]
-    maximum_cheap = int(profile["max_cheap_candidates"])
-    generic_cheap = _cheap_candidates(
-        midterm_baseline,
-        space,
-        maximum_cheap,
+    baseline_tune = evaluate_tune_candidates([midterm_baseline], None, "baseline_tune")[0]
+    tolerance = float((space.get("selection") or {}).get("tie_tolerance_pp", 0.25))
+    branch_registry = BranchRegistry()
+    try:
+        free_disk_gib = shutil.disk_usage(config.output_root.resolve().parent).free / 1024**3
+    except OSError:
+        free_disk_gib = None
+    resources = ResourceEnvelope(
+        gpu_count=int(execution["gpu_count"]),
+        gpu_memory_gib=_gpu_memory_gib(),
+        available_memory_gib=execution.get("available_memory_gib"),
+        free_disk_gib=free_disk_gib,
+    )
+    model_discovery = ModelDiscovery(
+        output_path=run_dir / "model_discovery.json",
+        resources=resources,
+    )
+    model_discovery.flush()
+    search_result = run_staged_search(
+        dataset=dataset,
+        baseline=midterm_baseline,
+        baseline_result=baseline_tune,
+        tune_sessions=tune_sessions,
+        registry=branch_registry,
+        artifact_registry=registry,
+        model_discovery=model_discovery,
+        run_dir=run_dir,
+        search_space=space,
+        budget=config.budget,
+        profile=profile,
         k=config.k,
         ranking_depth=ranking_depth,
+        evaluate=evaluate_tune_candidates,
+        diagnose=lambda result: _diagnose(result, audit, space),
     )
-    cheap = generic_cheap[:maximum_cheap]
-    cheap_results = evaluate_tune_candidates(cheap)
-    tune_results = [baseline_tune, *cheap_results]
-    tolerance = float((space.get("selection") or {}).get("tie_tolerance_pp", 0.25))
-    provisional = tune_frontier(tune_results, tolerance_pp=tolerance, limit=max(2, int(profile["validation_frontier"])))
-    best_tune = provisional[0] if provisional else baseline_tune
-    diagnostics = _diagnose(best_tune, audit, space)
-    skipped: list[dict[str, Any]] = []
-
-    secondary = _secondary_candidates(midterm_baseline, str(diagnostics["regime"]))
-    max_branches = int(profile["max_secondary_branches"])
-    secondary = secondary[: max_branches * 3]
-    if secondary:
-        secondary_results = evaluate_tune_candidates(secondary)
-        tune_results.extend(secondary_results)
-    else:
-        skipped.append({"branch": "secondary", "reason": f"diagnostic regime {diagnostics['regime']} did not justify it"})
-    skipped.extend(
-        [
-            {
-                "branch": "session_assignment_thresholds",
-                "reason": "changes production Session generation and requires a separately frozen LLM-generated source run",
-            },
-            {
-                "branch": "page_or_summary_representation",
-                "reason": "changes production Page embeddings/generation; no exact-provenance regenerated artifact was available",
-            },
-            {
-                "branch": "alternative_embedding_model",
-                "reason": "no exact production-contract embedding checkpoint was available in this run",
-            },
-        ]
-    )
-
-    frozen_limit = max(2, int(profile["max_expensive_candidates"]))
-    frozen = registry.discover_frozen_rankings(dataset.sha256, limit=frozen_limit)
-    if frozen:
-        replay_results = evaluate_tune_candidates(frozen)
-        tune_results.extend(replay_results)
-    else:
-        skipped.append({"branch": "frozen_replay", "reason": "no complete exact-provenance frozen ranking found"})
-
-    if int(profile["max_expensive_candidates"]) == 0:
-        skipped.append({"branch": "expensive_llm", "reason": "quick budget disables new LLM generation"})
-    elif diagnostics["regime"] == "data_artifact_suspicion":
-        skipped.append({"branch": "expensive_llm", "reason": "dataset artifact warning; new LLM tuning suppressed"})
-    elif not frozen:
-        skipped.append(
-            {
-                "branch": "expensive_llm",
-                "reason": "no exact-provenance frozen candidate; no repository-native no-call generator available",
-            }
-        )
+    write_jsonl(run_dir / "branch_trace.jsonl", search_result.branch_events)
+    tune_results = search_result.tune_results
+    diagnostics = search_result.diagnostics[-1]
+    skipped = list(search_result.skipped_branches)
 
     if full_memory_regression_baseline is None:
         skipped.append(
@@ -552,7 +484,7 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
             }
         )
 
-    frontier = tune_frontier(tune_results, tolerance_pp=tolerance, limit=int(profile["validation_frontier"]))
+    frontier = list(search_result.frontier[: int(profile["validation_frontier"])])
     if baseline_tune.name not in {result.name for result in frontier}:
         frontier.append(baseline_tune)
     validation_sessions = split["validation_sessions"] or split["tune_sessions"]
@@ -560,9 +492,7 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
     if loso:
         validation_sessions = [fold["validation_sessions"][0] for fold in split["folds"]]
         validation_scope = "validation_loso"
-    candidate_by_name = {
-        candidate.name: candidate for candidate in [midterm_baseline, *cheap, *secondary, *frozen]
-    }
+    candidate_by_name = search_result.candidates
     validation_candidates = [candidate_by_name[result.name] for result in frontier if result.name in candidate_by_name]
     if loso:
         validation_results = _evaluate_loso_many(
@@ -668,15 +598,13 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
     total_work = sum(result.work_seconds for result in evaluation_results)
     wall = time.perf_counter() - started
     reused = sorted(
-        {
-            artifact
-            for result in evaluation_results
-            for artifact in result.reused_artifacts
-            if artifact
-        }
+        {artifact for result in evaluation_results for artifact in result.reused_artifacts if artifact}
+        | set(search_result.reused_artifacts)
     )
-    stop_reason = "validation_frontier_selected"
-    previous_runtime = float(previous_metadata.get("cumulative_runtime_seconds") or previous_metadata.get("runtime_seconds") or 0)
+    stop_reason = search_result.stop_reason
+    previous_runtime = float(
+        previous_metadata.get("cumulative_runtime_seconds") or previous_metadata.get("runtime_seconds") or 0
+    )
     previous_work = float(
         previous_metadata.get("cumulative_serial_work_seconds")
         or previous_metadata.get("estimated_serial_work_seconds")
@@ -694,9 +622,7 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         }
     )
     source_llm_calls = int(midterm_baseline.provenance.get("llm_calls") or 0) if generated_source else 0
-    source_embedding_calls = (
-        int(midterm_baseline.provenance.get("embedding_calls") or 0) if generated_source else 0
-    )
+    source_embedding_calls = int(midterm_baseline.provenance.get("embedding_calls") or 0) if generated_source else 0
     evaluation_llm_calls = sum(result.llm_calls for result in evaluation_results)
     evaluation_embedding_calls = sum(result.embedding_calls for result in evaluation_results)
     if full_memory_regression_result is None:
@@ -725,6 +651,8 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         "secondary_cutoffs": [2 * config.k, 4 * config.k],
         "ranking_cache_depth": ranking_depth,
         "budget": config.budget,
+        "budget_profile": dict(profile),
+        "resolved_search_config": space.get("search") or {},
         "target": config.target,
         "seed": seed,
         "shortterm_qa_turns": shortterm_window,
@@ -739,14 +667,18 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         "parallel_time_saved_seconds": max(0.0, cumulative_work - cumulative_runtime),
         "llm_calls": int(previous_metadata.get("llm_calls") or 0)
         + source_llm_calls
+        + search_result.llm_calls
         + evaluation_llm_calls,
         "embedding_calls": int(previous_metadata.get("embedding_calls") or 0)
         + source_embedding_calls
+        + search_result.embedding_calls
         + evaluation_embedding_calls,
         "source_generation_llm_calls": source_llm_calls,
         "source_generation_embedding_calls": source_embedding_calls,
         "evaluation_llm_calls": evaluation_llm_calls,
         "evaluation_embedding_calls": evaluation_embedding_calls,
+        "branch_generation_llm_calls": search_result.llm_calls,
+        "branch_generation_embedding_calls": search_result.embedding_calls,
         "reused_artifacts": sorted(set(previous_metadata.get("reused_artifacts") or []) | set(reused)),
         "failed_turns": 0,
         "stop_reason": stop_reason,
@@ -758,13 +690,22 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         "midterm_baseline_provenance": midterm_baseline.provenance,
         "full_memory_regression_baseline_backend": full_memory_regression.get("backend"),
         "full_memory_regression_baseline_provenance": (
-            full_memory_regression_baseline.provenance
-            if full_memory_regression_baseline is not None
-            else None
+            full_memory_regression_baseline.provenance if full_memory_regression_baseline is not None else None
         ),
         "production_source_generated": generated_source,
         "midterm_baseline_full_metrics": midterm_baseline_full.metrics,
         "full_memory_regression": full_memory_regression,
+        "branch_registry": branch_registry.describe(),
+        "stage_history": search_result.stage_history,
+        "diagnostics_history": search_result.diagnostics,
+        "branch_events": search_result.branch_events,
+        "model_discovery_path": str(run_dir / "model_discovery.json"),
+        "resource_envelope": {
+            "gpu_count": resources.gpu_count,
+            "gpu_memory_gib": resources.gpu_memory_gib,
+            "available_memory_gib": resources.available_memory_gib,
+            "free_disk_gib": resources.free_disk_gib,
+        },
         "attempts": attempts,
     }
     write_outputs(

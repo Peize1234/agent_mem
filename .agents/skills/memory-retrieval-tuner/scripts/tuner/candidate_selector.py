@@ -43,9 +43,7 @@ def classify_overfit(
     validation_regression_pp: float,
 ) -> bool:
     tune_delta = (_metric(tune, "recall_at_k") - _metric(baseline_tune, "recall_at_k")) * 100.0
-    validation_delta = (
-        _metric(validation, "recall_at_k") - _metric(baseline_validation, "recall_at_k")
-    ) * 100.0
+    validation_delta = (_metric(validation, "recall_at_k") - _metric(baseline_validation, "recall_at_k")) * 100.0
     return tune_delta > 0 and validation_delta < validation_regression_pp
 
 

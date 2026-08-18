@@ -64,7 +64,9 @@ def create_or_load_split(
     if session_count >= 8:
         validation_count = max(1, round(session_count * 0.30))
         # Greedy round-robin over difficulty-sorted Sessions approximates stratification.
-        validation = sorted(ordered[index] for index in range(0, len(ordered), max(1, session_count // validation_count)))
+        validation = sorted(
+            ordered[index] for index in range(0, len(ordered), max(1, session_count // validation_count))
+        )
         validation = validation[:validation_count]
         tune = sorted(set(session_ids) - set(validation))
         method = "deterministic_stratified_holdout"

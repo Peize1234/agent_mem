@@ -1,0 +1,82 @@
+{
+  "llm": {
+    "provider": "deepseek",
+    "config": {
+      "model": "deepseek-v4-flash",
+      "api_key": "${DEEPSEEK_API_KEY}",
+      "max_tokens": 4096,
+      "temperature": 0.1,
+      "top_p": 0.1,
+      "top_k": 1
+    }
+  },
+  "benchmark_runtime": {
+    "llm_observability": true,
+    "deepseek_midterm_non_thinking": true,
+    "deepseek_longterm_non_thinking": true
+  },
+  "embedder": {
+    "provider": "huggingface",
+    "config": {
+      "model": "BAAI/bge-small-zh-v1.5",
+      "embedding_dims": 512
+    }
+  },
+  "vector_store": {
+    "provider": "qdrant",
+    "config": {
+      "collection_name": "memory_retrieval_tuner_placeholder",
+      "path": "/tmp/memory_retrieval_tuner_placeholder/qdrant",
+      "embedding_model_dims": 512,
+      "bm25_language": "zh",
+      "on_disk": true
+    }
+  },
+  "history_db_path": "/tmp/memory_retrieval_tuner_placeholder/history.db",
+  "enforce_single_process": true,
+  "llm_timeout_seconds": 180,
+  "embedding_timeout_seconds": 120,
+  "vector_store_timeout_seconds": 60,
+  "entity_extraction_timeout_seconds": 120,
+  "midterm": {
+    "enabled": true,
+    "short_term_capacity": 6,
+    "session_similarity_threshold": 0.6,
+    "embedding_similarity_weight": 0.7,
+    "keyword_overlap_weight": 0.3,
+    "top_k_sessions": 5,
+    "top_k_pages": 5,
+    "max_total_pages": 5
+  },
+  "profile": {
+    "enabled": true,
+    "update_on_add": true,
+    "extraction_mode": "explicit_and_inferred",
+    "allow_dynamic_attributes": false,
+    "max_input_user_messages": 4,
+    "max_operations_per_update": 8,
+    "llm_max_tokens": 4096
+  },
+  "background": {
+    "enabled": true,
+    "midterm_worker_count": 8,
+    "longterm_worker_count": 8,
+    "profile_worker_count": 4,
+    "entity_extraction_worker_count": 4,
+    "entity_extraction_pending_capacity": 32,
+    "max_retries": 3,
+    "retry_delays_seconds": [1.0, 2.0, 3.0],
+    "poll_interval_seconds": 0.2,
+    "lease_timeout_seconds": 180.0,
+    "heartbeat_interval_seconds": 20.0,
+    "watchdog_interval_seconds": 10.0,
+    "max_stale_recoveries": 3,
+    "shutdown_timeout_seconds": 60.0,
+    "include_pending_in_context": true,
+    "max_pending_context_messages": 20,
+    "include_failed_in_context": false
+  },
+  "agentic_retrieval": {
+    "enabled": false
+  }
+}

@@ -197,3 +197,4 @@ testing.ipynb
 
 # Generated experiment caches
 /exp/results/**/cache/
+/exp/results/auto_tuning/
