@@ -293,7 +293,9 @@ Open branches only when justified.
 
 Search when candidate coverage is poor or representation changes fail.
 
-Start with the current production model. Scan the local Hugging Face cache first. Under `budget=deep`, dynamically search model metadata when local candidates are insufficient. Select up to roughly two suitable multilingual/general and two finance-domain candidates, without padding the pool with poor fits. Prefer model-card/config evidence from MTEB, C-MTEB, FinMTEB and retrieval results over model-name or download-count heuristics.
+Start with the current production model. Under `standard`, screen only models already present in the local Hugging Face cache and never access the network. Under `budget=deep`, scan the cache and online metadata, merge and deduplicate by model ID plus immutable revision, then rank the combined pool with one quality rule. Cache state affects download cost only; it must not boost selection priority. Select up to roughly two suitable multilingual/general and two finance-domain candidates, without padding the pool with poor fits.
+
+Prefer structured model-card/model-index metrics from MTEB Retrieval, C-MTEB/Chinese Retrieval, FinMTEB, multilingual retrieval, and the corresponding reranking suites over model-name, tags, or download-count heuristics. Preserve every reliable score as benchmark/task/dataset/metric/score metadata. Compare or normalize raw values only when all four identity fields match; never combine unrelated Benchmark scales into a synthetic raw-score average.
 
 For each candidate record model ID, immutable revision, model type, source, License, selection rationale, resource estimate and cache/download state. Run metadata screening, download/cache validation, smoke testing, Tune-subset screening, then full Tune only for survivors. A gated model, unavailable dependency or resource failure is `UNAVAILABLE`, not a run failure.
 

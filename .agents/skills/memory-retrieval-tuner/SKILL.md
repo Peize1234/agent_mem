@@ -129,7 +129,7 @@ R@K = top K 内满足的 Gold requirement 数量
 - `source_prompt_variants.py`：Add/Page Summary 受控 Prompt 和 tuner-only context wrapper；
 - `generated_source_artifacts.py`：Add/Page Prompt 候选按 screening/Tune/Validation Session 延迟物化；
 - `encoding_contract.py`：模型自己的 Query/Document encoding contract；
-- `model_discovery.py`：本地优先的 Hugging Face 发现、下载与 smoke；
+- `model_discovery.py`：cache-aware 的 Hugging Face 发现、统一质量排序、下载与 smoke；
 - `benchmark_support.py` / `production_runtime.py`：自包含 benchmark schema 与生产 runtime wrapper；
 - `production_midterm_adapter.py`：生产 checkpoint 生成和隔离 replay。
 
@@ -333,7 +333,9 @@ Budget 约束实验层级：`quick` 至多 medium、禁止下载/LLM generation�
 
 ### 7. 模型自动发现
 
-Embedding/Reranker Branch 使用 `model_discovery.py`：先扫描 Hugging Face cache；`budget=deep` 且本地候选不足时再联网搜索。`standard` 可运行本地已有的 embedding 和 reranker，但禁止联网下载。筛选优先读取 model card/config 中的 MTEB/C-MTEB/FinMTEB、retrieval/reranking results、语言、architecture、License 与参数量，不以名称/downloads 代替 Benchmark 实测。下载复用 HF cache，记录 model ID、immutable revision、source、License、选择原因和资源状态。gated、下载失败或资源不足必须记录 `UNAVAILABLE`，不能中止整次搜索。
+Embedding/Reranker Branch 使用 `model_discovery.py`。`standard` 只扫描并使用本地 cache，禁止联网；`deep` 将本地 cache 与在线发现结果按 `model_id + immutable revision` 合并、去重，再用同一质量规则排序和截取候选，最后才根据 cache 状态决定复用或下载。cache 命中只降低成本，不能增加模型的实验优先级。
+
+筛选优先读取 model card/config/model-index 中的 MTEB/C-MTEB/FinMTEB、multilingual retrieval、retrieval/reranking、语言、architecture、License 与参数量。可可靠解析的实际 metric 写入结构化 `benchmark_scores`；原始分数只在相同 benchmark、task、dataset、metric 内归一化和比较，禁止跨 Benchmark 直接相加。名称、tags 和 downloads 只作为 metadata 缺失时的弱证据。下载复用 HF cache；相同 model ID 与 revision 已存在时不再次调用下载，并记录 source、License、选择原因和资源状态。gated、下载失败或资源不足必须记录 `UNAVAILABLE`，不能中止整次搜索。
 
 每个 embedding 必须先解析并记录 encoding contract，包括 Query/Document prefix 或 instruction、`prompt_name`、normalization 和 pooling。无法从模型自己的 config/model card 或已知官方 family contract 可靠确定时，标记 `UNAVAILABLE`；禁止裸 `SentenceTransformer.encode(text)` 后把结果当作模型能力。
 

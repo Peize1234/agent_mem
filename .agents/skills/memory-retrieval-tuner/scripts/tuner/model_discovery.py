@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import json
+import math
 import os
 import re
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Protocol, Sequence
+
+import yaml
 
 from .encoding_contract import SentenceTransformerEncodingAdapter, resolve_encoding_contract
 from .io_utils import atomic_write_json
@@ -14,6 +18,47 @@ from .io_utils import atomic_write_json
 MODEL_KINDS = {"embedding", "reranker"}
 FINANCE_MARKERS = {"finance", "financial", "finbert", "finmteb", "财经", "金融"}
 MULTILINGUAL_MARKERS = {"multilingual", "chinese", "zh", "bge", "gte", "e5", "qwen", "m3"}
+QUALITY_METRIC_MARKERS = (
+    "ndcg",
+    "map",
+    "mrr",
+    "recall",
+    "precision",
+    "accuracy",
+    "average_precision",
+    "ap@",
+    "f1",
+    "hit",
+)
+C_MTEB_DATASET_MARKERS = (
+    "t2retrieval",
+    "t2reranking",
+    "mmarcoretrieval",
+    "mmarcoreranking",
+    "duretrieval",
+    "cmedqa",
+    "ecomretrieval",
+    "videoretrieval",
+)
+MULTILINGUAL_DATASET_MARKERS = ("miracl", "mmarco", "mldr", "mrtydi")
+MTEB_DATASET_MARKERS = (
+    "arguana",
+    "climatefever",
+    "cqadupstack",
+    "dbpedia",
+    "fever",
+    "fiqa",
+    "hotpotqa",
+    "msmarco",
+    "nfcorpus",
+    "nq",
+    "quora",
+    "scidocs",
+    "scifact",
+    "touche",
+    "trec-covid",
+    "treccovid",
+)
 
 
 class HuggingFaceApi(Protocol):
@@ -44,6 +89,8 @@ class ModelCandidate:
     local_path: str | None = None
     cache_status: str = "NOT_CHECKED"
     status: str = "SCREENED"
+    selection_score: float | None = None
+    selection_bucket: str | None = None
     selection_reason: str = ""
     resource_usage: dict[str, Any] = field(default_factory=dict)
     metadata_evidence: dict[str, Any] = field(default_factory=dict)
@@ -100,6 +147,18 @@ def local_huggingface_models(cache_root: Path | None = None) -> dict[str, dict[s
 def _as_mapping(value: Any) -> Mapping[str, Any]:
     if isinstance(value, Mapping):
         return value
+    for method_name in ("to_dict", "model_dump", "dict"):
+        method = getattr(value, method_name, None)
+        if callable(method):
+            try:
+                converted = method()
+            except (TypeError, ValueError):
+                continue
+            if isinstance(converted, Mapping):
+                return converted
+    nested = getattr(value, "data", None)
+    if isinstance(nested, Mapping):
+        return nested
     data = getattr(value, "__dict__", None)
     return data if isinstance(data, Mapping) else {}
 
@@ -137,49 +196,142 @@ def _license(data: Mapping[str, Any]) -> str | None:
     return None
 
 
-def _metadata_evidence(data: Mapping[str, Any]) -> dict[str, Any]:
-    card = _as_mapping(data.get("cardData") or data.get("card_data") or {})
+def _string_values(value: Any) -> list[str]:
+    if value in (None, ""):
+        return []
+    values = value if isinstance(value, (list, tuple, set)) else [value]
+    return [str(item) for item in values if str(item).strip()]
 
-    def string_values(value: Any) -> list[str]:
-        if value in (None, ""):
-            return []
-        values = value if isinstance(value, (list, tuple, set)) else [value]
-        return [str(item) for item in values if str(item).strip()]
 
-    model_index = card.get("model-index") or card.get("model_index") or []
-    benchmark_results: list[dict[str, Any]] = []
+def _label(value: Any) -> str:
+    if isinstance(value, Mapping):
+        return str(value.get("name") or value.get("type") or value.get("id") or "")
+    return str(value or "")
 
-    def collect_results(value: Any) -> None:
-        if isinstance(value, Mapping):
-            if value.get("task") or value.get("dataset") or value.get("metrics"):
-                benchmark_results.append(
+
+def _finite_score(value: Any) -> float | None:
+    if isinstance(value, str):
+        value = value.strip()
+        if value.endswith("%"):
+            value = value[:-1].strip()
+    try:
+        score = float(value)
+    except (TypeError, ValueError):
+        return None
+    return score if math.isfinite(score) else None
+
+
+def _benchmark_family(text: str, fallback: str) -> str:
+    lowered = text.lower()
+    if "finmteb" in lowered or "fin-mteb" in lowered:
+        return "FinMTEB"
+    if any(marker in lowered for marker in ("c-mteb", "cmteb", "c_mteb", *C_MTEB_DATASET_MARKERS)):
+        return "C-MTEB"
+    if any(marker in lowered for marker in ("miracl", "multilingual", *MULTILINGUAL_DATASET_MARKERS)):
+        return "Multilingual"
+    if "mteb" in lowered or any(marker in lowered for marker in MTEB_DATASET_MARKERS):
+        return "MTEB"
+    return fallback or "Other"
+
+
+def _task_family(value: Any) -> str:
+    text = _label(value)
+    lowered = text.lower()
+    if any(marker in lowered for marker in ("rerank", "re-rank", "ranking")):
+        return "Reranking"
+    if any(marker in lowered for marker in ("retrieval", "search")):
+        return "Retrieval"
+    return text or "Unknown"
+
+
+def _metric_items(value: Any) -> list[tuple[str, float]]:
+    rows: list[tuple[str, float]] = []
+    if isinstance(value, Mapping):
+        metric_name = str(value.get("name") or value.get("type") or value.get("metric") or "")
+        score = _finite_score(value.get("value", value.get("score")))
+        if metric_name and score is not None:
+            rows.append((metric_name, score))
+        else:
+            for key, raw_score in value.items():
+                parsed = _finite_score(raw_score)
+                if parsed is not None:
+                    rows.append((str(key), parsed))
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            rows.extend(_metric_items(item))
+    return rows
+
+
+def _benchmark_scores(model_index: Any) -> list[dict[str, Any]]:
+    indexes = model_index if isinstance(model_index, (list, tuple)) else [model_index]
+    parsed: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str, str, float]] = set()
+    for raw_index in indexes:
+        index = _as_mapping(raw_index)
+        if not index:
+            continue
+        index_name = str(index.get("name") or index.get("type") or "")
+        raw_results = index.get("results") or index.get("result") or []
+        results = raw_results if isinstance(raw_results, (list, tuple)) else [raw_results]
+        for raw_result in results:
+            result = _as_mapping(raw_result)
+            if not result:
+                continue
+            raw_task = result.get("task") or result.get("task_name") or result.get("type")
+            raw_dataset = result.get("dataset") or result.get("dataset_name") or result.get("name")
+            task = _task_family(raw_task)
+            dataset = _label(raw_dataset) or "Unknown"
+            context = " ".join(
+                (
+                    index_name,
+                    _label(raw_task),
+                    dataset,
+                    str(raw_task),
+                    str(raw_dataset),
+                    str(result.get("source") or ""),
+                )
+            )
+            benchmark = _benchmark_family(context, index_name)
+            for metric, score in _metric_items(result.get("metrics") or result.get("metric") or []):
+                key = (benchmark, task, dataset, metric, score)
+                if key in seen:
+                    continue
+                seen.add(key)
+                parsed.append(
                     {
-                        key: value.get(key)
-                        for key in ("task", "dataset", "metrics", "name", "type")
-                        if value.get(key) not in (None, "")
+                        "benchmark": benchmark,
+                        "task": task,
+                        "dataset": dataset,
+                        "metric": metric,
+                        "score": score,
                     }
                 )
-            for nested in value.values():
-                collect_results(nested)
-        elif isinstance(value, (list, tuple)):
-            for nested in value:
-                collect_results(nested)
+    return parsed
 
-    collect_results(model_index)
+
+def _metadata_evidence(data: Mapping[str, Any]) -> dict[str, Any]:
+    card = _as_mapping(data.get("cardData") or data.get("card_data") or {})
+    model_index = (
+        card.get("model-index") or card.get("model_index") or data.get("model-index") or data.get("model_index") or []
+    )
+    benchmark_scores = _benchmark_scores(model_index)
     config = _as_mapping(data.get("config") or {})
-    architectures = string_values(config.get("architectures") or card.get("architecture"))
-    benchmark_text = " ".join(str(value) for value in benchmark_results).lower()
+    architectures = _string_values(config.get("architectures") or card.get("architecture"))
+    benchmark_text = " ".join((str(model_index), str(benchmark_scores))).lower()
     return {
         "pipeline_tag": str(data.get("pipeline_tag") or "") or None,
         "library_name": str(data.get("library_name") or "") or None,
-        "languages": string_values(card.get("language") or card.get("languages")),
-        "datasets": string_values(card.get("datasets") or card.get("dataset")),
+        "languages": _string_values(card.get("language") or card.get("languages")),
+        "datasets": _string_values(card.get("datasets") or card.get("dataset")),
         "architectures": architectures,
-        "benchmark_results": benchmark_results[:40],
-        "benchmark_metadata_present": bool(benchmark_results),
+        "benchmark_scores": benchmark_scores[:200],
+        "benchmark_results": benchmark_scores[:40],
+        "benchmark_metadata_present": bool(benchmark_scores or model_index),
         "mteb_evidence": any(marker in benchmark_text for marker in ("mteb", "c-mteb", "cmteb")),
         "finance_benchmark_evidence": any(marker in benchmark_text for marker in ("finmteb", "finance", "financial")),
         "retrieval_benchmark_evidence": any(marker in benchmark_text for marker in ("retrieval", "rerank")),
+        "license": _license(data),
+        "tags": _string_values(data.get("tags")),
     }
 
 
@@ -201,16 +353,135 @@ def _resource_fit(candidate: ModelCandidate, envelope: ResourceEnvelope) -> tupl
     return True, f"estimated footprint {needed:.1f} GiB fits resource envelope"
 
 
-def _task_match(model_id: str, tags: Sequence[str], model_type: str) -> bool:
-    text = " ".join([model_id, *tags]).lower()
+def _task_match(
+    model_id: str,
+    tags: Sequence[str],
+    model_type: str,
+    evidence: Mapping[str, Any] | None = None,
+) -> bool:
+    metadata = evidence or {}
+    text = " ".join(
+        [
+            model_id,
+            *tags,
+            str(metadata.get("pipeline_tag") or ""),
+            str(metadata.get("library_name") or ""),
+            *[str(value) for value in metadata.get("architectures") or []],
+            str(metadata.get("benchmark_scores") or ""),
+        ]
+    ).lower()
     if model_type == "reranker":
         return any(marker in text for marker in ("rerank", "cross-encoder", "text-ranking"))
-    return any(
+    explicit_embedding = any(
         marker in text for marker in ("embedding", "feature-extraction", "sentence-similarity", "bge", "e5", "gte")
+    )
+    reranker_only = any(marker in text for marker in ("rerank", "cross-encoder", "text-ranking"))
+    return explicit_embedding or (bool(metadata.get("retrieval_benchmark_evidence")) and not reranker_only)
+
+
+def _quality_benchmark_score(row: Mapping[str, Any], model_type: str) -> bool:
+    metric = str(row.get("metric") or "").lower()
+    task = str(row.get("task") or "").lower()
+    if not any(marker in metric for marker in QUALITY_METRIC_MARKERS):
+        return False
+    if model_type == "reranker":
+        return "rerank" in task or "ranking" in task or "retrieval" in task
+    return "retrieval" in task
+
+
+def _comparison_key(row: Mapping[str, Any]) -> tuple[str, str, str, str]:
+    return (
+        str(row.get("benchmark") or "Other").casefold(),
+        str(row.get("task") or "Unknown").casefold(),
+        str(row.get("dataset") or "Unknown").casefold(),
+        str(row.get("metric") or "Unknown").casefold(),
     )
 
 
-def _candidate_score(candidate: ModelCandidate, *, finance: bool) -> tuple[float, int, str]:
+def _normalize_mixed_percentage(values: Mapping[tuple[str, str], float]) -> dict[tuple[str, str], float]:
+    has_fraction = any(0.0 <= value <= 1.0 for value in values.values())
+    has_percentage = any(1.0 < value <= 100.0 for value in values.values())
+    if not (has_fraction and has_percentage):
+        return dict(values)
+    return {key: value / 100.0 if 1.0 < value <= 100.0 else value for key, value in values.items()}
+
+
+def _benchmark_weight(benchmark: str, *, finance: bool) -> float:
+    lowered = benchmark.casefold()
+    if finance:
+        if "finmteb" in lowered or "finance" in lowered or "financial" in lowered:
+            return 2.0
+        if "c-mteb" in lowered or "cmteb" in lowered:
+            return 0.8
+        return 0.4
+    if "c-mteb" in lowered or "cmteb" in lowered:
+        return 1.25
+    if "multilingual" in lowered:
+        return 1.15
+    return 1.0
+
+
+def _annotate_relative_benchmark_scores(candidates: Sequence[ModelCandidate]) -> None:
+    """Compare raw scores only inside the same benchmark/task/dataset/metric group."""
+
+    groups: dict[tuple[str, str, str, str], dict[tuple[str, str], float]] = {}
+    rows_by_candidate: dict[tuple[str, str], list[Mapping[str, Any]]] = {}
+    for candidate in candidates:
+        identity = (candidate.model_id, str(candidate.revision or ""))
+        rows = [
+            row
+            for row in candidate.metadata_evidence.get("benchmark_scores") or []
+            if isinstance(row, Mapping) and _quality_benchmark_score(row, candidate.model_type)
+        ]
+        rows_by_candidate[identity] = rows
+        for row in rows:
+            score = _finite_score(row.get("score"))
+            if score is None:
+                continue
+            group = groups.setdefault(_comparison_key(row), {})
+            group[identity] = max(score, group.get(identity, -math.inf))
+
+    comparisons: dict[tuple[str, str], list[dict[str, Any]]] = {key: [] for key in rows_by_candidate}
+    for key, raw_values in groups.items():
+        values = _normalize_mixed_percentage(raw_values)
+        if len(values) < 2:
+            continue
+        for identity, score in values.items():
+            lower = sum(value < score for value in values.values())
+            tied = sum(value == score for value in values.values())
+            percentile = (lower + max(0, tied - 1) / 2.0) / max(1, len(values) - 1)
+            comparisons[identity].append(
+                {
+                    "benchmark": key[0],
+                    "task": key[1],
+                    "dataset": key[2],
+                    "metric": key[3],
+                    "normalized_score": score,
+                    "relative_percentile": percentile,
+                    "peer_count": len(values),
+                }
+            )
+
+    for candidate in candidates:
+        identity = (candidate.model_id, str(candidate.revision or ""))
+        candidate_comparisons = comparisons.get(identity) or []
+        relative: dict[str, float] = {}
+        for bucket, finance in (("general", False), ("finance", True)):
+            weighted = [
+                (
+                    float(row["relative_percentile"]),
+                    _benchmark_weight(str(row["benchmark"]), finance=finance),
+                )
+                for row in candidate_comparisons
+            ]
+            denominator = sum(weight for _, weight in weighted)
+            relative[bucket] = sum(score * weight for score, weight in weighted) / denominator if denominator else 0.0
+        candidate.metadata_evidence["benchmark_comparisons"] = candidate_comparisons
+        candidate.metadata_evidence["benchmark_relative_scores"] = relative
+        candidate.metadata_evidence["quality_benchmark_score_count"] = len(rows_by_candidate.get(identity) or [])
+
+
+def _candidate_score_value(candidate: ModelCandidate, *, finance: bool) -> float:
     evidence = candidate.metadata_evidence
     text = " ".join(
         [
@@ -224,12 +495,19 @@ def _candidate_score(candidate: ModelCandidate, *, finance: bool) -> tuple[float
     multilingual = sum(marker in text for marker in MULTILINGUAL_MARKERS)
     domain = sum(marker in text for marker in FINANCE_MARKERS)
     license_bonus = 1 if candidate.license and candidate.license.lower() not in {"unknown", "other"} else 0
-    benchmark_bonus = 6 * int(bool(evidence.get("retrieval_benchmark_evidence")))
-    benchmark_bonus += 5 * int(bool(evidence.get("mteb_evidence")))
+    relative = float((evidence.get("benchmark_relative_scores") or {}).get("finance" if finance else "general") or 0)
+    score_count = min(10, int(evidence.get("quality_benchmark_score_count") or 0))
+    benchmark_bonus = 35.0 * relative + 1.5 * score_count
+    benchmark_bonus += 5 * int(bool(evidence.get("retrieval_benchmark_evidence")))
+    benchmark_bonus += 4 * int(bool(evidence.get("mteb_evidence")))
     benchmark_bonus += 10 * int(finance and bool(evidence.get("finance_benchmark_evidence")))
     domain_fit = domain if finance else multilingual
+    return float(domain_fit * 10 + multilingual * 3 + license_bonus + benchmark_bonus)
+
+
+def _candidate_score(candidate: ModelCandidate, *, finance: bool) -> tuple[float, int, str]:
     return (
-        float(domain_fit * 10 + multilingual * 3 + license_bonus + benchmark_bonus),
+        _candidate_score_value(candidate, finance=finance),
         candidate.downloads,
         candidate.model_id,
     )
@@ -239,8 +517,12 @@ def _is_finance_candidate(candidate: ModelCandidate) -> bool:
     evidence = candidate.metadata_evidence
     if evidence.get("finance_benchmark_evidence"):
         return True
-    tokens = set(re.findall(r"[a-z0-9]+|[\u4e00-\u9fff]+", " ".join([candidate.model_id, *candidate.tags]).lower()))
-    return bool(tokens & FINANCE_MARKERS)
+    text = " ".join([candidate.model_id, *candidate.tags]).lower()
+    tokens = set(re.findall(r"[a-z0-9]+", text))
+    marker_match = bool(tokens & {value for value in FINANCE_MARKERS if value.isascii()}) or any(
+        value in text for value in FINANCE_MARKERS if not value.isascii()
+    )
+    return marker_match and bool(evidence.get("retrieval_benchmark_evidence"))
 
 
 def _local_metadata(snapshot: Path) -> dict[str, Any]:
@@ -249,25 +531,112 @@ def _local_metadata(snapshot: Path) -> dict[str, Any]:
         if not path.exists():
             return {}
         try:
-            value = __import__("json").loads(path.read_text(encoding="utf-8"))
+            value = json.loads(path.read_text(encoding="utf-8"))
             return value if isinstance(value, Mapping) else {}
         except (OSError, ValueError):
             return {}
 
     config = read("config.json")
     sentence_config = read("config_sentence_transformers.json")
-    return {
-        "library_name": "sentence-transformers" if (snapshot / "modules.json").exists() else None,
-        "architectures": list(config.get("architectures") or []),
-        "normalize_embeddings": bool(sentence_config.get("similarity_fn_name") == "cosine"),
-        "tags": ["sentence-transformers"] if (snapshot / "modules.json").exists() else [],
-        "benchmark_results": [],
-        "benchmark_metadata_present": False,
-    }
+    card: Mapping[str, Any] = {}
+    readme = snapshot / "README.md"
+    if readme.exists():
+        try:
+            raw = readme.read_text(encoding="utf-8", errors="replace")
+            if raw.startswith("---"):
+                _, frontmatter, _ = raw.split("---", 2)
+                loaded = yaml.safe_load(frontmatter)
+                card = loaded if isinstance(loaded, Mapping) else {}
+        except (OSError, ValueError, yaml.YAMLError):
+            card = {}
+    model_index_file = read("model-index.json")
+    if model_index_file and not (card.get("model-index") or card.get("model_index")):
+        card = {**card, "model-index": model_index_file.get("model-index") or model_index_file}
+    tags = [*list(card.get("tags") or []), *(["sentence-transformers"] if (snapshot / "modules.json").exists() else [])]
+    evidence = _metadata_evidence(
+        {
+            "cardData": card,
+            "config": config,
+            "pipeline_tag": card.get("pipeline_tag"),
+            "library_name": "sentence-transformers" if (snapshot / "modules.json").exists() else None,
+            "tags": tags,
+        }
+    )
+    evidence["normalize_embeddings"] = bool(sentence_config.get("similarity_fn_name") == "cosine")
+    return evidence
+
+
+def _candidate_identity(candidate: ModelCandidate) -> tuple[str, str]:
+    return candidate.model_id.casefold(), str(candidate.revision or "")
+
+
+def _merge_evidence(left: Mapping[str, Any], right: Mapping[str, Any]) -> dict[str, Any]:
+    merged = {**left, **right}
+    for key in ("languages", "datasets", "architectures", "tags"):
+        merged[key] = sorted({str(value) for value in [*(left.get(key) or []), *(right.get(key) or [])]})
+    scores: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str, str, float]] = set()
+    for row in [*(left.get("benchmark_scores") or []), *(right.get("benchmark_scores") or [])]:
+        if not isinstance(row, Mapping):
+            continue
+        score = _finite_score(row.get("score"))
+        if score is None:
+            continue
+        key = (
+            str(row.get("benchmark") or ""),
+            str(row.get("task") or ""),
+            str(row.get("dataset") or ""),
+            str(row.get("metric") or ""),
+            score,
+        )
+        if key not in seen:
+            seen.add(key)
+            scores.append(dict(row))
+    merged["benchmark_scores"] = scores
+    merged["benchmark_results"] = scores[:40]
+    merged["benchmark_metadata_present"] = bool(
+        scores or left.get("benchmark_metadata_present") or right.get("benchmark_metadata_present")
+    )
+    for key in ("mteb_evidence", "finance_benchmark_evidence", "retrieval_benchmark_evidence"):
+        merged[key] = bool(left.get(key) or right.get(key))
+    return merged
+
+
+def _merge_candidate(existing: ModelCandidate, incoming: ModelCandidate) -> ModelCandidate:
+    existing.source = "+".join(sorted(set(existing.source.split("+")) | set(incoming.source.split("+"))))
+    existing.license = incoming.license or existing.license
+    existing.tags = sorted(set(existing.tags) | set(incoming.tags))
+    existing.downloads = max(existing.downloads, incoming.downloads)
+    if incoming.parameter_count is not None:
+        existing.parameter_count = incoming.parameter_count
+        existing.estimated_memory_gib = incoming.estimated_memory_gib
+    existing.metadata_evidence = _merge_evidence(existing.metadata_evidence, incoming.metadata_evidence)
+    if incoming.cache_status == "CACHED" and incoming.local_path:
+        existing.cache_status = "CACHED"
+        existing.local_path = incoming.local_path
+    return existing
+
+
+def _add_candidate(
+    candidates: dict[tuple[str, str], ModelCandidate],
+    candidate: ModelCandidate,
+) -> None:
+    key = _candidate_identity(candidate)
+    if key in candidates:
+        _merge_candidate(candidates[key], candidate)
+    else:
+        candidates[key] = candidate
+
+
+def _cached_snapshot(local: Mapping[str, Any] | None, revision: str | None) -> Path | None:
+    if not local or not revision or revision not in set(local.get("revisions") or []):
+        return None
+    snapshot = Path(str(local["cache_root"])) / "snapshots" / revision
+    return snapshot if snapshot.exists() else None
 
 
 class ModelDiscovery:
-    """Local-first Hugging Face discovery with failure-isolated download and smoke testing."""
+    """Cache-aware Hugging Face discovery with unified quality ranking."""
 
     def __init__(
         self,
@@ -295,7 +664,8 @@ class ModelDiscovery:
         data = _as_mapping(value)
         model_id = _model_id(value)
         tags = [str(tag) for tag in data.get("tags") or []]
-        if not model_id or not _task_match(model_id, tags, model_type):
+        evidence = _metadata_evidence(data)
+        if not model_id or not _task_match(model_id, tags, model_type, evidence):
             return None
         parameters = _parameter_count(data)
         return ModelCandidate(
@@ -308,7 +678,7 @@ class ModelDiscovery:
             downloads=int(data.get("downloads") or 0),
             parameter_count=parameters,
             estimated_memory_gib=_estimated_memory_gib(parameters),
-            metadata_evidence=_metadata_evidence(data),
+            metadata_evidence=evidence,
         )
 
     def discover(
@@ -322,25 +692,29 @@ class ModelDiscovery:
         if model_type not in MODEL_KINDS:
             raise ValueError(f"Unsupported model type: {model_type}")
         local = local_huggingface_models(self.cache_root)
-        candidates: dict[str, ModelCandidate] = {}
+        candidates: dict[tuple[str, str], ModelCandidate] = {}
         for model_id, metadata in local.items():
-            tags = re.split(r"[/_\-.]+", model_id.lower())
-            if not _task_match(model_id, tags, model_type):
-                continue
             revisions = metadata.get("revisions") or []
             refs = metadata.get("refs") or {}
             revision = str(refs.get("main") or revisions[-1]) if refs.get("main") or revisions else None
             snapshot = Path(str(metadata["cache_root"])) / "snapshots" / str(revision) if revision else None
             local_evidence = _local_metadata(snapshot) if snapshot and snapshot.exists() else {}
-            candidates[model_id] = ModelCandidate(
-                model_id=model_id,
-                model_type=model_type,
-                source="local_huggingface_cache",
-                revision=revision,
-                tags=list(tags),
-                local_path=str(snapshot if snapshot and snapshot.exists() else metadata["cache_root"]),
-                cache_status="CACHED",
-                metadata_evidence=local_evidence,
+            tags = sorted(set(re.split(r"[/_\-.]+", model_id.lower())) | set(local_evidence.get("tags") or []))
+            if not _task_match(model_id, tags, model_type, local_evidence):
+                continue
+            _add_candidate(
+                candidates,
+                ModelCandidate(
+                    model_id=model_id,
+                    model_type=model_type,
+                    source="local_huggingface_cache",
+                    revision=revision,
+                    license=local_evidence.get("license"),
+                    tags=tags,
+                    local_path=str(snapshot if snapshot and snapshot.exists() else metadata["cache_root"]),
+                    cache_status="CACHED",
+                    metadata_evidence=local_evidence,
+                ),
             )
         if allow_network:
             queries = (
@@ -348,9 +722,9 @@ class ModelDiscovery:
                 if model_type == "embedding"
                 else ["multilingual reranker", "chinese reranker", "financial reranker", "finance reranking"]
             )
-            try:
-                api = self._api_client()
-                for query in queries:
+            api = self._api_client()
+            for query in queries:
+                try:
                     for value in api.list_models(
                         search=query,
                         sort="downloads",
@@ -361,19 +735,49 @@ class ModelDiscovery:
                     ):
                         candidate = self._from_info(value, model_type=model_type, source="huggingface_search")
                         if candidate is not None:
-                            cached = local.get(candidate.model_id)
-                            if cached:
+                            cached_path = _cached_snapshot(local.get(candidate.model_id), candidate.revision)
+                            if cached_path is not None:
                                 candidate.cache_status = "CACHED"
-                                revisions = cached.get("revisions") or []
-                                refs = cached.get("refs") or {}
-                                revision = (
-                                    str(refs.get("main") or revisions[-1]) if refs.get("main") or revisions else None
-                                )
-                                snapshot = Path(str(cached["cache_root"])) / "snapshots" / str(revision)
-                                candidate.local_path = str(snapshot if snapshot.exists() else cached["cache_root"])
-                            candidates.setdefault(candidate.model_id, candidate)
-            except Exception as exc:
-                self.events.append({"model_type": model_type, "status": "SEARCH_UNAVAILABLE", "reason": str(exc)})
+                                candidate.local_path = str(cached_path)
+                            _add_candidate(candidates, candidate)
+                except Exception as exc:
+                    self.events.append(
+                        {
+                            "model_type": model_type,
+                            "status": "SEARCH_UNAVAILABLE",
+                            "query": query,
+                            "reason": str(exc),
+                        }
+                    )
+
+            model_info = getattr(api, "model_info", None)
+            if callable(model_info):
+                online_candidates = [
+                    candidate
+                    for candidate in candidates.values()
+                    if "huggingface_search" in candidate.source
+                    and not candidate.metadata_evidence.get("benchmark_scores")
+                ]
+                for candidate in sorted(online_candidates, key=lambda item: item.downloads, reverse=True)[:24]:
+                    try:
+                        info = model_info(candidate.model_id, revision=candidate.revision, files_metadata=False)
+                        enriched = self._from_info(info, model_type=model_type, source="huggingface_model_info")
+                        if enriched is not None:
+                            cached_path = _cached_snapshot(local.get(enriched.model_id), enriched.revision)
+                            if cached_path is not None:
+                                enriched.cache_status = "CACHED"
+                                enriched.local_path = str(cached_path)
+                            _add_candidate(candidates, enriched)
+                    except Exception as exc:
+                        self.events.append(
+                            {
+                                "model_type": model_type,
+                                "model_id": candidate.model_id,
+                                "revision": candidate.revision,
+                                "status": "METADATA_ENRICHMENT_UNAVAILABLE",
+                                "reason": str(exc),
+                            }
+                        )
 
         screened: list[ModelCandidate] = []
         for candidate in candidates.values():
@@ -385,36 +789,32 @@ class ModelDiscovery:
                 continue
             screened.append(candidate)
 
-        local_screened = sorted(
-            [item for item in screened if item.cache_status == "CACHED"],
-            key=lambda item: _candidate_score(item, finance=False),
-            reverse=True,
-        )
-        general = sorted(screened, key=lambda item: _candidate_score(item, finance=False), reverse=True)
+        _annotate_relative_benchmark_scores(screened)
+        general_pool = [item for item in screened if not _is_finance_candidate(item)]
+        if len(general_pool) < general_limit:
+            general_pool = screened
+        general = sorted(general_pool, key=lambda item: _candidate_score(item, finance=False), reverse=True)
         finance = sorted(
             [item for item in screened if _is_finance_candidate(item)],
             key=lambda item: _candidate_score(item, finance=True),
             reverse=True,
         )
         selected: list[ModelCandidate] = []
-        general_pool = [*local_screened[:general_limit], *general]
-        general_selected: list[ModelCandidate] = []
-        for candidate in general_pool:
-            if candidate.model_id not in {item.model_id for item in general_selected}:
-                general_selected.append(candidate)
-            if len(general_selected) >= general_limit:
-                break
-        for candidate in [*general_selected, *finance[:finance_limit]]:
-            if candidate.model_id not in {item.model_id for item in selected}:
+        ranked_buckets = [
+            *((candidate, "general") for candidate in general[:general_limit]),
+            *((candidate, "finance") for candidate in finance[:finance_limit]),
+        ]
+        for candidate, bucket in ranked_buckets:
+            if _candidate_identity(candidate) not in {_candidate_identity(item) for item in selected}:
+                finance_bucket = bucket == "finance"
+                candidate.selection_bucket = bucket
+                candidate.selection_score = _candidate_score_value(candidate, finance=finance_bucket)
+                comparisons = candidate.metadata_evidence.get("benchmark_comparisons") or []
                 candidate.selection_reason = (
-                    f"{candidate.selection_reason}; selected by model-card/config evidence for multilingual/Chinese retrieval"
-                    + (" and finance-domain signals" if candidate in finance else "")
-                    + f"; license={candidate.license or 'unknown'}, downloads={candidate.downloads}"
-                    + (
-                        "; model-card benchmark metadata present"
-                        if candidate.metadata_evidence.get("benchmark_metadata_present")
-                        else "; benchmark metadata unavailable"
-                    )
+                    f"{candidate.selection_reason}; unified {bucket} metadata score={candidate.selection_score:.3f}; "
+                    f"structured benchmark scores={len(candidate.metadata_evidence.get('benchmark_scores') or [])}; "
+                    f"comparable benchmark groups={len(comparisons)}; license={candidate.license or 'unknown'}; "
+                    f"cache_status={candidate.cache_status}; cache affects download cost only"
                 )
                 selected.append(candidate)
         self.events.extend(candidate.serializable() for candidate in selected)
@@ -423,6 +823,20 @@ class ModelDiscovery:
 
     def ensure_available(self, candidate: ModelCandidate, *, allow_download: bool) -> ModelCandidate:
         started = time.perf_counter()
+        local_path = Path(candidate.local_path) if candidate.local_path else None
+        if (
+            candidate.cache_status == "CACHED"
+            and local_path is not None
+            and local_path.exists()
+            and candidate.revision
+            and local_path.name == candidate.revision
+        ):
+            candidate.status = "AVAILABLE"
+            candidate.resource_usage["cache_reused_without_download"] = True
+            candidate.resource_usage["availability_seconds"] = time.perf_counter() - started
+            self.events.append(candidate.serializable())
+            self.flush()
+            return candidate
         try:
             from huggingface_hub import snapshot_download
 

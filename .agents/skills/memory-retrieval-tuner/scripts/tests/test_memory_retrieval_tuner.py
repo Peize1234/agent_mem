@@ -42,7 +42,13 @@ from tuner.experiment_branches import (  # noqa: E402
 from tuner.generated_source_artifacts import prepare_generated_source_candidate  # noqa: E402
 from tuner.encoding_contract import EncodingContract, SentenceTransformerEncodingAdapter  # noqa: E402
 from tuner.io_utils import sha256_file  # noqa: E402
-from tuner.model_discovery import ModelCandidate, ModelDiscovery, ResourceEnvelope  # noqa: E402
+from tuner.model_discovery import (  # noqa: E402
+    ModelCandidate,
+    ModelDiscovery,
+    ResourceEnvelope,
+    _annotate_relative_benchmark_scores,
+    _metadata_evidence,
+)
 from tuner.models import Candidate, CandidateResult, Dataset, Requirement, Turn  # noqa: E402
 import tuner.orchestrator as orchestrator  # noqa: E402
 import tuner.production_midterm_adapter as production_adapter  # noqa: E402
@@ -196,9 +202,10 @@ def test_resume_derives_cache_from_run_directory(tmp_path: Path) -> None:
     )
     fresh = TunerConfig(dataset=tmp_path / "dataset.xlsx", output_root=tmp_path / "fresh-output")
     assert _artifact_cache_root(resumed, run_dir) == tmp_path / "custom-output" / ".cache"
-    assert _artifact_cache_root(fresh, tmp_path / "fresh-output" / "run") == (
-        tmp_path / "fresh-output" / ".cache"
-    ).resolve()
+    assert (
+        _artifact_cache_root(fresh, tmp_path / "fresh-output" / "run")
+        == (tmp_path / "fresh-output" / ".cache").resolve()
+    )
 
 
 def test_loso_executes_every_frozen_fold(tmp_path: Path) -> None:
@@ -1206,36 +1213,157 @@ def test_staged_loop_rediagnoses_and_never_uses_validation(tmp_path: Path) -> No
     assert search.frontier[0].name == "secondary"
 
 
-def test_model_discovery_is_local_first_dynamic_and_failure_isolated(
+def _model_index(*, name: str, task: str, dataset: str, score: float) -> list[dict[str, Any]]:
+    return [
+        {
+            "name": name,
+            "results": [
+                {
+                    "task": {"type": task},
+                    "dataset": {"name": dataset},
+                    "metrics": [{"type": "ndcg_at_10", "value": score}],
+                }
+            ],
+        }
+    ]
+
+
+@pytest.mark.parametrize(
+    ("model_type", "local_id", "online_id", "task", "dataset", "tags"),
+    [
+        (
+            "embedding",
+            "local/zh-embedding",
+            "dynamic/high-zh-embedding",
+            "Retrieval",
+            "T2Retrieval",
+            ["sentence-similarity", "zh"],
+        ),
+        (
+            "reranker",
+            "local/zh-reranker",
+            "dynamic/high-zh-reranker",
+            "Reranking",
+            "T2Reranking",
+            ["text-ranking", "zh", "reranker"],
+        ),
+    ],
+)
+def test_deep_model_discovery_unifies_cached_and_online_quality_ranking(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
+    model_type: str,
+    local_id: str,
+    online_id: str,
+    task: str,
+    dataset: str,
+    tags: list[str],
 ) -> None:
+    cache = tmp_path / "hf" / "hub"
+    snapshot = cache / f"models--{local_id.replace('/', '--')}" / "snapshots" / "abc123"
+    snapshot.mkdir(parents=True)
+    (snapshot / "README.md").write_text(
+        "---\n"
+        + json.dumps(
+            {
+                "license": "apache-2.0",
+                "tags": tags,
+                "model-index": _model_index(name="C-MTEB", task=task, dataset=dataset, score=0.3),
+            },
+            ensure_ascii=False,
+        )
+        + "\n---\n",
+        encoding="utf-8",
+    )
+
+    class FakeApi:
+        def list_models(self, **kwargs: Any) -> list[Any]:
+            return [
+                SimpleNamespace(
+                    modelId=online_id,
+                    tags=tags,
+                    sha="online-revision",
+                    downloads=100,
+                    cardData={
+                        "license": "mit",
+                        "model-index": _model_index(name="C-MTEB", task=task, dataset=dataset, score=0.8),
+                    },
+                    safetensors={"total": 20_000_000},
+                )
+            ]
+
+    discovery = ModelDiscovery(
+        output_path=tmp_path / "models.json",
+        resources=ResourceEnvelope(0, None, 16.0, 100.0),
+        cache_root=cache,
+        api=FakeApi(),
+    )
+    candidates = discovery.discover(
+        model_type=model_type,
+        allow_network=True,
+        general_limit=1,
+        finance_limit=0,
+    )
+    assert [candidate.model_id for candidate in candidates] == [online_id]
+    assert candidates[0].cache_status == "NOT_CHECKED"
+    assert "cache affects download cost only" in candidates[0].selection_reason
+    assert candidates[0].metadata_evidence["benchmark_scores"] == [
+        {
+            "benchmark": "C-MTEB",
+            "task": task,
+            "dataset": dataset,
+            "metric": "ndcg_at_10",
+            "score": 0.8,
+        }
+    ]
+
+
+def test_standard_model_discovery_is_cache_only(tmp_path: Path) -> None:
     cache = tmp_path / "hf" / "hub"
     snapshot = cache / "models--local--zh-embedding" / "snapshots" / "abc123"
     snapshot.mkdir(parents=True)
 
-    class FakeApi:
+    class OfflineApi:
         def list_models(self, **kwargs: Any) -> list[Any]:
-            query = str(kwargs.get("search") or "")
-            if "financial" in query or "finance" in query:
-                return [
-                    SimpleNamespace(
-                        modelId="dynamic/finance-zh-embedding",
-                        tags=["sentence-similarity", "zh", "finance"],
-                        sha="finance-revision",
-                        downloads=50,
-                        cardData={"license": "apache-2.0"},
-                        safetensors={"total": 10_000_000},
-                    )
-                ]
+            raise AssertionError(f"standard discovery must not call the network: {kwargs}")
+
+    discovery = ModelDiscovery(
+        output_path=tmp_path / "models.json",
+        resources=ResourceEnvelope(0, None, 16.0, 100.0),
+        cache_root=cache,
+        api=OfflineApi(),
+    )
+    candidates = discovery.discover(
+        model_type="embedding",
+        allow_network=False,
+        general_limit=1,
+        finance_limit=0,
+    )
+    assert [candidate.model_id for candidate in candidates] == ["local/zh-embedding"]
+    assert candidates[0].cache_status == "CACHED"
+
+
+def test_model_discovery_deduplicates_exact_cached_online_revision(tmp_path: Path) -> None:
+    cache = tmp_path / "hf" / "hub"
+    snapshot = cache / "models--shared--zh-embedding" / "snapshots" / "abc123"
+    snapshot.mkdir(parents=True)
+
+    class FakeApi:
+        def list_models(self, **_: Any) -> list[Any]:
             return [
                 SimpleNamespace(
-                    modelId="dynamic/multilingual-embedding",
-                    tags=["sentence-similarity", "multilingual"],
-                    sha="general-revision",
-                    downloads=100,
-                    cardData={"license": "mit"},
-                    safetensors={"total": 20_000_000},
+                    modelId="shared/zh-embedding",
+                    tags=["sentence-similarity", "zh"],
+                    sha="abc123",
+                    downloads=10,
+                    cardData={
+                        "license": "apache-2.0",
+                        "model-index": _model_index(
+                            name="C-MTEB",
+                            task="Retrieval",
+                            dataset="T2Retrieval",
+                            score=0.7,
+                        ),
+                    },
                 )
             ]
 
@@ -1249,12 +1377,89 @@ def test_model_discovery_is_local_first_dynamic_and_failure_isolated(
         model_type="embedding",
         allow_network=True,
         general_limit=2,
-        finance_limit=2,
+        finance_limit=0,
     )
-    ids = {candidate.model_id for candidate in candidates}
-    assert "local/zh-embedding" in ids
-    assert "dynamic/finance-zh-embedding" in ids
-    assert any(candidate.revision == "finance-revision" for candidate in candidates)
+    assert len(candidates) == 1
+    assert candidates[0].revision == "abc123"
+    assert candidates[0].cache_status == "CACHED"
+    assert set(candidates[0].source.split("+")) == {"huggingface_search", "local_huggingface_cache"}
+
+
+def test_model_benchmark_scores_are_structured_and_compared_only_like_for_like() -> None:
+    def candidate(model_id: str, benchmark: str, dataset: str, score: float) -> ModelCandidate:
+        evidence = _metadata_evidence(
+            {
+                "tags": ["sentence-similarity", "zh"],
+                "cardData": {
+                    "model-index": _model_index(
+                        name=benchmark,
+                        task="Retrieval",
+                        dataset=dataset,
+                        score=score,
+                    )
+                },
+            }
+        )
+        return ModelCandidate(model_id, "embedding", "test", revision="revision", metadata_evidence=evidence)
+
+    low = candidate("test/c-mteb-low", "C-MTEB", "T2Retrieval", 0.6)
+    high = candidate("test/c-mteb-high", "C-MTEB", "T2Retrieval", 75.0)
+    finance = candidate("test/finmteb", "FinMTEB", "FinQA", 99.0)
+    _annotate_relative_benchmark_scores([low, high, finance])
+
+    assert low.metadata_evidence["benchmark_scores"][0] == {
+        "benchmark": "C-MTEB",
+        "task": "Retrieval",
+        "dataset": "T2Retrieval",
+        "metric": "ndcg_at_10",
+        "score": 0.6,
+    }
+    assert low.metadata_evidence["benchmark_comparisons"][0]["normalized_score"] == pytest.approx(0.6)
+    assert high.metadata_evidence["benchmark_comparisons"][0]["normalized_score"] == pytest.approx(0.75)
+    assert high.metadata_evidence["benchmark_comparisons"][0]["relative_percentile"] == pytest.approx(1.0)
+    assert finance.metadata_evidence["benchmark_comparisons"] == []
+
+
+def test_exact_cached_revision_reuses_snapshot_without_download(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    snapshot = tmp_path / "hf" / "hub" / "models--cached--embedding" / "snapshots" / "abc123"
+    snapshot.mkdir(parents=True)
+    discovery = ModelDiscovery(
+        output_path=tmp_path / "models.json",
+        resources=ResourceEnvelope(0, None, 16.0, 100.0),
+        cache_root=tmp_path / "hf" / "hub",
+    )
+
+    def unexpected_download(**_: Any) -> str:
+        raise AssertionError("an exact cached model_id + revision must not call snapshot_download")
+
+    monkeypatch.setattr("huggingface_hub.snapshot_download", unexpected_download)
+    available = discovery.ensure_available(
+        ModelCandidate(
+            "cached/embedding",
+            "embedding",
+            "local_huggingface_cache",
+            revision="abc123",
+            local_path=str(snapshot),
+            cache_status="CACHED",
+        ),
+        allow_download=True,
+    )
+    assert available.status == "AVAILABLE"
+    assert available.resource_usage["cache_reused_without_download"] is True
+
+
+def test_model_download_failure_is_isolated(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    discovery = ModelDiscovery(
+        output_path=tmp_path / "models.json",
+        resources=ResourceEnvelope(0, None, 16.0, 100.0),
+        cache_root=tmp_path / "hf" / "hub",
+    )
 
     def unavailable(**_: Any) -> str:
         raise PermissionError("gated model")
