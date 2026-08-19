@@ -252,6 +252,11 @@ def test_midterm_config_defaults():
     assert config.midterm.max_total_pages == 4
     assert config.midterm.midterm_rag_threshold == 0.1
     assert config.longterm_rag_threshold == 0.1
+    assert config.cross_session_longterm_rag_threshold == 0.1
+    assert config.cross_session_retention_half_life_hours == 720.0
+    assert config.cross_session_retention_floor == 0.2
+    assert config.cross_session_reinforcement_gain == 0.25
+    assert config.cross_session_retention_half_life_hours > config.midterm.retention_half_life_hours
     assert config.midterm.retention_half_life_hours == 168.0
     assert config.midterm.retention_floor == 0.2
     assert config.midterm.reinforcement_gain == 0.5
@@ -268,6 +273,8 @@ def test_midterm_config_rejects_negative_page_limits():
         MidTermMemoryConfig(top_k_pages=-1)
     with pytest.raises(ValueError):
         MidTermMemoryConfig(max_total_pages=-1)
+    with pytest.raises(ValueError, match="cross_session_retention_half_life_hours"):
+        MemoryConfig(cross_session_retention_half_life_hours=100.0)
 
 
 def _midterm_row(row_id, score, **payload):
@@ -1273,7 +1280,8 @@ def test_existing_longterm_configured_rag_threshold_preserves_run_scope(tmp_path
 
 def test_cross_session_longterm_promotion_is_user_scoped_and_idempotent(tmp_path, fake_memory_env):
     config = _memory_config(tmp_path, collection_name="cross_session_promotion")
-    config.background.enabled = False
+    config.background.poll_interval_seconds = 0.01
+    config.background.retry_delays_seconds = (0.0,)
     config.midterm.promotion_min_recall_count = 2
     config.midterm.promotion_heat_threshold = 0.0
     memory = Memory(config)
@@ -1287,6 +1295,7 @@ def test_cross_session_longterm_promotion_is_user_scoped_and_idempotent(tmp_path
     memory._confirm_context_valid_recalls([recalled_page])
     assert memory.cross_session_longterm.list(filters={"user_id": "user-1"}, top_k=10) == []
     memory._confirm_context_valid_recalls([recalled_page])
+    assert memory.flush_background_tasks(5)
 
     promoted = memory.cross_session_longterm.list(filters={"user_id": "user-1"}, top_k=10)
     assert len(promoted) == 1
@@ -1315,4 +1324,124 @@ def test_cross_session_longterm_promotion_is_user_scoped_and_idempotent(tmp_path
     recalled = memory.cross_session_longterm.get(promoted[0].id).payload
     assert recalled["recall_count"] == 1
     assert recalled["last_recall_at"]
+    assert recalled["memory_strength"] > 1.0
+
+    original_memory_id = promoted[0].id
+    original_source_version = recalled["source_version"]
+    session = memory.midterm_memory.get_session("session-1").payload
+    session["summary"] = "The user discussed a 10% loss limit and long-term investing."
+    session["summary_keywords"] = ["loss", "10%", "long-term"]
+    memory.midterm_memory.update_session("session-1", session, reembed=False)
+    memory._confirm_context_valid_recalls([recalled_page])
+    assert memory.flush_background_tasks(5)
+
+    refreshed_rows = memory.cross_session_longterm.list(filters={"user_id": "user-1"}, top_k=10)
+    refreshed = memory.cross_session_longterm.get(original_memory_id).payload
+    assert len(refreshed_rows) == 1
+    assert refreshed_rows[0].id == original_memory_id
+    assert refreshed["source_version"] != original_source_version
+    assert len(memory.db.list_promotion_jobs(source_midterm_session_id="session-1")) == 2
+    memory.close()
+
+
+def test_cross_session_retrieval_uses_slow_reinforcement_and_raw_threshold(tmp_path, fake_memory_env):
+    config = _memory_config(tmp_path, collection_name="cross_session_evolution")
+    config.background.enabled = False
+    config.midterm.promotion_min_recall_count = 1
+    config.midterm.promotion_heat_threshold = 0.0
+    config.cross_session_longterm_rag_threshold = 0.8
+    memory = Memory(config)
+    _insert_midterm_page_and_session(memory, run_id="run-a")
+    memory.midterm_memory.record_valid_recalls(["page-1"])
+    promoted = memory.cross_session_longterm.promote_session("session-1", memory.midterm_memory)
+    assert promoted["memory_strength"] == pytest.approx(1.0)
+
+    memory_id = promoted["id"]
+    row = memory.cross_session_longterm.get(memory_id)
+    payload = dict(row.payload)
+    now = beijing_now()
+    old = (now - timedelta(hours=config.cross_session_retention_half_life_hours)).isoformat()
+    payload["promoted_at"] = old
+    payload["last_recall_at"] = None
+    memory.cross_session_longterm.store.update(vector_id=memory_id, vector=None, payload=payload)
+
+    filtered = memory.cross_session_longterm.search(
+        "bond fund allocation",
+        user_id="user-1",
+        top_k=5,
+        threshold=config.cross_session_longterm_rag_threshold,
+        now=now.isoformat(),
+    )
+    assert filtered == []
+    assert memory.cross_session_longterm.get(memory_id).payload["recall_count"] == 0
+
+    candidates = memory.cross_session_longterm.search(
+        "maximum loss 10%",
+        user_id="user-1",
+        top_k=5,
+        threshold=config.cross_session_longterm_rag_threshold,
+        now=now.isoformat(),
+    )
+    assert len(candidates) == 1
+    candidate = candidates[0]
+    assert candidate["forgetting_factor"] == pytest.approx(0.5)
+    assert candidate["final_score"] == pytest.approx(
+        candidate["raw_rag_score"] * candidate["forgetting_factor"]
+    )
+    assert candidate["final_score"] < config.cross_session_longterm_rag_threshold
+    assert memory.cross_session_longterm.get(memory_id).payload["recall_count"] == 0
+
+    memory._confirm_context_valid_recalls(candidates)
+    recalled = memory.cross_session_longterm.get(memory_id).payload
+    assert recalled["recall_count"] == 1
+    assert recalled["last_recall_at"]
+    assert recalled["memory_strength"] == pytest.approx(
+        memory_strength(1, config.cross_session_reinforcement_gain)
+    )
+
+    cross_payload = {"promoted_at": old, "recall_count": 0}
+    cross_retention = forgetting_factor(
+        cross_payload,
+        config.midterm,
+        now=now.isoformat(),
+        recall_count_key="recall_count",
+        anchor_keys=("last_recall_at", "promoted_at"),
+        half_life_hours=config.cross_session_retention_half_life_hours,
+        retention_floor=config.cross_session_retention_floor,
+        reinforcement_gain=config.cross_session_reinforcement_gain,
+    )
+    midterm_retention = forgetting_factor(
+        {"created_at": old, "valid_recall_count": 0},
+        config.midterm,
+        now=now.isoformat(),
+    )
+    assert cross_retention > midterm_retention
+    memory.close()
+
+
+def test_valid_recall_only_enqueues_promotion_without_embedding(tmp_path, fake_memory_env):
+    config = _memory_config(tmp_path, collection_name="promotion_enqueue_only")
+    config.background.enabled = False
+    config.midterm.promotion_min_recall_count = 1
+    config.midterm.promotion_heat_threshold = 0.0
+    memory = Memory(config)
+    _insert_midterm_page_and_session(memory)
+    original_embed = memory.embedding_model.embed
+    embedding_calls = []
+
+    def recording_embed(text, memory_action=None):
+        embedding_calls.append(memory_action)
+        return original_embed(text, memory_action)
+
+    memory.embedding_model.embed = recording_embed
+    embedding_calls.clear()
+    memory._confirm_context_valid_recalls(
+        [{"id": "page-1", "source": "mid_term_page", "raw_dialogue": "context"}]
+    )
+
+    jobs = memory.db.list_promotion_jobs()
+    assert len(jobs) == 1
+    assert jobs[0]["status"] == "pending"
+    assert embedding_calls == []
+    assert memory.cross_session_longterm.list(filters={"user_id": "user-1"}, top_k=10) == []
     memory.close()

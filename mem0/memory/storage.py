@@ -36,6 +36,8 @@ MIGRATION_PARENT_TERMINAL_STATUSES = frozenset(
 )
 PROFILE_ACTIVE_STATUSES = frozenset({"pending", "running", "retry"})
 PROFILE_TERMINAL_STATUSES = frozenset({"succeeded", "discarded"})
+PROMOTION_ACTIVE_STATUSES = frozenset({"pending", "running", "retry"})
+PROMOTION_TERMINAL_STATUSES = frozenset({"succeeded", "discarded"})
 
 
 class IdempotencyConflictError(ValueError):
@@ -335,6 +337,43 @@ class SQLiteManager:
                     CREATE UNIQUE INDEX IF NOT EXISTS idx_profile_jobs_source_operation
                     ON profile_update_jobs(source_operation_key)
                     WHERE source_operation_key IS NOT NULL
+                    """
+                )
+                self.connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS memory_promotion_jobs (
+                        job_id TEXT PRIMARY KEY,
+                        user_id TEXT NOT NULL,
+                        source_midterm_session_id TEXT NOT NULL,
+                        source_run_id TEXT,
+                        source_version TEXT NOT NULL,
+                        status TEXT NOT NULL DEFAULT 'pending',
+                        attempts INTEGER NOT NULL DEFAULT 0,
+                        next_retry_at TEXT,
+                        last_error TEXT,
+                        started_at TEXT,
+                        finished_at TEXT,
+                        lease_token TEXT,
+                        heartbeat_at TEXT,
+                        lease_expires_at TEXT,
+                        recovery_count INTEGER NOT NULL DEFAULT 0,
+                        created_at TEXT NOT NULL,
+                        updated_at TEXT NOT NULL,
+                        UNIQUE(user_id, source_midterm_session_id, source_version),
+                        CHECK (status IN ('pending', 'running', 'retry', 'succeeded', 'discarded'))
+                    )
+                    """
+                )
+                self.connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_promotion_jobs_claim
+                    ON memory_promotion_jobs(status, next_retry_at, created_at)
+                    """
+                )
+                self.connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_promotion_jobs_source_session
+                    ON memory_promotion_jobs(user_id, source_midterm_session_id, created_at)
                     """
                 )
                 self.connection.execute("COMMIT")
@@ -1343,6 +1382,133 @@ class SQLiteManager:
             for row in rows
         ]
 
+    def ensure_promotion_job(
+        self,
+        *,
+        user_id: str,
+        source_midterm_session_id: str,
+        source_run_id: Optional[str],
+        source_version: str,
+    ) -> Dict[str, Any]:
+        """Create one durable promotion job per source content version."""
+        if not user_id or not source_midterm_session_id or not source_version:
+            raise ValueError("user_id, source_midterm_session_id, and source_version are required")
+        job_id = str(
+            uuid.uuid5(
+                uuid.NAMESPACE_URL,
+                f"mem0:promotion-job:{user_id}:{source_midterm_session_id}:{source_version}",
+            )
+        )
+        now = beijing_now_iso()
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN IMMEDIATE")
+                self.connection.execute(
+                    """
+                    INSERT INTO memory_promotion_jobs (
+                        job_id, user_id, source_midterm_session_id, source_run_id,
+                        source_version, status, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)
+                    ON CONFLICT(user_id, source_midterm_session_id, source_version) DO NOTHING
+                    """,
+                    (
+                        job_id,
+                        str(user_id),
+                        str(source_midterm_session_id),
+                        None if source_run_id is None else str(source_run_id),
+                        str(source_version),
+                        now,
+                        now,
+                    ),
+                )
+                cursor = self.connection.execute(
+                    """
+                    SELECT * FROM memory_promotion_jobs
+                    WHERE user_id = ? AND source_midterm_session_id = ? AND source_version = ?
+                    """,
+                    (str(user_id), str(source_midterm_session_id), str(source_version)),
+                )
+                job = self._row_as_dict(cursor, cursor.fetchone())
+                self.connection.execute("COMMIT")
+                if job is None:
+                    raise RuntimeError("Failed to persist promotion job")
+                return job
+            except Exception:
+                if self.connection is not None and self.connection.in_transaction:
+                    self.connection.execute("ROLLBACK")
+                raise
+
+    def list_promotion_jobs(
+        self,
+        *,
+        user_id: Optional[str] = None,
+        source_midterm_session_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        conditions = []
+        parameters: List[Any] = []
+        if user_id is not None:
+            conditions.append("user_id = ?")
+            parameters.append(str(user_id))
+        if source_midterm_session_id is not None:
+            conditions.append("source_midterm_session_id = ?")
+            parameters.append(str(source_midterm_session_id))
+        where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        with self._lock:
+            cursor = self.connection.execute(
+                f"SELECT * FROM memory_promotion_jobs {where} ORDER BY created_at, rowid",
+                tuple(parameters),
+            )
+            return [self._row_as_dict(cursor, row) for row in cursor.fetchall()]
+
+    def _recover_expired_promotion_jobs_locked(self, now: str, max_stale_recoveries: int) -> int:
+        rows = self.connection.execute(
+            """
+            SELECT job_id, recovery_count FROM memory_promotion_jobs
+            WHERE status = 'running' AND lease_expires_at IS NOT NULL
+              AND lease_expires_at <= ?
+            """,
+            (now,),
+        ).fetchall()
+        recovered = 0
+        for job_id, previous_count in rows:
+            recovery_count = int(previous_count or 0) + 1
+            status = "discarded" if recovery_count > max_stale_recoveries else "retry"
+            updated = self.connection.execute(
+                """
+                UPDATE memory_promotion_jobs
+                SET status = ?, recovery_count = ?, next_retry_at = ?,
+                    last_error = 'recovered expired lease', finished_at = ?,
+                    lease_token = NULL, heartbeat_at = NULL,
+                    lease_expires_at = NULL, updated_at = ?
+                WHERE job_id = ? AND status = 'running'
+                  AND lease_expires_at IS NOT NULL AND lease_expires_at <= ?
+                """,
+                (
+                    status,
+                    recovery_count,
+                    None if status == "discarded" else now,
+                    now if status == "discarded" else None,
+                    now,
+                    job_id,
+                    now,
+                ),
+            )
+            recovered += int(updated.rowcount == 1)
+        return recovered
+
+    def recover_expired_promotion_jobs(self, max_stale_recoveries: int) -> int:
+        max_recoveries = max(int(max_stale_recoveries), 0)
+        now = beijing_now_iso()
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN IMMEDIATE")
+                recovered = self._recover_expired_promotion_jobs_locked(now, max_recoveries)
+                self.connection.execute("COMMIT")
+                return recovered
+            except Exception:
+                self.connection.execute("ROLLBACK")
+                raise
+
     def recover_expired_background_leases(self, max_stale_recoveries: int) -> Dict[str, int]:
         """Recover only running attempts whose explicit lease has expired.
 
@@ -1443,11 +1609,13 @@ class SQLiteManager:
                         ),
                     )
                     profile_recovered += int(updated.rowcount == 1)
+                promotion_recovered = self._recover_expired_promotion_jobs_locked(now, max_recoveries)
                 self.connection.execute("COMMIT")
                 return {
                     **recovered,
                     "migration": len(affected_job_ids),
                     "profile": profile_recovered,
+                    "promotion": promotion_recovered,
                 }
             except Exception:
                 self.connection.execute("ROLLBACK")
@@ -1706,6 +1874,86 @@ class SQLiteManager:
                 self.connection.execute("ROLLBACK")
                 raise
 
+    def claim_next_promotion_job(self, lease_timeout_seconds: float = 120.0) -> Optional[Dict[str, Any]]:
+        return self._claim_promotion_job(lease_timeout_seconds=lease_timeout_seconds)
+
+    def claim_promotion_job(
+        self,
+        job_id: str,
+        lease_timeout_seconds: float = 120.0,
+    ) -> Optional[Dict[str, Any]]:
+        if not job_id:
+            raise ValueError("job_id is required")
+        return self._claim_promotion_job(job_id, lease_timeout_seconds=lease_timeout_seconds)
+
+    def _claim_promotion_job(
+        self,
+        job_id: Optional[str] = None,
+        *,
+        lease_timeout_seconds: float,
+    ) -> Optional[Dict[str, Any]]:
+        now_value = beijing_now()
+        now = now_value.isoformat()
+        lease_expires_at = (
+            now_value + timedelta(seconds=max(float(lease_timeout_seconds), 0.001))
+        ).isoformat()
+        lease_token = str(uuid.uuid4())
+        job_filter = "AND candidate.job_id = ?" if job_id is not None else ""
+        parameters = (now, job_id) if job_id is not None else (now,)
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN IMMEDIATE")
+                cursor = self.connection.execute(
+                    f"""
+                    SELECT candidate.* FROM memory_promotion_jobs AS candidate
+                    WHERE candidate.status IN ('pending', 'retry')
+                      AND (candidate.next_retry_at IS NULL OR candidate.next_retry_at <= ?)
+                      {job_filter}
+                      AND NOT EXISTS (
+                          SELECT 1 FROM memory_promotion_jobs AS earlier
+                          WHERE earlier.user_id = candidate.user_id
+                            AND earlier.source_midterm_session_id = candidate.source_midterm_session_id
+                            AND earlier.rowid < candidate.rowid
+                            AND earlier.status NOT IN ('succeeded', 'discarded')
+                      )
+                    ORDER BY candidate.created_at ASC, candidate.rowid ASC
+                    LIMIT 1
+                    """,
+                    parameters,
+                )
+                job = self._row_as_dict(cursor, cursor.fetchone())
+                if job is None:
+                    self.connection.execute("COMMIT")
+                    return None
+                updated = self.connection.execute(
+                    """
+                    UPDATE memory_promotion_jobs
+                    SET status = 'running', started_at = ?, lease_token = ?,
+                        heartbeat_at = ?, lease_expires_at = ?, updated_at = ?
+                    WHERE job_id = ? AND status IN ('pending', 'retry')
+                      AND (next_retry_at IS NULL OR next_retry_at <= ?)
+                    """,
+                    (now, lease_token, now, lease_expires_at, now, job["job_id"], now),
+                )
+                if updated.rowcount != 1:
+                    self.connection.execute("ROLLBACK")
+                    return None
+                self.connection.execute("COMMIT")
+                job.update(
+                    {
+                        "status": "running",
+                        "started_at": now,
+                        "lease_token": lease_token,
+                        "heartbeat_at": now,
+                        "lease_expires_at": lease_expires_at,
+                        "updated_at": now,
+                    }
+                )
+                return job
+            except Exception:
+                self.connection.execute("ROLLBACK")
+                raise
+
     def migration_stage_lease_is_current(self, job_id: str, stage: str, lease_token: str) -> bool:
         stage = self._validate_migration_stage(stage)
         with self._lock:
@@ -1776,6 +2024,30 @@ class SQLiteManager:
             self.connection.commit()
             return cursor.rowcount == 1
 
+    def heartbeat_promotion_job(
+        self,
+        job_id: str,
+        lease_token: str,
+        lease_timeout_seconds: float,
+    ) -> bool:
+        with self._lock:
+            now_value = beijing_now()
+            now = now_value.isoformat()
+            expires_at = (
+                now_value + timedelta(seconds=max(float(lease_timeout_seconds), 0.001))
+            ).isoformat()
+            cursor = self.connection.execute(
+                """
+                UPDATE memory_promotion_jobs
+                SET heartbeat_at = ?, lease_expires_at = ?, updated_at = ?
+                WHERE job_id = ? AND status = 'running' AND lease_token = ?
+                  AND lease_expires_at IS NOT NULL AND lease_expires_at > ?
+                """,
+                (now, expires_at, now, job_id, lease_token, now),
+            )
+            self.connection.commit()
+            return cursor.rowcount == 1
+
     def profile_job_lease_is_current(self, job_id: str, lease_token: str) -> bool:
         with self._lock:
             now = beijing_now_iso()
@@ -1785,6 +2057,19 @@ class SQLiteManager:
                 WHERE job_id = ? AND status = 'running' AND lease_token = ?
                   AND lease_expires_at IS NOT NULL
                   AND lease_expires_at > ?
+                """,
+                (job_id, lease_token, now),
+            ).fetchone()
+        return row is not None
+
+    def promotion_job_lease_is_current(self, job_id: str, lease_token: str) -> bool:
+        with self._lock:
+            now = beijing_now_iso()
+            row = self.connection.execute(
+                """
+                SELECT 1 FROM memory_promotion_jobs
+                WHERE job_id = ? AND status = 'running' AND lease_token = ?
+                  AND lease_expires_at IS NOT NULL AND lease_expires_at > ?
                 """,
                 (job_id, lease_token, now),
             ).fetchone()
@@ -2076,6 +2361,113 @@ class SQLiteManager:
                 self.connection.execute("ROLLBACK")
                 raise
 
+    def complete_promotion_job(self, job_id: str, lease_token: str) -> bool:
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN IMMEDIATE")
+                now = beijing_now_iso()
+                cursor = self.connection.execute(
+                    """
+                    UPDATE memory_promotion_jobs
+                    SET status = 'succeeded', next_retry_at = NULL,
+                        last_error = NULL, finished_at = ?, lease_token = NULL,
+                        heartbeat_at = NULL, lease_expires_at = NULL, updated_at = ?
+                    WHERE job_id = ? AND status = 'running' AND lease_token = ?
+                      AND lease_expires_at IS NOT NULL AND lease_expires_at > ?
+                    """,
+                    (now, now, job_id, lease_token, now),
+                )
+                self.connection.execute("COMMIT")
+                return cursor.rowcount == 1
+            except Exception:
+                self.connection.execute("ROLLBACK")
+                raise
+
+    def discard_promotion_job(self, job_id: str, lease_token: str, reason: str) -> bool:
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN IMMEDIATE")
+                now = beijing_now_iso()
+                cursor = self.connection.execute(
+                    """
+                    UPDATE memory_promotion_jobs
+                    SET status = 'discarded', next_retry_at = NULL,
+                        last_error = ?, finished_at = ?, lease_token = NULL,
+                        heartbeat_at = NULL, lease_expires_at = NULL, updated_at = ?
+                    WHERE job_id = ? AND status = 'running' AND lease_token = ?
+                      AND lease_expires_at IS NOT NULL AND lease_expires_at > ?
+                    """,
+                    (str(reason), now, now, job_id, lease_token, now),
+                )
+                self.connection.execute("COMMIT")
+                return cursor.rowcount == 1
+            except Exception:
+                self.connection.execute("ROLLBACK")
+                raise
+
+    def retry_promotion_job(
+        self,
+        job_id: str,
+        lease_token: str,
+        error: str,
+        *,
+        max_retries: int,
+        retry_delay_seconds: float,
+    ) -> str:
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN IMMEDIATE")
+                now = beijing_now()
+                now_iso = now.isoformat()
+                row = self.connection.execute(
+                    """
+                    SELECT attempts FROM memory_promotion_jobs
+                    WHERE job_id = ? AND status = 'running' AND lease_token = ?
+                      AND lease_expires_at IS NOT NULL AND lease_expires_at > ?
+                    """,
+                    (job_id, lease_token, now_iso),
+                ).fetchone()
+                if row is None:
+                    self.connection.execute("COMMIT")
+                    return "stale_lease"
+                attempts = int(row[0]) + 1
+                status = "retry" if attempts <= int(max_retries) else "discarded"
+                next_retry_at = (
+                    (now + timedelta(seconds=max(float(retry_delay_seconds), 0))).isoformat()
+                    if status == "retry"
+                    else None
+                )
+                finished_at = now_iso if status == "discarded" else None
+                updated = self.connection.execute(
+                    """
+                    UPDATE memory_promotion_jobs
+                    SET status = ?, attempts = ?, next_retry_at = ?,
+                        last_error = ?, finished_at = ?, lease_token = NULL,
+                        heartbeat_at = NULL, lease_expires_at = NULL, updated_at = ?
+                    WHERE job_id = ? AND status = 'running' AND lease_token = ?
+                      AND lease_expires_at IS NOT NULL AND lease_expires_at > ?
+                    """,
+                    (
+                        status,
+                        attempts,
+                        next_retry_at,
+                        str(error),
+                        finished_at,
+                        now_iso,
+                        job_id,
+                        lease_token,
+                        now_iso,
+                    ),
+                )
+                if updated.rowcount != 1:
+                    self.connection.execute("ROLLBACK")
+                    return "stale_lease"
+                self.connection.execute("COMMIT")
+                return status
+            except Exception:
+                self.connection.execute("ROLLBACK")
+                raise
+
     def background_jobs_pending(self) -> bool:
         with self._lock:
             migration = self.connection.execute(
@@ -2093,7 +2485,14 @@ class SQLiteManager:
                 LIMIT 1
                 """
             ).fetchone()
-            return migration is not None or profile is not None
+            promotion = self.connection.execute(
+                """
+                SELECT 1 FROM memory_promotion_jobs
+                WHERE status IN ('pending', 'running', 'retry')
+                LIMIT 1
+                """
+            ).fetchone()
+            return migration is not None or profile is not None or promotion is not None
 
     def migration_stage_jobs_pending(self, stage: str) -> bool:
         stage = self._validate_migration_stage(stage)
@@ -2108,15 +2507,22 @@ class SQLiteManager:
         return row is not None
 
     def get_background_job(self, job_id: str, job_type: str = "migration") -> Optional[Dict[str, Any]]:
-        table = "memory_migration_jobs" if job_type == "migration" else "profile_update_jobs"
-        if job_type not in {"migration", "profile"}:
-            raise ValueError("job_type must be 'migration' or 'profile'")
+        tables = {
+            "migration": "memory_migration_jobs",
+            "profile": "profile_update_jobs",
+            "promotion": "memory_promotion_jobs",
+        }
+        if job_type not in tables:
+            raise ValueError("job_type must be 'migration', 'profile', or 'promotion'")
+        table = tables[job_type]
         with self._lock:
             cursor = self.connection.execute(f"SELECT * FROM {table} WHERE job_id = ?", (job_id,))
             job = self._row_as_dict(cursor, cursor.fetchone())
         if job_type == "migration":
             return self._decode_migration_job(job)
-        return self._decode_profile_job(job)
+        if job_type == "profile":
+            return self._decode_profile_job(job)
+        return job
 
     @staticmethod
     def _profile_attribute_from_row(row) -> Optional[Dict[str, Any]]:
@@ -2525,6 +2931,7 @@ class SQLiteManager:
                 self.connection.execute("DROP TABLE IF EXISTS user_profile_values")
                 self.connection.execute("DROP TABLE IF EXISTS profile_attributes")
                 self.connection.execute("DROP TABLE IF EXISTS profile_update_jobs")
+                self.connection.execute("DROP TABLE IF EXISTS memory_promotion_jobs")
                 self.connection.execute("DROP TABLE IF EXISTS memory_migration_jobs")
                 self.connection.execute("DROP TABLE IF EXISTS memory_idempotency_operations")
                 self.connection.execute("DROP TABLE IF EXISTS history")

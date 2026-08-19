@@ -31,7 +31,7 @@ from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.memory.agentic_retrieval import AgenticMemoryRunner, AsyncAgenticMemoryRunner
 from mem0.memory.background_worker import BackgroundWorkerManager
 from mem0.memory.base import MemoryBase
-from mem0.memory.cross_session_longterm import CrossSessionLongTermMemory
+from mem0.memory.cross_session_longterm import CrossSessionLongTermMemory, promotion_source_version
 from mem0.memory.midterm import MidTermMemory
 from mem0.memory.midterm_retriever import MidTermRetriever
 from mem0.memory.midterm_updater import MidTermUpdater
@@ -1074,15 +1074,30 @@ class _BackgroundMemoryMixin:
                 ):
                     continue
                 try:
-                    self.cross_session_longterm.promote_session(str(session["id"]), self.midterm_memory)
+                    self._enqueue_promotion_job(session)
                 except Exception:
                     logger.warning(
-                        "Cross-session long-term promotion failed for session_id=%s",
+                        "Cross-session long-term promotion enqueue failed for session_id=%s",
                         session.get("id"),
                         exc_info=True,
                     )
         except Exception:
             logger.warning("Failed to record valid mid-term recalls", exc_info=True)
+
+    def _enqueue_promotion_job(self, session: Dict[str, Any]) -> Optional[str]:
+        user_id = session.get("user_id")
+        session_id = session.get("id")
+        if user_id in (None, "") or session_id in (None, ""):
+            return None
+        source_version = promotion_source_version(session)
+        job = self.db.ensure_promotion_job(
+            user_id=str(user_id),
+            source_midterm_session_id=str(session_id),
+            source_run_id=session.get("run_id"),
+            source_version=source_version,
+        )
+        self._ensure_background_workers().wake_promotion()
+        return str(job["job_id"])
 
     def _normalize_agentic_supplement_result(self, result: Any) -> str:
         """Normalize an Agentic result for use as optional historical context."""
@@ -1137,9 +1152,11 @@ class _BackgroundMemoryMixin:
             process_midterm=self._background_process_midterm,
             process_longterm=self._background_process_longterm,
             process_profile=self._background_process_profile,
+            process_promotion=self._background_process_promotion,
             process_midterm_async=getattr(self, "_background_process_midterm_async", None),
             process_longterm_async=getattr(self, "_background_process_longterm_async", None),
             process_profile_async=getattr(self, "_background_process_profile_async", None),
+            process_promotion_async=getattr(self, "_background_process_promotion_async", None),
             commit_migration_outputs=self._commit_migration_stage_outputs,
             commit_migration_outputs_async=getattr(self, "_commit_migration_stage_outputs_async", None),
             discard_migration_outputs=self._discard_migration_stage_outputs,
@@ -1444,6 +1461,40 @@ class _BackgroundMemoryMixin:
         )
         if asyncio.iscoroutine(result):
             asyncio.run(result)
+
+    def _background_process_promotion(self, job) -> Optional[str]:
+        session_id = str(job["source_midterm_session_id"])
+        session = self.midterm_memory.get_session(session_id)
+        if not session:
+            return "source mid-term session no longer exists"
+        session_payload = dict(getattr(session, "payload", None) or {})
+        if str(session_payload.get("user_id") or "") != str(job["user_id"]):
+            return "source mid-term session user does not match promotion job"
+        if promotion_source_version(session_payload) != str(job["source_version"]):
+            return "source mid-term session version has changed"
+        if int(session_payload.get("valid_recall_count", 0) or 0) < int(
+            self.config.midterm.promotion_min_recall_count
+        ):
+            return "source mid-term session no longer meets recall threshold"
+        if float(session_payload.get("H_segment", 0.0) or 0.0) < float(
+            self.config.midterm.promotion_heat_threshold
+        ):
+            return "source mid-term session no longer meets heat threshold"
+
+        def lease_is_current() -> bool:
+            return self.db.promotion_job_lease_is_current(job["job_id"], job["lease_token"])
+
+        if not lease_is_current():
+            raise RuntimeError("stale promotion job lease")
+        promoted = self.cross_session_longterm.promote_session(
+            session_id,
+            self.midterm_memory,
+            expected_source_version=str(job["source_version"]),
+            lease_is_current=lease_is_current,
+        )
+        if promoted is None:
+            return "source mid-term session is not promotable"
+        return None
 
     def _store_longterm_fallback(self, job, messages, *, lease_is_current=None) -> None:
         job_id = job["job_id"]
@@ -2501,7 +2552,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                         query,
                         user_id=user_id,
                         top_k=max(int(self.config.midterm.max_total_pages), 0),
-                        threshold=float(self.config.longterm_rag_threshold),
+                        threshold=float(self.config.cross_session_longterm_rag_threshold),
                     )
                 )
             except Exception as e:
@@ -4522,6 +4573,9 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             lease_is_current=lease_is_current,
         )
 
+    async def _background_process_promotion_async(self, job) -> Optional[str]:
+        return await asyncio.to_thread(self._background_process_promotion, job)
+
     async def _background_process_profile_async(self, job) -> bool:
         lock = self._get_profile_user_thread_lock(job["user_id"])
         async with _acquire_thread_lock_async(lock):
@@ -5005,7 +5059,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                         query,
                         user_id=user_id,
                         top_k=max(int(self.config.midterm.max_total_pages), 0),
-                        threshold=float(self.config.longterm_rag_threshold),
+                        threshold=float(self.config.cross_session_longterm_rag_threshold),
                     )
                 )
             except Exception as e:

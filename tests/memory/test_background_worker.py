@@ -51,6 +51,8 @@ def _manager(
     midterm_async=None,
     longterm_async=None,
     profile_async=None,
+    promotion=None,
+    promotion_async=None,
 ):
     config = config or BackgroundTaskConfig(poll_interval_seconds=0.01)
     return BackgroundWorkerManager(
@@ -62,6 +64,8 @@ def _manager(
         process_midterm_async=midterm_async,
         process_longterm_async=longterm_async,
         process_profile_async=profile_async,
+        process_promotion=promotion,
+        process_promotion_async=promotion_async,
     )
 
 
@@ -80,9 +84,11 @@ def test_background_config_defaults():
     assert config.midterm_worker_count == 1
     assert config.longterm_worker_count == 1
     assert config.profile_worker_count == 1
+    assert config.promotion_worker_count == 1
     assert config.midterm_worker_concurrency == 1
     assert config.longterm_worker_concurrency == 1
     assert config.profile_worker_concurrency == 1
+    assert config.promotion_worker_concurrency == 2
     assert config.entity_extraction_worker_count == 2
     assert config.entity_extraction_pending_capacity == 8
     assert config.max_retries == 3
@@ -154,6 +160,162 @@ def test_configured_worker_pools_start_once_and_stop_all_workers(db):
     assert manager.threads_alive() is False
 
 
+def test_promotion_job_schema_version_idempotency_and_session_order(db):
+    columns = {
+        row[1]
+        for row in db.connection.execute("PRAGMA table_info(memory_promotion_jobs)").fetchall()
+    }
+    assert {
+        "job_id",
+        "user_id",
+        "source_midterm_session_id",
+        "source_run_id",
+        "source_version",
+        "status",
+        "attempts",
+        "next_retry_at",
+        "last_error",
+        "started_at",
+        "finished_at",
+        "lease_token",
+        "heartbeat_at",
+        "lease_expires_at",
+        "recovery_count",
+        "created_at",
+        "updated_at",
+    } <= columns
+
+    first = db.ensure_promotion_job(
+        user_id="u1",
+        source_midterm_session_id="s1",
+        source_run_id="r1",
+        source_version="v1",
+    )
+    duplicate = db.ensure_promotion_job(
+        user_id="u1",
+        source_midterm_session_id="s1",
+        source_run_id="r1",
+        source_version="v1",
+    )
+    second = db.ensure_promotion_job(
+        user_id="u1",
+        source_midterm_session_id="s1",
+        source_run_id="r1",
+        source_version="v2",
+    )
+    assert duplicate["job_id"] == first["job_id"]
+    assert second["job_id"] != first["job_id"]
+    assert len(db.list_promotion_jobs()) == 2
+
+    claimed_first = db.claim_next_promotion_job(lease_timeout_seconds=5)
+    assert claimed_first["job_id"] == first["job_id"]
+    assert db.claim_next_promotion_job(lease_timeout_seconds=5) is None
+    assert db.complete_promotion_job(claimed_first["job_id"], claimed_first["lease_token"])
+    claimed_second = db.claim_next_promotion_job(lease_timeout_seconds=5)
+    assert claimed_second["job_id"] == second["job_id"]
+
+
+def test_promotion_worker_retries_then_succeeds(db):
+    attempts = []
+
+    def promote(job):
+        attempts.append(job["job_id"])
+        if len(attempts) == 1:
+            raise RuntimeError("temporary embedding failure")
+        return None
+
+    config = BackgroundTaskConfig(
+        poll_interval_seconds=0.01,
+        retry_delays_seconds=(0.0,),
+        max_retries=2,
+    )
+    job = db.ensure_promotion_job(
+        user_id="u1",
+        source_midterm_session_id="s1",
+        source_run_id="r1",
+        source_version="v1",
+    )
+    manager = _manager(db, config=config, promotion=promote)
+    try:
+        manager.start()
+        manager.wake_promotion()
+        assert manager.flush(3)
+    finally:
+        assert manager.stop(timeout=2)
+
+    persisted = db.get_background_job(job["job_id"], "promotion")
+    assert persisted["status"] == "succeeded"
+    assert persisted["attempts"] == 1
+    assert len(attempts) == 2
+
+
+def test_promotion_expired_lease_is_recovered(db):
+    job = db.ensure_promotion_job(
+        user_id="u1",
+        source_midterm_session_id="s1",
+        source_run_id="r1",
+        source_version="v1",
+    )
+    claimed = db.claim_promotion_job(job["job_id"], lease_timeout_seconds=5)
+    expired = (beijing_now() - timedelta(seconds=1)).isoformat()
+    with db._lock:
+        db.connection.execute(
+            "UPDATE memory_promotion_jobs SET lease_expires_at = ? WHERE job_id = ?",
+            (expired, job["job_id"]),
+        )
+        db.connection.commit()
+
+    recovered = db.recover_expired_background_leases(max_stale_recoveries=3)
+    persisted = db.get_background_job(job["job_id"], "promotion")
+    assert recovered["promotion"] == 1
+    assert persisted["status"] == "retry"
+    assert persisted["recovery_count"] == 1
+    assert persisted["lease_token"] is None
+    assert claimed["lease_token"] != db.claim_promotion_job(job["job_id"], 5)["lease_token"]
+
+
+def test_one_promotion_thread_runs_multiple_async_tasks_concurrently(db):
+    active = 0
+    max_active = 0
+    lock = threading.Lock()
+    both_started = threading.Event()
+
+    def promote(job):
+        nonlocal active, max_active
+        with lock:
+            active += 1
+            max_active = max(max_active, active)
+            if active == 2:
+                both_started.set()
+        both_started.wait(2)
+        with lock:
+            active -= 1
+        return None
+
+    config = BackgroundTaskConfig(
+        promotion_worker_count=1,
+        promotion_worker_concurrency=2,
+        poll_interval_seconds=0.01,
+    )
+    for index in range(2):
+        db.ensure_promotion_job(
+            user_id="u1",
+            source_midterm_session_id=f"s{index}",
+            source_run_id="r1",
+            source_version="v1",
+        )
+    manager = _manager(db, config=config, promotion=promote)
+    try:
+        manager.start()
+        manager.wake_promotion()
+        assert manager.flush(3)
+        promotion_threads = [thread for thread in manager._threads if "promotion" in thread.name]
+        assert len(promotion_threads) == 1
+        assert max_active == 2
+    finally:
+        assert manager.stop(timeout=2)
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     [
@@ -166,9 +328,12 @@ def test_configured_worker_pools_start_once_and_stop_all_workers(db):
         ("profile_worker_count", 0),
         ("profile_worker_count", -1),
         ("profile_worker_count", 17),
+        ("promotion_worker_count", 0),
+        ("promotion_worker_count", 17),
         ("midterm_worker_concurrency", 0),
         ("longterm_worker_concurrency", 0),
         ("profile_worker_concurrency", 0),
+        ("promotion_worker_concurrency", 0),
         ("midterm_worker_concurrency", 1025),
         ("entity_extraction_worker_count", 0),
         ("entity_extraction_worker_count", 17),

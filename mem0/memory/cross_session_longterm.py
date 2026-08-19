@@ -1,15 +1,28 @@
 import copy
+import hashlib
+import json
 import logging
 import threading
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from mem0.memory.midterm import vector_rows
-from mem0.memory.memory_evolution import unique_ids
+from mem0.memory.memory_evolution import forgetting_factor, memory_strength, unique_ids
 from mem0.utils.factory import VectorStoreFactory
 from mem0.utils.timestamps import beijing_now_iso
 
 logger = logging.getLogger(__name__)
+
+
+def promotion_source_version(session_payload: Dict[str, Any]) -> str:
+    """Hash only promoted content, excluding volatile recall and heat state."""
+    source = {
+        "summary": str(session_payload.get("summary") or "").strip(),
+        "keywords": list(session_payload.get("summary_keywords") or []),
+        "page_ids": unique_ids(session_payload.get("page_ids") or []),
+    }
+    canonical = json.dumps(source, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 class CrossSessionLongTermMemory:
@@ -87,6 +100,42 @@ class CrossSessionLongTermMemory:
             "source": self.SOURCE,
         }
 
+    def _retention_half_life_hours(self) -> float:
+        return float(
+            getattr(
+                self.config,
+                "cross_session_retention_half_life_hours",
+                getattr(self.config.midterm, "retention_half_life_hours", 720.0) * 4,
+            )
+        )
+
+    def _retention_floor(self) -> float:
+        return float(
+            getattr(
+                self.config,
+                "cross_session_retention_floor",
+                getattr(self.config.midterm, "retention_floor", 0.2),
+            )
+        )
+
+    def _reinforcement_gain(self) -> float:
+        return float(
+            getattr(
+                self.config,
+                "cross_session_reinforcement_gain",
+                getattr(self.config.midterm, "reinforcement_gain", 0.25),
+            )
+        )
+
+    def _rag_threshold(self) -> float:
+        return float(
+            getattr(
+                self.config,
+                "cross_session_longterm_rag_threshold",
+                getattr(self.config, "longterm_rag_threshold", 0.1),
+            )
+        )
+
     def get(self, memory_id: str):
         return self.store.get(vector_id=memory_id)
 
@@ -110,7 +159,14 @@ class CrossSessionLongTermMemory:
             )
         return evidence
 
-    def promote_session(self, session_id: str, midterm_memory) -> Optional[Dict[str, Any]]:
+    def promote_session(
+        self,
+        session_id: str,
+        midterm_memory,
+        *,
+        expected_source_version: Optional[str] = None,
+        lease_is_current: Optional[Callable[[], bool]] = None,
+    ) -> Optional[Dict[str, Any]]:
         """Idempotently promote an eligible session using a deterministic record ID."""
         with self._lock:
             session = midterm_memory.get_session(session_id)
@@ -123,6 +179,11 @@ class CrossSessionLongTermMemory:
                 return None
             if absolute_heat < float(self.config.midterm.promotion_heat_threshold):
                 return None
+            current_source_version = promotion_source_version(session_payload)
+            if expected_source_version and current_source_version != expected_source_version:
+                return None
+            if lease_is_current is not None and not lease_is_current():
+                raise RuntimeError("stale promotion job lease")
 
             user_id = session_payload.get("user_id")
             if user_id in (None, ""):
@@ -144,9 +205,11 @@ class CrossSessionLongTermMemory:
                     existing_payload.get("keywords", []) == keywords,
                     existing_payload.get("source_page_ids", []) == page_ids,
                     existing_payload.get("evidence", []) == evidence,
+                    existing_payload.get("source_version") == current_source_version,
                 )
             ):
                 return existing_payload
+            cross_recall_count = int(existing_payload.get("recall_count", 0) or 0)
             payload = {
                 "id": memory_id,
                 "source": self.SOURCE,
@@ -157,21 +220,36 @@ class CrossSessionLongTermMemory:
                 "source_midterm_session_id": str(session_id),
                 "source_run_id": session_payload.get("run_id"),
                 "source_page_ids": page_ids,
+                "source_version": current_source_version,
                 "evidence": evidence,
                 "promoted_at": existing_payload.get("promoted_at") or now,
                 "updated_at": now,
-                "recall_count": int(existing_payload.get("recall_count", 0) or 0),
+                "recall_count": cross_recall_count,
                 "last_recall_at": existing_payload.get("last_recall_at"),
+                "memory_strength": memory_strength(
+                    cross_recall_count,
+                    self._reinforcement_gain(),
+                ),
             }
             stored_payload = self._stored_payload(payload)
             vector = self.embedding_model.embed(self._embedding_text(payload), "update" if existing else "add")
+            if lease_is_current is not None and not lease_is_current():
+                raise RuntimeError("stale promotion job lease")
             if existing:
                 self.store.update(vector_id=memory_id, vector=vector, payload=stored_payload)
             else:
                 self.store.insert(vectors=[vector], ids=[memory_id], payloads=[stored_payload])
             return payload
 
-    def search(self, query: str, *, user_id: str, top_k: int, threshold: float) -> List[Dict[str, Any]]:
+    def search(
+        self,
+        query: str,
+        *,
+        user_id: str,
+        top_k: int,
+        threshold: Optional[float] = None,
+        now: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
         """Search only by user scope; source run IDs are evidence, never filters."""
         if not user_id or top_k <= 0:
             return []
@@ -182,25 +260,44 @@ class CrossSessionLongTermMemory:
             top_k=max(top_k * 4, top_k),
             filters={"user_id": user_id},
         )
-        results = []
+        candidates = []
         for row in rows:
             raw_score = float(getattr(row, "score", 0.0) or 0.0)
-            if raw_score < float(threshold):
-                continue
             payload = getattr(row, "payload", None) or {}
-            results.append(
+            if str(payload.get("user_id") or "") != str(user_id):
+                continue
+            strength = memory_strength(
+                payload.get("recall_count", 0) or 0,
+                self._reinforcement_gain(),
+            )
+            retention = forgetting_factor(
+                payload,
+                self.config.midterm,
+                now=now,
+                recall_count_key="recall_count",
+                anchor_keys=("last_recall_at", "promoted_at"),
+                half_life_hours=self._retention_half_life_hours(),
+                retention_floor=self._retention_floor(),
+                reinforcement_gain=self._reinforcement_gain(),
+            )
+            final_score = raw_score * retention
+            candidates.append(
                 {
                     "id": str(row.id),
                     "memory": payload.get("memory") or payload.get("summary") or payload.get("data", ""),
                     "summary": payload.get("summary"),
                     "keywords": payload.get("keywords", []),
-                    "score": raw_score,
+                    "score": final_score,
                     "raw_rag_score": raw_score,
+                    "forgetting_factor": retention,
+                    "memory_strength": strength,
+                    "final_score": final_score,
                     "source": self.SOURCE,
                     "user_id": payload.get("user_id"),
                     "source_midterm_session_id": payload.get("source_midterm_session_id"),
                     "source_run_id": payload.get("source_run_id"),
                     "source_page_ids": payload.get("source_page_ids", []),
+                    "source_version": payload.get("source_version"),
                     "promoted_at": payload.get("promoted_at"),
                     "created_at": payload.get("promoted_at"),
                     "updated_at": payload.get("updated_at"),
@@ -208,9 +305,9 @@ class CrossSessionLongTermMemory:
                     "last_recall_at": payload.get("last_recall_at"),
                 }
             )
-            if len(results) >= top_k:
-                break
-        return results
+        candidates.sort(key=lambda item: item["final_score"], reverse=True)
+        effective_threshold = self._rag_threshold() if threshold is None else float(threshold)
+        return [item for item in candidates if item["raw_rag_score"] >= effective_threshold][:top_k]
 
     def record_valid_recalls(self, memory_ids: List[str], *, recalled_at: Optional[str] = None) -> None:
         now = recalled_at or beijing_now_iso()
@@ -221,6 +318,10 @@ class CrossSessionLongTermMemory:
                     continue
                 payload = dict(getattr(row, "payload", None) or {})
                 payload["recall_count"] = int(payload.get("recall_count", 0) or 0) + 1
+                payload["memory_strength"] = memory_strength(
+                    payload["recall_count"],
+                    self._reinforcement_gain(),
+                )
                 payload["last_recall_at"] = now
                 payload["updated_at"] = now
                 self.store.update(vector_id=memory_id, vector=None, payload=payload)

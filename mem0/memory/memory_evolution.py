@@ -27,21 +27,29 @@ def forgetting_factor(
     config,
     *,
     now: Optional[str] = None,
+    recall_count_key: str = "valid_recall_count",
+    anchor_keys: tuple[str, ...] = ("last_recall_at", "created_at", "updated_at"),
+    half_life_hours: Optional[float] = None,
+    retention_floor: Optional[float] = None,
+    reinforcement_gain: Optional[float] = None,
 ) -> float:
     """Compute retrieval-only retention without deleting or mutating the memory."""
     current = _timestamp(now or beijing_now_iso())
-    anchor = _timestamp(payload.get("last_recall_at") or payload.get("created_at") or payload.get("updated_at"))
+    anchor = _timestamp(next((payload.get(key) for key in anchor_keys if payload.get(key)), None))
     if current is None or anchor is None:
         return 1.0
 
     elapsed_hours = max((current - anchor).total_seconds() / 3600.0, 0.0)
+    gain = float(config.reinforcement_gain if reinforcement_gain is None else reinforcement_gain)
     strength = memory_strength(
-        payload.get("valid_recall_count", 0) or 0,
-        config.reinforcement_gain,
+        payload.get(recall_count_key, 0) or 0,
+        gain,
     )
-    effective_half_life = float(config.retention_half_life_hours) * strength
+    base_half_life = float(config.retention_half_life_hours if half_life_hours is None else half_life_hours)
+    floor = float(config.retention_floor if retention_floor is None else retention_floor)
+    effective_half_life = base_half_life * strength
     retention = 2.0 ** (-elapsed_hours / effective_half_life)
-    return max(float(config.retention_floor), min(retention, 1.0))
+    return max(floor, min(retention, 1.0))
 
 
 def heat_modulations(

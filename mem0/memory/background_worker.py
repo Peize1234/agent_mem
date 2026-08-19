@@ -13,11 +13,13 @@ logger = logging.getLogger(__name__)
 
 MigrationHandler = Callable[[Dict[str, Any], List[Dict[str, Any]], bool], None]
 ProfileHandler = Callable[[Dict[str, Any]], Optional[bool]]
+PromotionHandler = Callable[[Dict[str, Any]], Optional[str]]
 CommitOutputsHandler = Callable[[Dict[str, Any], str, str, bool], None]
 DiscardOutputsHandler = Callable[[Dict[str, Any], str, str], Optional[str]]
 StartupCleanupHandler = Callable[[], Dict[str, Any]]
 AsyncMigrationHandler = Callable[[Dict[str, Any], List[Dict[str, Any]], bool], Awaitable[None]]
 AsyncProfileHandler = Callable[[Dict[str, Any]], Awaitable[Optional[bool]]]
+AsyncPromotionHandler = Callable[[Dict[str, Any]], Awaitable[Optional[str]]]
 AsyncCommitOutputsHandler = Callable[[Dict[str, Any], str, str, bool], Awaitable[None]]
 AsyncDiscardOutputsHandler = Callable[[Dict[str, Any], str, str], Awaitable[Optional[str]]]
 
@@ -65,7 +67,7 @@ class LeaseHeartbeat:
 
 
 class BackgroundWorkerManager:
-    """Run independent persistent workers for midterm, longterm, and profile jobs."""
+    """Run independent persistent workers for migration, profile, and promotion jobs."""
 
     def __init__(
         self,
@@ -75,9 +77,11 @@ class BackgroundWorkerManager:
         process_midterm: MigrationHandler,
         process_longterm: MigrationHandler,
         process_profile: ProfileHandler,
+        process_promotion: Optional[PromotionHandler] = None,
         process_midterm_async: Optional[AsyncMigrationHandler] = None,
         process_longterm_async: Optional[AsyncMigrationHandler] = None,
         process_profile_async: Optional[AsyncProfileHandler] = None,
+        process_promotion_async: Optional[AsyncPromotionHandler] = None,
         commit_migration_outputs: Optional[CommitOutputsHandler] = None,
         commit_migration_outputs_async: Optional[AsyncCommitOutputsHandler] = None,
         discard_migration_outputs: Optional[DiscardOutputsHandler] = None,
@@ -89,9 +93,11 @@ class BackgroundWorkerManager:
         self.process_midterm = process_midterm
         self.process_longterm = process_longterm
         self.process_profile = process_profile
+        self.process_promotion = process_promotion
         self.process_midterm_async = process_midterm_async
         self.process_longterm_async = process_longterm_async
         self.process_profile_async = process_profile_async
+        self.process_promotion_async = process_promotion_async
         self.commit_migration_outputs = commit_migration_outputs or (lambda job, stage, token, degraded: None)
         self.commit_migration_outputs_async = commit_migration_outputs_async
         self.discard_migration_outputs = discard_migration_outputs or (lambda job, stage, token: None)
@@ -101,6 +107,7 @@ class BackgroundWorkerManager:
         self._midterm_wakeup = threading.Event()
         self._longterm_wakeup = threading.Event()
         self._profile_wakeup = threading.Event()
+        self._promotion_wakeup = threading.Event()
         self._threads: List[threading.Thread] = []
         self._watchdog_thread: Optional[threading.Thread] = None
         self._heartbeats: set[LeaseHeartbeat] = set()
@@ -109,6 +116,7 @@ class BackgroundWorkerManager:
             "midterm": [],
             "longterm": [],
             "profile": [],
+            "promotion": [],
         }
         self._async_wakeups_lock = threading.Lock()
         self._started = False
@@ -180,6 +188,21 @@ class BackgroundWorkerManager:
                     daemon=True,
                 )
             )
+        if self.process_promotion is not None:
+            for index in range(1, int(self.config.promotion_worker_count) + 1):
+                threads.append(
+                    threading.Thread(
+                        target=self._promotion_loop,
+                        args=(int(self.config.promotion_worker_concurrency),),
+                        name=self._worker_name(
+                            "mem0-promotion-worker",
+                            "mem0-promotion-worker",
+                            index,
+                            int(self.config.promotion_worker_count),
+                        ),
+                        daemon=True,
+                    )
+                )
         return threads
 
     def start(self) -> None:
@@ -196,6 +219,7 @@ class BackgroundWorkerManager:
                 recovered.get("longterm", 0),
             )
             logger.info("recovered stale profile jobs profile=%s", recovered.get("profile", 0))
+            logger.info("recovered stale promotion jobs promotion=%s", recovered.get("promotion", 0))
             if self.startup_cleanup is not None:
                 try:
                     cleaned = self.startup_cleanup()
@@ -219,13 +243,15 @@ class BackgroundWorkerManager:
             )
             self._watchdog_thread.start()
             logger.info(
-                "background workers started midterm=%s x %s longterm=%s x %s profile=%s x %s",
+                "background workers started midterm=%s x %s longterm=%s x %s profile=%s x %s promotion=%s x %s",
                 self.config.midterm_worker_count,
                 self.config.midterm_worker_concurrency,
                 self.config.longterm_worker_count,
                 self.config.longterm_worker_concurrency,
                 self.config.profile_worker_count,
                 self.config.profile_worker_concurrency,
+                self.config.promotion_worker_count if self.process_promotion is not None else 0,
+                self.config.promotion_worker_concurrency,
             )
 
     def _watchdog_loop(self) -> None:
@@ -323,9 +349,15 @@ class BackgroundWorkerManager:
             self._profile_wakeup.set()
             self._notify_async_workers("profile")
 
+    def wake_promotion(self) -> None:
+        if self.enabled and self.process_promotion is not None:
+            self._promotion_wakeup.set()
+            self._notify_async_workers("promotion")
+
     def wake_all(self) -> None:
         self.wake_migration()
         self.wake_profile()
+        self.wake_promotion()
 
     def _wait(self, wakeup: threading.Event) -> None:
         wakeup.wait(timeout=float(self.config.poll_interval_seconds))
@@ -490,6 +522,72 @@ class BackgroundWorkerManager:
                 )
             except Exception:
                 logger.exception("Failed to persist unexpected profile worker failure")
+
+    def _promotion_loop(self, concurrency: int) -> None:
+        asyncio.run(self._promotion_event_loop(concurrency))
+
+    async def _promotion_event_loop(self, concurrency: int) -> None:
+        wake_event = asyncio.Event()
+        in_flight: set[asyncio.Task] = set()
+        self._register_async_wakeup("promotion", wake_event)
+        try:
+            while not self._stop_event.is_set():
+                if getattr(self.db, "connection", None) is None:
+                    break
+                wake_event.clear()
+                self._promotion_wakeup.clear()
+                claimed_any = False
+                while len(in_flight) < concurrency and not self._stop_event.is_set():
+                    try:
+                        job = self.db.claim_next_promotion_job(self.config.lease_timeout_seconds)
+                    except Exception:
+                        logger.exception("Failed to claim a promotion job")
+                        break
+                    if not isinstance(job, dict):
+                        break
+                    claimed_any = True
+                    in_flight.add(
+                        asyncio.create_task(
+                            self._execute_promotion_job(job),
+                            name=f"mem0-promotion-job-{job['job_id']}",
+                        )
+                    )
+
+                if self._stop_event.is_set():
+                    break
+                if len(in_flight) >= concurrency:
+                    await self._reap_completed(in_flight, timeout=None)
+                elif in_flight:
+                    await self._wait_for_progress(in_flight, wake_event)
+                elif not claimed_any:
+                    await self._wait_for_wakeup(wake_event)
+        finally:
+            self._unregister_async_wakeup("promotion", wake_event)
+            if in_flight:
+                await asyncio.gather(*in_flight, return_exceptions=True)
+
+    async def _execute_promotion_job(self, job: Dict[str, Any]) -> None:
+        try:
+            await self._run_promotion_job_async(job)
+        except Exception as exc:
+            logger.exception(
+                "Unexpected promotion worker failure job_id=%s session_id=%s attempt=%s worker=%s error=%s",
+                job.get("job_id"),
+                job.get("source_midterm_session_id"),
+                int(job.get("attempts", 0)) + 1,
+                threading.current_thread().name,
+                exc,
+            )
+            try:
+                self.db.retry_promotion_job(
+                    job["job_id"],
+                    job["lease_token"],
+                    f"unexpected promotion worker failure: {exc}",
+                    max_retries=int(self.config.max_retries),
+                    retry_delay_seconds=self._retry_delay(int(job.get("attempts", 0)) + 1),
+                )
+            except Exception:
+                logger.exception("Failed to persist unexpected promotion worker failure")
 
     async def _wait_for_wakeup(self, wake_event: asyncio.Event) -> None:
         try:
@@ -772,6 +870,28 @@ class BackgroundWorkerManager:
                     return
             except Exception:
                 logger.exception("Failed to extend background job lease")
+                return
+
+    async def _promotion_heartbeat_async(self, job: Dict[str, Any], finished: asyncio.Event) -> None:
+        token = job["lease_token"]
+        while not finished.is_set():
+            try:
+                await asyncio.wait_for(
+                    finished.wait(),
+                    timeout=float(self.config.heartbeat_interval_seconds),
+                )
+                return
+            except asyncio.TimeoutError:
+                pass
+            try:
+                if not self.db.heartbeat_promotion_job(
+                    job["job_id"],
+                    token,
+                    self.config.lease_timeout_seconds,
+                ):
+                    return
+            except Exception:
+                logger.exception("Failed to extend promotion job lease")
                 return
 
     async def _run_degraded_migration_stage_async(
@@ -1126,6 +1246,66 @@ class BackgroundWorkerManager:
             finished.set()
             await heartbeat
 
+    async def _run_promotion_job_async(self, job: Dict[str, Any]) -> None:
+        finished = asyncio.Event()
+        heartbeat = asyncio.create_task(
+            self._promotion_heartbeat_async(job, finished),
+            name=f"mem0-promotion-heartbeat-{job['job_id']}",
+        )
+        try:
+            try:
+                if self.process_promotion_async is not None:
+                    discard_reason = self.process_promotion_async(job)
+                elif self.process_promotion is not None:
+                    discard_reason = await asyncio.to_thread(self.process_promotion, job)
+                else:
+                    discard_reason = "promotion handler is unavailable"
+                if inspect.isawaitable(discard_reason):
+                    discard_reason = await discard_reason
+
+                if discard_reason:
+                    self.db.discard_promotion_job(
+                        job["job_id"],
+                        job["lease_token"],
+                        str(discard_reason),
+                    )
+                    return
+
+                if not self.db.complete_promotion_job(job["job_id"], job["lease_token"]):
+                    logger.info(
+                        "Promotion job abandoned because lease is stale job_id=%s session_id=%s",
+                        job["job_id"],
+                        job.get("source_midterm_session_id"),
+                    )
+            except Exception as exc:
+                attempt = int(job.get("attempts", 0)) + 1
+                retryable = getattr(exc, "retryable", None)
+                if retryable is None:
+                    retryable = not isinstance(exc, (TypeError, ValueError))
+                logger.warning(
+                    "Background promotion failed job_id=%s user_id=%s session_id=%s attempts=%s "
+                    "recovery_count=%s lease_token=%s worker=%s retryable=%s last_error=%s",
+                    job["job_id"],
+                    job.get("user_id"),
+                    job.get("source_midterm_session_id"),
+                    attempt,
+                    job.get("recovery_count", 0),
+                    str(job.get("lease_token") or "")[:8],
+                    threading.current_thread().name,
+                    retryable,
+                    exc,
+                )
+                self.db.retry_promotion_job(
+                    job["job_id"],
+                    job["lease_token"],
+                    f"{type(exc).__name__}: {exc}",
+                    max_retries=int(self.config.max_retries) if retryable else 0,
+                    retry_delay_seconds=self._retry_delay(attempt),
+                )
+        finally:
+            finished.set()
+            await heartbeat
+
     def flush(self, timeout: Optional[float] = None) -> bool:
         """Wait until all runnable, delayed, or running stages and profile jobs finish."""
         if not self.enabled:
@@ -1152,6 +1332,7 @@ class BackgroundWorkerManager:
             self._midterm_wakeup.set()
             self._longterm_wakeup.set()
             self._profile_wakeup.set()
+            self._promotion_wakeup.set()
             threads = list(self._threads)
             watchdog_thread = self._watchdog_thread
 

@@ -120,9 +120,11 @@ class BackgroundTaskConfig(BaseModel):
     midterm_worker_count: int = Field(1, ge=1, le=16)
     longterm_worker_count: int = Field(1, ge=1, le=16)
     profile_worker_count: int = Field(1, ge=1, le=16)
+    promotion_worker_count: int = Field(1, ge=1, le=16)
     midterm_worker_concurrency: int = Field(1, ge=1, le=1024)
     longterm_worker_concurrency: int = Field(1, ge=1, le=1024)
     profile_worker_concurrency: int = Field(1, ge=1, le=1024)
+    promotion_worker_concurrency: int = Field(2, ge=1, le=1024)
     entity_extraction_worker_count: int = Field(2, ge=1, le=16)
     entity_extraction_pending_capacity: int = Field(8, ge=1, le=128)
     max_retries: int = Field(3, ge=0)
@@ -223,6 +225,28 @@ class MemoryConfig(BaseModel):
         le=1,
         description="Minimum raw RAG score for existing session-scoped long-term memory",
     )
+    cross_session_longterm_rag_threshold: float = Field(
+        0.1,
+        ge=0,
+        le=1,
+        description="Minimum raw RAG score for user-scoped cross-session long-term memory",
+    )
+    cross_session_retention_half_life_hours: float = Field(
+        720.0,
+        gt=0,
+        description="Base half-life for slow cross-session long-term retrieval decay",
+    )
+    cross_session_retention_floor: float = Field(
+        0.2,
+        ge=0,
+        le=1,
+        description="Minimum cross-session long-term forgetting factor",
+    )
+    cross_session_reinforcement_gain: float = Field(
+        0.25,
+        ge=0,
+        description="Independent logarithmic strength gain for cross-session valid recalls",
+    )
     midterm: MidTermMemoryConfig = Field(
         description="Configuration for the optional mid-term memory layer",
         default_factory=MidTermMemoryConfig,
@@ -239,6 +263,12 @@ class MemoryConfig(BaseModel):
         description="Configuration for optional model-directed mid-term retrieval",
         default_factory=AgenticRetrievalConfig,
     )
+
+    @model_validator(mode="after")
+    def validate_cross_session_half_life(self):
+        if self.cross_session_retention_half_life_hours <= self.midterm.retention_half_life_hours:
+            raise ValueError("cross_session_retention_half_life_hours must exceed mid-term retention half-life")
+        return self
 
 
 class AzureConfig(BaseModel):

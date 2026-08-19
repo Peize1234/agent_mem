@@ -288,7 +288,7 @@ class MidTermMemory:
                 if not session:
                     continue
                 payload = dict(getattr(session, "payload", None) or {})
-                count = int(payload.get("valid_recall_count", payload.get("N_visit", 0)) or 0) + 1
+                count = int(payload.get("valid_recall_count", 0) or 0) + 1
                 payload.update(
                     {
                         "valid_recall_count": count,
