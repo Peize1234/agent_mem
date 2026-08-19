@@ -382,6 +382,7 @@ def run_staged_search(
                         "candidate_count": 0,
                         "improvement_pp": 0.0,
                         "status": "RESEARCH_SELECTED_STOP",
+                        "stop_reason": stop_reason,
                         "coverage_before": coverage_before,
                         "research_decision": stage_research_decision,
                     }

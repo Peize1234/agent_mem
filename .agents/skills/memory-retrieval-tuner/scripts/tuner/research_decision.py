@@ -26,6 +26,9 @@ Rules:
 - Never modify the search space, budgets, max rounds, resource gates, or production code.
 - A stop action must be selected alone. Select at most max_actions branch actions.
 - Every required_now action must be selected.
+- Every legal branch action that is not selected must appear in deprioritized with a concrete research reason.
+- A stop action does not require a deprioritized entry and must not be used to skip a required branch reason.
+- Selected actions cannot also be deprioritized.
 - DEPRIORITIZED is temporary; do not claim a Branch is EXHAUSTED or BLOCKED.
 - Use only the supplied Tune evidence. Held-out Validation, Gold dependencies, benchmark answers, and future turns are unavailable and must not be inferred.
 - Prefer the smallest experiment set that best distinguishes the diagnosed failure regime.
@@ -128,6 +131,7 @@ def _validate_response(
     *,
     legal_actions: Sequence[LegalAction],
     max_actions: int,
+    require_complete_deprioritized: bool = True,
 ) -> tuple[list[LegalAction], list[dict[str, str]], str]:
     action_by_id = {action.action_id: action for action in legal_actions}
     raw_ids = parsed.get("action_ids")
@@ -170,14 +174,17 @@ def _validate_response(
         if action_id not in seen_deprioritized:
             deprioritized.append({"action_id": action_id, "reason": reason.strip()})
             seen_deprioritized.add(action_id)
-    for action in legal_actions:
-        if action.action_id not in raw_ids and action.action_id not in seen_deprioritized:
-            deprioritized.append(
-                {
-                    "action_id": action.action_id,
-                    "reason": "not selected for this decision; remains eligible when evidence changes",
-                }
-            )
+    missing = [
+        action.action_id
+        for action in legal_actions
+        if action.action_type == "branch"
+        and action.action_id not in raw_ids
+        and action.action_id not in seen_deprioritized
+    ]
+    if require_complete_deprioritized and missing:
+        raise ResearchDecisionValidationError(
+            f"missing deprioritized reason for unselected branch actions: {missing}"
+        )
     return selected, deprioritized, rationale.strip()
 
 
@@ -246,7 +253,9 @@ class ResearchDecisionEngine:
                 if previous_error:
                     retry_payload["previous_validation_error"] = previous_error
                     retry_payload["correction_instruction"] = (
-                        "Return corrected strict JSON using only legal action_id values."
+                        "Return corrected strict JSON using only legal action_id values. "
+                        "Every unselected branch action must include a deprioritized reason. "
+                        "A stop action does not require a deprioritized entry."
                     )
                 user_prompt = json.dumps(retry_payload, ensure_ascii=False, sort_keys=True)
                 prompt_hash = stable_hash({"system": RESEARCH_SYSTEM_PROMPT, "user": user_prompt})
@@ -376,6 +385,7 @@ class ResearchDecisionEngine:
             },
             legal_actions=legal_actions,
             max_actions=max_actions,
+            require_complete_deprioritized=not bool(payload.get("fallback_used")),
         )
         selected_actions = tuple(selected)
         payload["deprioritized"] = [] if payload.get("fallback_used") else normalized_deprioritized

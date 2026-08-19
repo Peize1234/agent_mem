@@ -10,20 +10,39 @@ from .models import Candidate, CandidateResult
 
 RESEARCH_EVIDENCE_SCHEMA = "research_tune_evidence_v1"
 _FORBIDDEN_KEY_MARKERS = ("validation", "gold", "answer", "future", "required_context")
-_BOOKKEEPING_KEYS = {
-    "experiment_branch",
-    "branch_cost_level",
-    "parent_candidate_hash",
-    "applied_branches",
-}
-_PATH_KEYS = {
-    "manifest_paths",
-    "trace_paths",
-    "derived_artifact_path",
-    "query_artifact_path",
-    "embedding_model_path",
-    "reranker_model_path",
-}
+# Candidate config keys the Research LLM may see. Execution, cache, path, and
+# provenance-only fields stay out of the Tune evidence contract.
+RESEARCH_CONFIG_KEYS = frozenset(
+    {
+        "retrieval_method",
+        "retrieval_contract",
+        "top_k_sessions",
+        "top_k_pages",
+        "max_total_pages",
+        "bm25_language",
+        "dense_weight",
+        "query_representation",
+        "query_prompt_text",
+        "query_prompt_hash",
+        "query_prompt_parent_hash",
+        "query_prompt_generation_round",
+        "query_optimization_direction",
+        "query_artifact_variant",
+        "page_representation",
+        "embedding_model_id",
+        "embedding_model_revision",
+        "encoding_contract",
+        "reranker_method",
+        "reranker_dense_weight",
+        "reranker_model_id",
+        "reranker_model_revision",
+        "field_weights",
+        "page_summary_prompt_hash",
+        "source_variant",
+        "context_mode",
+        "ablation_from_baseline",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -64,13 +83,19 @@ def _metric_summary(result: CandidateResult) -> dict[str, Any]:
     }
 
 
+def _research_config_view(config: Mapping[str, Any]) -> dict[str, Any]:
+    return {key: config[key] for key in RESEARCH_CONFIG_KEYS if key in config}
+
+
 def _config_diff(parent: Mapping[str, Any], current: Mapping[str, Any]) -> dict[str, Any]:
-    keys = sorted(set(parent) | set(current))
+    parent_view = _research_config_view(parent)
+    current_view = _research_config_view(current)
+    keys = sorted(set(parent_view) | set(current_view))
     return _safe(
         {
-            key: {"from": parent.get(key), "to": current.get(key)}
+            key: {"from": parent_view.get(key), "to": current_view.get(key)}
             for key in keys
-            if key not in _BOOKKEEPING_KEYS and key not in _PATH_KEYS and parent.get(key) != current.get(key)
+            if parent_view.get(key) != current_view.get(key)
         }
     )
 

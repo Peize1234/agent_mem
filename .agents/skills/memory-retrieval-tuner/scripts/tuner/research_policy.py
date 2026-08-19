@@ -8,6 +8,22 @@ from .io_utils import stable_hash
 
 
 RESEARCH_ACTION_SCHEMA = "research_legal_action_v1"
+STOP_REASON_FRONTIER_CONVERGED = "frontier_converged"
+STOP_REASON_GLOBAL_PATIENCE = "global_patience"
+
+
+def resolve_research_stop_reason(*, patience_triggered: bool, frontier_converged: bool) -> str | None:
+    """Return the Python reason for opening a stop action.
+
+    When both triggers fire, ``frontier_converged`` wins. That matches the
+    hard-stop path in staged search and is the stronger experimental signal.
+    """
+
+    if frontier_converged:
+        return STOP_REASON_FRONTIER_CONVERGED
+    if patience_triggered:
+        return STOP_REASON_GLOBAL_PATIENCE
+    return None
 
 
 @dataclass(frozen=True)
@@ -38,18 +54,31 @@ def build_legal_actions(
 ) -> list[LegalAction]:
     """Turn Python-approved Branch state into the LLM's complete action space."""
 
-    deterministic_names = [branch.spec.name for branch in deterministic_branches]
+    deterministic_names = {branch.spec.name for branch in deterministic_branches}
     roles = dict(coverage.get("coverage_classes") or {})
     remaining = list(coverage.get("remaining_branches") or [])
-    non_expensive_remaining = [name for name in remaining if roles.get(name) != "expensive_gated"]
+    if "remaining_required_branches" in coverage:
+        remaining_required = {str(name) for name in coverage.get("remaining_required_branches") or []}
+    else:
+        remaining_required = {
+            name
+            for name in remaining
+            if roles.get(name) == "required" and not attempt_counts.get(name)
+        }
     actions: list[LegalAction] = []
     for name in remaining:
         branch = registry.get(name)
         coverage_class = str(roles.get(name) or "selectable")
-        # Expensive Branches stay Python-gated. The unchanged deterministic
-        # policy opening the Branch is itself sufficient evidence that the gate
-        # has been reached; otherwise cheaper legal work must be consumed first.
-        if coverage_class == "expensive_gated" and name not in deterministic_names and non_expensive_remaining:
+        # remaining_branches already encodes Python hard gates (budget, cost
+        # level, max rounds, expensive candidate quota, resources, exhausted).
+        # Do not wait for cheaper/selectable work to be consumed. Required
+        # coverage still cannot be skipped: hide expensive_gated until required
+        # work is done, unless the deterministic plan already opened it.
+        if (
+            coverage_class == "expensive_gated"
+            and remaining_required
+            and name not in deterministic_names
+        ):
             continue
         actions.append(
             LegalAction(
@@ -68,7 +97,11 @@ def build_legal_actions(
             )
         )
     required_unmet = [action for action in actions if action.required_now]
-    if (patience_triggered or frontier_converged) and not required_unmet:
+    stop_reason = resolve_research_stop_reason(
+        patience_triggered=patience_triggered,
+        frontier_converged=frontier_converged,
+    )
+    if stop_reason and not required_unmet:
         actions.append(
             LegalAction(
                 action_id=f"A{len(actions) + 1:02d}",
@@ -79,11 +112,11 @@ def build_legal_actions(
                 cost_level=None,
                 reason=(
                     "frontier convergence reached and every required Branch is covered"
-                    if frontier_converged
+                    if stop_reason == STOP_REASON_FRONTIER_CONVERGED
                     else "global patience reached and every required Branch is covered"
                 ),
                 required_now=False,
-                stop_reason="frontier_converged",
+                stop_reason=stop_reason,
             )
         )
     if len(required_unmet) > max_branches_per_stage:

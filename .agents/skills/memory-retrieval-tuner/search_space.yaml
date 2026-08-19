@@ -155,8 +155,9 @@ search:
       max_rounds: 1
 
   # Coverage tracks all relevant work. In Research mode only `required` is a
-  # hard minimum; selectable work may be temporarily deprioritized, while
-  # expensive_gated actions remain under Python's cost/resource gate.
+  # hard minimum; selectable work may be temporarily deprioritized. An
+  # expensive_gated action is legal once Python hard constraints allow it,
+  # even if cheaper selectable Branches remain.
   branch_coverage:
     candidate_coverage_bottleneck:
       relevant:

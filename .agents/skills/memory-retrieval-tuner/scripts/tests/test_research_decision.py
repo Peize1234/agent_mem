@@ -21,7 +21,11 @@ from tuner.experiment_branches import (  # noqa: E402
 from tuner.models import Candidate, CandidateResult, Dataset, Turn  # noqa: E402
 from tuner.research_decision import ResearchDecisionEngine  # noqa: E402
 from tuner.research_evidence import ResearchEvidence, build_research_evidence  # noqa: E402
-from tuner.research_policy import LegalAction  # noqa: E402
+from tuner.research_policy import (  # noqa: E402
+    LegalAction,
+    build_legal_actions,
+    resolve_research_stop_reason,
+)
 from tuner.staged_search import run_staged_search  # noqa: E402
 
 
@@ -158,7 +162,13 @@ def test_first_attempt_api_failure_second_attempt_succeeds(tmp_path: Path) -> No
     runtime = FakeRuntime(
         [
             TimeoutError("first attempt timeout"),
-            json.dumps({"action_ids": ["A01"], "rationale": "corrected", "deprioritized": []}),
+            json.dumps(
+                {
+                    "action_ids": ["A01"],
+                    "rationale": "corrected",
+                    "deprioritized": [{"action_id": "A02", "reason": "lower expected information gain"}],
+                }
+            ),
         ]
     )
     decision_engine = engine(tmp_path, runtime)
@@ -235,7 +245,15 @@ def test_python_legal_stop_action_must_be_selected_alone(tmp_path: Path) -> None
 def test_identical_decision_cache_hit_does_not_call_llm(tmp_path: Path) -> None:
     cache = tmp_path / "cache"
     first_runtime = FakeRuntime(
-        [json.dumps({"action_ids": ["A01"], "rationale": "cached choice", "deprioritized": []})]
+        [
+            json.dumps(
+                {
+                    "action_ids": ["A01"],
+                    "rationale": "cached choice",
+                    "deprioritized": [{"action_id": "A02", "reason": "defer until evidence changes"}],
+                }
+            )
+        ]
     )
     first = decide(engine(tmp_path, first_runtime, cache=cache))
     second_runtime = FakeRuntime([])
@@ -254,8 +272,20 @@ def test_identical_decision_cache_hit_does_not_call_llm(tmp_path: Path) -> None:
 def test_evidence_change_recomputes_decision(tmp_path: Path) -> None:
     runtime = FakeRuntime(
         [
-            json.dumps({"action_ids": ["A01"], "rationale": "first", "deprioritized": []}),
-            json.dumps({"action_ids": ["A02"], "rationale": "new evidence", "deprioritized": []}),
+            json.dumps(
+                {
+                    "action_ids": ["A01"],
+                    "rationale": "first",
+                    "deprioritized": [{"action_id": "A02", "reason": "try later"}],
+                }
+            ),
+            json.dumps(
+                {
+                    "action_ids": ["A02"],
+                    "rationale": "new evidence",
+                    "deprioritized": [{"action_id": "A01", "reason": "already measured"}],
+                }
+            ),
         ]
     )
     decision_engine = engine(tmp_path, runtime)
@@ -336,12 +366,20 @@ def test_research_evidence_excludes_validation_gold_answers_and_future_data(tmp_
 
 
 class SearchBranch:
-    def __init__(self, name: str, *, priority: int, gain: float, initial: bool = False):
+    def __init__(
+        self,
+        name: str,
+        *,
+        priority: int,
+        gain: float,
+        initial: bool = False,
+        cost_level: str | None = None,
+    ):
         self.gain = gain
         self.spec = BranchSpec(
             name=name,
             diagnostic_regimes=ALL_REGIMES,
-            cost_level="cheap" if initial else "medium",
+            cost_level=cost_level or ("cheap" if initial else "medium"),
             required_artifacts=("checkpoint",),
             execution_adapter="test",
             provenance_contract=("dataset",),
@@ -475,6 +513,47 @@ def test_stage_one_is_deterministic_and_stage_two_uses_research_llm(tmp_path: Pa
         if item["reason"].startswith("DEPRIORITIZED")
     )
     assert [record["stage_index"] for record in search.research_decisions] == [2, 3]
+
+
+def test_staged_research_three_failures_use_registry_select_result(tmp_path: Path) -> None:
+    runtime = FakeRuntime([RuntimeError("api") for _ in range(3)])
+    search = run_research_search(tmp_path, runtime, max_stages=2)
+    assert search.stage_history[0]["branches"] == ["RetrievalControl"]
+    assert search.stage_history[1]["branches"] == ["BranchA"]
+    assert runtime.calls == 3
+    assert search.research_stats["fallback_decisions"] == 1
+    research_event = next(event for event in search.branch_events if event["branch"] == "__research_decision__")
+    assert research_event["status"] == "DETERMINISTIC_FALLBACK"
+
+
+def test_deterministic_mode_does_not_require_research_runtime(tmp_path: Path) -> None:
+    dataset = search_dataset(tmp_path)
+    baseline = Candidate("baseline", "baseline", {"gain": 0.0})
+    branch = SearchBranch("RetrievalControl", priority=1, gain=0.05, initial=True)
+
+    def evaluate(candidates: Any, sessions: Any, scope: str) -> list[CandidateResult]:
+        del sessions, scope
+        return [candidate_result(candidate.name, 0.45) for candidate in candidates]
+
+    search = run_staged_search(
+        dataset=dataset,
+        baseline=baseline,
+        baseline_result=candidate_result("baseline", 0.4),
+        tune_sessions=("S001_test",),
+        registry=BranchRegistry([branch]),
+        artifact_registry=None,
+        model_discovery=None,
+        run_dir=tmp_path,
+        search_space={"selection": {"patience_stages": 1}},
+        budget="quick",
+        profile={"max_stages": 1, "max_cost_level": "medium", "max_candidates_per_stage": 2},
+        k=5,
+        ranking_depth=20,
+        evaluate=evaluate,
+        diagnose=lambda _: {"regime": "balanced_or_plateau"},
+    )
+    assert search.research_decisions == []
+    assert search.research_stats == {}
 
 
 def test_staged_research_three_failures_use_registry_select_result(tmp_path: Path) -> None:

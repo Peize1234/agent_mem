@@ -91,11 +91,20 @@ class DeterministicTunerLLM:
                 selected = [
                     str(item["action_id"]) for item in payload["legal_actions"] if item.get("action_type") == "branch"
                 ][:1]
+            selected_ids = set(selected)
+            deprioritized = [
+                {
+                    "action_id": str(item["action_id"]),
+                    "reason": "mock runtime follows the deterministic plan",
+                }
+                for item in payload["legal_actions"]
+                if item.get("action_type") == "branch" and str(item.get("action_id")) not in selected_ids
+            ]
             return json.dumps(
                 {
                     "action_ids": selected,
                     "rationale": "mock runtime follows the deterministic plan",
-                    "deprioritized": [],
+                    "deprioritized": deprioritized,
                 },
                 ensure_ascii=False,
             )
