@@ -1,11 +1,14 @@
+import asyncio
 import os
-from unittest.mock import Mock, patch
+import threading
+from unittest.mock import AsyncMock, Mock, patch
 
 import httpx
 import pytest
 
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.llms.openai import OpenAIConfig
+from mem0.llms.base import LLMBase
 from mem0.llms.openai import OpenAILLM
 
 
@@ -464,3 +467,43 @@ def test_openai_llm_preserves_proxies_from_base_config(mock_openai_client):
     llm = OpenAILLM(config)
     assert llm.config.http_client_proxies == "http://proxy.local:8080"
     assert isinstance(llm.config.http_client, httpx.Client)
+
+
+def test_llm_base_async_fallback_runs_sync_provider_off_event_loop():
+    class SyncOnlyLLM(LLMBase):
+        def generate_response(self, messages, tools=None, tool_choice="auto", **kwargs):
+            return {"thread_id": threading.get_ident(), "messages": messages}
+
+    llm = SyncOnlyLLM(BaseLlmConfig(model="sync-only"))
+    caller_thread = threading.get_ident()
+    result = asyncio.run(llm.generate_response_async(messages=[{"role": "user", "content": "hello"}]))
+
+    assert result["messages"][0]["content"] == "hello"
+    assert result["thread_id"] != caller_thread
+
+
+def test_openai_native_async_client_is_scoped_to_each_event_loop():
+    response = Mock()
+    response.choices = [Mock(message=Mock(content="async response"))]
+    async_clients = []
+
+    def create_async_client(**kwargs):
+        client = Mock()
+        client.chat.completions.create = AsyncMock(return_value=response)
+        async_clients.append(client)
+        return client
+
+    with patch("mem0.llms.openai.OpenAI"), patch(
+        "mem0.llms.openai.AsyncOpenAI",
+        side_effect=create_async_client,
+    ) as async_openai:
+        llm = OpenAILLM(OpenAIConfig(model="gpt-4.1-nano-2025-04-14", api_key="api-key"))
+        messages = [{"role": "user", "content": "hello"}]
+
+        assert asyncio.run(llm.generate_response_async(messages)) == "async response"
+        assert asyncio.run(llm.generate_response_async(messages)) == "async response"
+
+    assert async_openai.call_count == 2
+    assert len(async_clients) == 2
+    for client in async_clients:
+        client.chat.completions.create.assert_awaited_once()

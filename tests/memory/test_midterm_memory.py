@@ -1,3 +1,4 @@
+import asyncio
 import json
 import math
 from concurrent.futures import ThreadPoolExecutor
@@ -529,6 +530,74 @@ def test_session_merge_uses_llm_and_bounds_keywords():
         "产业链",
         "超额",
     ]
+
+
+@pytest.mark.asyncio
+async def test_async_midterm_page_and_session_llm_calls_remain_ordered_within_job(tmp_path, fake_memory_env):
+    class AsyncOnlyLLM:
+        def __init__(self):
+            self.active = 0
+            self.maximum = 0
+            self.calls = []
+
+        def generate_response(self, **kwargs):
+            raise AssertionError("sync LLM path must not be used")
+
+        async def generate_response_async(self, messages, response_format=None, **kwargs):
+            system = messages[0]["content"]
+            kind = "page" if system == MIDTERM_PAGE_SUMMARY_PROMPT else "merge"
+            self.calls.append(kind)
+            self.active += 1
+            self.maximum = max(self.maximum, self.active)
+            await asyncio.sleep(0.01)
+            self.active -= 1
+            if kind == "page":
+                content = messages[-1]["content"]
+                return json.dumps({"summary": content[:80], "keywords": [content.splitlines()[0]]})
+            return json.dumps({"summary": "merged session", "keywords": ["merged"]})
+
+    config = _memory_config(tmp_path, collection_name="async_midterm_order")
+    config.midterm.session_similarity_threshold = -1
+    memory = Memory(config)
+    llm = AsyncOnlyLLM()
+    memory.midterm_updater.llm = llm
+    try:
+        pages = await memory.midterm_updater.process_evicted_messages_async(
+            [
+                {"role": "user", "content": "first question"},
+                {"role": "assistant", "content": "first answer"},
+                {"role": "user", "content": "second question"},
+                {"role": "assistant", "content": "second answer"},
+            ],
+            {"user_id": "u1", "run_id": "r1"},
+        )
+        assert len(pages) == 2
+        assert llm.calls == ["page", "page", "merge"]
+        assert llm.maximum == 1
+    finally:
+        memory.close()
+
+
+@pytest.mark.asyncio
+async def test_async_midterm_llm_waits_can_overlap_between_jobs():
+    class OverlapLLM:
+        def __init__(self):
+            self.active = 0
+            self.maximum = 0
+
+        async def generate_response_async(self, **kwargs):
+            self.active += 1
+            self.maximum = max(self.maximum, self.active)
+            await asyncio.sleep(0.02)
+            self.active -= 1
+            return json.dumps({"summary": "summary", "keywords": ["keyword"]})
+
+    llm = OverlapLLM()
+    updater = MidTermUpdater(midterm_memory=None, llm=llm, config=MidTermMemoryConfig())
+    await asyncio.gather(
+        *(updater._summarize_page_async(f"user-{index}", f"assistant-{index}") for index in range(8))
+    )
+    assert llm.maximum == 8
 
 
 def test_memory_search_returns_long_and_midterm_sources(tmp_path, fake_memory_env):

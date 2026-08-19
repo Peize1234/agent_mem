@@ -1,0 +1,1676 @@
+{
+  "status": "COMPLETE",
+  "dataset": "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_synthetic_smoke/smoke_dataset.xlsx",
+  "dataset_sha256": "fec90195ede22b9adc5428b9f7c91787538f73a55f9a1376492bb81da26f08c4",
+  "k": 5,
+  "secondary_cutoffs": [
+    10,
+    20
+  ],
+  "ranking_cache_depth": 20,
+  "budget": "quick",
+  "budget_profile": {
+    "max_stages": 3,
+    "max_cost_level": "medium",
+    "max_branches_per_stage": 1,
+    "max_candidates_per_stage": 8,
+    "screening_sessions": 1,
+    "tune_frontier": 3,
+    "max_expensive_candidates": 0,
+    "validation_frontier": 2
+  },
+  "resolved_search_config": {
+    "algorithm": "staged_successive_filtering",
+    "cartesian_grid": false,
+    "reuse_frozen_artifacts": true,
+    "require_provenance_validation": true,
+    "research": {
+      "enabled": true,
+      "max_attempts": 3
+    },
+    "branch_registry": {
+      "RetrievalControl": {
+        "enabled": true,
+        "max_rounds": 2
+      },
+      "QueryRepresentation": {
+        "enabled": true,
+        "max_rounds": 3
+      },
+      "HybridRetrieval": {
+        "enabled": true,
+        "max_rounds": 2
+      },
+      "Reranking": {
+        "enabled": true,
+        "max_rounds": 1
+      },
+      "Embedding": {
+        "enabled": true,
+        "max_rounds": 1
+      },
+      "FieldAwareMultiVector": {
+        "enabled": true,
+        "max_rounds": 1
+      },
+      "PageRepresentation": {
+        "enabled": true,
+        "max_rounds": 1
+      },
+      "MemoryWriteAddPrompt": {
+        "enabled": true,
+        "max_rounds": 1
+      }
+    },
+    "branch_coverage": {
+      "candidate_coverage_bottleneck": {
+        "relevant": {
+          "RetrievalControl": {
+            "priority": 10,
+            "minimum_attempts": 1,
+            "coverage_class": "required"
+          },
+          "HybridRetrieval": {
+            "priority": 20,
+            "minimum_attempts": 0,
+            "coverage_class": "selectable"
+          },
+          "Embedding": {
+            "priority": 30,
+            "minimum_attempts": 0,
+            "coverage_class": "selectable"
+          },
+          "QueryRepresentation": {
+            "priority": 40,
+            "minimum_attempts": 0,
+            "coverage_class": "selectable"
+          },
+          "PageRepresentation": {
+            "priority": 50,
+            "minimum_attempts": 0,
+            "coverage_class": "selectable"
+          },
+          "FieldAwareMultiVector": {
+            "priority": 60,
+            "minimum_attempts": 0,
+            "coverage_class": "selectable"
+          },
+          "MemoryWriteAddPrompt": {
+            "priority": 70,
+            "minimum_attempts": 0,
+            "coverage_class": "expensive_gated"
+          }
+        }
+      },
+      "ranking_bottleneck": {
+        "relevant": {
+          "RetrievalControl": {
+            "priority": 10,
+            "minimum_attempts": 1,
+            "coverage_class": "required"
+          },
+          "HybridRetrieval": {
+            "priority": 20,
+            "minimum_attempts": 0,
+            "coverage_class": "selectable"
+          },
+          "Reranking": {
+            "priority": 30,
+            "minimum_attempts": 0,
+            "coverage_class": "selectable"
+          },
+          "FieldAwareMultiVector": {
+            "priority": 40,
+            "minimum_attempts": 0,
+            "coverage_class": "selectable"
+          },
+          "QueryRepresentation": {
+            "priority": 50,
+            "minimum_attempts": 0,
+            "coverage_class": "selectable"
+          }
+        }
+      },
+      "session_instability": {
+        "relevant": {
+          "RetrievalControl": {
+            "priority": 10,
+            "minimum_attempts": 1,
+            "coverage_class": "required"
+          },
+          "PageRepresentation": {
+            "priority": 20,
+            "minimum_attempts": 0,
+            "coverage_class": "selectable"
+          },
+          "MemoryWriteAddPrompt": {
+            "priority": 30,
+            "minimum_attempts": 0,
+            "coverage_class": "expensive_gated"
+          }
+        }
+      },
+      "balanced_or_plateau": {
+        "relevant": {
+          "RetrievalControl": {
+            "priority": 10,
+            "minimum_attempts": 1,
+            "coverage_class": "required"
+          },
+          "HybridRetrieval": {
+            "priority": 20,
+            "minimum_attempts": 0,
+            "coverage_class": "selectable"
+          },
+          "QueryRepresentation": {
+            "priority": 30,
+            "minimum_attempts": 0,
+            "coverage_class": "selectable"
+          },
+          "PageRepresentation": {
+            "priority": 40,
+            "minimum_attempts": 0,
+            "coverage_class": "selectable"
+          }
+        }
+      }
+    },
+    "stages": {
+      "cheap": {
+        "retrieval": {
+          "enabled": true,
+          "top_k_pages": {
+            "mode": "around_baseline",
+            "relative_values": [
+              -5,
+              0,
+              5,
+              15
+            ],
+            "min_value_expression": "evaluation.k",
+            "refine_step": 2
+          },
+          "top_k_sessions": {
+            "mode": "around_baseline",
+            "relative_values": [
+              -1,
+              0,
+              1,
+              2
+            ],
+            "min_value": 1,
+            "refine_step": 1
+          },
+          "max_total_pages": {
+            "mode": "around_baseline",
+            "relative_values": [
+              -10,
+              0,
+              10,
+              30
+            ],
+            "min_value_expression": "evaluation.k",
+            "refine_step": 5
+          },
+          "session_similarity_threshold": {
+            "enabled": false,
+            "reason": "affects production Session generation and requires a regenerated source artifact"
+          },
+          "page_similarity_threshold": {
+            "enabled": false,
+            "reason": "not part of the production MidTerm retrieval contract"
+          },
+          "embedding_similarity_weight": {
+            "enabled": false,
+            "reason": "affects production Session assignment, not query-time score fusion"
+          },
+          "keyword_overlap_weight": {
+            "enabled": false,
+            "reason": "affects production Session assignment and requires regenerated Sessions"
+          }
+        }
+      },
+      "secondary": {
+        "query_representation": {
+          "max_rounds": 3,
+          "variants_per_round": 3
+        },
+        "page_representation": {
+          "values": [
+            "summary",
+            "summary_keywords",
+            "user_summary"
+          ]
+        },
+        "embedding_models": {
+          "discovery": {
+            "general_semantic_limit": 2,
+            "finance_domain_limit": 2
+          },
+          "max_models_standard": 2,
+          "max_models_deep": 4
+        },
+        "lexical_hybrid": {
+          "methods": [
+            "dense_bm25_fusion"
+          ],
+          "dense_weight": {
+            "mode": "coarse_to_fine",
+            "coarse": [
+              0.5,
+              0.7,
+              0.85,
+              1.0
+            ],
+            "refine_step": 0.05
+          }
+        },
+        "reranking": {
+          "min_deep_recall_gap_pp": 15.0,
+          "methods": [
+            "field_lexical",
+            "auto_discovered_cross_encoder"
+          ],
+          "max_methods_standard": 2,
+          "max_models_standard": 2,
+          "max_models_deep": 3
+        },
+        "advanced_representation": {
+          "methods": [
+            "field_aware_lexical",
+            "multi_vector_maxsim"
+          ],
+          "max_methods_standard": 1
+        }
+      },
+      "expensive": {
+        "require_frontier_candidate": true,
+        "max_prompt_candidates": 4,
+        "memory_write_prompt": {
+          "variants": [
+            "production_add",
+            "conservative_add",
+            "context_aware_add"
+          ]
+        },
+        "page_summary_prompt": {
+          "variants": [
+            "production_summary",
+            "evidence_focused_summary",
+            "diagnostic_controlled_summary"
+          ]
+        }
+      }
+    }
+  },
+  "target": "midterm",
+  "seed": 42,
+  "shortterm_qa_turns": 3,
+  "shortterm_window_validation": {
+    "status": "MATCH",
+    "dataset_config_qa_turns": 3,
+    "production_capacity_messages": 6,
+    "actual_qa_turns": 3,
+    "source": "memory_config.midterm.short_term_capacity / 2"
+  },
+  "run_dir": "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_research_smoke/20260819T014847Z-0c9525a5",
+  "execution": {
+    "cpu_count": 8,
+    "available_memory_gib": 8.926197052001953,
+    "gpu_count": 1,
+    "max_parallel_sessions": 2,
+    "max_parallel_candidates": 2,
+    "max_parallel_llm_calls": 2,
+    "adaptive_reductions": [],
+    "source_worker_parallelism": 0
+  },
+  "runtime_seconds": 89.54398038599174,
+  "attempt_runtime_seconds": 0.8752927979949163,
+  "estimated_serial_work_seconds": 7.870888306046254,
+  "cumulative_runtime_seconds": 89.54398038599174,
+  "cumulative_serial_work_seconds": 7.870888306046254,
+  "parallel_time_saved_seconds": 0.0,
+  "llm_calls": 19,
+  "embedding_calls": 63,
+  "source_generation_llm_calls": 0,
+  "source_generation_embedding_calls": 0,
+  "evaluation_llm_calls": 0,
+  "evaluation_embedding_calls": 0,
+  "branch_generation_llm_calls": 0,
+  "branch_generation_embedding_calls": 0,
+  "research_llm_calls": 4,
+  "research_llm_successful_calls": 4,
+  "research_llm_failed_calls": 0,
+  "research_decisions": 5,
+  "research_fallback_decisions": 0,
+  "research_cache_hits": 1,
+  "research_decision_records": [
+    {
+      "decision_id": "8f062bbe55c994363dc5054de151d41d891fca3c0c4597ba0ae92166878b0311",
+      "stage_index": 2,
+      "selected_actions": [
+        {
+          "action_id": "A01",
+          "action_type": "branch",
+          "branch": "HybridRetrieval",
+          "generation_round": 1,
+          "coverage_class": "selectable",
+          "cost_level": "medium",
+          "reason": "Python registry reports this Branch as executable and diagnostically relevant",
+          "required_now": false,
+          "stop_reason": null
+        }
+      ],
+      "deprioritized": [],
+      "rationale": "mock runtime follows the deterministic plan",
+      "status": "VALIDATED",
+      "fallback_used": false,
+      "cache_hit": true,
+      "attempt_count": 1,
+      "deterministic_plan": [
+        {
+          "action_id": "A01",
+          "action_type": "branch",
+          "branch": "HybridRetrieval",
+          "generation_round": 1,
+          "coverage_class": "selectable",
+          "cost_level": "medium",
+          "reason": "Python registry reports this Branch as executable and diagnostically relevant",
+          "required_now": false,
+          "stop_reason": null
+        }
+      ],
+      "evidence_hash": "76df6fe139e232a25eff95ffafc680368278515c9f086a3a7422afaf2b94337c"
+    }
+  ],
+  "research_trace_path": "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_research_smoke/20260819T014847Z-0c9525a5/research_trace.jsonl",
+  "research_enabled": true,
+  "research_model_config": {
+    "source": "production_memory_config",
+    "llm_mode": "mock",
+    "llm": {
+      "provider": "deepseek",
+      "config": {
+        "model": "deepseek-v4-flash",
+        "api_key": "***REDACTED***",
+        "max_tokens": 4096,
+        "temperature": 0.1,
+        "top_p": 0.1,
+        "top_k": 1
+      }
+    }
+  },
+  "reused_artifacts": [
+    "0f639a27fce766fdbdaa483e9cb36ad70cd6ee3b7f9aad54bbe3277fd71e0fb3",
+    "10b82a37b70d9ef055a3149b58214a5dbdfc464842758381ab56ed289fdd79d7",
+    "ba3f4a58764ea1e5a3707d41349b40dd284acf51389e5b03406dbd73e4cf2d72"
+  ],
+  "failed_turns": 0,
+  "stop_reason": "resource_budget_exhausted",
+  "resume_supported": true,
+  "source_run": null,
+  "baseline_backend": "production_midterm",
+  "baseline_provenance": {
+    "adapter": "tuner.production_midterm_adapter.ProductionMidtermAdapter",
+    "production_classes": [
+      "mem0.memory.midterm.MidTermMemory",
+      "mem0.memory.midterm_retriever.MidTermRetriever"
+    ],
+    "source": "real AsyncMemory Add/MidTerm pipeline",
+    "retrieval_contract": "production_midterm_v1",
+    "manifests": {
+      "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_research_smoke/20260819T014847Z-0c9525a5/production_source/S001_smoke/production_midterm_manifest.json": "0f639a27fce766fdbdaa483e9cb36ad70cd6ee3b7f9aad54bbe3277fd71e0fb3",
+      "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_research_smoke/20260819T014847Z-0c9525a5/production_source/S002_smoke/production_midterm_manifest.json": "10b82a37b70d9ef055a3149b58214a5dbdfc464842758381ab56ed289fdd79d7",
+      "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_research_smoke/20260819T014847Z-0c9525a5/production_source/S003_smoke/production_midterm_manifest.json": "ba3f4a58764ea1e5a3707d41349b40dd284acf51389e5b03406dbd73e4cf2d72"
+    },
+    "failed_turns": 0,
+    "llm_calls": 15,
+    "embedding_calls": 63,
+    "candidate_name": "baseline"
+  },
+  "midterm_baseline_backend": "production_midterm",
+  "midterm_baseline_provenance": {
+    "adapter": "tuner.production_midterm_adapter.ProductionMidtermAdapter",
+    "production_classes": [
+      "mem0.memory.midterm.MidTermMemory",
+      "mem0.memory.midterm_retriever.MidTermRetriever"
+    ],
+    "source": "real AsyncMemory Add/MidTerm pipeline",
+    "retrieval_contract": "production_midterm_v1",
+    "manifests": {
+      "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_research_smoke/20260819T014847Z-0c9525a5/production_source/S001_smoke/production_midterm_manifest.json": "0f639a27fce766fdbdaa483e9cb36ad70cd6ee3b7f9aad54bbe3277fd71e0fb3",
+      "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_research_smoke/20260819T014847Z-0c9525a5/production_source/S002_smoke/production_midterm_manifest.json": "10b82a37b70d9ef055a3149b58214a5dbdfc464842758381ab56ed289fdd79d7",
+      "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_research_smoke/20260819T014847Z-0c9525a5/production_source/S003_smoke/production_midterm_manifest.json": "ba3f4a58764ea1e5a3707d41349b40dd284acf51389e5b03406dbd73e4cf2d72"
+    },
+    "failed_turns": 0,
+    "llm_calls": 15,
+    "embedding_calls": 63,
+    "candidate_name": "baseline"
+  },
+  "full_memory_regression_baseline_backend": null,
+  "full_memory_regression_baseline_provenance": null,
+  "production_source_generated": false,
+  "production_source_generation_stats": {},
+  "midterm_baseline_full_metrics": {
+    "evaluated_query_count": 6,
+    "eligible_requirement_count": 6,
+    "recall_at_k": 1.0,
+    "recall_at_2k": 1.0,
+    "recall_at_4k": 1.0,
+    "macro_session_recall_at_k": 1.0,
+    "session_stddev": 0.0,
+    "worst_session_recall_at_k": 1.0,
+    "mrr": 0.8333333333333334,
+    "mean_gold_rank": 1.3333333333333333,
+    "median_gold_rank": 1.0,
+    "shortterm_coverage": 0.0,
+    "target_layer_union": 1.0,
+    "all_memory_union": null,
+    "query_completion": null,
+    "midterm_recall_at_k": 1.0,
+    "tuning_llm_calls": 0,
+    "tuning_embedding_calls": 0
+  },
+  "full_memory_regression": {
+    "status": "SKIPPED",
+    "backend": null,
+    "reason": "No complete production trace is available; ShortTerm/LongTerm/All-memory/Union regression was not inferred from MidTerm checkpoints.",
+    "metrics": null
+  },
+  "branch_registry": [
+    {
+      "name": "RetrievalControl",
+      "diagnostic_regimes": [
+        "balanced_or_plateau",
+        "candidate_coverage_bottleneck",
+        "data_artifact_suspicion",
+        "ranking_bottleneck",
+        "session_instability"
+      ],
+      "cost_level": "cheap",
+      "required_artifacts": [
+        "production_midterm_checkpoints"
+      ],
+      "execution_adapter": "ProductionMidtermAdapter",
+      "provenance_contract": [
+        "dataset_sha256",
+        "manifest_sha256",
+        "production_config"
+      ],
+      "resource_requirements": {
+        "llm": false,
+        "embedding": false,
+        "gpu": false
+      },
+      "priority": 10,
+      "initial_stage": true
+    },
+    {
+      "name": "HybridRetrieval",
+      "diagnostic_regimes": [
+        "balanced_or_plateau",
+        "candidate_coverage_bottleneck",
+        "ranking_bottleneck"
+      ],
+      "cost_level": "medium",
+      "required_artifacts": [
+        "production_midterm_checkpoints",
+        "qdrant_bm25_payload"
+      ],
+      "execution_adapter": "ProductionQdrantHybridAdapter",
+      "provenance_contract": [
+        "dataset_sha256",
+        "manifest_sha256",
+        "bm25_language"
+      ],
+      "resource_requirements": {
+        "llm": false,
+        "embedding": false,
+        "gpu": false
+      },
+      "priority": 15,
+      "initial_stage": false
+    },
+    {
+      "name": "Reranking",
+      "diagnostic_regimes": [
+        "ranking_bottleneck"
+      ],
+      "cost_level": "high",
+      "required_artifacts": [
+        "production_midterm_checkpoints",
+        "deep_candidate_pool"
+      ],
+      "execution_adapter": "ProductionPoolRerankerAdapter",
+      "provenance_contract": [
+        "dataset_sha256",
+        "reranker_model_revision",
+        "manifest_sha256"
+      ],
+      "resource_requirements": {
+        "llm": false,
+        "embedding": false,
+        "gpu": "optional"
+      },
+      "priority": 5,
+      "initial_stage": false
+    },
+    {
+      "name": "Embedding",
+      "diagnostic_regimes": [
+        "candidate_coverage_bottleneck"
+      ],
+      "cost_level": "high",
+      "required_artifacts": [
+        "production_midterm_checkpoints",
+        "model_weights"
+      ],
+      "execution_adapter": "DerivedEmbeddingCheckpointAdapter",
+      "provenance_contract": [
+        "dataset_sha256",
+        "model_id",
+        "model_revision",
+        "manifest_sha256"
+      ],
+      "resource_requirements": {
+        "llm": false,
+        "embedding": true,
+        "gpu": "optional",
+        "network": "deep_only"
+      },
+      "priority": 10,
+      "initial_stage": false
+    },
+    {
+      "name": "FieldAwareMultiVector",
+      "diagnostic_regimes": [
+        "candidate_coverage_bottleneck",
+        "ranking_bottleneck"
+      ],
+      "cost_level": "high",
+      "required_artifacts": [
+        "production_midterm_checkpoints",
+        "page_fields"
+      ],
+      "execution_adapter": "FieldAwareRerankAdapter",
+      "provenance_contract": [
+        "dataset_sha256",
+        "field_weights",
+        "manifest_sha256"
+      ],
+      "resource_requirements": {
+        "llm": false,
+        "embedding": "multi_vector_only",
+        "gpu": false
+      },
+      "priority": 20,
+      "initial_stage": false
+    },
+    {
+      "name": "QueryRepresentation",
+      "diagnostic_regimes": [
+        "balanced_or_plateau",
+        "candidate_coverage_bottleneck",
+        "ranking_bottleneck"
+      ],
+      "cost_level": "high",
+      "required_artifacts": [
+        "production_midterm_checkpoints",
+        "production_llm_config"
+      ],
+      "execution_adapter": "DerivedQueryVectorAdapter",
+      "provenance_contract": [
+        "dataset_sha256",
+        "query_artifact_sha256",
+        "embedding_model",
+        "manifest_sha256"
+      ],
+      "resource_requirements": {
+        "llm": true,
+        "embedding": true,
+        "gpu": false
+      },
+      "priority": 20,
+      "initial_stage": false
+    },
+    {
+      "name": "PageRepresentation",
+      "diagnostic_regimes": [
+        "balanced_or_plateau",
+        "candidate_coverage_bottleneck",
+        "session_instability"
+      ],
+      "cost_level": "high",
+      "required_artifacts": [
+        "production_midterm_checkpoints",
+        "production_page_payloads"
+      ],
+      "execution_adapter": "DerivedPageVectorAdapter",
+      "provenance_contract": [
+        "dataset_sha256",
+        "page_representation",
+        "embedding_model",
+        "manifest_sha256"
+      ],
+      "resource_requirements": {
+        "llm": false,
+        "embedding": true,
+        "gpu": false
+      },
+      "priority": 30,
+      "initial_stage": false
+    },
+    {
+      "name": "MemoryWriteAddPrompt",
+      "diagnostic_regimes": [
+        "candidate_coverage_bottleneck",
+        "session_instability"
+      ],
+      "cost_level": "expensive",
+      "required_artifacts": [
+        "production_generated_pages",
+        "prompt_hash",
+        "model_config"
+      ],
+      "execution_adapter": "ProductionGeneratedSourceAdapter",
+      "provenance_contract": [
+        "dataset_sha256",
+        "prompt_hash",
+        "model_config",
+        "manifest_sha256"
+      ],
+      "resource_requirements": {
+        "llm": true,
+        "embedding": true,
+        "network": true
+      },
+      "priority": 30,
+      "initial_stage": false
+    }
+  ],
+  "stage_history": [
+    {
+      "stage_index": 1,
+      "diagnostic_before": {
+        "after_stage": 0,
+        "regime": "balanced_or_plateau",
+        "recall_4k_minus_k_pp": 0.0,
+        "recall_4k_percent": 100.0,
+        "stddev_pp": 0.0,
+        "worst_session_gap_from_macro_pp": 0.0
+      },
+      "branches": [
+        "RetrievalControl"
+      ],
+      "outcomes": [
+        {
+          "stage_index": 1,
+          "branch": "RetrievalControl",
+          "diagnostic_regime": "balanced_or_plateau",
+          "status": "READY",
+          "reason": null,
+          "candidate_names": [
+            "RetrievalControl:top_k_sessions=4:from-a5a269",
+            "RetrievalControl:top_k_sessions=6:from-a5a269",
+            "RetrievalControl:top_k_sessions=7:from-a5a269",
+            "RetrievalControl:top_k_pages=10:from-a5a269",
+            "RetrievalControl:top_k_pages=20:from-a5a269",
+            "RetrievalControl:max_total_pages=15:from-a5a269",
+            "RetrievalControl:max_total_pages=35:from-a5a269"
+          ],
+          "candidate_count": 7,
+          "provenance": {},
+          "llm_calls": 0,
+          "embedding_calls": 0,
+          "reused_artifacts": [],
+          "generation_round": 1,
+          "effective_config_hashes": [
+            "842cf6c657133b1eae233a57197a98994e56280fd656eed4e57572fc417c916b",
+            "4436166be3dc746c2e859e4450303b7ec1b5b224e7342bd332c81df25902cba5",
+            "30f69318beb62e84e8fc5a290ba1692305e4366f29094d31d9772b1520e82ba2",
+            "47d0a087c4e3c1ecbda80669ea21b44b31860776b61e23295b981f5cbb3c4d1a",
+            "7dee0f17d9125b4794e692aa11b536469e065b5625776a01b8286b456d31b700",
+            "e9c1367ae8243548ad870d8ac4a829022422452aa161a075aacbd33e477d7a0a",
+            "0ff3f3944036e92a6466cd9b5b15dd4023d53438a7c57a8b381044824c72f2a4"
+          ]
+        }
+      ],
+      "candidate_count": 7,
+      "evaluated_candidates": [
+        "RetrievalControl:top_k_sessions=4:from-a5a269",
+        "RetrievalControl:top_k_sessions=6:from-a5a269",
+        "RetrievalControl:top_k_sessions=7:from-a5a269",
+        "RetrievalControl:top_k_pages=10:from-a5a269",
+        "RetrievalControl:top_k_pages=20:from-a5a269",
+        "RetrievalControl:max_total_pages=15:from-a5a269",
+        "RetrievalControl:max_total_pages=35:from-a5a269"
+      ],
+      "screening": {
+        "screening": "NOT_REQUIRED"
+      },
+      "best_candidate": "baseline",
+      "best_recall_at_k": 1.0,
+      "improvement_pp": 0.0,
+      "frontier": [
+        "baseline",
+        "RetrievalControl:max_total_pages=35:from-a5a269",
+        "RetrievalControl:top_k_sessions=6:from-a5a269"
+      ],
+      "diagnostic_after": {
+        "regime": "balanced_or_plateau",
+        "recall_4k_minus_k_pp": 0.0,
+        "recall_4k_percent": 100.0,
+        "stddev_pp": 0.0,
+        "worst_session_gap_from_macro_pp": 0.0
+      },
+      "status": "COMPLETE",
+      "coverage_before": {
+        "diagnostic_regime": "balanced_or_plateau",
+        "relevant_branches": [
+          "RetrievalControl",
+          "HybridRetrieval",
+          "QueryRepresentation",
+          "PageRepresentation"
+        ],
+        "coverage_classes": {
+          "RetrievalControl": "required",
+          "HybridRetrieval": "selectable",
+          "QueryRepresentation": "selectable",
+          "PageRepresentation": "selectable"
+        },
+        "required_branches": [
+          "RetrievalControl"
+        ],
+        "selectable_branches": [
+          "HybridRetrieval",
+          "QueryRepresentation",
+          "PageRepresentation"
+        ],
+        "expensive_gated_branches": [],
+        "attempted_branches": {},
+        "exhausted_branches": [],
+        "remaining_branches": [
+          "RetrievalControl",
+          "HybridRetrieval"
+        ],
+        "revisitable_branches": [],
+        "blocked_branches": [
+          {
+            "branch": "QueryRepresentation",
+            "attempts": 0,
+            "reason": "budget blocks cost=high above max_cost=medium",
+            "coverage_class": "selectable"
+          },
+          {
+            "branch": "PageRepresentation",
+            "attempts": 0,
+            "reason": "budget blocks cost=high above max_cost=medium",
+            "coverage_class": "selectable"
+          }
+        ],
+        "unexplored_branches": [
+          "RetrievalControl",
+          "HybridRetrieval",
+          "QueryRepresentation",
+          "PageRepresentation"
+        ],
+        "remaining_required_branches": [
+          "RetrievalControl"
+        ],
+        "required_coverage_complete": false,
+        "relevant_coverage_complete": false
+      },
+      "research_decision": null,
+      "coverage_after": {
+        "diagnostic_regime": "balanced_or_plateau",
+        "relevant_branches": [
+          "RetrievalControl",
+          "HybridRetrieval",
+          "QueryRepresentation",
+          "PageRepresentation"
+        ],
+        "coverage_classes": {
+          "RetrievalControl": "required",
+          "HybridRetrieval": "selectable",
+          "QueryRepresentation": "selectable",
+          "PageRepresentation": "selectable"
+        },
+        "required_branches": [
+          "RetrievalControl"
+        ],
+        "selectable_branches": [
+          "HybridRetrieval",
+          "QueryRepresentation",
+          "PageRepresentation"
+        ],
+        "expensive_gated_branches": [],
+        "attempted_branches": {
+          "RetrievalControl": {
+            "attempts": 1,
+            "max_rounds": 2,
+            "minimum_attempts": 1,
+            "rounds": [
+              {
+                "generation_round": 1,
+                "anchor": "baseline",
+                "best_candidate": "RetrievalControl:top_k_sessions=4:from-a5a269",
+                "improvement_pp": 0.0,
+                "candidate_count": 7,
+                "effective_config_hashes": [
+                  "0ff3f3944036e92a6466cd9b5b15dd4023d53438a7c57a8b381044824c72f2a4",
+                  "30f69318beb62e84e8fc5a290ba1692305e4366f29094d31d9772b1520e82ba2",
+                  "4436166be3dc746c2e859e4450303b7ec1b5b224e7342bd332c81df25902cba5",
+                  "47d0a087c4e3c1ecbda80669ea21b44b31860776b61e23295b981f5cbb3c4d1a",
+                  "7dee0f17d9125b4794e692aa11b536469e065b5625776a01b8286b456d31b700",
+                  "842cf6c657133b1eae233a57197a98994e56280fd656eed4e57572fc417c916b",
+                  "e9c1367ae8243548ad870d8ac4a829022422452aa161a075aacbd33e477d7a0a"
+                ],
+                "frontier_winner": false
+              }
+            ]
+          }
+        },
+        "exhausted_branches": [
+          {
+            "branch": "RetrievalControl",
+            "attempts": 1,
+            "reason": "no valid Candidate met min_improvement_pp (+0.000 < +0.250)",
+            "coverage_class": "required"
+          }
+        ],
+        "remaining_branches": [
+          "HybridRetrieval"
+        ],
+        "revisitable_branches": [],
+        "blocked_branches": [
+          {
+            "branch": "QueryRepresentation",
+            "attempts": 0,
+            "reason": "budget blocks cost=high above max_cost=medium",
+            "coverage_class": "selectable"
+          },
+          {
+            "branch": "PageRepresentation",
+            "attempts": 0,
+            "reason": "budget blocks cost=high above max_cost=medium",
+            "coverage_class": "selectable"
+          }
+        ],
+        "unexplored_branches": [
+          "HybridRetrieval",
+          "QueryRepresentation",
+          "PageRepresentation"
+        ],
+        "remaining_required_branches": [],
+        "required_coverage_complete": true,
+        "relevant_coverage_complete": false
+      }
+    },
+    {
+      "stage_index": 2,
+      "diagnostic_before": {
+        "after_stage": 1,
+        "regime": "balanced_or_plateau",
+        "recall_4k_minus_k_pp": 0.0,
+        "recall_4k_percent": 100.0,
+        "stddev_pp": 0.0,
+        "worst_session_gap_from_macro_pp": 0.0
+      },
+      "branches": [
+        "HybridRetrieval"
+      ],
+      "outcomes": [
+        {
+          "stage_index": 2,
+          "branch": "HybridRetrieval",
+          "diagnostic_regime": "balanced_or_plateau",
+          "status": "READY",
+          "reason": null,
+          "candidate_names": [
+            "HybridRetrieval:dense_weight=0.50:from-a5a269"
+          ],
+          "candidate_count": 1,
+          "provenance": {},
+          "llm_calls": 0,
+          "embedding_calls": 0,
+          "reused_artifacts": [],
+          "generation_round": 1,
+          "effective_config_hashes": [
+            "bbdc5f8c22455d37186b3ecb8dd9702586a9ad1d095422ce2f25d20de8aadab3"
+          ]
+        }
+      ],
+      "candidate_count": 1,
+      "evaluated_candidates": [
+        "HybridRetrieval:dense_weight=0.50:from-a5a269"
+      ],
+      "screening": {
+        "screening": "NOT_REQUIRED"
+      },
+      "best_candidate": "baseline",
+      "best_recall_at_k": 1.0,
+      "improvement_pp": 0.0,
+      "frontier": [
+        "HybridRetrieval:dense_weight=0.50:from-a5a269",
+        "baseline",
+        "RetrievalControl:max_total_pages=35:from-a5a269"
+      ],
+      "diagnostic_after": {
+        "regime": "balanced_or_plateau",
+        "recall_4k_minus_k_pp": 0.0,
+        "recall_4k_percent": 100.0,
+        "stddev_pp": 0.0,
+        "worst_session_gap_from_macro_pp": 0.0
+      },
+      "status": "COMPLETE",
+      "coverage_before": {
+        "diagnostic_regime": "balanced_or_plateau",
+        "relevant_branches": [
+          "RetrievalControl",
+          "HybridRetrieval",
+          "QueryRepresentation",
+          "PageRepresentation"
+        ],
+        "coverage_classes": {
+          "RetrievalControl": "required",
+          "HybridRetrieval": "selectable",
+          "QueryRepresentation": "selectable",
+          "PageRepresentation": "selectable"
+        },
+        "required_branches": [
+          "RetrievalControl"
+        ],
+        "selectable_branches": [
+          "HybridRetrieval",
+          "QueryRepresentation",
+          "PageRepresentation"
+        ],
+        "expensive_gated_branches": [],
+        "attempted_branches": {
+          "RetrievalControl": {
+            "attempts": 1,
+            "max_rounds": 2,
+            "minimum_attempts": 1,
+            "rounds": [
+              {
+                "generation_round": 1,
+                "anchor": "baseline",
+                "best_candidate": "RetrievalControl:top_k_sessions=4:from-a5a269",
+                "improvement_pp": 0.0,
+                "candidate_count": 7,
+                "effective_config_hashes": [
+                  "0ff3f3944036e92a6466cd9b5b15dd4023d53438a7c57a8b381044824c72f2a4",
+                  "30f69318beb62e84e8fc5a290ba1692305e4366f29094d31d9772b1520e82ba2",
+                  "4436166be3dc746c2e859e4450303b7ec1b5b224e7342bd332c81df25902cba5",
+                  "47d0a087c4e3c1ecbda80669ea21b44b31860776b61e23295b981f5cbb3c4d1a",
+                  "7dee0f17d9125b4794e692aa11b536469e065b5625776a01b8286b456d31b700",
+                  "842cf6c657133b1eae233a57197a98994e56280fd656eed4e57572fc417c916b",
+                  "e9c1367ae8243548ad870d8ac4a829022422452aa161a075aacbd33e477d7a0a"
+                ],
+                "frontier_winner": false
+              }
+            ]
+          }
+        },
+        "exhausted_branches": [
+          {
+            "branch": "RetrievalControl",
+            "attempts": 1,
+            "reason": "no valid Candidate met min_improvement_pp (+0.000 < +0.250)",
+            "coverage_class": "required"
+          }
+        ],
+        "remaining_branches": [
+          "HybridRetrieval"
+        ],
+        "revisitable_branches": [],
+        "blocked_branches": [
+          {
+            "branch": "QueryRepresentation",
+            "attempts": 0,
+            "reason": "budget blocks cost=high above max_cost=medium",
+            "coverage_class": "selectable"
+          },
+          {
+            "branch": "PageRepresentation",
+            "attempts": 0,
+            "reason": "budget blocks cost=high above max_cost=medium",
+            "coverage_class": "selectable"
+          }
+        ],
+        "unexplored_branches": [
+          "HybridRetrieval",
+          "QueryRepresentation",
+          "PageRepresentation"
+        ],
+        "remaining_required_branches": [],
+        "required_coverage_complete": true,
+        "relevant_coverage_complete": false
+      },
+      "research_decision": {
+        "decision_id": "8f062bbe55c994363dc5054de151d41d891fca3c0c4597ba0ae92166878b0311",
+        "stage_index": 2,
+        "selected_actions": [
+          {
+            "action_id": "A01",
+            "action_type": "branch",
+            "branch": "HybridRetrieval",
+            "generation_round": 1,
+            "coverage_class": "selectable",
+            "cost_level": "medium",
+            "reason": "Python registry reports this Branch as executable and diagnostically relevant",
+            "required_now": false,
+            "stop_reason": null
+          }
+        ],
+        "deprioritized": [],
+        "rationale": "mock runtime follows the deterministic plan",
+        "status": "VALIDATED",
+        "fallback_used": false,
+        "cache_hit": true,
+        "attempt_count": 1,
+        "deterministic_plan": [
+          {
+            "action_id": "A01",
+            "action_type": "branch",
+            "branch": "HybridRetrieval",
+            "generation_round": 1,
+            "coverage_class": "selectable",
+            "cost_level": "medium",
+            "reason": "Python registry reports this Branch as executable and diagnostically relevant",
+            "required_now": false,
+            "stop_reason": null
+          }
+        ],
+        "evidence_hash": "76df6fe139e232a25eff95ffafc680368278515c9f086a3a7422afaf2b94337c"
+      },
+      "coverage_after": {
+        "diagnostic_regime": "balanced_or_plateau",
+        "relevant_branches": [
+          "RetrievalControl",
+          "HybridRetrieval",
+          "QueryRepresentation",
+          "PageRepresentation"
+        ],
+        "coverage_classes": {
+          "RetrievalControl": "required",
+          "HybridRetrieval": "selectable",
+          "QueryRepresentation": "selectable",
+          "PageRepresentation": "selectable"
+        },
+        "required_branches": [
+          "RetrievalControl"
+        ],
+        "selectable_branches": [
+          "HybridRetrieval",
+          "QueryRepresentation",
+          "PageRepresentation"
+        ],
+        "expensive_gated_branches": [],
+        "attempted_branches": {
+          "RetrievalControl": {
+            "attempts": 1,
+            "max_rounds": 2,
+            "minimum_attempts": 1,
+            "rounds": [
+              {
+                "generation_round": 1,
+                "anchor": "baseline",
+                "best_candidate": "RetrievalControl:top_k_sessions=4:from-a5a269",
+                "improvement_pp": 0.0,
+                "candidate_count": 7,
+                "effective_config_hashes": [
+                  "0ff3f3944036e92a6466cd9b5b15dd4023d53438a7c57a8b381044824c72f2a4",
+                  "30f69318beb62e84e8fc5a290ba1692305e4366f29094d31d9772b1520e82ba2",
+                  "4436166be3dc746c2e859e4450303b7ec1b5b224e7342bd332c81df25902cba5",
+                  "47d0a087c4e3c1ecbda80669ea21b44b31860776b61e23295b981f5cbb3c4d1a",
+                  "7dee0f17d9125b4794e692aa11b536469e065b5625776a01b8286b456d31b700",
+                  "842cf6c657133b1eae233a57197a98994e56280fd656eed4e57572fc417c916b",
+                  "e9c1367ae8243548ad870d8ac4a829022422452aa161a075aacbd33e477d7a0a"
+                ],
+                "frontier_winner": false
+              }
+            ]
+          },
+          "HybridRetrieval": {
+            "attempts": 1,
+            "max_rounds": 2,
+            "minimum_attempts": 0,
+            "rounds": [
+              {
+                "generation_round": 1,
+                "anchor": "baseline",
+                "best_candidate": "HybridRetrieval:dense_weight=0.50:from-a5a269",
+                "improvement_pp": 0.0,
+                "candidate_count": 1,
+                "effective_config_hashes": [
+                  "bbdc5f8c22455d37186b3ecb8dd9702586a9ad1d095422ce2f25d20de8aadab3"
+                ],
+                "frontier_winner": true
+              }
+            ]
+          }
+        },
+        "exhausted_branches": [
+          {
+            "branch": "RetrievalControl",
+            "attempts": 1,
+            "reason": "no valid Candidate met min_improvement_pp (+0.000 < +0.250)",
+            "coverage_class": "required"
+          },
+          {
+            "branch": "HybridRetrieval",
+            "attempts": 1,
+            "reason": "no valid Candidate met min_improvement_pp (+0.000 < +0.250)",
+            "coverage_class": "selectable"
+          }
+        ],
+        "remaining_branches": [],
+        "revisitable_branches": [],
+        "blocked_branches": [
+          {
+            "branch": "QueryRepresentation",
+            "attempts": 0,
+            "reason": "budget blocks cost=high above max_cost=medium",
+            "coverage_class": "selectable"
+          },
+          {
+            "branch": "PageRepresentation",
+            "attempts": 0,
+            "reason": "budget blocks cost=high above max_cost=medium",
+            "coverage_class": "selectable"
+          }
+        ],
+        "unexplored_branches": [
+          "QueryRepresentation",
+          "PageRepresentation"
+        ],
+        "remaining_required_branches": [],
+        "required_coverage_complete": true,
+        "relevant_coverage_complete": true
+      },
+      "patience_decision": "hard_stop_after_coverage"
+    }
+  ],
+  "diagnostics_history": [
+    {
+      "after_stage": 0,
+      "regime": "balanced_or_plateau",
+      "recall_4k_minus_k_pp": 0.0,
+      "recall_4k_percent": 100.0,
+      "stddev_pp": 0.0,
+      "worst_session_gap_from_macro_pp": 0.0
+    },
+    {
+      "after_stage": 1,
+      "regime": "balanced_or_plateau",
+      "recall_4k_minus_k_pp": 0.0,
+      "recall_4k_percent": 100.0,
+      "stddev_pp": 0.0,
+      "worst_session_gap_from_macro_pp": 0.0
+    },
+    {
+      "after_stage": 2,
+      "regime": "balanced_or_plateau",
+      "recall_4k_minus_k_pp": 0.0,
+      "recall_4k_percent": 100.0,
+      "stddev_pp": 0.0,
+      "worst_session_gap_from_macro_pp": 0.0
+    }
+  ],
+  "branch_events": [
+    {
+      "stage_index": 1,
+      "branch": "RetrievalControl",
+      "diagnostic_regime": "balanced_or_plateau",
+      "status": "READY",
+      "reason": null,
+      "candidate_names": [
+        "RetrievalControl:top_k_sessions=4:from-a5a269",
+        "RetrievalControl:top_k_sessions=6:from-a5a269",
+        "RetrievalControl:top_k_sessions=7:from-a5a269",
+        "RetrievalControl:top_k_pages=10:from-a5a269",
+        "RetrievalControl:top_k_pages=20:from-a5a269",
+        "RetrievalControl:max_total_pages=15:from-a5a269",
+        "RetrievalControl:max_total_pages=35:from-a5a269"
+      ],
+      "candidate_count": 7,
+      "provenance": {},
+      "llm_calls": 0,
+      "embedding_calls": 0,
+      "reused_artifacts": [],
+      "generation_round": 1,
+      "effective_config_hashes": [
+        "842cf6c657133b1eae233a57197a98994e56280fd656eed4e57572fc417c916b",
+        "4436166be3dc746c2e859e4450303b7ec1b5b224e7342bd332c81df25902cba5",
+        "30f69318beb62e84e8fc5a290ba1692305e4366f29094d31d9772b1520e82ba2",
+        "47d0a087c4e3c1ecbda80669ea21b44b31860776b61e23295b981f5cbb3c4d1a",
+        "7dee0f17d9125b4794e692aa11b536469e065b5625776a01b8286b456d31b700",
+        "e9c1367ae8243548ad870d8ac4a829022422452aa161a075aacbd33e477d7a0a",
+        "0ff3f3944036e92a6466cd9b5b15dd4023d53438a7c57a8b381044824c72f2a4"
+      ]
+    },
+    {
+      "stage_index": 2,
+      "branch": "__research_decision__",
+      "diagnostic_regime": "balanced_or_plateau",
+      "status": "VALIDATED",
+      "reason": "mock runtime follows the deterministic plan",
+      "candidate_names": [],
+      "candidate_count": 0,
+      "provenance": {
+        "decision": {
+          "decision_id": "8f062bbe55c994363dc5054de151d41d891fca3c0c4597ba0ae92166878b0311",
+          "stage_index": 2,
+          "selected_actions": [
+            {
+              "action_id": "A01",
+              "action_type": "branch",
+              "branch": "HybridRetrieval",
+              "generation_round": 1,
+              "coverage_class": "selectable",
+              "cost_level": "medium",
+              "reason": "Python registry reports this Branch as executable and diagnostically relevant",
+              "required_now": false,
+              "stop_reason": null
+            }
+          ],
+          "deprioritized": [],
+          "rationale": "mock runtime follows the deterministic plan",
+          "status": "VALIDATED",
+          "fallback_used": false,
+          "cache_hit": true,
+          "attempt_count": 1,
+          "deterministic_plan": [
+            {
+              "action_id": "A01",
+              "action_type": "branch",
+              "branch": "HybridRetrieval",
+              "generation_round": 1,
+              "coverage_class": "selectable",
+              "cost_level": "medium",
+              "reason": "Python registry reports this Branch as executable and diagnostically relevant",
+              "required_now": false,
+              "stop_reason": null
+            }
+          ],
+          "evidence_hash": "76df6fe139e232a25eff95ffafc680368278515c9f086a3a7422afaf2b94337c"
+        },
+        "deprioritized": [],
+        "coverage": {
+          "diagnostic_regime": "balanced_or_plateau",
+          "relevant_branches": [
+            "RetrievalControl",
+            "HybridRetrieval",
+            "QueryRepresentation",
+            "PageRepresentation"
+          ],
+          "coverage_classes": {
+            "RetrievalControl": "required",
+            "HybridRetrieval": "selectable",
+            "QueryRepresentation": "selectable",
+            "PageRepresentation": "selectable"
+          },
+          "required_branches": [
+            "RetrievalControl"
+          ],
+          "selectable_branches": [
+            "HybridRetrieval",
+            "QueryRepresentation",
+            "PageRepresentation"
+          ],
+          "expensive_gated_branches": [],
+          "attempted_branches": {
+            "RetrievalControl": {
+              "attempts": 1,
+              "max_rounds": 2,
+              "minimum_attempts": 1,
+              "rounds": [
+                {
+                  "generation_round": 1,
+                  "anchor": "baseline",
+                  "best_candidate": "RetrievalControl:top_k_sessions=4:from-a5a269",
+                  "improvement_pp": 0.0,
+                  "candidate_count": 7,
+                  "effective_config_hashes": [
+                    "0ff3f3944036e92a6466cd9b5b15dd4023d53438a7c57a8b381044824c72f2a4",
+                    "30f69318beb62e84e8fc5a290ba1692305e4366f29094d31d9772b1520e82ba2",
+                    "4436166be3dc746c2e859e4450303b7ec1b5b224e7342bd332c81df25902cba5",
+                    "47d0a087c4e3c1ecbda80669ea21b44b31860776b61e23295b981f5cbb3c4d1a",
+                    "7dee0f17d9125b4794e692aa11b536469e065b5625776a01b8286b456d31b700",
+                    "842cf6c657133b1eae233a57197a98994e56280fd656eed4e57572fc417c916b",
+                    "e9c1367ae8243548ad870d8ac4a829022422452aa161a075aacbd33e477d7a0a"
+                  ],
+                  "frontier_winner": false
+                }
+              ]
+            }
+          },
+          "exhausted_branches": [
+            {
+              "branch": "RetrievalControl",
+              "attempts": 1,
+              "reason": "no valid Candidate met min_improvement_pp (+0.000 < +0.250)",
+              "coverage_class": "required"
+            }
+          ],
+          "remaining_branches": [
+            "HybridRetrieval"
+          ],
+          "revisitable_branches": [],
+          "blocked_branches": [
+            {
+              "branch": "QueryRepresentation",
+              "attempts": 0,
+              "reason": "budget blocks cost=high above max_cost=medium",
+              "coverage_class": "selectable"
+            },
+            {
+              "branch": "PageRepresentation",
+              "attempts": 0,
+              "reason": "budget blocks cost=high above max_cost=medium",
+              "coverage_class": "selectable"
+            }
+          ],
+          "unexplored_branches": [
+            "HybridRetrieval",
+            "QueryRepresentation",
+            "PageRepresentation"
+          ],
+          "remaining_required_branches": [],
+          "required_coverage_complete": true,
+          "relevant_coverage_complete": false
+        }
+      },
+      "llm_calls": 0,
+      "embedding_calls": 0,
+      "reused_artifacts": [
+        "8f062bbe55c994363dc5054de151d41d891fca3c0c4597ba0ae92166878b0311"
+      ]
+    },
+    {
+      "stage_index": 2,
+      "branch": "HybridRetrieval",
+      "diagnostic_regime": "balanced_or_plateau",
+      "status": "READY",
+      "reason": null,
+      "candidate_names": [
+        "HybridRetrieval:dense_weight=0.50:from-a5a269"
+      ],
+      "candidate_count": 1,
+      "provenance": {},
+      "llm_calls": 0,
+      "embedding_calls": 0,
+      "reused_artifacts": [],
+      "generation_round": 1,
+      "effective_config_hashes": [
+        "bbdc5f8c22455d37186b3ecb8dd9702586a9ad1d095422ce2f25d20de8aadab3"
+      ]
+    },
+    {
+      "stage_index": 2,
+      "branch": "__search_policy__",
+      "diagnostic_regime": "balanced_or_plateau",
+      "status": "SEARCH_STOP",
+      "reason": "resource_budget_exhausted",
+      "candidate_names": [],
+      "candidate_count": 0,
+      "provenance": {
+        "coverage": {
+          "diagnostic_regime": "balanced_or_plateau",
+          "relevant_branches": [
+            "RetrievalControl",
+            "HybridRetrieval",
+            "QueryRepresentation",
+            "PageRepresentation"
+          ],
+          "coverage_classes": {
+            "RetrievalControl": "required",
+            "HybridRetrieval": "selectable",
+            "QueryRepresentation": "selectable",
+            "PageRepresentation": "selectable"
+          },
+          "required_branches": [
+            "RetrievalControl"
+          ],
+          "selectable_branches": [
+            "HybridRetrieval",
+            "QueryRepresentation",
+            "PageRepresentation"
+          ],
+          "expensive_gated_branches": [],
+          "attempted_branches": {
+            "RetrievalControl": {
+              "attempts": 1,
+              "max_rounds": 2,
+              "minimum_attempts": 1,
+              "rounds": [
+                {
+                  "generation_round": 1,
+                  "anchor": "baseline",
+                  "best_candidate": "RetrievalControl:top_k_sessions=4:from-a5a269",
+                  "improvement_pp": 0.0,
+                  "candidate_count": 7,
+                  "effective_config_hashes": [
+                    "0ff3f3944036e92a6466cd9b5b15dd4023d53438a7c57a8b381044824c72f2a4",
+                    "30f69318beb62e84e8fc5a290ba1692305e4366f29094d31d9772b1520e82ba2",
+                    "4436166be3dc746c2e859e4450303b7ec1b5b224e7342bd332c81df25902cba5",
+                    "47d0a087c4e3c1ecbda80669ea21b44b31860776b61e23295b981f5cbb3c4d1a",
+                    "7dee0f17d9125b4794e692aa11b536469e065b5625776a01b8286b456d31b700",
+                    "842cf6c657133b1eae233a57197a98994e56280fd656eed4e57572fc417c916b",
+                    "e9c1367ae8243548ad870d8ac4a829022422452aa161a075aacbd33e477d7a0a"
+                  ],
+                  "frontier_winner": false
+                }
+              ]
+            },
+            "HybridRetrieval": {
+              "attempts": 1,
+              "max_rounds": 2,
+              "minimum_attempts": 0,
+              "rounds": [
+                {
+                  "generation_round": 1,
+                  "anchor": "baseline",
+                  "best_candidate": "HybridRetrieval:dense_weight=0.50:from-a5a269",
+                  "improvement_pp": 0.0,
+                  "candidate_count": 1,
+                  "effective_config_hashes": [
+                    "bbdc5f8c22455d37186b3ecb8dd9702586a9ad1d095422ce2f25d20de8aadab3"
+                  ],
+                  "frontier_winner": true
+                }
+              ]
+            }
+          },
+          "exhausted_branches": [
+            {
+              "branch": "RetrievalControl",
+              "attempts": 1,
+              "reason": "no valid Candidate met min_improvement_pp (+0.000 < +0.250)",
+              "coverage_class": "required"
+            },
+            {
+              "branch": "HybridRetrieval",
+              "attempts": 1,
+              "reason": "no valid Candidate met min_improvement_pp (+0.000 < +0.250)",
+              "coverage_class": "selectable"
+            }
+          ],
+          "remaining_branches": [],
+          "revisitable_branches": [],
+          "blocked_branches": [
+            {
+              "branch": "QueryRepresentation",
+              "attempts": 0,
+              "reason": "budget blocks cost=high above max_cost=medium",
+              "coverage_class": "selectable"
+            },
+            {
+              "branch": "PageRepresentation",
+              "attempts": 0,
+              "reason": "budget blocks cost=high above max_cost=medium",
+              "coverage_class": "selectable"
+            }
+          ],
+          "unexplored_branches": [
+            "QueryRepresentation",
+            "PageRepresentation"
+          ],
+          "remaining_required_branches": [],
+          "required_coverage_complete": true,
+          "relevant_coverage_complete": true,
+          "deprioritized_events": []
+        }
+      },
+      "llm_calls": 0,
+      "embedding_calls": 0,
+      "reused_artifacts": []
+    }
+  ],
+  "branch_coverage": {
+    "diagnostic_regime": "balanced_or_plateau",
+    "relevant_branches": [
+      "RetrievalControl",
+      "HybridRetrieval",
+      "QueryRepresentation",
+      "PageRepresentation"
+    ],
+    "coverage_classes": {
+      "RetrievalControl": "required",
+      "HybridRetrieval": "selectable",
+      "QueryRepresentation": "selectable",
+      "PageRepresentation": "selectable"
+    },
+    "required_branches": [
+      "RetrievalControl"
+    ],
+    "selectable_branches": [
+      "HybridRetrieval",
+      "QueryRepresentation",
+      "PageRepresentation"
+    ],
+    "expensive_gated_branches": [],
+    "attempted_branches": {
+      "RetrievalControl": {
+        "attempts": 1,
+        "max_rounds": 2,
+        "minimum_attempts": 1,
+        "rounds": [
+          {
+            "generation_round": 1,
+            "anchor": "baseline",
+            "best_candidate": "RetrievalControl:top_k_sessions=4:from-a5a269",
+            "improvement_pp": 0.0,
+            "candidate_count": 7,
+            "effective_config_hashes": [
+              "0ff3f3944036e92a6466cd9b5b15dd4023d53438a7c57a8b381044824c72f2a4",
+              "30f69318beb62e84e8fc5a290ba1692305e4366f29094d31d9772b1520e82ba2",
+              "4436166be3dc746c2e859e4450303b7ec1b5b224e7342bd332c81df25902cba5",
+              "47d0a087c4e3c1ecbda80669ea21b44b31860776b61e23295b981f5cbb3c4d1a",
+              "7dee0f17d9125b4794e692aa11b536469e065b5625776a01b8286b456d31b700",
+              "842cf6c657133b1eae233a57197a98994e56280fd656eed4e57572fc417c916b",
+              "e9c1367ae8243548ad870d8ac4a829022422452aa161a075aacbd33e477d7a0a"
+            ],
+            "frontier_winner": false
+          }
+        ]
+      },
+      "HybridRetrieval": {
+        "attempts": 1,
+        "max_rounds": 2,
+        "minimum_attempts": 0,
+        "rounds": [
+          {
+            "generation_round": 1,
+            "anchor": "baseline",
+            "best_candidate": "HybridRetrieval:dense_weight=0.50:from-a5a269",
+            "improvement_pp": 0.0,
+            "candidate_count": 1,
+            "effective_config_hashes": [
+              "bbdc5f8c22455d37186b3ecb8dd9702586a9ad1d095422ce2f25d20de8aadab3"
+            ],
+            "frontier_winner": true
+          }
+        ]
+      }
+    },
+    "exhausted_branches": [
+      {
+        "branch": "RetrievalControl",
+        "attempts": 1,
+        "reason": "no valid Candidate met min_improvement_pp (+0.000 < +0.250)",
+        "coverage_class": "required"
+      },
+      {
+        "branch": "HybridRetrieval",
+        "attempts": 1,
+        "reason": "no valid Candidate met min_improvement_pp (+0.000 < +0.250)",
+        "coverage_class": "selectable"
+      }
+    ],
+    "remaining_branches": [],
+    "revisitable_branches": [],
+    "blocked_branches": [
+      {
+        "branch": "QueryRepresentation",
+        "attempts": 0,
+        "reason": "budget blocks cost=high above max_cost=medium",
+        "coverage_class": "selectable"
+      },
+      {
+        "branch": "PageRepresentation",
+        "attempts": 0,
+        "reason": "budget blocks cost=high above max_cost=medium",
+        "coverage_class": "selectable"
+      }
+    ],
+    "unexplored_branches": [
+      "QueryRepresentation",
+      "PageRepresentation"
+    ],
+    "remaining_required_branches": [],
+    "required_coverage_complete": true,
+    "relevant_coverage_complete": true,
+    "deprioritized_events": []
+  },
+  "model_discovery_path": "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_research_smoke/20260819T014847Z-0c9525a5/model_discovery.json",
+  "resource_envelope": {
+    "gpu_count": 1,
+    "gpu_memory_gib": 3.130859375,
+    "available_memory_gib": 8.926197052001953,
+    "free_disk_gib": 62.879615783691406
+  },
+  "attempts": [
+    {
+      "completed_at": "2026-08-19T01:50:12.931673+00:00",
+      "runtime_seconds": 85.42202728599659,
+      "serial_work_seconds": 7.0230891059327405,
+      "resumed": false
+    },
+    {
+      "completed_at": "2026-08-19T01:52:45.418721+00:00",
+      "runtime_seconds": 1.4331292010028847,
+      "serial_work_seconds": 0.626251600071555,
+      "resumed": true
+    },
+    {
+      "completed_at": "2026-08-19T01:52:57.572050+00:00",
+      "runtime_seconds": 0.8122125030058669,
+      "serial_work_seconds": 0.08363820007070899,
+      "resumed": true
+    },
+    {
+      "completed_at": "2026-08-19T01:54:03.748825+00:00",
+      "runtime_seconds": 1.0013185979914851,
+      "serial_work_seconds": 0.06454729997494724,
+      "resumed": true
+    },
+    {
+      "completed_at": "2026-08-19T01:54:18.074952+00:00",
+      "runtime_seconds": 0.8752927979949163,
+      "serial_work_seconds": 0.07336209999630228,
+      "resumed": true
+    }
+  ]
+}

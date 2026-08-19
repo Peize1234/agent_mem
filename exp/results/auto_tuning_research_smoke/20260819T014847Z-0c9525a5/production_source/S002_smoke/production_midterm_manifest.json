@@ -1,0 +1,133 @@
+{
+  "schema": 1,
+  "status": "COMPLETE",
+  "backend": "production_midterm",
+  "dataset_path": "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_synthetic_smoke/smoke_dataset.xlsx",
+  "dataset_sha256": "fec90195ede22b9adc5428b9f7c91787538f73a55f9a1376492bb81da26f08c4",
+  "session_id": "S002_smoke",
+  "turn_count": 6,
+  "checkpoint_count": 2,
+  "failed_turns": 0,
+  "ranking_depth": 20,
+  "shortterm_qa_turns": 3,
+  "checkpoints_path": "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_research_smoke/20260819T014847Z-0c9525a5/production_source/S002_smoke/production_midterm_checkpoints.jsonl",
+  "checkpoints_sha256": "768e88d4c9db4fc607af4b631aaeb6e0bce9be5a759a6dffd1bc3f3d372e6f77",
+  "trace_path": "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_research_smoke/20260819T014847Z-0c9525a5/production_source/S002_smoke/recall_turn_results.jsonl",
+  "trace_sha256": "dcce1534b3a9dfc0ecfdc1a7f5f245f571ab6dc54de45d9dd5f23fb7baecd42f",
+  "memory_config_path": "/home/peize/Code/htzq/mem0/.agents/skills/memory-retrieval-tuner/memory_config.json",
+  "memory_config_sha256": "16cbd9f24ce54e85417feb12a7ec7bda5c638b5cf882be4afc17d71550f39f14",
+  "effective_memory_config": {
+    "llm": {
+      "provider": "deepseek",
+      "config": {
+        "model": "deepseek-v4-flash",
+        "api_key": "***REDACTED***",
+        "max_tokens": 4096,
+        "temperature": 0.1,
+        "top_p": 0.1,
+        "top_k": 1
+      }
+    },
+    "benchmark_runtime": {
+      "llm_observability": true,
+      "deepseek_midterm_non_thinking": true,
+      "deepseek_longterm_non_thinking": true
+    },
+    "embedder": {
+      "provider": "huggingface",
+      "config": {
+        "model": "BAAI/bge-small-zh-v1.5",
+        "embedding_dims": 512
+      }
+    },
+    "vector_store": {
+      "provider": "qdrant",
+      "config": {
+        "collection_name": "mrt_source_e7ed8dcd40bfbb72",
+        "path": "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_research_smoke/20260819T014847Z-0c9525a5/production_runtimes/production-source-44136fa355b3/S002_smoke/qdrant",
+        "embedding_model_dims": 512,
+        "bm25_language": "zh",
+        "on_disk": true
+      }
+    },
+    "history_db_path": "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_research_smoke/20260819T014847Z-0c9525a5/production_runtimes/production-source-44136fa355b3/S002_smoke/history.db",
+    "enforce_single_process": true,
+    "llm_timeout_seconds": 180,
+    "embedding_timeout_seconds": 120,
+    "vector_store_timeout_seconds": 60,
+    "entity_extraction_timeout_seconds": 120,
+    "midterm": {
+      "enabled": true,
+      "short_term_capacity": 6,
+      "session_similarity_threshold": 0.6,
+      "embedding_similarity_weight": 0.7,
+      "keyword_overlap_weight": 0.3,
+      "top_k_sessions": 5,
+      "top_k_pages": 5,
+      "max_total_pages": 5
+    },
+    "profile": {
+      "enabled": false,
+      "update_on_add": false,
+      "extraction_mode": "explicit_and_inferred",
+      "allow_dynamic_attributes": false,
+      "max_input_user_messages": 4,
+      "max_operations_per_update": 8,
+      "llm_max_tokens": 4096
+    },
+    "background": {
+      "enabled": true,
+      "midterm_worker_count": 1,
+      "longterm_worker_count": 1,
+      "profile_worker_count": 4,
+      "entity_extraction_worker_count": 4,
+      "entity_extraction_pending_capacity": 32,
+      "max_retries": 3,
+      "retry_delays_seconds": [
+        1.0,
+        2.0,
+        3.0
+      ],
+      "poll_interval_seconds": 0.2,
+      "lease_timeout_seconds": 180.0,
+      "heartbeat_interval_seconds": 20.0,
+      "watchdog_interval_seconds": 10.0,
+      "max_stale_recoveries": 3,
+      "shutdown_timeout_seconds": 60.0,
+      "include_pending_in_context": true,
+      "max_pending_context_messages": 20,
+      "include_failed_in_context": false
+    },
+    "agentic_retrieval": {
+      "enabled": false
+    }
+  },
+  "production_config": {
+    "enabled": true,
+    "short_term_capacity": 6,
+    "session_similarity_threshold": 0.6,
+    "embedding_similarity_weight": 0.7,
+    "keyword_overlap_weight": 0.3,
+    "top_k_sessions": 5,
+    "top_k_pages": 5,
+    "max_total_pages": 5
+  },
+  "prompt_hashes": {
+    "page_summary": "ea093defcdfb8b185928337ff8d7383e118dc7edab8f58c176af7f220fcf185e",
+    "session_merge": "757e91bb7d9b7777d02bc9599bd73418b4359025bb119dcd5d588cc028a13a9c"
+  },
+  "source_variant": "production",
+  "context_mode": "none",
+  "source_identity": {},
+  "llm_mode": "mock",
+  "llm_calls": 5,
+  "embedding_calls": 21,
+  "embedding_model": {
+    "provider": "huggingface",
+    "config": {
+      "model": "BAAI/bge-small-zh-v1.5",
+      "embedding_dims": 512
+    }
+  },
+  "git_commit": "b402ce669358e4b9b5c5bcebe256e3a544b930cd"
+}

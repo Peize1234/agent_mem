@@ -1,0 +1,66 @@
+{
+  "status": "COMPLETE",
+  "identity": {
+    "dataset_sha256": "fec90195ede22b9adc5428b9f7c91787538f73a55f9a1376492bb81da26f08c4",
+    "candidate_hash": "dd9014ca8f6796f4fb58d0057ca1b1a60983156d6340c2ae11aad3d62392c30f",
+    "scope": "stage_1_tune_loso_fold_3",
+    "session_id": "S003_smoke",
+    "k": 5,
+    "target": "midterm",
+    "shortterm_window": 3
+  },
+  "evaluated_query_count": 2,
+  "failed_turns": 0,
+  "ranking_cache_hit": true,
+  "result": {
+    "metrics": {
+      "session_id": "S003_smoke",
+      "evaluated_query_count": 2,
+      "eligible_requirement_count": 2,
+      "recall_at_k": 1.0,
+      "recall_at_2k": 1.0,
+      "recall_at_4k": 1.0,
+      "mrr": 0.75,
+      "mean_gold_rank": 1.5,
+      "median_gold_rank": 1.5,
+      "shortterm_coverage": 0.0,
+      "shortterm_requirement_count": 0,
+      "total_gold_requirement_count": 2,
+      "target_layer_union": 1.0,
+      "all_memory_union": null,
+      "query_completion": null
+    },
+    "requirements": [
+      {
+        "requirement_id": "S003-Q005::G1",
+        "session_id": "S003_smoke",
+        "query_id": "S003-Q005",
+        "turn_index": 4,
+        "gold_members": [
+          "S003-Q001"
+        ],
+        "is_or": false,
+        "best_rank": 1,
+        "hit_at_k": true,
+        "hit_at_2k": true,
+        "hit_at_4k": true,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "requirement_id": "S003-Q006::G1",
+        "session_id": "S003_smoke",
+        "query_id": "S003-Q006",
+        "turn_index": 5,
+        "gold_members": [
+          "S003-Q002"
+        ],
+        "is_or": false,
+        "best_rank": 2,
+        "hit_at_k": true,
+        "hit_at_2k": true,
+        "hit_at_4k": true,
+        "reciprocal_rank": 0.5
+      }
+    ]
+  }
+}

@@ -1,0 +1,10 @@
+candidate,stage,tune_R@5,validation_R@5,validation_macro_R@5,validation_R@10,validation_R@20,validation_MRR,session_stddev,LLM_calls,embedding_calls,runtime_seconds,status
+HybridRetrieval:dense_weight=0.50:from-a5a269,stage_2_HybridRetrieval,1.0,1.0,1.0,1.0,1.0,0.8333333333333334,0.0,0,0,0.06151559999852907,VALID
+baseline,baseline,1.0,1.0,1.0,1.0,1.0,0.8333333333333334,0.0,0,0,0.06333509999967646,VALID
+RetrievalControl:max_total_pages=15:from-a5a269,stage_1_RetrievalControl,1.0,,,,,,,0,0,0.06650640000589192,NOT_VALIDATED
+RetrievalControl:max_total_pages=35:from-a5a269,stage_1_RetrievalControl,1.0,,,,,,,0,0,0.02676009999413509,NOT_VALIDATED
+RetrievalControl:top_k_pages=10:from-a5a269,stage_1_RetrievalControl,1.0,,,,,,,0,0,0.0729360999976052,NOT_VALIDATED
+RetrievalControl:top_k_pages=20:from-a5a269,stage_1_RetrievalControl,1.0,,,,,,,0,0,0.06327309999323916,NOT_VALIDATED
+RetrievalControl:top_k_sessions=4:from-a5a269,stage_1_RetrievalControl,1.0,,,,,,,0,0,0.053892100011580624,NOT_VALIDATED
+RetrievalControl:top_k_sessions=6:from-a5a269,stage_1_RetrievalControl,1.0,,,,,,,0,0,0.05263029997877311,NOT_VALIDATED
+RetrievalControl:top_k_sessions=7:from-a5a269,stage_1_RetrievalControl,1.0,,,,,,,0,0,0.06918550000409596,NOT_VALIDATED

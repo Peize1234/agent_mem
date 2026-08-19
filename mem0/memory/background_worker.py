@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import asyncio
+import inspect
 import logging
 import threading
 import time
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from mem0.configs.base import BackgroundTaskConfig
 
@@ -14,6 +16,10 @@ ProfileHandler = Callable[[Dict[str, Any]], Optional[bool]]
 CommitOutputsHandler = Callable[[Dict[str, Any], str, str, bool], None]
 DiscardOutputsHandler = Callable[[Dict[str, Any], str, str], Optional[str]]
 StartupCleanupHandler = Callable[[], Dict[str, Any]]
+AsyncMigrationHandler = Callable[[Dict[str, Any], List[Dict[str, Any]], bool], Awaitable[None]]
+AsyncProfileHandler = Callable[[Dict[str, Any]], Awaitable[Optional[bool]]]
+AsyncCommitOutputsHandler = Callable[[Dict[str, Any], str, str, bool], Awaitable[None]]
+AsyncDiscardOutputsHandler = Callable[[Dict[str, Any], str, str], Awaitable[Optional[str]]]
 
 
 class LeaseHeartbeat:
@@ -69,8 +75,13 @@ class BackgroundWorkerManager:
         process_midterm: MigrationHandler,
         process_longterm: MigrationHandler,
         process_profile: ProfileHandler,
+        process_midterm_async: Optional[AsyncMigrationHandler] = None,
+        process_longterm_async: Optional[AsyncMigrationHandler] = None,
+        process_profile_async: Optional[AsyncProfileHandler] = None,
         commit_migration_outputs: Optional[CommitOutputsHandler] = None,
+        commit_migration_outputs_async: Optional[AsyncCommitOutputsHandler] = None,
         discard_migration_outputs: Optional[DiscardOutputsHandler] = None,
+        discard_migration_outputs_async: Optional[AsyncDiscardOutputsHandler] = None,
         startup_cleanup: Optional[StartupCleanupHandler] = None,
     ):
         self.db = db
@@ -78,8 +89,13 @@ class BackgroundWorkerManager:
         self.process_midterm = process_midterm
         self.process_longterm = process_longterm
         self.process_profile = process_profile
+        self.process_midterm_async = process_midterm_async
+        self.process_longterm_async = process_longterm_async
+        self.process_profile_async = process_profile_async
         self.commit_migration_outputs = commit_migration_outputs or (lambda job, stage, token, degraded: None)
+        self.commit_migration_outputs_async = commit_migration_outputs_async
         self.discard_migration_outputs = discard_migration_outputs or (lambda job, stage, token: None)
+        self.discard_migration_outputs_async = discard_migration_outputs_async
         self.startup_cleanup = startup_cleanup
         self._stop_event = threading.Event()
         self._midterm_wakeup = threading.Event()
@@ -89,6 +105,12 @@ class BackgroundWorkerManager:
         self._watchdog_thread: Optional[threading.Thread] = None
         self._heartbeats: set[LeaseHeartbeat] = set()
         self._heartbeats_lock = threading.Lock()
+        self._async_wakeups: Dict[str, List[tuple[asyncio.AbstractEventLoop, asyncio.Event]]] = {
+            "midterm": [],
+            "longterm": [],
+            "profile": [],
+        }
+        self._async_wakeups_lock = threading.Lock()
         self._started = False
         self._state_lock = threading.Lock()
 
@@ -108,7 +130,13 @@ class BackgroundWorkerManager:
             threads.append(
                 threading.Thread(
                     target=self._migration_stage_loop,
-                    args=("midterm", self._midterm_wakeup, self.process_midterm),
+                    args=(
+                        "midterm",
+                        self._midterm_wakeup,
+                        self.process_midterm,
+                        self.process_midterm_async,
+                        int(self.config.midterm_worker_concurrency),
+                    ),
                     name=self._worker_name(
                         "mem0-midterm-memory-worker",
                         "mem0-midterm-memory-worker",
@@ -122,7 +150,13 @@ class BackgroundWorkerManager:
             threads.append(
                 threading.Thread(
                     target=self._migration_stage_loop,
-                    args=("longterm", self._longterm_wakeup, self.process_longterm),
+                    args=(
+                        "longterm",
+                        self._longterm_wakeup,
+                        self.process_longterm,
+                        self.process_longterm_async,
+                        int(self.config.longterm_worker_concurrency),
+                    ),
                     name=self._worker_name(
                         "mem0-longterm-memory-worker",
                         "mem0-longterm-memory-worker",
@@ -136,6 +170,7 @@ class BackgroundWorkerManager:
             threads.append(
                 threading.Thread(
                     target=self._profile_loop,
+                    args=(int(self.config.profile_worker_concurrency),),
                     name=self._worker_name(
                         "mem0-profile-update-worker",
                         "mem0-user-profile-worker",
@@ -184,10 +219,13 @@ class BackgroundWorkerManager:
             )
             self._watchdog_thread.start()
             logger.info(
-                "background workers started midterm=%s longterm=%s profile=%s",
+                "background workers started midterm=%s x %s longterm=%s x %s profile=%s x %s",
                 self.config.midterm_worker_count,
+                self.config.midterm_worker_concurrency,
                 self.config.longterm_worker_count,
+                self.config.longterm_worker_concurrency,
                 self.config.profile_worker_count,
+                self.config.profile_worker_concurrency,
             )
 
     def _watchdog_loop(self) -> None:
@@ -244,13 +282,36 @@ class BackgroundWorkerManager:
             with self._heartbeats_lock:
                 self._heartbeats.discard(heartbeat)
 
+    def _register_async_wakeup(self, queue_name: str, event: asyncio.Event) -> None:
+        loop = asyncio.get_running_loop()
+        with self._async_wakeups_lock:
+            self._async_wakeups[queue_name].append((loop, event))
+
+    def _unregister_async_wakeup(self, queue_name: str, event: asyncio.Event) -> None:
+        with self._async_wakeups_lock:
+            self._async_wakeups[queue_name] = [
+                item for item in self._async_wakeups[queue_name] if item[1] is not event
+            ]
+
+    def _notify_async_workers(self, queue_name: str) -> None:
+        with self._async_wakeups_lock:
+            wakeups = list(self._async_wakeups[queue_name])
+        for loop, event in wakeups:
+            try:
+                loop.call_soon_threadsafe(event.set)
+            except RuntimeError:
+                # The worker unregisters the event while its loop is closing.
+                continue
+
     def wake_midterm(self) -> None:
         if self.enabled:
             self._midterm_wakeup.set()
+            self._notify_async_workers("midterm")
 
     def wake_longterm(self) -> None:
         if self.enabled:
             self._longterm_wakeup.set()
+            self._notify_async_workers("longterm")
 
     def wake_migration(self) -> None:
         """Compatibility wake-up for both independent migration stages."""
@@ -260,6 +321,7 @@ class BackgroundWorkerManager:
     def wake_profile(self) -> None:
         if self.enabled:
             self._profile_wakeup.set()
+            self._notify_async_workers("profile")
 
     def wake_all(self) -> None:
         self.wake_migration()
@@ -281,68 +343,186 @@ class BackgroundWorkerManager:
         stage: str,
         wakeup: threading.Event,
         handler: MigrationHandler,
+        async_handler: Optional[AsyncMigrationHandler],
+        concurrency: int,
     ) -> None:
-        while not self._stop_event.is_set():
-            if getattr(self.db, "connection", None) is None:
-                return
-            try:
-                job = self.db.claim_next_migration_stage(stage, self.config.lease_timeout_seconds)
-            except Exception:
-                logger.exception("Failed to claim a migration stage stage=%s", stage)
-                self._wait(wakeup)
-                continue
-            if not isinstance(job, dict):
-                self._wait(wakeup)
-                continue
-            try:
-                self._run_migration_stage(job, stage, handler)
-            except Exception as exc:
-                logger.exception(
-                    "Unexpected migration stage failure job_id=%s session_scope=%s stage=%s "
-                    "attempt=%s worker=%s error=%s",
-                    job.get("job_id"),
-                    job.get("session_scope"),
-                    stage,
-                    int(job.get(f"{stage}_attempts", 0)) + 1,
-                    threading.current_thread().name,
-                    exc,
-                )
-                self._persist_unexpected_stage_failure(job, stage, handler, exc)
+        asyncio.run(
+            self._migration_stage_event_loop(
+                stage,
+                wakeup,
+                handler,
+                async_handler,
+                concurrency,
+            )
+        )
 
-    def _profile_loop(self) -> None:
-        while not self._stop_event.is_set():
-            if getattr(self.db, "connection", None) is None:
-                return
-            try:
-                job = self.db.claim_next_profile_job(self.config.lease_timeout_seconds)
-            except Exception:
-                logger.exception("Failed to claim a profile update job")
-                self._wait(self._profile_wakeup)
-                continue
-            if not isinstance(job, dict):
-                self._wait(self._profile_wakeup)
-                continue
-            try:
-                self._run_profile_job(job)
-            except Exception as exc:
-                logger.exception(
-                    "Unexpected profile worker failure job_id=%s user_id=%s attempt=%s worker=%s error=%s",
-                    job.get("job_id"),
-                    job.get("user_id"),
-                    int(job.get("attempts", 0)) + 1,
-                    threading.current_thread().name,
-                    exc,
-                )
-                try:
-                    self.db.record_profile_failure(
-                        job["job_id"],
-                        job["lease_token"],
-                        f"unexpected profile worker failure: {exc}",
-                        max_retries=int(self.config.max_retries),
-                        retry_delay_seconds=self._retry_delay(int(job.get("attempts", 0)) + 1),
+    async def _migration_stage_event_loop(
+        self,
+        stage: str,
+        wakeup: threading.Event,
+        handler: MigrationHandler,
+        async_handler: Optional[AsyncMigrationHandler],
+        concurrency: int,
+    ) -> None:
+        wake_event = asyncio.Event()
+        in_flight: set[asyncio.Task] = set()
+        self._register_async_wakeup(stage, wake_event)
+        try:
+            while not self._stop_event.is_set():
+                if getattr(self.db, "connection", None) is None:
+                    break
+                wake_event.clear()
+                wakeup.clear()
+                claimed_any = False
+                while len(in_flight) < concurrency and not self._stop_event.is_set():
+                    try:
+                        job = self.db.claim_next_migration_stage(stage, self.config.lease_timeout_seconds)
+                    except Exception:
+                        logger.exception("Failed to claim a migration stage stage=%s", stage)
+                        break
+                    if not isinstance(job, dict):
+                        break
+                    claimed_any = True
+                    in_flight.add(
+                        asyncio.create_task(
+                            self._execute_migration_stage(job, stage, handler, async_handler),
+                            name=f"mem0-{stage}-job-{job['job_id']}",
+                        )
                     )
-                except Exception:
-                    logger.exception("Failed to persist unexpected profile worker failure")
+
+                if self._stop_event.is_set():
+                    break
+                if len(in_flight) >= concurrency:
+                    await self._reap_completed(in_flight, timeout=None)
+                elif in_flight:
+                    await self._wait_for_progress(in_flight, wake_event)
+                elif not claimed_any:
+                    await self._wait_for_wakeup(wake_event)
+        finally:
+            self._unregister_async_wakeup(stage, wake_event)
+            if in_flight:
+                await asyncio.gather(*in_flight, return_exceptions=True)
+
+    async def _execute_migration_stage(
+        self,
+        job: Dict[str, Any],
+        stage: str,
+        handler: MigrationHandler,
+        async_handler: Optional[AsyncMigrationHandler],
+    ) -> None:
+        try:
+            await self._run_migration_stage_async(job, stage, handler, async_handler)
+        except Exception as exc:
+            logger.exception(
+                "Unexpected migration stage failure job_id=%s session_scope=%s stage=%s "
+                "attempt=%s worker=%s error=%s",
+                job.get("job_id"),
+                job.get("session_scope"),
+                stage,
+                int(job.get(f"{stage}_attempts", 0)) + 1,
+                threading.current_thread().name,
+                exc,
+            )
+            await self._persist_unexpected_stage_failure_async(job, stage, handler, async_handler, exc)
+
+    def _profile_loop(self, concurrency: int) -> None:
+        asyncio.run(self._profile_event_loop(concurrency))
+
+    async def _profile_event_loop(self, concurrency: int) -> None:
+        wake_event = asyncio.Event()
+        in_flight: set[asyncio.Task] = set()
+        self._register_async_wakeup("profile", wake_event)
+        try:
+            while not self._stop_event.is_set():
+                if getattr(self.db, "connection", None) is None:
+                    break
+                wake_event.clear()
+                self._profile_wakeup.clear()
+                claimed_any = False
+                while len(in_flight) < concurrency and not self._stop_event.is_set():
+                    try:
+                        job = self.db.claim_next_profile_job(self.config.lease_timeout_seconds)
+                    except Exception:
+                        logger.exception("Failed to claim a profile update job")
+                        break
+                    if not isinstance(job, dict):
+                        break
+                    claimed_any = True
+                    in_flight.add(
+                        asyncio.create_task(
+                            self._execute_profile_job(job),
+                            name=f"mem0-profile-job-{job['job_id']}",
+                        )
+                    )
+
+                if self._stop_event.is_set():
+                    break
+                if len(in_flight) >= concurrency:
+                    await self._reap_completed(in_flight, timeout=None)
+                elif in_flight:
+                    await self._wait_for_progress(in_flight, wake_event)
+                elif not claimed_any:
+                    await self._wait_for_wakeup(wake_event)
+        finally:
+            self._unregister_async_wakeup("profile", wake_event)
+            if in_flight:
+                await asyncio.gather(*in_flight, return_exceptions=True)
+
+    async def _execute_profile_job(self, job: Dict[str, Any]) -> None:
+        try:
+            await self._run_profile_job_async(job)
+        except Exception as exc:
+            logger.exception(
+                "Unexpected profile worker failure job_id=%s user_id=%s attempt=%s worker=%s error=%s",
+                job.get("job_id"),
+                job.get("user_id"),
+                int(job.get("attempts", 0)) + 1,
+                threading.current_thread().name,
+                exc,
+            )
+            try:
+                self.db.record_profile_failure(
+                    job["job_id"],
+                    job["lease_token"],
+                    f"unexpected profile worker failure: {exc}",
+                    max_retries=int(self.config.max_retries),
+                    retry_delay_seconds=self._retry_delay(int(job.get("attempts", 0)) + 1),
+                )
+            except Exception:
+                logger.exception("Failed to persist unexpected profile worker failure")
+
+    async def _wait_for_wakeup(self, wake_event: asyncio.Event) -> None:
+        try:
+            await asyncio.wait_for(wake_event.wait(), timeout=float(self.config.poll_interval_seconds))
+        except asyncio.TimeoutError:
+            pass
+
+    async def _wait_for_progress(self, in_flight: set[asyncio.Task], wake_event: asyncio.Event) -> None:
+        wake_task = asyncio.create_task(wake_event.wait())
+        done, _ = await asyncio.wait(
+            [*in_flight, wake_task],
+            timeout=float(self.config.poll_interval_seconds),
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        if wake_task not in done:
+            wake_task.cancel()
+            await asyncio.gather(wake_task, return_exceptions=True)
+        self._consume_done_tasks(in_flight, done)
+
+    async def _reap_completed(self, in_flight: set[asyncio.Task], timeout: Optional[float]) -> None:
+        done, _ = await asyncio.wait(in_flight, timeout=timeout, return_when=asyncio.FIRST_COMPLETED)
+        self._consume_done_tasks(in_flight, done)
+
+    @staticmethod
+    def _consume_done_tasks(in_flight: set[asyncio.Task], done) -> None:
+        completed = in_flight.intersection(done)
+        in_flight.difference_update(completed)
+        for task in completed:
+            try:
+                task.result()
+            except Exception:
+                # Per-job runners already log and persist unexpected failures.
+                logger.exception("Background job task escaped its failure handler")
 
     def _record_migration_stage_failure(self, job: Dict[str, Any], stage: str, exc: Exception) -> str:
         job_id = job["job_id"]
@@ -481,6 +661,288 @@ class BackgroundWorkerManager:
                 stage,
             )
 
+    async def _invoke_migration_handler_async(
+        self,
+        job: Dict[str, Any],
+        messages: List[Dict[str, Any]],
+        degraded: bool,
+        handler: MigrationHandler,
+        async_handler: Optional[AsyncMigrationHandler],
+    ) -> None:
+        if async_handler is not None:
+            result = async_handler(job, messages, degraded)
+        else:
+            result = await asyncio.to_thread(handler, job, messages, degraded)
+        if inspect.isawaitable(result):
+            await result
+
+    async def _commit_outputs_async(
+        self,
+        job: Dict[str, Any],
+        stage: str,
+        lease_token: str,
+        degraded: bool,
+    ) -> None:
+        if self.commit_migration_outputs_async is not None:
+            result = self.commit_migration_outputs_async(job, stage, lease_token, degraded)
+        else:
+            result = await asyncio.to_thread(
+                self.commit_migration_outputs,
+                job,
+                stage,
+                lease_token,
+                degraded,
+            )
+        if inspect.isawaitable(result):
+            await result
+
+    async def _discard_outputs_async(
+        self,
+        job: Dict[str, Any],
+        stage: str,
+        lease_token: str,
+    ) -> Optional[str]:
+        try:
+            if self.discard_migration_outputs_async is not None:
+                result = self.discard_migration_outputs_async(job, stage, lease_token)
+            else:
+                result = await asyncio.to_thread(self.discard_migration_outputs, job, stage, lease_token)
+            if inspect.isawaitable(result):
+                return await result
+            return result
+        except Exception as exc:
+            logger.exception(
+                "Failed to clean up discarded stage outputs job_id=%s job_type=migration stage=%s "
+                "session_scope=%s attempts=%s recovery_count=%s lease_token=%s cleanup_error=%s",
+                job.get("job_id"),
+                stage,
+                job.get("session_scope"),
+                job.get(f"{stage}_attempts", 0),
+                job.get(f"{stage}_recovery_count", 0),
+                str(lease_token or "")[:8],
+                exc,
+            )
+            return f"{type(exc).__name__}: {exc}"
+
+    async def _migration_heartbeat_async(
+        self,
+        job: Dict[str, Any],
+        stage: str,
+        finished: asyncio.Event,
+    ) -> None:
+        token = job[f"{stage}_lease_token"]
+        while not finished.is_set():
+            try:
+                await asyncio.wait_for(
+                    finished.wait(),
+                    timeout=float(self.config.heartbeat_interval_seconds),
+                )
+                return
+            except asyncio.TimeoutError:
+                pass
+            try:
+                if not self.db.heartbeat_migration_stage(
+                    job["job_id"],
+                    stage,
+                    token,
+                    self.config.lease_timeout_seconds,
+                ):
+                    return
+            except Exception:
+                logger.exception("Failed to extend background job lease")
+                return
+
+    async def _profile_heartbeat_async(self, job: Dict[str, Any], finished: asyncio.Event) -> None:
+        token = job["lease_token"]
+        while not finished.is_set():
+            try:
+                await asyncio.wait_for(
+                    finished.wait(),
+                    timeout=float(self.config.heartbeat_interval_seconds),
+                )
+                return
+            except asyncio.TimeoutError:
+                pass
+            try:
+                if not self.db.heartbeat_profile_job(
+                    job["job_id"],
+                    token,
+                    self.config.lease_timeout_seconds,
+                ):
+                    return
+            except Exception:
+                logger.exception("Failed to extend background job lease")
+                return
+
+    async def _run_degraded_migration_stage_async(
+        self,
+        job: Dict[str, Any],
+        stage: str,
+        handler: MigrationHandler,
+        async_handler: Optional[AsyncMigrationHandler],
+        messages: List[Dict[str, Any]],
+    ) -> bool:
+        job_id = job["job_id"]
+        lease_token = job[f"{stage}_lease_token"]
+        try:
+            await self._invoke_migration_handler_async(job, messages, True, handler, async_handler)
+            if not self.db.migration_stage_lease_is_current(job_id, stage, lease_token):
+                await self._discard_outputs_async(job, stage, lease_token)
+                return False
+            await self._commit_outputs_async(job, stage, lease_token, True)
+            if not self.db.mark_migration_stage_succeeded(job_id, stage, lease_token, degraded=True):
+                await self._discard_outputs_async(job, stage, lease_token)
+                return False
+            logger.warning(
+                "Background stage used degraded storage job_id=%s session_scope=%s stage=%s worker=%s",
+                job_id,
+                job.get("session_scope"),
+                stage,
+                threading.current_thread().name,
+            )
+            return True
+        except Exception as degraded_exc:
+            logger.error(
+                "Background stage degradation failed job_id=%s session_scope=%s stage=%s attempt=%s "
+                "worker=%s error=%s",
+                job_id,
+                job.get("session_scope"),
+                stage,
+                int(job.get(f"{stage}_attempts", 0)) + 1,
+                threading.current_thread().name,
+                degraded_exc,
+            )
+            cleanup_error = await self._discard_outputs_async(job, stage, lease_token)
+            self.db.mark_migration_stage_discarded(
+                job_id,
+                stage,
+                lease_token,
+                f"degradation: {degraded_exc}",
+                cleanup_error=cleanup_error,
+            )
+            return False
+
+    async def _handle_migration_stage_failure_async(
+        self,
+        job: Dict[str, Any],
+        stage: str,
+        handler: MigrationHandler,
+        async_handler: Optional[AsyncMigrationHandler],
+        messages: List[Dict[str, Any]],
+        exc: Exception,
+    ) -> bool:
+        action = self._record_migration_stage_failure(job, stage, exc)
+        if action == "stale_lease":
+            await self._discard_outputs_async(job, stage, job[f"{stage}_lease_token"])
+            return False
+        if action != "exhausted":
+            return False
+        return await self._run_degraded_migration_stage_async(
+            job,
+            stage,
+            handler,
+            async_handler,
+            messages,
+        )
+
+    async def _persist_unexpected_stage_failure_async(
+        self,
+        job: Dict[str, Any],
+        stage: str,
+        handler: MigrationHandler,
+        async_handler: Optional[AsyncMigrationHandler],
+        exc: Exception,
+    ) -> None:
+        try:
+            messages = self.db.get_migration_job_messages(job["job_id"])
+            if not messages:
+                lease_token = job[f"{stage}_lease_token"]
+                cleanup_error = await self._discard_outputs_async(job, stage, lease_token)
+                self.db.mark_migration_stage_discarded(
+                    job["job_id"],
+                    stage,
+                    lease_token,
+                    "migration source messages are missing",
+                    cleanup_error=cleanup_error,
+                )
+                return
+            await self._handle_migration_stage_failure_async(
+                job,
+                stage,
+                handler,
+                async_handler,
+                messages,
+                exc,
+            )
+        except Exception:
+            logger.exception(
+                "Failed to persist unexpected migration failure job_id=%s stage=%s",
+                job.get("job_id"),
+                stage,
+            )
+
+    async def _run_migration_stage_async(
+        self,
+        job: Dict[str, Any],
+        stage: str,
+        handler: MigrationHandler,
+        async_handler: Optional[AsyncMigrationHandler] = None,
+    ) -> bool:
+        job_id = job["job_id"]
+        lease_token = job[f"{stage}_lease_token"]
+        finished = asyncio.Event()
+        heartbeat = asyncio.create_task(
+            self._migration_heartbeat_async(job, stage, finished),
+            name=f"mem0-{stage}-heartbeat-{job_id}",
+        )
+        try:
+            messages = self.db.get_migration_job_messages(job_id)
+            if not messages:
+                cleanup_error = await self._discard_outputs_async(job, stage, lease_token)
+                self.db.mark_migration_stage_discarded(
+                    job_id,
+                    stage,
+                    lease_token,
+                    "migration source messages are missing",
+                    cleanup_error=cleanup_error,
+                )
+                return False
+
+            if bool(job.get(f"{stage}_force_degraded")) or int(job.get(f"{stage}_attempts", 0)) > int(
+                self.config.max_retries
+            ):
+                return await self._run_degraded_migration_stage_async(
+                    job,
+                    stage,
+                    handler,
+                    async_handler,
+                    messages,
+                )
+
+            try:
+                await self._invoke_migration_handler_async(job, messages, False, handler, async_handler)
+                if not self.db.migration_stage_lease_is_current(job_id, stage, lease_token):
+                    await self._discard_outputs_async(job, stage, lease_token)
+                    return False
+                await self._commit_outputs_async(job, stage, lease_token, False)
+            except Exception as exc:
+                return await self._handle_migration_stage_failure_async(
+                    job,
+                    stage,
+                    handler,
+                    async_handler,
+                    messages,
+                    exc,
+                )
+
+            if not self.db.mark_migration_stage_succeeded(job_id, stage, lease_token):
+                await self._discard_outputs_async(job, stage, lease_token)
+                return False
+            return True
+        finally:
+            finished.set()
+            await heartbeat
+
     def _run_migration_stage(
         self,
         job: Dict[str, Any],
@@ -592,6 +1054,78 @@ class BackgroundWorkerManager:
         finally:
             self._stop_heartbeat(heartbeat)
 
+    async def _run_profile_job_async(self, job: Dict[str, Any]) -> None:
+        finished = asyncio.Event()
+        heartbeat = asyncio.create_task(
+            self._profile_heartbeat_async(job, finished),
+            name=f"mem0-profile-heartbeat-{job['job_id']}",
+        )
+        try:
+            try:
+                if self.process_profile_async is not None:
+                    committed = self.process_profile_async(job)
+                else:
+                    committed = await asyncio.to_thread(self.process_profile, job)
+                if inspect.isawaitable(committed):
+                    committed = await committed
+                if committed is False:
+                    logger.info(
+                        "Background profile job abandoned because lease is stale "
+                        "job_id=%s user_id=%s attempts=%s recovery_count=%s lease_token=%s",
+                        job["job_id"],
+                        job.get("user_id"),
+                        job.get("attempts", 0),
+                        job.get("recovery_count", 0),
+                        str(job.get("lease_token") or "")[:8],
+                    )
+                    return
+
+                if committed is None:
+                    finished_job = self.db.finish_profile_job(job["job_id"], job["lease_token"])
+                    if not finished_job:
+                        logger.info(
+                            "Background profile job abandoned because lease is stale "
+                            "job_id=%s user_id=%s attempts=%s recovery_count=%s lease_token=%s",
+                            job["job_id"],
+                            job.get("user_id"),
+                            job.get("attempts", 0),
+                            job.get("recovery_count", 0),
+                            str(job.get("lease_token") or "")[:8],
+                        )
+            except Exception as exc:
+                attempt = int(job.get("attempts", 0)) + 1
+                retryable = getattr(exc, "retryable", None)
+                if retryable is None:
+                    retryable = not isinstance(exc, (TypeError, ValueError))
+                logger.warning(
+                    "Background profile update failed job_id=%s job_type=profile user_id=%s error_type=%s "
+                    "finish_reason=%s prompt_tokens=%s completion_tokens=%s reasoning_tokens=%s attempts=%s "
+                    "recovery_count=%s lease_token=%s worker=%s retryable=%s last_error=%s",
+                    job["job_id"],
+                    job.get("user_id"),
+                    type(exc).__name__,
+                    getattr(exc, "finish_reason", None),
+                    getattr(exc, "prompt_tokens", None),
+                    getattr(exc, "completion_tokens", None),
+                    getattr(exc, "reasoning_tokens", None),
+                    attempt,
+                    job.get("recovery_count", 0),
+                    str(job.get("lease_token") or "")[:8],
+                    threading.current_thread().name,
+                    retryable,
+                    exc,
+                )
+                self.db.record_profile_failure(
+                    job["job_id"],
+                    job["lease_token"],
+                    f"{type(exc).__name__}: {exc}",
+                    max_retries=int(self.config.max_retries) if retryable else 0,
+                    retry_delay_seconds=self._retry_delay(attempt),
+                )
+        finally:
+            finished.set()
+            await heartbeat
+
     def flush(self, timeout: Optional[float] = None) -> bool:
         """Wait until all runnable, delayed, or running stages and profile jobs finish."""
         if not self.enabled:
@@ -620,11 +1154,6 @@ class BackgroundWorkerManager:
             self._profile_wakeup.set()
             threads = list(self._threads)
             watchdog_thread = self._watchdog_thread
-            with self._heartbeats_lock:
-                heartbeats = list(self._heartbeats)
-
-        for heartbeat in heartbeats:
-            heartbeat.request_stop()
 
         if wait:
             for thread in threads:
@@ -636,6 +1165,8 @@ class BackgroundWorkerManager:
             with self._heartbeats_lock:
                 heartbeats = list(self._heartbeats)
             for heartbeat in heartbeats:
+                # Worker-owned async heartbeats drain with their job. These legacy
+                # thread heartbeats only exist for direct synchronous compatibility calls.
                 heartbeat.request_stop()
                 remaining = None if deadline is None else max(deadline - time.monotonic(), 0)
                 heartbeat.join(remaining)

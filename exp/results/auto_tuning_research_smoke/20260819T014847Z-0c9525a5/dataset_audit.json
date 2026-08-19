@@ -1,0 +1,31 @@
+{
+  "status": "PASS",
+  "dataset": "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_synthetic_smoke/smoke_dataset.xlsx",
+  "dataset_sha256": "fec90195ede22b9adc5428b9f7c91787538f73a55f9a1376492bb81da26f08c4",
+  "session_count": 3,
+  "query_count": 18,
+  "gold_bearing_query_count": 6,
+  "independent_query_count": 12,
+  "gold_requirement_count": 6,
+  "and_requirement_count": 6,
+  "or_requirement_count": 0,
+  "shortterm_requirement_count": 0,
+  "outside_shortterm_requirement_count": 6,
+  "shortterm_qa_turns": 3,
+  "dependency_distance_distribution": {
+    "4": 6
+  },
+  "dominant_dependency_distance": 4,
+  "dominant_dependency_distance_ratio": 1.0,
+  "explicit_history_leakage_ratio": 0.0,
+  "future_dependency_count": 0,
+  "cross_session_dependency_count": 0,
+  "missing_gold_target_count": 0,
+  "duplicate_query_ids": [],
+  "source_run": {
+    "required": false,
+    "status": "AUTO_DISCOVERY_OR_PRODUCTION_GENERATION"
+  },
+  "hard_errors": [],
+  "warnings": []
+}

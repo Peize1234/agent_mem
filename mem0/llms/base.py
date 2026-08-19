@@ -1,3 +1,4 @@
+import asyncio
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
@@ -163,6 +164,22 @@ class LLMBase(ABC):
             str or dict: The generated response.
         """
         pass
+
+    async def generate_response_async(
+        self,
+        messages: List[Dict[str, str]],
+        tools: Optional[List[Dict]] = None,
+        tool_choice: str = "auto",
+        **kwargs,
+    ):
+        """Compatibility async path for providers without a native async client."""
+        return await asyncio.to_thread(
+            self.generate_response,
+            messages=messages,
+            tools=tools,
+            tool_choice=tool_choice,
+            **kwargs,
+        )
 
     def _get_common_params(self, **kwargs) -> Dict:
         """

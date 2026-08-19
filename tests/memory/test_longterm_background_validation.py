@@ -5,7 +5,7 @@ import time
 import uuid
 from datetime import timedelta
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -217,6 +217,25 @@ async def test_sync_and_async_longterm_inputs_preserve_roles_newlines_and_pretty
         assert '[{"role"' not in user_prompt
         assert user_prompt.index('"role": "user"') < user_prompt.index('"role": "assistant"')
         assert "\\u" not in user_prompt
+    finally:
+        db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_longterm_extraction_prefers_native_async_llm():
+    db = SQLiteManager(":memory:")
+    memory = _memory(db, '{"memory": []}', async_mode=True)
+    memory.llm.generate_response_async = AsyncMock(return_value='{"memory": []}')
+    try:
+        result = await memory._process_evicted_long_term_memories(
+            MESSAGES,
+            METADATA,
+            FILTERS,
+            source_job_id="job-native-async-llm",
+        )
+        assert result == []
+        memory.llm.generate_response_async.assert_awaited_once()
+        memory.llm.generate_response.assert_not_called()
     finally:
         db.close()
 

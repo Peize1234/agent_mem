@@ -1,0 +1,14 @@
+{
+  "dataset_path": "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_synthetic_smoke/smoke_dataset.xlsx",
+  "session_id": "S001_smoke",
+  "output_dir": "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_research_smoke/20260819T014847Z-0c9525a5/production_source/S001_smoke",
+  "runtime_dir": "/home/peize/Code/htzq/mem0/exp/results/auto_tuning_research_smoke/20260819T014847Z-0c9525a5/production_runtimes/production-source-44136fa355b3/S001_smoke",
+  "collection_name": "mrt_source_b532cd711925f4ef",
+  "memory_config_path": "/home/peize/Code/htzq/mem0/.agents/skills/memory-retrieval-tuner/memory_config.json",
+  "ranking_depth": 20,
+  "llm_mode": "mock",
+  "page_summary_prompt": null,
+  "context_mode": "none",
+  "source_variant": "production",
+  "source_identity": {}
+}

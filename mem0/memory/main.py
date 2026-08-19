@@ -1053,7 +1053,11 @@ class _BackgroundMemoryMixin:
             process_midterm=self._background_process_midterm,
             process_longterm=self._background_process_longterm,
             process_profile=self._background_process_profile,
+            process_midterm_async=getattr(self, "_background_process_midterm_async", None),
+            process_longterm_async=getattr(self, "_background_process_longterm_async", None),
+            process_profile_async=getattr(self, "_background_process_profile_async", None),
             commit_migration_outputs=self._commit_migration_stage_outputs,
+            commit_migration_outputs_async=getattr(self, "_commit_migration_stage_outputs_async", None),
             discard_migration_outputs=self._discard_migration_stage_outputs,
             startup_cleanup=self._cleanup_orphan_staging_outputs,
         )
@@ -4341,6 +4345,108 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                     self._profile_updater = ProfileUpdater(self.llm, self.config.profile)
         return self._profile_updater
 
+    async def _background_process_midterm_async(self, job, messages, degraded: bool) -> None:
+        if not self._midterm_enabled():
+            return
+
+        def lease_is_current():
+            return self.db.migration_stage_lease_is_current(
+                job["job_id"],
+                "midterm",
+                job["midterm_lease_token"],
+            )
+
+        if not lease_is_current():
+            raise RuntimeError("stale migration stage lease")
+        await self._process_midterm_evictions_async(
+            messages,
+            job["filters"],
+            source_job_id=job["job_id"],
+            lease_token=job["midterm_lease_token"],
+            lease_is_current=lease_is_current,
+            degraded=degraded,
+            raise_on_error=True,
+        )
+
+    async def _background_process_longterm_async(self, job, messages, degraded: bool) -> None:
+        def lease_is_current():
+            return self.db.migration_stage_lease_is_current(
+                job["job_id"],
+                "longterm",
+                job["longterm_lease_token"],
+            )
+
+        if not lease_is_current():
+            raise RuntimeError("stale migration stage lease")
+        if degraded:
+            await asyncio.to_thread(
+                self._store_longterm_fallback,
+                job,
+                messages,
+                lease_is_current=lease_is_current,
+            )
+            return
+        await self._process_evicted_long_term_memories(
+            messages,
+            job["metadata"],
+            job["filters"],
+            infer=job["infer"],
+            prompt=job.get("prompt"),
+            source_job_id=job["job_id"],
+            lease_token=job["longterm_lease_token"],
+            lease_is_current=lease_is_current,
+        )
+
+    async def _background_process_profile_async(self, job) -> bool:
+        lock = self._get_profile_user_thread_lock(job["user_id"])
+        async with _acquire_thread_lock_async(lock):
+            plan = await self._generate_profile_update_plan(job["user_id"], job["messages"])
+            validated_plan = self.profile_manager.validate_update_plan(
+                plan or ProfileUpdatePlan(operations=[]),
+            )
+            return await asyncio.to_thread(
+                self.db.apply_profile_plan_and_finish_job,
+                job["job_id"],
+                job["lease_token"],
+                job["user_id"],
+                validated_plan,
+                max_value_json_bytes=self.config.profile.max_value_json_bytes,
+            )
+
+    async def _commit_migration_stage_outputs_async(
+        self,
+        job: Dict[str, Any],
+        stage: str,
+        lease_token: str,
+        degraded: bool,
+    ) -> None:
+        def lease_is_current():
+            return self.db.migration_stage_lease_is_current(
+                job["job_id"],
+                stage,
+                lease_token,
+            )
+
+        if not lease_is_current():
+            raise RuntimeError("stale migration stage lease")
+        if stage == "midterm":
+            if not self._midterm_enabled():
+                return
+            await self.midterm_updater.commit_source_job_outputs_async(
+                job["job_id"],
+                lease_token,
+                degraded=degraded,
+                lease_is_current=lease_is_current,
+            )
+            return
+        await asyncio.to_thread(
+            self._commit_migration_stage_outputs,
+            job,
+            stage,
+            lease_token,
+            degraded,
+        )
+
     async def get_profile(self, user_id: str, include_metadata: Optional[bool] = None):
         """Return a user's current profile without blocking the event loop."""
         normalized_user_id = normalize_profile_user_id(user_id)
@@ -4609,11 +4715,15 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             return None
         current_profile = await asyncio.to_thread(self.profile_manager.get_profile, normalized_user_id)
         attribute_catalog = await asyncio.to_thread(self.profile_manager.list_attributes)
-        return await self.profile_updater.generate_update_plan_async(
-            current_profile=current_profile,
-            attribute_catalog=attribute_catalog,
-            messages=user_messages,
-        )
+        request = {
+            "current_profile": current_profile,
+            "attribute_catalog": attribute_catalog,
+            "messages": user_messages,
+        }
+        async_generate = getattr(self.profile_updater, "generate_update_plan_async", None)
+        if inspect.iscoroutinefunction(async_generate):
+            return await async_generate(**request)
+        return await asyncio.to_thread(self.profile_updater.generate_update_plan, **request)
 
     async def _update_profile_after_add(self, user_id, messages):
         profile_config = getattr(self.config, "profile", None)
@@ -4698,6 +4808,34 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             if raise_on_error:
                 raise
             logger.warning(f"Mid-term memory update failed: {e}")
+            return []
+
+    async def _process_midterm_evictions_async(
+        self,
+        evicted_messages,
+        filters,
+        *,
+        source_job_id=None,
+        lease_token=None,
+        lease_is_current=None,
+        degraded=False,
+        raise_on_error=False,
+    ):
+        if not self._midterm_enabled() or not evicted_messages:
+            return []
+        try:
+            return await self.midterm_updater.process_evicted_messages_async(
+                evicted_messages,
+                filters,
+                source_job_id=source_job_id,
+                lease_token=lease_token,
+                lease_is_current=lease_is_current,
+                degraded=degraded,
+            )
+        except Exception as exc:
+            if raise_on_error:
+                raise
+            logger.warning("Mid-term memory update failed: %s", exc)
             return []
 
     def _with_midterm_search_results(self, query, filters, long_term_memories):
@@ -5247,14 +5385,18 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         )
 
         try:
-            response = await asyncio.to_thread(
-                self.llm.generate_response,
-                messages=[
+            request = {
+                "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                response_format={"type": "json_object"},
-            )
+                "response_format": {"type": "json_object"},
+            }
+            async_generate = getattr(self.llm, "generate_response_async", None)
+            if inspect.iscoroutinefunction(async_generate):
+                response = await async_generate(**request)
+            else:
+                response = await asyncio.to_thread(self.llm.generate_response, **request)
         except Exception as e:
             # Re-raise so callers can implement provider fallback / retry
             # (see sync counterpart for rationale).

@@ -1,9 +1,11 @@
+import asyncio
 import json
 import logging
 import os
+import threading
 from typing import Dict, List, Optional, Union
 
-from openai import OpenAI
+from openai import AsyncOpenAI, OpenAI
 
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.llms.openai import OpenAIConfig
@@ -40,17 +42,32 @@ class OpenAILLM(LLMBase):
             self.config.model = "gpt-5-mini"
 
         if os.environ.get("OPENROUTER_API_KEY"):  # Use OpenRouter
-            self.client = OpenAI(
-                api_key=os.environ.get("OPENROUTER_API_KEY"),
-                base_url=self.config.openrouter_base_url
+            client_kwargs = {
+                "api_key": os.environ.get("OPENROUTER_API_KEY"),
+                "base_url": self.config.openrouter_base_url
                 or os.getenv("OPENROUTER_API_BASE")
                 or "https://openrouter.ai/api/v1",
+            }
+            self.client = OpenAI(
+                api_key=os.environ.get("OPENROUTER_API_KEY"),
+                base_url=client_kwargs["base_url"],
             )
         else:
             api_key = self.config.api_key or os.getenv("OPENAI_API_KEY")
             base_url = self.config.openai_base_url or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"
+            client_kwargs = {"api_key": api_key, "base_url": base_url}
+            self.client = OpenAI(**client_kwargs)
+        self._async_client_kwargs = client_kwargs
+        self._async_client_state = threading.local()
 
-            self.client = OpenAI(api_key=api_key, base_url=base_url)
+    def _get_async_client(self) -> AsyncOpenAI:
+        """Return a client scoped to the current thread and running event loop."""
+        loop = asyncio.get_running_loop()
+        state = self._async_client_state
+        if getattr(state, "loop", None) is not loop:
+            state.loop = loop
+            state.client = AsyncOpenAI(**self._async_client_kwargs)
+        return state.client
 
     def _parse_response(self, response, tools):
         """
@@ -147,4 +164,46 @@ class OpenAILLM(LLMBase):
                 # Log error but don't propagate
                 logging.error(f"Error due to callback: {e}")
                 pass
+        return parsed_response
+
+    async def generate_response_async(
+        self,
+        messages: List[Dict[str, str]],
+        response_format=None,
+        tools: Optional[List[Dict]] = None,
+        tool_choice: str = "auto",
+        **kwargs,
+    ):
+        """Generate a response through an event-loop-local AsyncOpenAI client."""
+        params = self._get_supported_params(messages=messages, **kwargs)
+        params.update({"model": self.config.model, "messages": messages})
+
+        if os.getenv("OPENROUTER_API_KEY"):
+            openrouter_params = {}
+            if self.config.models:
+                openrouter_params["models"] = self.config.models
+                openrouter_params["route"] = self.config.route
+                params.pop("model")
+            if self.config.site_url and self.config.app_name:
+                openrouter_params["extra_headers"] = {
+                    "HTTP-Referer": self.config.site_url,
+                    "X-Title": self.config.app_name,
+                }
+            params.update(**openrouter_params)
+        elif self.config.store is not None:
+            params["store"] = self.config.store
+
+        if response_format:
+            params["response_format"] = response_format
+        if tools:
+            params["tools"] = tools
+            params["tool_choice"] = tool_choice
+
+        response = await self._get_async_client().chat.completions.create(**params)
+        parsed_response = self._parse_response(response, tools)
+        if self.config.response_callback:
+            try:
+                self.config.response_callback(self, response, params)
+            except Exception as exc:
+                logging.error(f"Error due to callback: {exc}")
         return parsed_response

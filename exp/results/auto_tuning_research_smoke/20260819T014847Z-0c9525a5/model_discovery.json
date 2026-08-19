@@ -1,0 +1,10 @@
+{
+  "cache_root": "/home/peize/.cache/huggingface/hub",
+  "resources": {
+    "gpu_count": 1,
+    "gpu_memory_gib": 3.130859375,
+    "available_memory_gib": 8.926197052001953,
+    "free_disk_gib": 62.879615783691406
+  },
+  "models": []
+}

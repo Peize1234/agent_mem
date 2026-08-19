@@ -1,3 +1,4 @@
+import asyncio
 import threading
 import time
 import uuid
@@ -40,7 +41,17 @@ def _reserve(db, value, *, scope="user_id=u1&run_id=r1", max_messages=0):
     return job_id
 
 
-def _manager(db, *, config=None, midterm=None, longterm=None, profile=None):
+def _manager(
+    db,
+    *,
+    config=None,
+    midterm=None,
+    longterm=None,
+    profile=None,
+    midterm_async=None,
+    longterm_async=None,
+    profile_async=None,
+):
     config = config or BackgroundTaskConfig(poll_interval_seconds=0.01)
     return BackgroundWorkerManager(
         db,
@@ -48,6 +59,9 @@ def _manager(db, *, config=None, midterm=None, longterm=None, profile=None):
         process_midterm=midterm or (lambda *args: None),
         process_longterm=longterm or (lambda *args: None),
         process_profile=profile or (lambda *args: None),
+        process_midterm_async=midterm_async,
+        process_longterm_async=longterm_async,
+        process_profile_async=profile_async,
     )
 
 
@@ -66,6 +80,9 @@ def test_background_config_defaults():
     assert config.midterm_worker_count == 1
     assert config.longterm_worker_count == 1
     assert config.profile_worker_count == 1
+    assert config.midterm_worker_concurrency == 1
+    assert config.longterm_worker_concurrency == 1
+    assert config.profile_worker_concurrency == 1
     assert config.entity_extraction_worker_count == 2
     assert config.entity_extraction_pending_capacity == 8
     assert config.max_retries == 3
@@ -149,6 +166,10 @@ def test_configured_worker_pools_start_once_and_stop_all_workers(db):
         ("profile_worker_count", 0),
         ("profile_worker_count", -1),
         ("profile_worker_count", 17),
+        ("midterm_worker_concurrency", 0),
+        ("longterm_worker_concurrency", 0),
+        ("profile_worker_concurrency", 0),
+        ("midterm_worker_concurrency", 1025),
         ("entity_extraction_worker_count", 0),
         ("entity_extraction_worker_count", 17),
         ("entity_extraction_pending_capacity", 0),
@@ -167,12 +188,28 @@ def test_memory_config_accepts_independent_background_worker_counts():
             "midterm_worker_count": 2,
             "longterm_worker_count": 3,
             "profile_worker_count": 4,
+            "midterm_worker_concurrency": 64,
+            "longterm_worker_concurrency": 48,
+            "profile_worker_concurrency": 32,
         }
     )
 
     assert config.background.midterm_worker_count == 2
     assert config.background.longterm_worker_count == 3
     assert config.background.profile_worker_count == 4
+    assert config.background.midterm_worker_concurrency == 64
+    assert config.background.longterm_worker_concurrency == 48
+    assert config.background.profile_worker_concurrency == 32
+
+
+def test_background_config_accepts_high_capacity_entity_extraction():
+    config = BackgroundTaskConfig(
+        entity_extraction_worker_count=16,
+        entity_extraction_pending_capacity=128,
+    )
+
+    assert config.entity_extraction_worker_count == 16
+    assert config.entity_extraction_pending_capacity == 128
 
 
 def test_stopped_manager_does_not_claim_new_jobs(db):
@@ -514,14 +551,15 @@ def test_profile_recovery_exhaustion_discards_job(db):
     assert claimed["lease_token"]
 
 
-def test_watchdog_and_heartbeat_threads_stop_cleanly(db):
+def test_async_heartbeat_uses_no_job_thread_and_shutdown_drains_claimed_job(db):
     job_id = _reserve(db, "thread-cleanup")
     entered = threading.Event()
     release = threading.Event()
 
-    def midterm(*args):
+    async def midterm(*args):
         entered.set()
-        release.wait(1)
+        while not release.is_set():
+            await asyncio.sleep(0.005)
 
     manager = _manager(
         db,
@@ -531,25 +569,36 @@ def test_watchdog_and_heartbeat_threads_stop_cleanly(db):
             heartbeat_interval_seconds=0.01,
             watchdog_interval_seconds=0.01,
         ),
-        midterm=midterm,
+        midterm_async=midterm,
     )
-    manager.start()
-    manager.wake_midterm()
-    assert entered.wait(1)
-    assert any(
-        thread.name.startswith("mem0-midterm-heartbeat-") and thread.is_alive()
-        for thread in threading.enumerate()
-    )
-    release.set()
-    assert manager.flush(2)
-    assert manager.stop(timeout=1)
-    assert not manager.threads_alive()
-    assert not any(
-        thread.name == "mem0-background-watchdog"
-        or thread.name.startswith("mem0-midterm-heartbeat-")
-        for thread in threading.enumerate()
-    )
-    assert db.get_background_job(job_id)["midterm_status"] == "succeeded"
+    try:
+        manager.start()
+        manager.wake_midterm()
+        assert entered.wait(1)
+        initial_heartbeat = db.get_background_job(job_id)["midterm_heartbeat_at"]
+        assert not any(
+            thread.name.startswith("mem0-midterm-heartbeat-") and thread.is_alive()
+            for thread in threading.enumerate()
+        )
+
+        assert manager.stop(wait=False) is False
+        time.sleep(0.04)
+        running = db.get_background_job(job_id)
+        assert running["midterm_status"] == "running"
+        assert running["midterm_heartbeat_at"] != initial_heartbeat
+
+        release.set()
+        assert manager.stop(timeout=1)
+        assert not manager.threads_alive()
+        assert not any(
+            thread.name == "mem0-background-watchdog"
+            or thread.name.startswith("mem0-midterm-heartbeat-")
+            for thread in threading.enumerate()
+        )
+        assert db.get_background_job(job_id)["midterm_status"] == "succeeded"
+    finally:
+        release.set()
+        manager.stop(timeout=1)
 
 
 def test_midterm_and_longterm_enter_same_job_in_parallel(db):
@@ -701,6 +750,174 @@ def test_same_stage_workers_preserve_same_session_sequence(db, stage):
     finally:
         release_first.set()
         assert manager.stop(timeout=1)
+
+
+def test_one_worker_runs_async_jobs_concurrently_up_to_configured_limit(db):
+    job_ids = [
+        _reserve(db, index, scope=f"user_id=u{index}&run_id=r{index}")
+        for index in range(6)
+    ]
+    db.connection.executemany(
+        "UPDATE memory_migration_jobs SET longterm_status = 'succeeded' WHERE job_id = ?",
+        [(job_id,) for job_id in job_ids],
+    )
+    db.connection.commit()
+    three_entered = threading.Event()
+    release = threading.Event()
+    state = {"active": 0, "maximum": 0, "loops": set(), "threads": set()}
+
+    async def midterm(job, messages, degraded):
+        state["active"] += 1
+        state["maximum"] = max(state["maximum"], state["active"])
+        state["loops"].add(id(asyncio.get_running_loop()))
+        state["threads"].add(threading.get_ident())
+        if state["active"] == 3:
+            three_entered.set()
+        try:
+            while not release.is_set():
+                await asyncio.sleep(0.002)
+        finally:
+            state["active"] -= 1
+
+    manager = _manager(
+        db,
+        config=BackgroundTaskConfig(midterm_worker_concurrency=3, poll_interval_seconds=0.005),
+        midterm_async=midterm,
+    )
+    try:
+        manager.start()
+        manager.wake_midterm()
+        assert three_entered.wait(1)
+        assert sum(db.get_background_job(job_id)["midterm_status"] == "running" for job_id in job_ids) == 3
+        assert state["maximum"] == 3
+        assert len(state["loops"]) == 1
+        assert len(state["threads"]) == 1
+        release.set()
+        assert manager.flush(2)
+        assert state["maximum"] == 3
+    finally:
+        release.set()
+        assert manager.stop(timeout=1)
+
+
+def test_one_worker_concurrency_preserves_same_session_stage_order(db):
+    job_ids = [_reserve(db, index) for index in range(2)]
+    db.connection.executemany(
+        "UPDATE memory_migration_jobs SET longterm_status = 'succeeded' WHERE job_id = ?",
+        [(job_id,) for job_id in job_ids],
+    )
+    db.connection.commit()
+    first_entered = threading.Event()
+    second_entered = threading.Event()
+    release_first = threading.Event()
+
+    async def midterm(job, messages, degraded):
+        if job["job_id"] == job_ids[0]:
+            first_entered.set()
+            while not release_first.is_set():
+                await asyncio.sleep(0.002)
+        else:
+            second_entered.set()
+
+    manager = _manager(
+        db,
+        config=BackgroundTaskConfig(midterm_worker_concurrency=4, poll_interval_seconds=0.005),
+        midterm_async=midterm,
+    )
+    try:
+        manager.start()
+        manager.wake_midterm()
+        assert first_entered.wait(1)
+        assert not second_entered.wait(0.1)
+        assert db.get_background_job(job_ids[1])["midterm_status"] == "pending"
+        release_first.set()
+        assert second_entered.wait(1)
+        assert manager.flush(2)
+    finally:
+        release_first.set()
+        assert manager.stop(timeout=1)
+
+
+def test_one_profile_worker_concurrency_preserves_same_user_order(db):
+    job_ids = [db.create_profile_update_job("ordered-async-user", _messages(index)) for index in range(2)]
+    first_entered = threading.Event()
+    second_entered = threading.Event()
+    release_first = threading.Event()
+
+    async def profile(job):
+        if job["job_id"] == job_ids[0]:
+            first_entered.set()
+            while not release_first.is_set():
+                await asyncio.sleep(0.002)
+        else:
+            second_entered.set()
+
+    manager = _manager(
+        db,
+        config=BackgroundTaskConfig(profile_worker_concurrency=4, poll_interval_seconds=0.005),
+        profile_async=profile,
+    )
+    try:
+        manager.start()
+        manager.wake_profile()
+        assert first_entered.wait(1)
+        assert not second_entered.wait(0.1)
+        assert db.get_background_job(job_ids[1], "profile")["status"] == "pending"
+        release_first.set()
+        assert second_entered.wait(1)
+        assert manager.flush(2)
+    finally:
+        release_first.set()
+        assert manager.stop(timeout=1)
+
+
+def test_one_worker_processes_100_fake_async_io_jobs_without_100_threads(db):
+    job_ids = [
+        _reserve(db, index, scope=f"user_id=load-{index}&run_id=load-{index}")
+        for index in range(100)
+    ]
+    db.connection.executemany(
+        "UPDATE memory_migration_jobs SET longterm_status = 'succeeded' WHERE job_id = ?",
+        [(job_id,) for job_id in job_ids],
+    )
+    db.connection.commit()
+    saturated = threading.Event()
+    release = threading.Event()
+    state = {"active": 0, "maximum": 0, "loops": set(), "threads": set(), "completed": 0}
+
+    async def midterm(job, messages, degraded):
+        state["active"] += 1
+        state["maximum"] = max(state["maximum"], state["active"])
+        state["loops"].add(id(asyncio.get_running_loop()))
+        state["threads"].add(threading.get_ident())
+        if state["active"] == 16:
+            saturated.set()
+        while not release.is_set():
+            await asyncio.sleep(0.001)
+        await asyncio.sleep(0.002)
+        state["active"] -= 1
+        state["completed"] += 1
+
+    manager = _manager(
+        db,
+        config=BackgroundTaskConfig(midterm_worker_concurrency=16, poll_interval_seconds=0.002),
+        midterm_async=midterm,
+    )
+    try:
+        manager.start()
+        manager.wake_midterm()
+        assert saturated.wait(1)
+        assert len([thread for thread in manager._threads if "midterm" in thread.name]) == 1
+        assert not any("heartbeat" in thread.name for thread in threading.enumerate())
+        release.set()
+        assert manager.flush(5)
+        assert state["completed"] == 100
+        assert state["maximum"] == 16
+        assert len(state["loops"]) == 1
+        assert len(state["threads"]) == 1
+    finally:
+        release.set()
+        assert manager.stop(timeout=2)
 
 
 def test_profile_workers_process_different_users_concurrently(db):
@@ -2048,18 +2265,20 @@ async def test_async_add_returns_without_waiting_for_migration_or_profile_llms(d
     profile_started = threading.Event()
     release = threading.Event()
 
-    def midterm(*args, **kwargs):
+    async def midterm(*args, **kwargs):
         migration_started.set()
-        release.wait(2)
+        while not release.is_set():
+            await asyncio.sleep(0.002)
         return []
 
     class BlockingProfileUpdater:
-        def generate_update_plan(self, **kwargs):
+        async def generate_update_plan_async(self, **kwargs):
             profile_started.set()
-            release.wait(2)
+            while not release.is_set():
+                await asyncio.sleep(0.002)
             return ProfileUpdatePlan()
 
-    memory._process_midterm_evictions = midterm
+    memory._process_midterm_evictions_async = midterm
     memory._process_evicted_long_term_memories = AsyncMock(return_value=[])
     memory._profile_updater = BlockingProfileUpdater()
     monkeypatch.setattr(memory_main, "detect_scale_threshold_from_add_result", lambda *args: None)

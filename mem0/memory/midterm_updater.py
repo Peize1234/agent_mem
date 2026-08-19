@@ -1,3 +1,5 @@
+import asyncio
+import inspect
 import json
 import logging
 import re
@@ -89,6 +91,48 @@ class MidTermUpdater:
         raw_dialogue = _format_page_dialogue(user_input, assistant_response)
         try:
             response = self.llm.generate_response(
+                messages=[
+                    {"role": "system", "content": MIDTERM_PAGE_SUMMARY_PROMPT},
+                    {"role": "user", "content": raw_dialogue},
+                ],
+                response_format={"type": "json_object"},
+            )
+            parsed = self._parse_json_response(response)
+            summary = str(parsed.get("summary") or "").strip()
+            keywords = parsed.get("keywords") or []
+            if isinstance(keywords, str):
+                keywords = [item.strip() for item in keywords.split(",") if item.strip()]
+            keywords = [str(item).strip() for item in keywords if str(item).strip()]
+            if summary:
+                return summary, keywords[:8] or self._fallback_keywords(raw_dialogue)
+            if not allow_fallback:
+                raise ValueError("midterm page summary response did not contain a summary")
+        except Exception as exc:
+            if not allow_fallback:
+                raise
+            logger.debug("Midterm page summarization failed; using fallback: %s", exc)
+
+        summary = user_input.strip() or raw_dialogue[:240]
+        if len(summary) > 240:
+            summary = f"{summary[:237]}..."
+        return summary, self._fallback_keywords(raw_dialogue)
+
+    async def _generate_response_async(self, **kwargs):
+        async_generate = getattr(self.llm, "generate_response_async", None)
+        if inspect.iscoroutinefunction(async_generate):
+            return await async_generate(**kwargs)
+        return await asyncio.to_thread(self.llm.generate_response, **kwargs)
+
+    async def _summarize_page_async(
+        self,
+        user_input: str,
+        assistant_response: str,
+        *,
+        allow_fallback: bool = True,
+    ) -> tuple[str, List[str]]:
+        raw_dialogue = _format_page_dialogue(user_input, assistant_response)
+        try:
+            response = await self._generate_response_async(
                 messages=[
                     {"role": "system", "content": MIDTERM_PAGE_SUMMARY_PROMPT},
                     {"role": "user", "content": raw_dialogue},
@@ -327,6 +371,55 @@ class MidTermUpdater:
 
         return fallback
 
+    async def _merge_session_async(
+        self,
+        existing_summary: str,
+        existing_keywords: List[str],
+        page_summary: str,
+        page_keywords: List[str],
+        *,
+        allow_fallback: bool = True,
+    ) -> tuple[str, List[str]]:
+        fallback = self._fallback_merge_session(
+            existing_summary,
+            existing_keywords,
+            page_summary,
+            page_keywords,
+        )
+        merge_input = {
+            "existing_session": {
+                "summary": existing_summary or "",
+                "keywords": existing_keywords or [],
+            },
+            "new_page": {
+                "summary": page_summary or "",
+                "keywords": page_keywords or [],
+            },
+        }
+        try:
+            response = await self._generate_response_async(
+                messages=[
+                    {"role": "system", "content": MIDTERM_SESSION_MERGE_PROMPT},
+                    {"role": "user", "content": json.dumps(merge_input, ensure_ascii=False, indent=2)},
+                ],
+                response_format={"type": "json_object"},
+            )
+            parsed = self._parse_json_response(response)
+            summary = str(parsed.get("summary") or "").strip()
+            keywords = parsed.get("keywords") or []
+            if isinstance(keywords, str):
+                keywords = [item.strip() for item in keywords.split(",") if item.strip()]
+            keywords = self._dedupe_keywords(keywords, existing_keywords, page_keywords)
+            if summary:
+                return summary[:1000], keywords[:12] or fallback[1]
+            if not allow_fallback:
+                raise ValueError("midterm session merge response did not contain a summary")
+        except Exception as exc:
+            if not allow_fallback:
+                raise
+            logger.debug("Midterm session merge failed; using fallback: %s", exc)
+        return fallback
+
     def _append_page_to_session(
         self,
         session_id: str,
@@ -386,6 +479,72 @@ class MidTermUpdater:
             payload["last_output_job_id"] = page_source_job_id
             payload["last_output_lease_token"] = page_payload.get("output_lease_token")
         self.midterm_memory.update_session(session_id, payload, reembed=True)
+        return session_id
+
+    async def _append_page_to_session_async(
+        self,
+        session_id: str,
+        page_payload: Dict[str, Any],
+        *,
+        allow_fallback: bool = True,
+        use_llm: bool = True,
+    ) -> str:
+        session = await asyncio.to_thread(self.midterm_memory.get_session, session_id)
+        if not session:
+            return await asyncio.to_thread(self._create_session, page_payload)
+
+        payload = dict(getattr(session, "payload", None) or {})
+        page_ids = list(payload.get("page_ids") or [])
+        if page_payload["id"] in page_ids:
+            return session_id
+        page_ids.append(page_payload["id"])
+        source_job_ids = list(payload.get("source_job_ids") or [])
+        initial_source_job_id = payload.get("source_job_id")
+        if initial_source_job_id and initial_source_job_id not in source_job_ids:
+            source_job_ids.append(initial_source_job_id)
+        page_source_job_id = page_payload.get("source_job_id")
+        if page_source_job_id and page_source_job_id not in source_job_ids:
+            source_job_ids.append(page_source_job_id)
+
+        if use_llm:
+            summary, keywords = await self._merge_session_async(
+                payload.get("summary", ""),
+                payload.get("summary_keywords") or [],
+                page_payload.get("summary", ""),
+                page_payload.get("keywords") or [],
+                allow_fallback=allow_fallback,
+            )
+        else:
+            summary, keywords = self._fallback_merge_session(
+                payload.get("summary", ""),
+                payload.get("summary_keywords") or [],
+                page_payload.get("summary", ""),
+                page_payload.get("keywords") or [],
+            )
+        payload.update(
+            {
+                "summary": summary,
+                "summary_keywords": keywords,
+                "page_ids": page_ids,
+                "source_job_ids": source_job_ids,
+                "L_interaction": len(page_ids),
+                "updated_at": beijing_now_iso(),
+            }
+        )
+        payload["R_recency"] = float(payload.get("R_recency", 1.0) or 1.0)
+        payload["H_segment"] = compute_session_heat(payload, self.config)
+        if page_source_job_id and page_payload.get("output_state") == "staging":
+            page_payload["_commit_session_id"] = session_id
+            page_payload["_commit_session_backup"] = dict(getattr(session, "payload", None) or {})
+            await asyncio.to_thread(
+                self.midterm_memory.update_page,
+                page_payload["id"],
+                page_payload,
+                reembed=False,
+            )
+            payload["last_output_job_id"] = page_source_job_id
+            payload["last_output_lease_token"] = page_payload.get("output_lease_token")
+        await asyncio.to_thread(self.midterm_memory.update_session, session_id, payload, reembed=True)
         return session_id
 
     def _create_session(self, page_payload: Dict[str, Any], session_id: Optional[str] = None) -> str:
@@ -464,6 +623,53 @@ class MidTermUpdater:
                 use_llm=use_llm,
             )
         return self._create_session(page_payload, session_id=new_session_id)
+
+    async def _assign_session_async(
+        self,
+        page_payload: Dict[str, Any],
+        filters: Dict[str, Any],
+        *,
+        allow_fallback: bool = True,
+        use_llm: bool = True,
+        new_session_id: Optional[str] = None,
+        include_uncommitted: bool = False,
+    ) -> str:
+        query = self.midterm_memory.page_embedding_text(page_payload)
+        search_kwargs = {
+            "query": query,
+            "filters": filters,
+            "top_k": self.config.top_k_sessions,
+        }
+        if include_uncommitted:
+            search_kwargs["include_uncommitted"] = True
+        candidate_sessions = await asyncio.to_thread(self.midterm_memory.search_sessions, **search_kwargs)
+
+        best_session_id = None
+        best_score = -1.0
+        for session in candidate_sessions:
+            payload = getattr(session, "payload", None) or {}
+            if include_uncommitted and not self.midterm_memory.output_is_visible(payload):
+                owner_job_id = payload.get("last_output_job_id") or payload.get("source_job_id")
+                if owner_job_id != page_payload.get("source_job_id"):
+                    continue
+            embedding_score = float(getattr(session, "score", 0.0) or 0.0)
+            overlap_score = keyword_overlap(page_payload.get("keywords") or [], payload.get("summary_keywords") or [])
+            combined_score = (
+                self.config.embedding_similarity_weight * embedding_score
+                + self.config.keyword_overlap_weight * overlap_score
+            )
+            if combined_score > best_score:
+                best_score = combined_score
+                best_session_id = str(session.id)
+
+        if best_session_id and best_score >= self.config.session_similarity_threshold:
+            return await self._append_page_to_session_async(
+                best_session_id,
+                page_payload,
+                allow_fallback=allow_fallback,
+                use_llm=use_llm,
+            )
+        return await asyncio.to_thread(self._create_session, page_payload, session_id=new_session_id)
 
     def process_evicted_messages(
         self,
@@ -594,6 +800,154 @@ class MidTermUpdater:
 
         return pages
 
+    async def process_evicted_messages_async(
+        self,
+        evicted_messages: List[Dict[str, Any]],
+        filters: Dict[str, Any],
+        *,
+        source_job_id: Optional[str] = None,
+        lease_token: Optional[str] = None,
+        lease_is_current=None,
+        degraded: bool = False,
+    ) -> List[Dict[str, Any]]:
+        """Prepare pages in order while allowing separate jobs to overlap async LLM I/O."""
+        scope_filters = self._scope_filters(filters)
+        if not evicted_messages or not scope_filters:
+            return []
+
+        pages = []
+        previous_page_id = await asyncio.to_thread(self._latest_page_id, scope_filters)
+        for index, qa_pair in enumerate(self._messages_to_qa_pairs(evicted_messages)):
+            if lease_is_current is not None and not lease_is_current():
+                raise RuntimeError("stale migration stage lease")
+            page_id = (
+                str(uuid.uuid5(uuid.NAMESPACE_URL, f"mem0:midterm:{source_job_id}:{index}"))
+                if source_job_id
+                else str(uuid.uuid4())
+            )
+            now = beijing_now_iso()
+            raw_dialogue = _format_page_dialogue(
+                qa_pair.get("user_input", ""),
+                qa_pair.get("assistant_response", ""),
+            )
+            existing_page = (
+                await asyncio.to_thread(self.midterm_memory.get_page, page_id) if source_job_id else None
+            )
+            if existing_page:
+                page_payload = dict(getattr(existing_page, "payload", None) or {})
+                page_payload.setdefault("id", page_id)
+                if source_job_id:
+                    page_payload.update(
+                        {
+                            "source_stage": "midterm",
+                            "output_state": "staging",
+                            "output_lease_token": lease_token,
+                            "degraded": degraded,
+                            "needs_reprocessing": degraded,
+                            "updated_at": now,
+                        }
+                    )
+                    if lease_is_current is not None and not lease_is_current():
+                        raise RuntimeError("stale migration stage lease")
+                    await asyncio.to_thread(
+                        self.midterm_memory.update_page,
+                        page_id,
+                        page_payload,
+                        reembed=False,
+                    )
+                    await asyncio.to_thread(
+                        self._take_over_staging_session_output,
+                        page_payload,
+                        source_job_id,
+                        lease_token,
+                        lease_is_current,
+                    )
+                    pages.append(page_payload)
+                    previous_page_id = page_id
+                    continue
+                if page_payload.get("session_id"):
+                    pages.append(page_payload)
+                    previous_page_id = page_id
+                    continue
+                if degraded:
+                    page_payload["degraded"] = True
+                    page_payload["needs_reprocessing"] = True
+                    page_payload["updated_at"] = now
+                    await asyncio.to_thread(
+                        self.midterm_memory.update_page,
+                        page_id,
+                        page_payload,
+                        reembed=False,
+                    )
+            else:
+                if degraded:
+                    summary = qa_pair.get("user_input", "").strip() or raw_dialogue[:240]
+                    keywords = self._fallback_keywords(raw_dialogue)
+                else:
+                    summary, keywords = await self._summarize_page_async(
+                        qa_pair.get("user_input", ""),
+                        qa_pair.get("assistant_response", ""),
+                        allow_fallback=source_job_id is None,
+                    )
+                created_at = normalize_iso_timestamp_to_beijing(qa_pair.get("created_at")) or now
+                page_payload = {
+                    "id": page_id,
+                    "session_id": None,
+                    "raw_dialogue": raw_dialogue,
+                    "user_input": qa_pair.get("user_input", ""),
+                    "assistant_response": qa_pair.get("assistant_response", ""),
+                    "summary": summary,
+                    "keywords": keywords,
+                    "pre_page": previous_page_id,
+                    "next_page": None,
+                    "created_at": created_at,
+                    "updated_at": now,
+                    "user_id": scope_filters.get("user_id"),
+                    "agent_id": scope_filters.get("agent_id"),
+                    "run_id": scope_filters.get("run_id"),
+                    "source_job_id": source_job_id,
+                    "source_stage": "midterm" if source_job_id else None,
+                    "output_state": "staging" if source_job_id else "committed",
+                    "output_lease_token": lease_token,
+                    "degraded": degraded,
+                    "needs_reprocessing": degraded,
+                }
+                if lease_is_current is not None and not lease_is_current():
+                    raise RuntimeError("stale migration stage lease")
+                await asyncio.to_thread(self.midterm_memory.insert_page, page_id, page_payload)
+            if source_job_id:
+                pages.append(page_payload)
+                previous_page_id = page_id
+                continue
+            await asyncio.to_thread(self._link_previous_page, previous_page_id, page_id)
+
+            new_session_id = (
+                str(uuid.uuid5(uuid.NAMESPACE_URL, f"mem0:midterm-session:{source_job_id}:{index}"))
+                if source_job_id
+                else None
+            )
+            session_id = await asyncio.to_thread(self._session_id_for_page, page_id, scope_filters)
+            if session_id is None:
+                session_id = await self._assign_session_async(
+                    page_payload,
+                    scope_filters,
+                    allow_fallback=source_job_id is None,
+                    use_llm=not degraded,
+                    new_session_id=new_session_id,
+                )
+            page_payload["session_id"] = session_id
+            page_payload["updated_at"] = beijing_now_iso()
+            await asyncio.to_thread(
+                self.midterm_memory.update_page,
+                page_id,
+                page_payload,
+                reembed=False,
+            )
+            pages.append(page_payload)
+            previous_page_id = page_id
+
+        return pages
+
     def commit_source_job_outputs(
         self,
         source_job_id: str,
@@ -660,6 +1014,88 @@ class MidTermUpdater:
             page_payload.pop("_commit_session_backup", None)
             page_payload.pop("_commit_session_id", None)
             self.midterm_memory.update_page(page_id, page_payload, reembed=False)
+
+    async def commit_source_job_outputs_async(
+        self,
+        source_job_id: str,
+        lease_token: str,
+        *,
+        degraded: bool,
+        lease_is_current,
+    ) -> None:
+        """Async commit path whose session merge uses native async LLM I/O."""
+        rows = await asyncio.to_thread(
+            self.midterm_memory.list_pages,
+            top_k=10000,
+            include_uncommitted=True,
+        )
+        rows = [
+            row
+            for row in rows
+            if (getattr(row, "payload", None) or {}).get("source_job_id") == source_job_id
+        ]
+        rows.sort(key=lambda row: (getattr(row, "payload", None) or {}).get("created_at") or "")
+        for row in rows:
+            if not lease_is_current():
+                raise RuntimeError("stale migration stage lease")
+            page_id = str(row.id)
+            page_payload = dict(getattr(row, "payload", None) or {})
+            if page_payload.get("output_state") == "committed":
+                continue
+            if page_payload.get("output_lease_token") != lease_token:
+                raise RuntimeError("staging output is owned by another lease")
+            scope_filters = self._scope_filters(page_payload)
+            session_id = await asyncio.to_thread(
+                self._session_id_for_page,
+                page_id,
+                scope_filters,
+                include_uncommitted=True,
+            )
+            if session_id is None:
+                session_id = await self._assign_session_async(
+                    page_payload,
+                    scope_filters,
+                    allow_fallback=False,
+                    use_llm=not degraded,
+                    new_session_id=str(
+                        uuid.uuid5(uuid.NAMESPACE_URL, f"mem0:midterm-session:{source_job_id}:{page_id}")
+                    ),
+                    include_uncommitted=True,
+                )
+            session = await asyncio.to_thread(self.midterm_memory.get_session, session_id)
+            if session:
+                session_payload = dict(getattr(session, "payload", None) or {})
+                if (
+                    session_payload.get("output_state") == "staging"
+                    and session_payload.get("created_by_source_job_id") == source_job_id
+                    and session_payload.get("created_by_lease_token") == lease_token
+                    and session_payload.get("output_lease_token") == lease_token
+                ):
+                    if not lease_is_current():
+                        raise RuntimeError("stale migration stage lease")
+                    session_payload["output_state"] = "committed"
+                    session_payload["output_lease_token"] = None
+                    await asyncio.to_thread(
+                        self.midterm_memory.update_session,
+                        session_id,
+                        session_payload,
+                        reembed=False,
+                    )
+            if not lease_is_current():
+                raise RuntimeError("stale migration stage lease")
+            page_payload["session_id"] = session_id
+            page_payload["output_state"] = "committed"
+            page_payload["output_lease_token"] = None
+            page_payload["degraded"] = degraded
+            page_payload["needs_reprocessing"] = degraded
+            page_payload.pop("_commit_session_backup", None)
+            page_payload.pop("_commit_session_id", None)
+            await asyncio.to_thread(
+                self.midterm_memory.update_page,
+                page_id,
+                page_payload,
+                reembed=False,
+            )
 
     def discard_source_job_outputs(self, source_job_id: str, lease_token: str) -> Optional[str]:
         """Hide first, then best-effort restore/delete session side effects."""
