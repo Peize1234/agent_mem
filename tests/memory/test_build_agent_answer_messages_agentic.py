@@ -52,6 +52,10 @@ class _MidtermMemory:
     def record_session_visit(self, session_id):
         self.visits.append(session_id)
 
+    def record_valid_recalls(self, page_ids):
+        self.visits.extend(page_ids)
+        return []
+
 
 def _retrieved_context():
     return {
@@ -112,6 +116,7 @@ def _build_sync_memory(llm, *, config=None, retriever_result=None):
     memory = Memory.__new__(Memory)
     memory.config = SimpleNamespace(
         agentic_retrieval=config or AgenticRetrievalConfig(enabled=True),
+        midterm=SimpleNamespace(promotion_min_recall_count=3, promotion_heat_threshold=5.0),
     )
     memory.llm = llm
     memory._retrieve_context = MagicMock(return_value=_retrieved_context())
@@ -125,6 +130,7 @@ def _build_async_memory(llm, *, config=None, retriever_result=None):
     memory = AsyncMemory.__new__(AsyncMemory)
     memory.config = SimpleNamespace(
         agentic_retrieval=config or AgenticRetrievalConfig(enabled=True),
+        midterm=SimpleNamespace(promotion_min_recall_count=3, promotion_heat_threshold=5.0),
     )
     memory.llm = llm
     memory._retrieve_context = AsyncMock(return_value=_retrieved_context())

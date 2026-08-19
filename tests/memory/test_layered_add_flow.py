@@ -243,25 +243,13 @@ def test_background_longterm_context_excludes_current_job_midterm_pages():
         memory = _sync_memory(db, capacity=4)
         memory.config.midterm.max_total_pages = 4
         memory._midterm_retriever = MagicMock()
-        memory._midterm_retriever._scope_filters.return_value = {"user_id": "u1", "run_id": "r1"}
-        memory._midterm_retriever._format_page.side_effect = lambda page, score: {
-            "id": page.id,
-            "source": "mid_term_page",
-            "summary": page.payload["summary"],
-            "source_job_id": page.payload.get("source_job_id"),
-        }
-        memory._midterm_memory = MagicMock()
-        memory._midterm_memory.search_pages.return_value = [
-            SimpleNamespace(
-                id="current-page",
-                score=1.0,
-                payload={"summary": "current batch", "source_job_id": "migration-current"},
-            ),
-            SimpleNamespace(
-                id="previous-page",
-                score=0.9,
-                payload={"summary": "previous batch", "source_job_id": "migration-previous"},
-            ),
+        memory._midterm_retriever.search.return_value = [
+            {
+                "id": "previous-page",
+                "source": "mid_term_page",
+                "summary": "previous batch",
+                "source_job_id": "migration-previous",
+            }
         ]
 
         session_summary, related = memory_main._additive_midterm_context(
@@ -274,7 +262,11 @@ def test_background_longterm_context_excludes_current_job_midterm_pages():
         assert session_summary == ""
         assert [item["summary"] for item in related] == ["previous batch"]
         assert related[0]["source_job_id"] == "migration-previous"
-        memory._midterm_retriever.search.assert_not_called()
+        memory._midterm_retriever.search.assert_called_once_with(
+            "query",
+            {"user_id": "u1", "run_id": "r1"},
+            exclude_source_job_id="migration-current",
+        )
     finally:
         db.close()
 

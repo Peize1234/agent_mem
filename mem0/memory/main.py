@@ -31,6 +31,7 @@ from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.memory.agentic_retrieval import AgenticMemoryRunner, AsyncAgenticMemoryRunner
 from mem0.memory.background_worker import BackgroundWorkerManager
 from mem0.memory.base import MemoryBase
+from mem0.memory.cross_session_longterm import CrossSessionLongTermMemory
 from mem0.memory.midterm import MidTermMemory
 from mem0.memory.midterm_retriever import MidTermRetriever
 from mem0.memory.midterm_updater import MidTermUpdater
@@ -312,23 +313,11 @@ def _additive_midterm_context(memory, query, filters, *, exclude_source_job_id=N
         return "", []
 
     try:
-        if exclude_source_job_id is None:
-            results = memory.midterm_retriever.search(query, filters)
-        else:
-            scope_filters = memory.midterm_retriever._scope_filters(filters)
-            pages = memory.midterm_memory.search_pages(
-                query=query,
-                filters=scope_filters,
-                top_k=10000,
-            )
-            results = []
-            for page in pages:
-                payload = getattr(page, "payload", None) or {}
-                if payload.get("source_job_id") == exclude_source_job_id:
-                    continue
-                score = float(getattr(page, "score", 0.0) or 0.0)
-                results.append(memory.midterm_retriever._format_page(page, score))
-            results = results[: int(memory.config.midterm.max_total_pages)]
+        results = memory.midterm_retriever.search(
+            query,
+            filters,
+            exclude_source_job_id=exclude_source_job_id,
+        )
     except Exception as exc:
         logger.warning("Mid-term context retrieval for long-term extraction failed: %s", exc)
         return "", []
@@ -962,6 +951,15 @@ def _payload_is_expired(payload: Optional[Dict[str, Any]]) -> bool:
         return False
 
 
+def _effective_longterm_threshold(memory: Any, requested: Optional[float]) -> float:
+    """Keep the public threshold as an optional stricter bound on configured RAG gating."""
+    configured = getattr(getattr(memory, "config", None), "longterm_rag_threshold", None)
+    configured_threshold = 0.1 if configured is None else float(configured)
+    if requested is None:
+        return configured_threshold
+    return max(float(requested), configured_threshold)
+
+
 setup_config()
 logger = logging.getLogger(__name__)
 
@@ -999,6 +997,92 @@ class _AsyncOSSProject:
 
 class _BackgroundMemoryMixin:
     db: SQLiteManager
+
+    def _cross_session_longterm_enabled(self) -> bool:
+        return self._midterm_enabled()
+
+    @property
+    def cross_session_longterm(self):
+        if getattr(self, "_cross_session_longterm", None) is None:
+            with self._component_init_lock:
+                if getattr(self, "_cross_session_longterm", None) is None:
+                    self._cross_session_longterm = CrossSessionLongTermMemory(
+                        provider=self.config.vector_store.provider,
+                        base_vector_config=self.config.vector_store.config,
+                        base_collection_name=self.collection_name,
+                        embedding_model=self.embedding_model,
+                        config=self.config,
+                        primary_vector_store=self.vector_store,
+                        vector_store_timeout_seconds=getattr(
+                            self.config,
+                            "vector_store_timeout_seconds",
+                            15.0,
+                        ),
+                    )
+        return self._cross_session_longterm
+
+    def _confirm_context_valid_recalls(
+        self,
+        retrieved_memories: Any,
+        *,
+        exclude_midterm_page_ids: Optional[set[str]] = None,
+    ) -> set[str]:
+        """Confirm only memories that are actually projected into model context."""
+        if not isinstance(retrieved_memories, list):
+            return set()
+        excluded = exclude_midterm_page_ids or set()
+        page_ids = {
+            str(item.get("id"))
+            for item in retrieved_memories
+            if isinstance(item, dict)
+            and item.get("source") in {"mid_term_page", "midterm"}
+            and item.get("id") not in (None, "")
+            and item.get("raw_dialogue")
+            and str(item.get("id")) not in excluded
+        }
+        cross_session_ids = {
+            str(item.get("id"))
+            for item in retrieved_memories
+            if isinstance(item, dict)
+            and item.get("source") == CrossSessionLongTermMemory.SOURCE
+            and item.get("id") not in (None, "")
+            and item.get("memory")
+        }
+
+        self._confirm_valid_midterm_page_ids(page_ids)
+
+        if cross_session_ids and self._cross_session_longterm_enabled():
+            try:
+                self.cross_session_longterm.record_valid_recalls(sorted(cross_session_ids))
+            except Exception:
+                logger.warning("Failed to record cross-session long-term recalls", exc_info=True)
+        return page_ids
+
+    def _confirm_valid_midterm_page_ids(self, page_ids: Any) -> None:
+        normalized_page_ids = sorted({str(page_id) for page_id in (page_ids or []) if page_id not in (None, "")})
+        if not normalized_page_ids or not self._midterm_enabled():
+            return
+        try:
+            updated_sessions = self.midterm_memory.record_valid_recalls(normalized_page_ids)
+            for session in updated_sessions:
+                if int(session.get("valid_recall_count", 0) or 0) < int(
+                    self.config.midterm.promotion_min_recall_count
+                ):
+                    continue
+                if float(session.get("H_segment", 0.0) or 0.0) < float(
+                    self.config.midterm.promotion_heat_threshold
+                ):
+                    continue
+                try:
+                    self.cross_session_longterm.promote_session(str(session["id"]), self.midterm_memory)
+                except Exception:
+                    logger.warning(
+                        "Cross-session long-term promotion failed for session_id=%s",
+                        session.get("id"),
+                        exc_info=True,
+                    )
+        except Exception:
+            logger.warning("Failed to record valid mid-term recalls", exc_info=True)
 
     def _normalize_agentic_supplement_result(self, result: Any) -> str:
         """Normalize an Agentic result for use as optional historical context."""
@@ -1826,6 +1910,7 @@ class _BackgroundMemoryMixin:
         resources = [
             getattr(self, "_telemetry_vector_store", None),
             getattr(self, "_midterm_memory", None),
+            getattr(self, "_cross_session_longterm", None),
             getattr(self, "_entity_store", None),
             getattr(self, "reranker", None),
             getattr(self, "llm", None),
@@ -1840,6 +1925,9 @@ class _BackgroundMemoryMixin:
                     getattr(midterm, "sessions_store", None),
                 ]
             )
+        cross_session = getattr(self, "_cross_session_longterm", None)
+        if cross_session is not None:
+            resources.append(getattr(cross_session, "store", None))
         closed_objects = set()
         for resource in resources:
             if resource is None or id(resource) in closed_objects:
@@ -1922,6 +2010,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         self._midterm_memory = None
         self._midterm_updater = None
         self._midterm_retriever = None
+        self._cross_session_longterm = None
         self._profile_manager = None
         self._profile_updater = None
         self._component_init_lock = threading.RLock()
@@ -2052,7 +2141,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         user_id: str,
         session_id: str,
         top_k: int = 20,
-        threshold: float = 0.1,
+        threshold: Optional[float] = None,
         rerank: bool = False,
         explain: bool = False,
         include_profile_metadata: bool = False,
@@ -2081,6 +2170,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             if isinstance(search_result, dict) and "results" in search_result
             else search_result
         )
+        self._confirm_context_valid_recalls(context["retrieved_memories"])
         return context
 
     def _retrieve_base_context(
@@ -2128,7 +2218,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         user_id: str,
         session_id: str,
         top_k: int = 20,
-        threshold: float = 0.1,
+        threshold: Optional[float] = None,
         rerank: bool = False,
         explain: bool = False,
         include_profile_metadata: bool = False,
@@ -2179,12 +2269,21 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
     ) -> Dict[str, Any]:
         """Run Agentic retrieval using an already retrieved complete context."""
         messages = _build_agentic_prompt_messages(retrieved_context, reference_information)
+        already_recalled_page_ids = {
+            str(item.get("id"))
+            for item in retrieved_context.get("retrieved_memories", [])
+            if isinstance(item, dict)
+            and item.get("source") in {"mid_term_page", "midterm"}
+            and item.get("id") not in (None, "")
+            and item.get("raw_dialogue")
+        }
         return self._run_agentic_retrieval_messages(
             messages,
             user_id=retrieved_context["user_id"],
             session_id=retrieved_context["session_id"],
             generation_kwargs=generation_kwargs,
             record_midterm_visits=record_midterm_visits,
+            exclude_midterm_page_ids=already_recalled_page_ids,
         )
 
     def run_agentic_retrieval(
@@ -2220,11 +2319,13 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         session_id: str,
         generation_kwargs: Optional[Dict[str, Any]] = None,
         record_midterm_visits: bool = True,
+        exclude_midterm_page_ids: Optional[set[str]] = None,
     ) -> Dict[str, Any]:
         executor = self._create_agentic_tool_executor(
             user_id=user_id,
             session_id=session_id,
             record_midterm_visits=record_midterm_visits,
+            exclude_midterm_page_ids=exclude_midterm_page_ids,
         )
         runner = AgenticMemoryRunner(
             self.llm,
@@ -2240,6 +2341,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         user_id: str,
         session_id: str,
         record_midterm_visits: bool,
+        exclude_midterm_page_ids: Optional[set[str]] = None,
     ) -> MemoryToolExecutor:
         """Create the core Agentic tool executor, allowing scoped runtime decoration."""
         return MemoryToolExecutor(
@@ -2248,6 +2350,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             run_id=session_id,
             config=self.config.agentic_retrieval,
             record_midterm_visits=record_midterm_visits,
+            exclude_midterm_page_ids=exclude_midterm_page_ids,
         )
 
     def update_profile(self, user_id: str, messages):
@@ -2390,6 +2493,19 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             results.extend(self.midterm_retriever.search(query, filters))
         except Exception as e:
             logger.warning(f"Mid-term memory search failed: {e}")
+        user_id = (filters or {}).get("user_id")
+        if user_id:
+            try:
+                results.extend(
+                    self.cross_session_longterm.search(
+                        query,
+                        user_id=user_id,
+                        top_k=max(int(self.config.midterm.max_total_pages), 0),
+                        threshold=float(self.config.longterm_rag_threshold),
+                    )
+                )
+            except Exception as e:
+                logger.warning(f"Cross-session long-term memory search failed: {e}")
         return results
 
     def _reset_midterm_state(self):
@@ -2401,6 +2517,13 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         self._midterm_memory = None
         self._midterm_updater = None
         self._midterm_retriever = None
+        cross_session_longterm = getattr(self, "_cross_session_longterm", None)
+        if cross_session_longterm is not None:
+            try:
+                cross_session_longterm.reset()
+            except Exception as e:
+                logger.warning(f"Failed to reset cross-session long-term memory: {e}")
+        self._cross_session_longterm = None
 
     @staticmethod
     def _normalize_entity_text(value: str) -> str:
@@ -3412,7 +3535,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         *,
         top_k: int = 20,
         filters: Optional[Dict[str, Any]] = None,
-        threshold: float = 0.1,
+        threshold: Optional[float] = None,
         rerank: bool = False,
         explain: bool = False,
         reference_date: Optional[Any] = None,
@@ -3467,6 +3590,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
 
         # Validate search parameters (before applying defaults)
         _validate_search_params(threshold=threshold, top_k=top_k)
+        threshold = _effective_longterm_threshold(self, threshold)
         query = _validate_and_trim_search_query(query)
         temporal_usage_notice = detect_temporal_usage_from_search(query, filters)
 
@@ -4218,6 +4342,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         self._midterm_memory = None
         self._midterm_updater = None
         self._midterm_retriever = None
+        self._cross_session_longterm = None
         self._profile_manager = None
         self._profile_updater = None
         self._component_init_lock = threading.RLock()
@@ -4463,7 +4588,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         user_id: str,
         session_id: str,
         top_k: int = 20,
-        threshold: float = 0.1,
+        threshold: Optional[float] = None,
         rerank: bool = False,
         explain: bool = False,
         include_profile_metadata: bool = False,
@@ -4495,6 +4620,18 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             if isinstance(search_result, dict) and "results" in search_result
             else search_result
         )
+        if any(
+            isinstance(item, dict)
+            and (
+                (item.get("source") in {"mid_term_page", "midterm"} and item.get("raw_dialogue"))
+                or (item.get("source") == CrossSessionLongTermMemory.SOURCE and item.get("memory"))
+            )
+            for item in (context["retrieved_memories"] or [])
+        ):
+            await asyncio.to_thread(
+                self._confirm_context_valid_recalls,
+                context["retrieved_memories"],
+            )
         return context
 
     async def _retrieve_base_context(
@@ -4551,7 +4688,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         user_id: str,
         session_id: str,
         top_k: int = 20,
-        threshold: float = 0.1,
+        threshold: Optional[float] = None,
         rerank: bool = False,
         explain: bool = False,
         include_profile_metadata: bool = False,
@@ -4602,12 +4739,21 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
     ) -> Dict[str, Any]:
         """Run async Agentic retrieval using an already retrieved complete context."""
         messages = _build_agentic_prompt_messages(retrieved_context, reference_information)
+        already_recalled_page_ids = {
+            str(item.get("id"))
+            for item in retrieved_context.get("retrieved_memories", [])
+            if isinstance(item, dict)
+            and item.get("source") in {"mid_term_page", "midterm"}
+            and item.get("id") not in (None, "")
+            and item.get("raw_dialogue")
+        }
         return await self._run_agentic_retrieval_messages(
             messages,
             user_id=retrieved_context["user_id"],
             session_id=retrieved_context["session_id"],
             generation_kwargs=generation_kwargs,
             record_midterm_visits=record_midterm_visits,
+            exclude_midterm_page_ids=already_recalled_page_ids,
         )
 
     async def _run_agentic_retrieval_messages(
@@ -4618,12 +4764,14 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         session_id: str,
         generation_kwargs: Optional[Dict[str, Any]] = None,
         record_midterm_visits: bool = True,
+        exclude_midterm_page_ids: Optional[set[str]] = None,
     ) -> Dict[str, Any]:
         """Run the async Agentic tool loop for prebuilt messages."""
         executor = self._create_agentic_tool_executor(
             user_id=user_id,
             session_id=session_id,
             record_midterm_visits=record_midterm_visits,
+            exclude_midterm_page_ids=exclude_midterm_page_ids,
         )
         runner = AsyncAgenticMemoryRunner(
             self.llm,
@@ -4639,6 +4787,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         user_id: str,
         session_id: str,
         record_midterm_visits: bool,
+        exclude_midterm_page_ids: Optional[set[str]] = None,
     ) -> AsyncMemoryToolExecutor:
         """Create the async core Agentic tool executor."""
         return AsyncMemoryToolExecutor(
@@ -4647,6 +4796,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             run_id=session_id,
             config=self.config.agentic_retrieval,
             record_midterm_visits=record_midterm_visits,
+            exclude_midterm_page_ids=exclude_midterm_page_ids,
         )
 
     async def run_agentic_retrieval(
@@ -4847,6 +4997,19 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             results.extend(self.midterm_retriever.search(query, filters))
         except Exception as e:
             logger.warning(f"Mid-term memory search failed: {e}")
+        user_id = (filters or {}).get("user_id")
+        if user_id:
+            try:
+                results.extend(
+                    self.cross_session_longterm.search(
+                        query,
+                        user_id=user_id,
+                        top_k=max(int(self.config.midterm.max_total_pages), 0),
+                        threshold=float(self.config.longterm_rag_threshold),
+                    )
+                )
+            except Exception as e:
+                logger.warning(f"Cross-session long-term memory search failed: {e}")
         return results
 
     def _reset_midterm_state(self):
@@ -4858,6 +5021,13 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         self._midterm_memory = None
         self._midterm_updater = None
         self._midterm_retriever = None
+        cross_session_longterm = getattr(self, "_cross_session_longterm", None)
+        if cross_session_longterm is not None:
+            try:
+                cross_session_longterm.reset()
+            except Exception as e:
+                logger.warning(f"Failed to reset cross-session long-term memory: {e}")
+        self._cross_session_longterm = None
 
     @staticmethod
     def _normalize_entity_text(value: str) -> str:
@@ -5902,7 +6072,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         *,
         top_k: int = 20,
         filters: Optional[Dict[str, Any]] = None,
-        threshold: float = 0.1,
+        threshold: Optional[float] = None,
         rerank: bool = False,
         explain: bool = False,
         reference_date: Optional[Any] = None,
@@ -5959,6 +6129,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
 
         # Validate search parameters (before applying defaults)
         _validate_search_params(threshold=threshold, top_k=top_k)
+        threshold = _effective_longterm_threshold(self, threshold)
         query = _validate_and_trim_search_query(query)
         temporal_usage_notice = detect_temporal_usage_from_search(query, filters)
 

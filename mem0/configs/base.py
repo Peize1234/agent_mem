@@ -36,11 +36,60 @@ class MidTermMemoryConfig(BaseModel):
     top_k_sessions: int = Field(5, ge=0, description="Number of mid-term sessions to retrieve")
     top_k_pages: int = Field(5, ge=0, description="Number of candidate mid-term pages to retrieve per session")
     max_total_pages: int = Field(4, ge=0, description="Maximum total mid-term pages to return")
+    midterm_rag_threshold: float = Field(
+        0.1,
+        ge=0,
+        le=1,
+        description="Minimum raw RAG score for a mid-term page to enter context",
+    )
 
-    heat_alpha: float = Field(1.0, description="Session heat weight for visit count (暂未启用)")
-    heat_beta: float = Field(0.5, description="Session heat weight for interaction count (暂未启用)")
-    heat_gamma: float = Field(1.0, description="Session heat weight for recency (暂未启用)")
-    promotion_heat_threshold: float = Field(5.0, description="Reserved threshold for promoting hot sessions (暂未启用)")
+    retention_half_life_hours: float = Field(
+        168.0,
+        gt=0,
+        description="Base half-life used by deterministic mid-term retrieval decay",
+    )
+    retention_floor: float = Field(
+        0.2,
+        ge=0,
+        le=1,
+        description="Minimum mid-term forgetting factor",
+    )
+    reinforcement_gain: float = Field(
+        0.5,
+        ge=0,
+        description="Logarithmic strength gain per valid recall",
+    )
+    heat_modulation_min: float = Field(
+        0.9,
+        gt=0,
+        lt=1,
+        description="Minimum candidate-pool heat multiplier",
+    )
+    heat_modulation_max: float = Field(
+        1.1,
+        gt=1,
+        description="Maximum candidate-pool heat multiplier",
+    )
+
+    heat_alpha: float = Field(1.0, description="Session heat weight for valid recall count")
+    heat_beta: float = Field(0.5, description="Session heat weight for interaction count")
+    heat_gamma: float = Field(1.0, description="Session heat weight for recall recency")
+    promotion_min_recall_count: int = Field(
+        3,
+        ge=1,
+        description="Minimum session valid recalls required for cross-session promotion",
+    )
+    promotion_heat_threshold: float = Field(
+        5.0,
+        ge=0,
+        description="Minimum absolute session heat required for cross-session promotion",
+    )
+
+    @model_validator(mode="after")
+    def validate_heat_modulation_range(self):
+        if self.heat_modulation_min >= self.heat_modulation_max:
+            raise ValueError("heat_modulation_min must be less than heat_modulation_max")
+        return self
 
 
 class UserProfileConfig(BaseModel):
@@ -127,7 +176,6 @@ class AgenticRetrievalConfig(BaseModel):
         description="最终返回给模型的完整中期记忆 Page 数量",
     )
     max_tool_result_chars: int = Field(10000, ge=1000)
-    default_threshold: float = Field(0.1, ge=0, le=1)
     force_final_answer: bool = True
 
 
@@ -168,6 +216,12 @@ class MemoryConfig(BaseModel):
     custom_instructions: Optional[str] = Field(
         description="Custom instructions for fact extraction",
         default=None,
+    )
+    longterm_rag_threshold: float = Field(
+        0.1,
+        ge=0,
+        le=1,
+        description="Minimum raw RAG score for existing session-scoped long-term memory",
     )
     midterm: MidTermMemoryConfig = Field(
         description="Configuration for the optional mid-term memory layer",

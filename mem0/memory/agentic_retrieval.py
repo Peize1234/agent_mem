@@ -233,6 +233,7 @@ class AgenticMemoryRunner:
         # ``force_final_answer`` remains a public config field for compatibility,
         # but it can no longer switch this node back to user-facing answer output.
         final_messages.append({"role": "system", "content": _FINAL_ANSWER_PROMPT})
+        self._confirm_tool_results()
         try:
             response = self.llm.generate_response(messages=final_messages, **self.generation_kwargs)
         except Exception:
@@ -247,6 +248,15 @@ class AgenticMemoryRunner:
         if not supplement:
             return self._result("", 2, 1, "no_relevant_memory", tool_trace)
         return self._result(supplement, 2, 1, "supplemented", tool_trace)
+
+    def _confirm_tool_results(self) -> None:
+        confirm = getattr(self.tool_executor, "confirm_last_results", None)
+        if not callable(confirm):
+            return
+        try:
+            confirm()
+        except Exception:
+            logger.exception("Failed to confirm valid Agentic memory recalls")
 
     @staticmethod
     def _result(
@@ -342,6 +352,12 @@ class AsyncAgenticMemoryRunner(AgenticMemoryRunner):
         final_messages = deepcopy(messages)
         # Keep the async protocol identical to the sync supplement-only path.
         final_messages.append({"role": "system", "content": _FINAL_ANSWER_PROMPT})
+        confirm = getattr(self.tool_executor, "confirm_last_results", None)
+        if callable(confirm):
+            try:
+                await _run_sync(confirm)
+            except Exception:
+                logger.exception("Failed to confirm valid async Agentic memory recalls")
         try:
             response = await _run_sync(
                 self.llm.generate_response,

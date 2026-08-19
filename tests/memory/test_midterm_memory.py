@@ -1,6 +1,7 @@
 import asyncio
 import json
 import math
+from datetime import timedelta
 from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
 
@@ -11,7 +12,9 @@ from mem0.configs.base import MemoryConfig, MidTermMemoryConfig
 from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT, MIDTERM_SESSION_MERGE_PROMPT
 from mem0.memory.midterm_retriever import MidTermRetriever
 from mem0.memory.midterm_updater import MidTermUpdater
+from mem0.memory.memory_evolution import forgetting_factor, heat_modulations, memory_strength
 from mem0.memory.storage import SQLiteManager
+from mem0.utils.timestamps import beijing_now
 
 
 class FakeEmbedding:
@@ -40,9 +43,9 @@ class FakeLLM:
     def generate_response(self, messages, response_format=None, **kwargs):
         system = messages[0]["content"] if messages else ""
         user_prompt = messages[-1]["content"] if messages else ""
-        if "将一轮已从短期记忆淘汰" in system:
+        if system == MIDTERM_PAGE_SUMMARY_PROMPT:
             return json.dumps(self._page_summary(user_prompt), ensure_ascii=False)
-        if "将现有的中期记忆会话摘要" in system:
+        if system == MIDTERM_SESSION_MERGE_PROMPT:
             payload = json.loads(user_prompt)
             existing = payload.get("existing_session", {})
             new_page = payload.get("new_page", {})
@@ -91,12 +94,12 @@ class RecordingFakeLLM(FakeLLM):
 
 
 def test_midterm_prompts_are_chinese_and_preserve_json_contract():
-    assert "只返回一个 JSON 对象" in MIDTERM_PAGE_SUMMARY_PROMPT
-    assert "用户的意图、偏好、约束和讨论主题" in MIDTERM_PAGE_SUMMARY_PROMPT
+    assert "只返回严格有效的 JSON 对象" in MIDTERM_PAGE_SUMMARY_PROMPT
+    assert "用户提供的关键数据、假设和限制" in MIDTERM_PAGE_SUMMARY_PROMPT
     assert "summary" in MIDTERM_PAGE_SUMMARY_PROMPT
     assert "keywords" in MIDTERM_PAGE_SUMMARY_PROMPT
-    assert "只返回一个 JSON 对象" in MIDTERM_SESSION_MERGE_PROMPT
-    assert "整个会话" in MIDTERM_SESSION_MERGE_PROMPT
+    assert "只返回严格有效的 JSON 对象" in MIDTERM_SESSION_MERGE_PROMPT
+    assert "整个 Session 当前状态" in MIDTERM_SESSION_MERGE_PROMPT
     assert "summary" in MIDTERM_SESSION_MERGE_PROMPT
     assert "keywords" in MIDTERM_SESSION_MERGE_PROMPT
 
@@ -224,6 +227,7 @@ def fake_memory_env(monkeypatch):
     monkeypatch.setattr("mem0.memory.main.VectorStoreFactory.create", create_vector_store)
     monkeypatch.setattr("mem0.memory.main.VectorStoreFactory.reset", lambda store: store.reset() or store)
     monkeypatch.setattr("mem0.memory.midterm.VectorStoreFactory.create", create_vector_store)
+    monkeypatch.setattr("mem0.memory.cross_session_longterm.VectorStoreFactory.create", create_vector_store)
     monkeypatch.setattr("mem0.memory.main.extract_entities", lambda *args, **kwargs: [])
     monkeypatch.setattr("mem0.memory.main.extract_entities_batch", lambda *args, **kwargs: [])
     return stores
@@ -241,11 +245,20 @@ def _memory_config(tmp_path, *, enabled=True, collection_name="midterm_test"):
     return config
 
 
-def test_midterm_config_default_disabled():
+def test_midterm_config_defaults():
     config = MemoryConfig()
-    assert config.midterm.enabled is False
+    assert config.midterm.enabled is True
     assert config.midterm.short_term_capacity == 10
     assert config.midterm.max_total_pages == 4
+    assert config.midterm.midterm_rag_threshold == 0.1
+    assert config.longterm_rag_threshold == 0.1
+    assert config.midterm.retention_half_life_hours == 168.0
+    assert config.midterm.retention_floor == 0.2
+    assert config.midterm.reinforcement_gain == 0.5
+    assert config.midterm.heat_modulation_min == 0.9
+    assert config.midterm.heat_modulation_max == 1.1
+    assert config.midterm.promotion_min_recall_count == 3
+    assert config.midterm.promotion_heat_threshold == 5.0
 
 
 def test_midterm_config_rejects_negative_page_limits():
@@ -268,6 +281,7 @@ class FakeMidTermRetrievalStore:
         self.session_filters = []
         self.page_filters = []
         self.visited_sessions = []
+        self.valid_recalled_pages = []
 
     def search_sessions(self, query, filters=None, top_k=5):
         self.session_filters.append(dict(filters or {}))
@@ -283,6 +297,12 @@ class FakeMidTermRetrievalStore:
 
     def record_session_visit(self, session_id):
         self.visited_sessions.append(session_id)
+
+    def record_valid_recalls(self, page_ids):
+        self.valid_recalled_pages.extend(page_ids)
+
+    def get_session(self, session_id):
+        return next((session for session in self.sessions if str(session.id) == str(session_id)), None)
 
     @staticmethod
     def _matches(payload, filters):
@@ -433,6 +453,9 @@ def test_midterm_retriever_concurrent_search_results_do_not_mix():
         def record_session_visit(self, session_id):
             return None
 
+        def get_session(self, session_id):
+            return None
+
     retriever = MidTermRetriever(QueryScopedStore(), _retriever_config())
     queries = ("risk", "allocation", "liquidity")
 
@@ -446,6 +469,134 @@ def test_midterm_retriever_concurrent_search_results_do_not_mix():
 
     for query, query_results in zip(queries, results):
         assert [item["id"] for item in query_results] == [f"{query}-session", f"{query}-page"]
+
+
+def test_midterm_candidate_search_never_records_valid_recall():
+    sessions = [_midterm_row("s1", 0.9, summary="session", user_id="u1", run_id="r1", H_segment=4.0)]
+    pages_by_session = {
+        "s1": [
+            _midterm_row(
+                "p1",
+                0.8,
+                session_id="s1",
+                summary="page",
+                raw_dialogue="User: q\n\nAssistant: a",
+                user_id="u1",
+                run_id="r1",
+            )
+        ]
+    }
+    store = FakeMidTermRetrievalStore(sessions, pages_by_session)
+
+    results = MidTermRetriever(store, _retriever_config()).search(
+        "risk",
+        {"user_id": "u1", "run_id": "r1"},
+    )
+
+    assert [item["id"] for item in _page_results(results)] == ["p1"]
+    assert store.valid_recalled_pages == []
+    assert store.visited_sessions == []
+
+
+def test_midterm_global_page_search_supplements_actual_unique_candidate_pool():
+    sessions = [
+        _midterm_row("s1", 0.9, summary="selected", user_id="u1", run_id="r1", H_segment=1.0),
+        _midterm_row("s2", 0.8, summary="global", user_id="u1", run_id="r1", H_segment=1.0),
+    ]
+    local_pages = [
+        _midterm_row("p1", 0.4, session_id="s1", summary="local 1", user_id="u1", run_id="r1"),
+        _midterm_row("p2", 0.3, session_id="s1", summary="local 2", user_id="u1", run_id="r1"),
+    ]
+    global_pages = [
+        *local_pages,
+        *[
+            _midterm_row(
+                f"global-{index}",
+                0.5 + index / 100,
+                session_id="s2",
+                summary=f"global {index}",
+                user_id="u1",
+                run_id="r1",
+            )
+            for index in range(1, 7)
+        ],
+    ]
+    store = FakeMidTermRetrievalStore(sessions, {"s1": local_pages, None: global_pages})
+    retriever = MidTermRetriever(
+        store,
+        _retriever_config(top_k_sessions=1, top_k_pages=2, max_total_pages=2),
+    )
+
+    pages = _page_results(retriever.search("risk", {"user_id": "u1", "run_id": "r1"}))
+
+    assert len(pages) == 2
+    assert [page["id"] for page in pages] == ["global-6", "global-5"]
+    assert {call["top_k"] for call in store.page_filters if "session_id" not in call["filters"]} == {8}
+    assert len({page.id for page in global_pages}) == 4 * 2
+
+
+def test_midterm_threshold_uses_raw_score_not_heat_modulated_final_score():
+    sessions = [
+        _midterm_row("cold", 0.9, summary="cold", user_id="u1", run_id="r1", H_segment=0.0),
+        _midterm_row("hot", 0.8, summary="hot", user_id="u1", run_id="r1", H_segment=10.0),
+    ]
+    pages_by_session = {
+        "cold": [
+            _midterm_row("raw-pass", 0.51, session_id="cold", summary="pass", user_id="u1", run_id="r1")
+        ],
+        "hot": [
+            _midterm_row("final-pass-only", 0.49, session_id="hot", summary="fail", user_id="u1", run_id="r1")
+        ],
+    }
+    config = _retriever_config(top_k_sessions=2, top_k_pages=1, max_total_pages=2)
+    config.midterm_rag_threshold = 0.5
+    store = FakeMidTermRetrievalStore(sessions, pages_by_session)
+
+    pages = _page_results(MidTermRetriever(store, config).search("risk", {"user_id": "u1", "run_id": "r1"}))
+
+    assert [page["id"] for page in pages] == ["raw-pass"]
+    assert pages[0]["raw_rag_score"] == pytest.approx(0.51)
+    assert pages[0]["final_score"] == pytest.approx(0.51 * config.heat_modulation_min)
+    assert pages[0]["final_score"] < config.midterm_rag_threshold
+
+
+def test_deterministic_forgetting_and_reinforcement():
+    config = _retriever_config()
+    config.retention_half_life_hours = 24.0
+    config.retention_floor = 0.1
+    config.reinforcement_gain = 0.5
+    now = beijing_now()
+    weak = {
+        "created_at": (now - timedelta(hours=24)).isoformat(),
+        "valid_recall_count": 0,
+    }
+    old = {
+        "created_at": (now - timedelta(hours=48)).isoformat(),
+        "valid_recall_count": 0,
+    }
+    strong = {
+        "created_at": weak["created_at"],
+        "valid_recall_count": 8,
+    }
+
+    weak_retention = forgetting_factor(weak, config, now=now.isoformat())
+    old_retention = forgetting_factor(old, config, now=now.isoformat())
+    strong_retention = forgetting_factor(strong, config, now=now.isoformat())
+
+    assert old_retention < weak_retention
+    assert memory_strength(8, config.reinforcement_gain) > memory_strength(0, config.reinforcement_gain)
+    assert strong_retention > weak_retention
+    assert forgetting_factor(weak, config, now=now.isoformat()) == weak_retention
+
+
+def test_heat_modulation_normalizes_pool_and_handles_equal_heat():
+    assert heat_modulations({"only": 7.0}, minimum=0.9, maximum=1.1) == {"only": 1.0}
+    assert heat_modulations({"a": 2.0, "b": 2.0}, minimum=0.9, maximum=1.1) == {
+        "a": 1.0,
+        "b": 1.0,
+    }
+    modulations = heat_modulations({"cold": 0.0, "warm": 5.0, "hot": 10.0}, minimum=0.8, maximum=1.2)
+    assert modulations == {"cold": 0.8, "warm": 1.0, "hot": 1.2}
 
 
 def test_sqlite_save_messages_returns_natural_evictions():
@@ -988,4 +1139,180 @@ def test_midterm_disabled_preserves_search_shape_and_lazy_state(tmp_path, fake_m
     assert memory._midterm_updater is None
     assert memory._midterm_retriever is None
     assert not any(name.endswith("_midterm_pages") or name.endswith("_midterm_sessions") for name in fake_memory_env)
+    memory.close()
+
+
+def _insert_midterm_page_and_session(memory, *, page_id="page-1", session_id="session-1", run_id="run-1"):
+    now = beijing_now().isoformat()
+    memory.midterm_memory.insert_page(
+        page_id,
+        {
+            "id": page_id,
+            "session_id": session_id,
+            "raw_dialogue": "User: maximum loss?\n\nAssistant: 10%",
+            "user_input": "maximum loss?",
+            "assistant_response": "10%",
+            "summary": "The maximum acceptable loss is 10%.",
+            "keywords": ["loss", "10%"],
+            "created_at": now,
+            "updated_at": now,
+            "user_id": "user-1",
+            "run_id": run_id,
+            "valid_recall_count": 0,
+            "last_recall_at": None,
+            "memory_strength": 1.0,
+            "output_state": "committed",
+        },
+    )
+    memory.midterm_memory.insert_session(
+        session_id,
+        {
+            "id": session_id,
+            "summary": "The user discussed a 10% loss limit.",
+            "summary_keywords": ["loss", "10%"],
+            "page_ids": [page_id],
+            "N_visit": 0,
+            "valid_recall_count": 0,
+            "last_recall_at": None,
+            "memory_strength": 1.0,
+            "L_interaction": 1,
+            "R_recency": 1.0,
+            "H_segment": 0.5,
+            "created_at": now,
+            "updated_at": now,
+            "user_id": "user-1",
+            "run_id": run_id,
+            "output_state": "committed",
+        },
+    )
+
+
+def test_valid_recall_is_confirmed_only_for_pages_entering_context(tmp_path, fake_memory_env):
+    config = _memory_config(tmp_path, collection_name="valid_recall_context")
+    config.background.enabled = False
+    config.midterm.promotion_min_recall_count = 10
+    memory = Memory(config)
+    _insert_midterm_page_and_session(memory)
+    filters = {"user_id": "user-1", "run_id": "run-1"}
+
+    candidates = memory.midterm_retriever.search("maximum loss", filters)
+    assert memory.midterm_memory.get_page("page-1").payload["valid_recall_count"] == 0
+    assert memory.midterm_memory.get_session("session-1").payload["valid_recall_count"] == 0
+
+    memory._confirm_context_valid_recalls(candidates)
+    page = memory.midterm_memory.get_page("page-1").payload
+    session = memory.midterm_memory.get_session("session-1").payload
+    assert page["valid_recall_count"] == 1
+    assert page["last_recall_at"]
+    assert page["memory_strength"] > 1.0
+    assert session["valid_recall_count"] == 1
+    assert session["H_segment"] > 0.5
+
+    # Deduplication is per confirmation round, even if two retrieval paths
+    # produced the same page.
+    memory._confirm_context_valid_recalls([*candidates, *candidates])
+    assert memory.midterm_memory.get_page("page-1").payload["valid_recall_count"] == 2
+    memory.close()
+
+
+def test_threshold_filtered_midterm_page_is_not_reinforced(tmp_path, fake_memory_env):
+    config = _memory_config(tmp_path, collection_name="threshold_no_recall")
+    config.background.enabled = False
+    config.midterm.midterm_rag_threshold = 1.0
+    memory = Memory(config)
+    _insert_midterm_page_and_session(memory)
+
+    results = memory.midterm_retriever.search(
+        "unrelated bonds",
+        {"user_id": "user-1", "run_id": "run-1"},
+    )
+    memory._confirm_context_valid_recalls(results)
+
+    assert _page_results(results) == []
+    assert memory.midterm_memory.get_page("page-1").payload["valid_recall_count"] == 0
+    assert memory.midterm_memory.get_session("session-1").payload["valid_recall_count"] == 0
+    memory.close()
+
+
+def test_existing_longterm_configured_rag_threshold_preserves_run_scope(tmp_path, fake_memory_env):
+    config = _memory_config(tmp_path, enabled=False, collection_name="longterm_threshold")
+    config.background.enabled = False
+    config.longterm_rag_threshold = 0.8
+    memory = Memory(config)
+    rows = [
+        ("relevant", "The maximum acceptable loss is 10%.", "run-1"),
+        ("irrelevant", "The user prefers bond funds.", "run-1"),
+        ("other-run", "The maximum acceptable loss is 10%.", "run-2"),
+    ]
+    memory.vector_store.insert(
+        ids=[row[0] for row in rows],
+        vectors=[memory.embedding_model.embed(row[1], "add") for row in rows],
+        payloads=[
+            {
+                "data": text,
+                "user_id": "user-1",
+                "run_id": run_id,
+                "created_at": beijing_now().isoformat(),
+                "updated_at": beijing_now().isoformat(),
+            }
+            for _, text, run_id in rows
+        ],
+    )
+
+    results = memory.search(
+        "maximum acceptable loss 10%",
+        filters={"user_id": "user-1", "run_id": "run-1"},
+        top_k=5,
+        threshold=0.0,
+    )["results"]
+
+    assert [item["id"] for item in results] == ["relevant"]
+    assert all(item.get("run_id") == "run-1" for item in results)
+    memory.close()
+
+
+def test_cross_session_longterm_promotion_is_user_scoped_and_idempotent(tmp_path, fake_memory_env):
+    config = _memory_config(tmp_path, collection_name="cross_session_promotion")
+    config.background.enabled = False
+    config.midterm.promotion_min_recall_count = 2
+    config.midterm.promotion_heat_threshold = 0.0
+    memory = Memory(config)
+    _insert_midterm_page_and_session(memory, run_id="run-a")
+    recalled_page = {
+        "id": "page-1",
+        "source": "mid_term_page",
+        "raw_dialogue": "User: maximum loss?\n\nAssistant: 10%",
+    }
+
+    memory._confirm_context_valid_recalls([recalled_page])
+    assert memory.cross_session_longterm.list(filters={"user_id": "user-1"}, top_k=10) == []
+    memory._confirm_context_valid_recalls([recalled_page])
+
+    promoted = memory.cross_session_longterm.list(filters={"user_id": "user-1"}, top_k=10)
+    assert len(promoted) == 1
+    payload = promoted[0].payload
+    assert payload["source"] == "cross_session_long_term"
+    assert payload["source_midterm_session_id"] == "session-1"
+    assert payload["source_run_id"] == "run-a"
+    assert payload["source_page_ids"] == ["page-1"]
+    assert payload["evidence"][0]["raw_dialogue"]
+    assert "run_id" not in payload
+
+    new_session_results = memory._with_midterm_search_results(
+        "maximum loss 10%",
+        {"user_id": "user-1", "run_id": "run-b"},
+        [],
+    )
+    cross_session_results = [
+        item for item in new_session_results if item.get("source") == "cross_session_long_term"
+    ]
+    assert len(cross_session_results) == 1
+    assert cross_session_results[0]["source_run_id"] == "run-a"
+    assert not [item for item in new_session_results if item.get("source") == "long_term"]
+    assert memory.cross_session_longterm.get(promoted[0].id).payload["recall_count"] == 0
+
+    memory._confirm_context_valid_recalls(cross_session_results)
+    recalled = memory.cross_session_longterm.get(promoted[0].id).payload
+    assert recalled["recall_count"] == 1
+    assert recalled["last_recall_at"]
     memory.close()

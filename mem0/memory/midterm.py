@@ -1,9 +1,11 @@
 import copy
 import logging
 import math
+import threading
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from mem0.memory.memory_evolution import memory_strength, unique_ids
 from mem0.utils.factory import VectorStoreFactory
 from mem0.utils.timestamps import BEIJING_TIMEZONE, beijing_now_iso
 
@@ -78,6 +80,7 @@ class MidTermMemory:
         self.vector_store_timeout_seconds = vector_store_timeout_seconds
         self.pages_collection_name = f"{base_collection_name}_midterm_pages"
         self.sessions_collection_name = f"{base_collection_name}_midterm_sessions"
+        self._evolution_lock = threading.RLock()
         self.pages_store = self._create_store(self.pages_collection_name)
         self.sessions_store = self._create_store(self.sessions_collection_name)
 
@@ -248,19 +251,60 @@ class MidTermMemory:
     def delete_session(self, session_id: str) -> None:
         self.sessions_store.delete(vector_id=session_id)
 
-    def record_session_visit(self, session_id: str) -> Optional[Dict[str, Any]]:
-        session = self.get_session(session_id)
-        if not session:
-            return None
-        payload = dict(getattr(session, "payload", None) or {})
-        now = beijing_now_iso()
-        payload["N_visit"] = int(payload.get("N_visit", 0) or 0) + 1
-        payload["R_recency"] = compute_recency(payload.get("last_visit_time"), now)
-        payload["last_visit_time"] = now
-        payload["updated_at"] = now
-        payload["H_segment"] = compute_session_heat(payload, self.config)
-        self.update_session(session_id, payload, reembed=False)
-        return payload
+    def record_valid_recalls(
+        self,
+        page_ids: List[str],
+        *,
+        recalled_at: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Reinforce unique pages and their sessions after they enter model context."""
+        normalized_page_ids = unique_ids(page_ids)
+        if not normalized_page_ids:
+            return []
+
+        now = recalled_at or beijing_now_iso()
+        updated_sessions: List[Dict[str, Any]] = []
+        with self._evolution_lock:
+            session_ids: List[str] = []
+            for page_id in normalized_page_ids:
+                page = self.get_page(page_id)
+                if not page:
+                    continue
+                payload = dict(getattr(page, "payload", None) or {})
+                count = int(payload.get("valid_recall_count", 0) or 0) + 1
+                payload.update(
+                    {
+                        "valid_recall_count": count,
+                        "last_recall_at": now,
+                        "memory_strength": memory_strength(count, self.config.reinforcement_gain),
+                        "updated_at": now,
+                    }
+                )
+                self.update_page(page_id, payload, reembed=False)
+                session_ids.append(payload.get("session_id"))
+
+            for session_id in unique_ids(session_ids):
+                session = self.get_session(session_id)
+                if not session:
+                    continue
+                payload = dict(getattr(session, "payload", None) or {})
+                count = int(payload.get("valid_recall_count", payload.get("N_visit", 0)) or 0) + 1
+                payload.update(
+                    {
+                        "valid_recall_count": count,
+                        "N_visit": count,
+                        "last_recall_at": now,
+                        "last_visit_time": now,
+                        "R_recency": 1.0,
+                        "memory_strength": memory_strength(count, self.config.reinforcement_gain),
+                        "updated_at": now,
+                    }
+                )
+                payload["H_segment"] = compute_session_heat(payload, self.config)
+                self.update_session(session_id, payload, reembed=False)
+                updated_sessions.append({"id": session_id, **payload})
+
+        return updated_sessions
 
     def reset(self) -> None:
         for store_name, store in (("midterm_pages", self.pages_store), ("midterm_sessions", self.sessions_store)):

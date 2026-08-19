@@ -556,6 +556,9 @@ class MidTermUpdater:
             "summary_keywords": list(page_payload.get("keywords") or []),
             "page_ids": [page_payload["id"]],
             "N_visit": 0,
+            "valid_recall_count": 0,
+            "last_recall_at": None,
+            "memory_strength": 1.0,
             "L_interaction": 1,
             "R_recency": 1.0,
             "H_segment": 0.0,
@@ -768,6 +771,9 @@ class MidTermUpdater:
                     "output_lease_token": lease_token,
                     "degraded": degraded,
                     "needs_reprocessing": degraded,
+                    "valid_recall_count": 0,
+                    "last_recall_at": None,
+                    "memory_strength": 1.0,
                 }
                 if lease_is_current is not None and not lease_is_current():
                     raise RuntimeError("stale migration stage lease")
@@ -911,6 +917,9 @@ class MidTermUpdater:
                     "output_lease_token": lease_token,
                     "degraded": degraded,
                     "needs_reprocessing": degraded,
+                    "valid_recall_count": 0,
+                    "last_recall_at": None,
+                    "memory_strength": 1.0,
                 }
                 if lease_is_current is not None and not lease_is_current():
                     raise RuntimeError("stale migration stage lease")

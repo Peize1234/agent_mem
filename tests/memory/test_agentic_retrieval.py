@@ -71,10 +71,16 @@ class _FakeMidtermRetriever:
 class _FakeMidtermMemory:
     def __init__(self, visit_error=None):
         self.visits = []
+        self.valid_recalls = []
         self.visit_error = visit_error
 
     def record_session_visit(self, session_id):
         self.visits.append(session_id)
+        if self.visit_error is not None:
+            raise self.visit_error
+
+    def record_valid_recalls(self, page_ids):
+        self.valid_recalls.append(list(page_ids))
         if self.visit_error is not None:
             raise self.visit_error
 
@@ -161,14 +167,13 @@ def test_agentic_config_defaults_and_validates_low_latency_limits():
     assert config.candidate_pool_size == 20
     assert config.max_total_results == 6
     assert "max_chars_per_result" not in AgenticRetrievalConfig.model_fields
+    assert "default_threshold" not in AgenticRetrievalConfig.model_fields
     with pytest.raises(ValidationError):
         AgenticRetrievalConfig(max_iterations=3)
     with pytest.raises(ValidationError):
         AgenticRetrievalConfig(max_tool_calls=2)
     with pytest.raises(ValidationError):
         AgenticRetrievalConfig(max_queries=4)
-    with pytest.raises(ValidationError):
-        AgenticRetrievalConfig(default_threshold=1.1)
 
 
 def test_only_search_memory_tool_with_queries_is_exposed():
@@ -250,6 +255,60 @@ def test_one_tool_call_with_multiple_queries_uses_two_llm_calls():
     supplement_prompt = llm.calls[1]["messages"][-1]["content"]
     assert "不得添加“中期记忆补充”" in supplement_prompt
     assert "记忆层级" in supplement_prompt
+
+
+def test_agentic_valid_recall_is_confirmed_only_when_tool_result_enters_second_model_context():
+    memory = _FakeMemory({"风险偏好": _default_results()})
+    executor = _executor(memory, record_midterm_visits=True)
+    llm = _ScriptedLLM(
+        [
+            _tool_call("call-search", {"queries": ["风险偏好"]}),
+            {"content": "历史风险约束为10%。", "tool_calls": []},
+        ]
+    )
+
+    result = AgenticMemoryRunner(llm, executor, AgenticRetrievalConfig()).run([])
+
+    assert result["status"] == "supplemented"
+    assert memory.midterm_memory.valid_recalls == [["page-1"]]
+    assert memory.midterm_memory.visits == []
+
+
+def test_agentic_degraded_before_second_model_call_does_not_confirm_recall():
+    memory = _FakeMemory({"风险偏好": _default_results()})
+    executor = _executor(memory, record_midterm_visits=True)
+    llm = _ScriptedLLM([_tool_call("call-search", {"queries": ["风险偏好"]})])
+
+    result = AgenticMemoryRunner(
+        llm,
+        executor,
+        AgenticRetrievalConfig(max_iterations=1),
+    ).run([])
+
+    assert result["status"] == "degraded"
+    assert memory.midterm_memory.valid_recalls == []
+
+
+def test_agentic_excludes_page_already_recalled_by_base_context():
+    memory = _FakeMemory({"风险偏好": _default_results()})
+    executor = MemoryToolExecutor(
+        memory,
+        user_id="user-1",
+        run_id="run-1",
+        config=AgenticRetrievalConfig(),
+        record_midterm_visits=True,
+        exclude_midterm_page_ids={"page-1"},
+    )
+    llm = _ScriptedLLM(
+        [
+            _tool_call("call-search", {"queries": ["风险偏好"]}),
+            {"content": "历史风险约束为10%。", "tool_calls": []},
+        ]
+    )
+
+    AgenticMemoryRunner(llm, executor, AgenticRetrievalConfig()).run([])
+
+    assert memory.midterm_memory.valid_recalls == []
 
 
 def test_empty_tool_result_stops_without_supplement_model_call():
@@ -374,7 +433,7 @@ def test_multi_query_pages_are_deduplicated_by_id_and_keep_highest_score():
     assert result["items"][0]["session_summary"] == "亏损主题"
 
 
-def test_multi_query_records_each_hit_session_once_after_retrieval():
+def test_multi_query_candidate_retrieval_does_not_record_valid_recall():
     queries = ["风险偏好", "最大亏损", "投资限制"]
     memory = _FakeMemory({query: _default_results() for query in queries})
 
@@ -384,7 +443,8 @@ def test_multi_query_records_each_hit_session_once_after_retrieval():
     )
 
     assert result["ok"] is True
-    assert memory.midterm_memory.visits == ["session-1"]
+    assert memory.midterm_memory.valid_recalls == []
+    assert memory.midterm_memory.visits == []
     assert all(call[2] is False for call in memory.midterm_retriever.calls)
 
 
@@ -415,7 +475,8 @@ def test_session_visit_failure_does_not_fail_retrieval():
 
     assert result["ok"] is True
     assert [item["result_id"] for item in result["items"]] == ["mid_term_page:page-1"]
-    assert memory.midterm_memory.visits == ["session-1"]
+    assert memory.midterm_memory.valid_recalls == []
+    assert memory.midterm_memory.visits == []
 
 
 def test_only_midterm_pages_are_returned_with_complete_content():
@@ -785,8 +846,8 @@ async def test_sync_and_async_multi_query_results_and_visits_match():
     async_result = await async_executor.execute("search_memory", {"queries": queries})
 
     assert async_result == sync_result
-    assert sync_memory.midterm_memory.visits == ["session-1"]
-    assert async_memory.midterm_memory.visits == ["session-1"]
+    assert sync_memory.midterm_memory.valid_recalls == []
+    assert async_memory.midterm_memory.valid_recalls == []
     assert all(call[2] is False for call in async_memory.midterm_retriever.calls)
 
 

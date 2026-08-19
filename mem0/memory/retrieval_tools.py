@@ -107,12 +107,15 @@ class MemoryToolExecutor:
         run_id: str,
         config: AgenticRetrievalConfig,
         record_midterm_visits: bool = True,
+        exclude_midterm_page_ids: set[str] | None = None,
     ) -> None:
         self.memory = memory
         self.user_id = user_id
         self.run_id = run_id
         self.config = config
         self.record_midterm_visits = record_midterm_visits
+        self.exclude_midterm_page_ids = {str(value) for value in (exclude_midterm_page_ids or set())}
+        self._pending_valid_page_ids: list[str] = []
         self._scope_filters = {"user_id": user_id, "run_id": run_id}
 
     def execute(self, name: str, arguments: Any) -> dict[str, Any]:
@@ -179,41 +182,43 @@ class MemoryToolExecutor:
         *,
         successful_queries: int,
     ) -> dict[str, Any]:
-        self._record_unique_session_visits(results_by_query)
         return self._build_payload(
             results_by_query,
             errors,
             successful_queries=successful_queries,
         )
 
-    def _record_unique_session_visits(
-        self,
-        results_by_query: list[list[dict[str, Any]]],
-    ) -> None:
+    def _page_ids_for_valid_recall(self, items: list[dict[str, Any]]) -> list[str]:
         if not self.record_midterm_visits:
+            return []
+        page_ids = []
+        for item in items:
+            result_id = str(item.get("result_id") or "")
+            if not result_id.startswith("mid_term_page:"):
+                continue
+            page_id = result_id.removeprefix("mid_term_page:")
+            if page_id and page_id not in self.exclude_midterm_page_ids:
+                page_ids.append(page_id)
+        return page_ids
+
+    def confirm_last_results(self) -> None:
+        """Confirm the pending tool result immediately before it enters model context."""
+        page_ids = list(self._pending_valid_page_ids)
+        self._pending_valid_page_ids = []
+        if not page_ids:
             return
-
-        visited_session_ids: set[str] = set()
-        for raw_results in results_by_query:
-            for raw_item in raw_results:
-                if raw_item.get("source") not in {"mid_term_session", "mid_term_page"}:
-                    continue
-                session_id = raw_item.get("session_id")
-                if session_id in (None, "") and raw_item.get("source") == "mid_term_session":
-                    session_id = raw_item.get("id")
-                if session_id not in (None, ""):
-                    visited_session_ids.add(str(session_id))
-
-        for session_id in sorted(visited_session_ids):
-            try:
-                self.memory.midterm_memory.record_session_visit(session_id)
-            except Exception:
-                logger.exception(
-                    "Failed to record agentic mid-term session visit session_id=%s user_id=%s run_id=%s",
-                    session_id,
-                    self.user_id,
-                    self.run_id,
-                )
+        try:
+            confirm = getattr(self.memory, "_confirm_valid_midterm_page_ids", None)
+            if callable(confirm):
+                confirm(page_ids)
+            else:
+                self.memory.midterm_memory.record_valid_recalls(page_ids)
+        except Exception:
+            logger.exception(
+                "Failed to record agentic valid mid-term recalls user_id=%s run_id=%s",
+                self.user_id,
+                self.run_id,
+            )
 
     def _record_retrieval_error(self, exc: Exception, errors: list[dict[str, str]]) -> None:
         logger.error(
@@ -242,8 +247,6 @@ class MemoryToolExecutor:
             for raw_item in raw_results:
                 if raw_item.get("source") != "mid_term_page":
                     continue
-                if _score(raw_item) < self.config.default_threshold:
-                    continue
                 item = self._normalize_page(raw_item, session_summaries)
                 result_id = item["result_id"]
                 current = best_by_page_id.get(result_id)
@@ -256,7 +259,13 @@ class MemoryToolExecutor:
             payload["errors"] = errors
         if successful_queries == 0:
             payload.update(error="RetrievalUnavailable", message="记忆检索暂时不可用")
-        return self._fit_payload(payload)
+        fitted = self._fit_payload(payload)
+        self._pending_valid_page_ids = (
+            self._page_ids_for_valid_recall(fitted.get("items") or [])
+            if fitted.get("ok") is True
+            else []
+        )
+        return fitted
 
     @staticmethod
     def _session_summaries(raw_results: list[dict[str, Any]]) -> dict[str, str]:
