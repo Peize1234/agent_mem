@@ -21,11 +21,7 @@ from tuner.experiment_branches import (  # noqa: E402
 from tuner.models import Candidate, CandidateResult, Dataset, Turn  # noqa: E402
 from tuner.research_decision import ResearchDecisionEngine  # noqa: E402
 from tuner.research_evidence import ResearchEvidence, build_research_evidence  # noqa: E402
-from tuner.research_policy import (  # noqa: E402
-    LegalAction,
-    build_legal_actions,
-    resolve_research_stop_reason,
-)
+from tuner.research_policy import LegalAction  # noqa: E402
 from tuner.staged_search import run_staged_search  # noqa: E402
 
 
@@ -513,47 +509,6 @@ def test_stage_one_is_deterministic_and_stage_two_uses_research_llm(tmp_path: Pa
         if item["reason"].startswith("DEPRIORITIZED")
     )
     assert [record["stage_index"] for record in search.research_decisions] == [2, 3]
-
-
-def test_staged_research_three_failures_use_registry_select_result(tmp_path: Path) -> None:
-    runtime = FakeRuntime([RuntimeError("api") for _ in range(3)])
-    search = run_research_search(tmp_path, runtime, max_stages=2)
-    assert search.stage_history[0]["branches"] == ["RetrievalControl"]
-    assert search.stage_history[1]["branches"] == ["BranchA"]
-    assert runtime.calls == 3
-    assert search.research_stats["fallback_decisions"] == 1
-    research_event = next(event for event in search.branch_events if event["branch"] == "__research_decision__")
-    assert research_event["status"] == "DETERMINISTIC_FALLBACK"
-
-
-def test_deterministic_mode_does_not_require_research_runtime(tmp_path: Path) -> None:
-    dataset = search_dataset(tmp_path)
-    baseline = Candidate("baseline", "baseline", {"gain": 0.0})
-    branch = SearchBranch("RetrievalControl", priority=1, gain=0.05, initial=True)
-
-    def evaluate(candidates: Any, sessions: Any, scope: str) -> list[CandidateResult]:
-        del sessions, scope
-        return [candidate_result(candidate.name, 0.45) for candidate in candidates]
-
-    search = run_staged_search(
-        dataset=dataset,
-        baseline=baseline,
-        baseline_result=candidate_result("baseline", 0.4),
-        tune_sessions=("S001_test",),
-        registry=BranchRegistry([branch]),
-        artifact_registry=None,
-        model_discovery=None,
-        run_dir=tmp_path,
-        search_space={"selection": {"patience_stages": 1}},
-        budget="quick",
-        profile={"max_stages": 1, "max_cost_level": "medium", "max_candidates_per_stage": 2},
-        k=5,
-        ranking_depth=20,
-        evaluate=evaluate,
-        diagnose=lambda _: {"regime": "balanced_or_plateau"},
-    )
-    assert search.research_decisions == []
-    assert search.research_stats == {}
 
 
 def test_staged_research_three_failures_use_registry_select_result(tmp_path: Path) -> None:
