@@ -42,6 +42,30 @@ RESEARCH_CONFIG_KEYS = frozenset(
         "ablation_from_baseline",
     }
 )
+RESEARCH_BUDGET_KEYS = frozenset(
+    {
+        "budget",
+        "stage_index",
+        "max_stages",
+        "max_cost_level",
+        "max_branches_per_stage",
+        "max_candidates_per_stage",
+        "remaining_expensive_candidates",
+        "no_improvement_stages",
+        "patience_stages",
+        "frontier_convergence_stages",
+    }
+)
+RESEARCH_BRANCH_DESCRIPTOR_KEYS = frozenset(
+    {
+        "name",
+        "diagnostic_regimes",
+        "cost_level",
+        "priority",
+        "initial_stage",
+    }
+)
+RESEARCH_BRANCH_SETTING_KEYS = frozenset({"enabled", "max_rounds"})
 
 
 @dataclass(frozen=True)
@@ -97,6 +121,35 @@ def _config_diff(parent: Mapping[str, Any], current: Mapping[str, Any]) -> dict[
             if parent_view.get(key) != current_view.get(key)
         }
     )
+
+
+def _research_budget_view(budget_state: Mapping[str, Any]) -> dict[str, Any]:
+    """Expose decision constraints without artifact or execution provenance."""
+
+    result = {key: budget_state[key] for key in RESEARCH_BUDGET_KEYS if key in budget_state}
+    branch_registry = budget_state.get("branch_registry")
+    if isinstance(branch_registry, (list, tuple)):
+        result["branch_registry"] = [
+            {
+                key: descriptor[key]
+                for key in RESEARCH_BRANCH_DESCRIPTOR_KEYS
+                if isinstance(descriptor, Mapping) and key in descriptor
+            }
+            for descriptor in branch_registry
+            if isinstance(descriptor, Mapping)
+        ]
+    branch_settings = budget_state.get("branch_settings")
+    if isinstance(branch_settings, Mapping):
+        result["branch_settings"] = {
+            str(branch): {
+                key: settings[key]
+                for key in RESEARCH_BRANCH_SETTING_KEYS
+                if isinstance(settings, Mapping) and key in settings
+            }
+            for branch, settings in branch_settings.items()
+            if isinstance(settings, Mapping)
+        }
+    return _safe(result)
 
 
 def _failure_distribution(result: CandidateResult, tune_sessions: Sequence[str]) -> dict[str, Any]:
@@ -237,14 +290,7 @@ def build_research_evidence(
             "schema": RESEARCH_EVIDENCE_SCHEMA,
             "data_boundary": {
                 "scope": "tune_sessions_only",
-                "dataset_sha256": dataset_sha256,
                 "tune_session_ids": sorted(str(item) for item in tune_sessions),
-                "prohibited_inputs": [
-                    "held_out_validation",
-                    "future_turns",
-                    "gold_dependencies",
-                    "benchmark_answers",
-                ],
             },
             "metric_contract": {"k": k, "primary": f"R@{k}", "deeper": [f"R@{2 * k}", f"R@{4 * k}"]},
             "decision_boundary": {"stage_index": stage_index, "trigger": "next_stage_branch_selection"},
@@ -275,7 +321,7 @@ def build_research_evidence(
                 "prior_deprioritized_events": list(deprioritized_history),
             },
             "deterministic_plan": list(deterministic_plan),
-            "budget_and_hard_constraints": dict(budget_state),
+            "budget_and_hard_constraints": _research_budget_view(budget_state),
             "legal_actions": list(legal_actions),
         }
     )

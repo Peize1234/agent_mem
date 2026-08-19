@@ -349,7 +349,29 @@ def test_research_evidence_excludes_validation_gold_answers_and_future_data(tmp_
         coverage={"relevant_branches": ["BranchA"]},
         deterministic_plan=[{"action_id": "A01", "branch": "BranchA"}],
         legal_actions=[{"action_id": "A01", "branch": "BranchA"}],
-        budget_state={"budget": "deep"},
+        budget_state={
+            "budget": "deep",
+            "branch_registry": [
+                {
+                    "name": "BranchA",
+                    "diagnostic_regimes": ["candidate_coverage_bottleneck"],
+                    "cost_level": "medium",
+                    "priority": 10,
+                    "initial_stage": False,
+                    "required_artifacts": ["dataset_path"],
+                    "execution_adapter": "source_generation_spec",
+                    "provenance_contract": ["manifest_sha256", "session_turn_counts"],
+                }
+            ],
+            "branch_settings": {
+                "BranchA": {
+                    "enabled": True,
+                    "max_rounds": 2,
+                    "manifest_sha256": "MANIFEST_SECRET",
+                }
+            },
+            "source_generation_spec": "SOURCE_SPEC_SECRET",
+        },
         deprioritized_history=[],
     )
     serialized = json.dumps(built.payload, ensure_ascii=False)
@@ -358,6 +380,13 @@ def test_research_evidence_excludes_validation_gold_answers_and_future_data(tmp_
     assert "VALIDATION_ANSWER_SECRET" not in serialized
     assert "VALIDATION_STAGE_SECRET" not in serialized
     assert "S999_VALIDATION" not in serialized
+    assert "manifest_sha256" not in serialized
+    assert "session_turn_counts" not in serialized
+    assert "source_generation_spec" not in serialized
+    assert "dataset_path" not in serialized
+    assert "future_turn" not in serialized
+    assert "gold" not in serialized.lower()
+    assert "answer" not in serialized.lower()
     assert built.payload["data_boundary"]["tune_session_ids"] == ["S001"]
 
 
