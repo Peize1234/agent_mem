@@ -13,7 +13,6 @@ from .models import Candidate
 from .production_midterm_adapter import load_checkpoints
 from .retrieval_primitives import page_representation, session_representation
 
-
 DERIVED_ARTIFACT_SCHEMA = 1
 PAGE_FIELDS = ("summary", "keywords", "user_input")
 

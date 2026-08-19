@@ -13,7 +13,6 @@ from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT, MIDTERM_SE
 from mem0.configs.prompts import ADDITIVE_EXTRACTION_PROMPT
 from mem0.utils.factory import VectorStoreFactory, _configure_native_timeout
 
-
 _ORIGINAL_VECTOR_STORE_CREATE = VectorStoreFactory.create
 LOGGER = logging.getLogger("memory_retrieval_tuner.production_runtime")
 

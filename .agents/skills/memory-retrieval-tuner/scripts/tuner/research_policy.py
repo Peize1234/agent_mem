@@ -6,7 +6,6 @@ from typing import Any, Mapping, Sequence
 from .experiment_branches import BranchRegistry
 from .io_utils import stable_hash
 
-
 RESEARCH_ACTION_SCHEMA = "research_legal_action_v1"
 STOP_REASON_FRONTIER_CONVERGED = "frontier_converged"
 STOP_REASON_GLOBAL_PATIENCE = "global_patience"
@@ -61,9 +60,7 @@ def build_legal_actions(
         remaining_required = {str(name) for name in coverage.get("remaining_required_branches") or []}
     else:
         remaining_required = {
-            name
-            for name in remaining
-            if roles.get(name) == "required" and not attempt_counts.get(name)
+            name for name in remaining if roles.get(name) == "required" and not attempt_counts.get(name)
         }
     actions: list[LegalAction] = []
     for name in remaining:
@@ -74,11 +71,7 @@ def build_legal_actions(
         # Do not wait for cheaper/selectable work to be consumed. Required
         # coverage still cannot be skipped: hide expensive_gated until required
         # work is done, unless the deterministic plan already opened it.
-        if (
-            coverage_class == "expensive_gated"
-            and remaining_required
-            and name not in deterministic_names
-        ):
+        if coverage_class == "expensive_gated" and remaining_required and name not in deterministic_names:
             continue
         actions.append(
             LegalAction(

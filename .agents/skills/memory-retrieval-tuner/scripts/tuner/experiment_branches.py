@@ -13,7 +13,6 @@ from .models import Candidate, CandidateResult, Dataset
 from .prompt_artifacts import QueryPromptArtifactGenerator, controlled_query_prompt_variants
 from .source_prompt_variants import controlled_page_prompt_variants
 
-
 COST_RANK = {"cheap": 0, "medium": 1, "high": 2, "expensive": 3}
 ALL_REGIMES = frozenset(
     {

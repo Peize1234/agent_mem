@@ -38,7 +38,6 @@ from .retrieval_primitives import (
 )
 from .source_prompt_variants import ContextAwareMidTermUpdater, visible_context_by_dialogue
 
-
 ADAPTER_SCHEMA = 1
 PRODUCTION_BACKEND = "production_midterm"
 SUPPORTED_RETRIEVAL_METHODS = {"dense", "dense_bm25_fusion"}
@@ -785,10 +784,11 @@ class ProductionMidtermAdapter:
         return list(reranked)
 
     def rank(self, checkpoint: Mapping[str, Any], config: Mapping[str, Any]) -> list[dict[str, Any]]:
+        from qdrant_client import QdrantClient
+
         from mem0.configs.base import MidTermMemoryConfig
         from mem0.memory.midterm import MidTermMemory
         from mem0.memory.midterm_retriever import MidTermRetriever
-        from qdrant_client import QdrantClient
 
         self.supported(config)
         derived = self._derived_payload(config)

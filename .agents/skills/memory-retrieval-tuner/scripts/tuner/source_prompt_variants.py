@@ -5,7 +5,6 @@ from typing import Any, Mapping
 from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT
 from mem0.memory.midterm_updater import MidTermUpdater
 
-
 _SUMMARY_HEADING = "## summary 要求"
 
 CONSERVATIVE_ADD_INSTRUCTIONS = """## 保守写入补充要求

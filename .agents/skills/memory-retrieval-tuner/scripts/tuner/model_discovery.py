@@ -14,7 +14,6 @@ import yaml
 from .encoding_contract import SentenceTransformerEncodingAdapter, resolve_encoding_contract
 from .io_utils import atomic_write_json
 
-
 MODEL_KINDS = {"embedding", "reranker"}
 FINANCE_MARKERS = {"finance", "financial", "finbert", "finmteb", "财经", "金融"}
 MULTILINGUAL_MARKERS = {"multilingual", "chinese", "zh", "bge", "gte", "e5", "qwen", "m3"}

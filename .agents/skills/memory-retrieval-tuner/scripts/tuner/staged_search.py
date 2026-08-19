@@ -11,7 +11,6 @@ from .research_decision import ResearchDecisionEngine
 from .research_evidence import build_research_evidence
 from .research_policy import build_legal_actions, deterministic_plan_actions
 
-
 EvaluateCandidates = Callable[[Sequence[Candidate], Sequence[str] | None, str], list[CandidateResult]]
 Diagnose = Callable[[CandidateResult], dict[str, Any]]
 

@@ -14,7 +14,6 @@ from .io_utils import append_jsonl, stable_hash
 from .research_evidence import ResearchEvidence
 from .research_policy import LegalAction, legal_actions_hash
 
-
 RESEARCH_DECISION_SCHEMA = "research_branch_decision_v1"
 RESEARCH_SYSTEM_PROMPT = """You are the research decision layer for a Memory Retrieval tuner.
 Choose only from the Python-provided legal_actions. Return one strict JSON object with this schema:
@@ -182,9 +181,7 @@ def _validate_response(
         and action.action_id not in seen_deprioritized
     ]
     if require_complete_deprioritized and missing:
-        raise ResearchDecisionValidationError(
-            f"missing deprioritized reason for unselected branch actions: {missing}"
-        )
+        raise ResearchDecisionValidationError(f"missing deprioritized reason for unselected branch actions: {missing}")
     return selected, deprioritized, rationale.strip()
 
 

@@ -11,17 +11,19 @@ from typing import Any
 import pytest
 from openpyxl import Workbook, load_workbook
 
-
 SCRIPTS = Path(__file__).resolve().parents[1]
 REPO_ROOT = next(path for path in Path(__file__).resolve().parents if (path / "pyproject.toml").exists())
 sys.path.insert(0, str(SCRIPTS))
 sys.path.insert(0, str(REPO_ROOT))
 
+import tuner.orchestrator as orchestrator  # noqa: E402
+import tuner.production_midterm_adapter as production_adapter  # noqa: E402
 from tuner.artifact_registry import ArtifactRegistry  # noqa: E402
 from tuner.benchmark_support import load_dataset, parse_gold_requirements  # noqa: E402
 from tuner.build_report import write_outputs  # noqa: E402
 from tuner.candidate_selector import classify_overfit, select_best  # noqa: E402
 from tuner.dataset_audit import DatasetAuditFailed, audit_dataset  # noqa: E402
+from tuner.encoding_contract import EncodingContract, SentenceTransformerEncodingAdapter  # noqa: E402
 from tuner.evaluate_candidate import (  # noqa: E402
     _eligible_requirements,
     _evaluate_session,
@@ -40,7 +42,6 @@ from tuner.experiment_branches import (  # noqa: E402
     _derived_dimensions,
 )
 from tuner.generated_source_artifacts import prepare_generated_source_candidate  # noqa: E402
-from tuner.encoding_contract import EncodingContract, SentenceTransformerEncodingAdapter  # noqa: E402
 from tuner.io_utils import sha256_file  # noqa: E402
 from tuner.model_discovery import (  # noqa: E402
     ModelCandidate,
@@ -51,8 +52,6 @@ from tuner.model_discovery import (  # noqa: E402
     _metadata_evidence,
 )
 from tuner.models import Candidate, CandidateResult, Dataset, Requirement, Turn  # noqa: E402
-import tuner.orchestrator as orchestrator  # noqa: E402
-import tuner.production_midterm_adapter as production_adapter  # noqa: E402
 from tuner.orchestrator import (  # noqa: E402
     TunerConfig,
     _artifact_cache_root,
@@ -65,13 +64,13 @@ from tuner.production_midterm_adapter import (  # noqa: E402
     isolated_runtime_layout,
     production_candidate_from_manifests,
 )
-from tuner.split_sessions import create_or_load_split  # noqa: E402
 from tuner.prompt_artifacts import (  # noqa: E402
     PRODUCTION_SHORTTERM_HISTORY_POLICY,
     QueryPromptArtifactGenerator,
     QueryPromptVariant,
     controlled_query_prompt_variants,
 )
+from tuner.split_sessions import create_or_load_split  # noqa: E402
 from tuner.staged_search import candidate_config_hash, run_staged_search  # noqa: E402
 
 

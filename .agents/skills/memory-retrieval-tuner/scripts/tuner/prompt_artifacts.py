@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 import re
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -16,7 +16,6 @@ from .benchmark_support import load_json, redact_secrets
 from .io_utils import sha256_file, stable_hash
 from .models import Candidate, CandidateResult, Dataset, Turn
 from .production_runtime import create_tuner_policy_llm
-
 
 PROMPT_ARTIFACT_SCHEMA = 3
 PRODUCTION_QUERY_PROMPT_IDENTITY = "production-original-query-no-rewrite-v1"

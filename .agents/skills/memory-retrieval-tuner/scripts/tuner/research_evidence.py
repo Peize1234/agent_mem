@@ -7,7 +7,6 @@ from .benchmark_support import redact_secrets
 from .io_utils import stable_hash
 from .models import Candidate, CandidateResult
 
-
 RESEARCH_EVIDENCE_SCHEMA = "research_tune_evidence_v1"
 _FORBIDDEN_KEY_MARKERS = ("validation", "gold", "answer", "future", "required_context")
 # Candidate config keys the Research LLM may see. Execution, cache, path, and

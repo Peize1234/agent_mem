@@ -15,7 +15,6 @@ from typing import Any, Iterable, Mapping, Sequence
 
 from openpyxl import load_workbook
 
-
 TURN_ID_PATTERN = re.compile(r"S\d{3}-Q\d{3}", re.IGNORECASE)
 MIGRATION_TERMINAL_STATUSES = {"succeeded", "succeeded_degraded", "completed_with_loss"}
 EMPTY_GOLD_VALUES = {"", "无", "none", "null", "nan"}
