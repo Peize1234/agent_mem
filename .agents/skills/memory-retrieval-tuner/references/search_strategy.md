@@ -396,6 +396,14 @@ Candidates inherit the current frontier anchor by default so winning retrieval c
 
 Validation is not available to this loop. Only after a stop reason is frozen may the frontier be evaluated on held-out Sessions.
 
+### Research decision boundary
+
+Stage 1 remains deterministic `RetrievalControl`. At every Stage 2+ boundary, Python first computes the diagnosis, coverage snapshot, unchanged `registry.select()` deterministic plan, and a hard-constrained legal action space. A Research LLM may then choose only legal `action_id` values; Candidate parameters and execution still come from the registered Branch adapter. Python validates required actions, budget, max rounds, resources, action count and stop legality before execution.
+
+Classify coverage as `required`, `selectable`, or `expensive_gated`. Only required coverage is a hard minimum in Research mode. Not choosing a selectable action is a temporary `DEPRIORITIZED` event, never `EXHAUSTED`; changed Tune evidence makes it eligible again. Python alone sets exhausted/blocked state. Expensive actions become legal only after the deterministic cost gate opens. Once required coverage is complete and patience/frontier convergence is active, Python may expose a legal stop action so the search remains result-oriented rather than requiring every selectable Branch.
+
+The Research prompt contains Tune-only aggregate metrics, config diffs, failure distribution, stage/round history, frontier, diagnosis, deterministic plan, Branch state and hard budgets. Never include held-out Validation, Gold labels/dependencies, answers or future turns. Retry invalid/API responses up to three total attempts, then execute the precomputed `registry.select()` result unchanged. Persist REQUEST before every call and RESPONSE afterwards in `research_trace.jsonl`; cache identical decisions using evidence/legal-action/anchor/registry/Prompt/model hashes.
+
 Avoid Bayesian/grid-search complexity until the parameter surface is actually numeric and cheap enough to justify it.
 
 For continuous numeric parameters, use coarse-to-fine values:
@@ -455,8 +463,8 @@ This prevents selecting a fragile +0.1 pp configuration over a simpler stable on
 Stop when any of the following applies:
 
 - budget exhausted;
-- no meaningful tune improvement for the configured patience after relevant Branch coverage;
-- frontier converged after relevant Branch coverage;
+- deterministic mode: no meaningful tune improvement/frontier change after relevant Branch coverage;
+- Research mode: required coverage is complete and a Python-legal stop action is selected after patience/frontier convergence;
 - diagnostic evidence says the remaining bottleneck is dataset quality;
 - expensive branch cost exceeds configured budget without expected benefit;
 - all budget-eligible diagnostic Branches have been attempted or are unavailable.

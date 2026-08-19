@@ -49,6 +49,7 @@ class BranchCoverageRule:
     branch_name: str
     priority: int
     minimum_attempts: int = 1
+    coverage_class: str = "selectable"
 
 
 @dataclass
@@ -915,6 +916,12 @@ class BranchRegistry:
             key=lambda branch: (COST_RANK[branch.spec.cost_level], branch.spec.priority, branch.spec.name),
         )
 
+    def get(self, name: str) -> ExperimentBranch:
+        try:
+            return self._branches[name]
+        except KeyError as exc:
+            raise KeyError(f"Unknown experiment Branch: {name}") from exc
+
     @staticmethod
     def _max_rounds(branch: ExperimentBranch, branch_settings: Mapping[str, Any]) -> int:
         value = branch_settings.get(branch.spec.name) or {}
@@ -938,13 +945,33 @@ class BranchRegistry:
                     BranchCoverageRule(
                         branch_name=str(name),
                         priority=int(values.get("priority") or self._branches[str(name)].spec.priority),
-                        minimum_attempts=max(1, int(values.get("minimum_attempts") or 1)),
+                        minimum_attempts=max(0, int(values.get("minimum_attempts", 1))),
+                        coverage_class=str(
+                            values.get("coverage_class")
+                            or values.get("policy")
+                            or (
+                                "required"
+                                if self._branches[str(name)].spec.initial_stage
+                                else "expensive_gated"
+                                if self._branches[str(name)].spec.cost_level == "expensive"
+                                else "selectable"
+                            )
+                        ),
                     )
                 )
         if rules:
             return rules
         return [
-            BranchCoverageRule(branch.spec.name, branch.spec.priority, 1)
+            BranchCoverageRule(
+                branch.spec.name,
+                branch.spec.priority,
+                1 if branch.spec.initial_stage else 0,
+                "required"
+                if branch.spec.initial_stage
+                else "expensive_gated"
+                if branch.spec.cost_level == "expensive"
+                else "selectable",
+            )
             for branch in self.ordered()
             if regime in branch.spec.diagnostic_regimes
         ]
@@ -972,12 +999,31 @@ class BranchRegistry:
         blocked: list[dict[str, Any]] = []
         remaining: list[tuple[tuple[int, int, int, str], str]] = []
         revisitable: list[str] = []
+        coverage_classes: dict[str, str] = {}
+        required: list[str] = []
+        selectable: list[str] = []
+        expensive_gated: list[str] = []
+        unexplored: list[str] = []
+        remaining_required: list[str] = []
         for rule in rules:
             branch = self._branches[rule.branch_name]
             name = branch.spec.name
             relevant.append(name)
+            if rule.coverage_class not in {"required", "selectable", "expensive_gated"}:
+                raise ValueError(f"Unknown coverage class for {name}: {rule.coverage_class}")
+            coverage_classes[name] = rule.coverage_class
+            if rule.coverage_class == "required":
+                required.append(name)
+            elif rule.coverage_class == "expensive_gated":
+                expensive_gated.append(name)
+            else:
+                selectable.append(name)
             attempts = int(attempt_counts.get(name, 0))
             max_rounds = self._max_rounds(branch, settings)
+            if not attempts:
+                unexplored.append(name)
+            if rule.coverage_class == "required" and attempts < rule.minimum_attempts:
+                remaining_required.append(name)
             if attempts:
                 attempted[name] = {
                     "attempts": attempts,
@@ -998,18 +1044,31 @@ class BranchRegistry:
                         "branch": name,
                         "attempts": attempts,
                         "reason": exhaustion_reasons.get(name, "branch declared exhausted"),
+                        "coverage_class": rule.coverage_class,
                     }
                 )
                 continue
             elif attempts >= max_rounds:
                 exhausted_rows.append(
-                    {"branch": name, "attempts": attempts, "reason": f"max_rounds={max_rounds} reached"}
+                    {
+                        "branch": name,
+                        "attempts": attempts,
+                        "reason": f"max_rounds={max_rounds} reached",
+                        "coverage_class": rule.coverage_class,
+                    }
                 )
                 continue
             elif branch.spec.cost_level in {"high", "expensive"} and remaining_expensive_candidates <= 0:
                 reason = "max_expensive_candidates exhausted"
             if reason:
-                blocked.append({"branch": name, "attempts": attempts, "reason": reason})
+                blocked.append(
+                    {
+                        "branch": name,
+                        "attempts": attempts,
+                        "reason": reason,
+                        "coverage_class": rule.coverage_class,
+                    }
+                )
                 continue
             if attempts:
                 revisitable.append(name)
@@ -1024,11 +1083,18 @@ class BranchRegistry:
         return {
             "diagnostic_regime": regime,
             "relevant_branches": relevant,
+            "coverage_classes": coverage_classes,
+            "required_branches": required,
+            "selectable_branches": selectable,
+            "expensive_gated_branches": expensive_gated,
             "attempted_branches": attempted,
             "exhausted_branches": exhausted_rows,
             "remaining_branches": remaining_names,
             "revisitable_branches": [name for name in remaining_names if name in revisitable],
             "blocked_branches": blocked,
+            "unexplored_branches": unexplored,
+            "remaining_required_branches": remaining_required,
+            "required_coverage_complete": not remaining_required,
             "relevant_coverage_complete": not remaining_names,
         }
 

@@ -7,6 +7,9 @@ from .candidate_selector import tune_frontier
 from .experiment_branches import BranchContext, BranchRegistry
 from .io_utils import stable_hash
 from .models import Candidate, CandidateResult, Dataset
+from .research_decision import ResearchDecisionEngine
+from .research_evidence import build_research_evidence
+from .research_policy import build_legal_actions, deterministic_plan_actions
 
 
 EvaluateCandidates = Callable[[Sequence[Candidate], Sequence[str] | None, str], list[CandidateResult]]
@@ -24,6 +27,8 @@ class StageSearchResult:
     skipped_branches: list[dict[str, Any]]
     stop_reason: str
     coverage_audit: dict[str, Any] = field(default_factory=dict)
+    research_decisions: list[dict[str, Any]] = field(default_factory=list)
+    research_stats: dict[str, int] = field(default_factory=dict)
     llm_calls: int = 0
     embedding_calls: int = 0
     reused_artifacts: list[str] = field(default_factory=list)
@@ -123,6 +128,7 @@ def run_staged_search(
     evaluate: EvaluateCandidates,
     diagnose: Diagnose,
     execution_settings: Mapping[str, Any] | None = None,
+    research_decider: ResearchDecisionEngine | None = None,
 ) -> StageSearchResult:
     """Run staged successive filtering strictly on Tune Sessions."""
     max_stages = max(1, int(profile.get("max_stages", 3)))
@@ -171,6 +177,8 @@ def run_staged_search(
         else None
     )
     expensive_candidates_used = 0
+    research_decisions: list[dict[str, Any]] = []
+    deprioritized_history: list[dict[str, Any]] = []
 
     def mark_exhausted(name: str, reason: str) -> None:
         exhausted.add(name)
@@ -231,7 +239,7 @@ def run_staged_search(
     for stage_index in range(1, max_stages + 1):
         initial = stage_index == 1
         coverage_before = coverage_snapshot(str(diagnostic["regime"]))
-        selected = registry.select(
+        deterministic_selected = registry.select(
             regime=str(diagnostic["regime"]),
             max_cost_level=max_cost,
             attempt_counts=attempt_counts,
@@ -245,11 +253,140 @@ def run_staged_search(
             exhaustion_reasons=exhaustion_reasons,
             branch_history=branch_history,
         )
-        if not selected:
+        if not deterministic_selected:
             stop_reason = "no_applicable_branch" if initial else terminal_reason(coverage_before)
             break
         anchor_result = frontier[0] if frontier else _best(tune_results)
         anchor = candidate_by_name[anchor_result.name]
+        selected = deterministic_selected
+        stage_research_decision: dict[str, Any] | None = None
+        if not initial and research_decider is not None:
+            patience_triggered = no_improvement_stages >= patience
+            convergence_triggered = frontier_convergence_stages >= patience
+            legal_actions = build_legal_actions(
+                registry=registry,
+                coverage=coverage_before,
+                deterministic_branches=deterministic_selected,
+                attempt_counts=attempt_counts,
+                max_branches_per_stage=max_branches,
+                patience_triggered=patience_triggered,
+                frontier_converged=convergence_triggered,
+            )
+            deterministic_plan = deterministic_plan_actions(deterministic_selected, legal_actions)
+            evidence = build_research_evidence(
+                dataset_sha256=dataset.sha256,
+                tune_sessions=tune_sessions,
+                k=k,
+                stage_index=stage_index,
+                baseline=baseline,
+                baseline_result=baseline_result,
+                anchor=anchor,
+                anchor_result=anchor_result,
+                candidates=candidate_by_name,
+                tune_results=tune_results,
+                stage_history=history,
+                diagnostic=diagnostic,
+                coverage=coverage_before,
+                deterministic_plan=deterministic_plan,
+                legal_actions=[action.serializable() for action in legal_actions],
+                budget_state={
+                    "budget": budget,
+                    "stage_index": stage_index,
+                    "max_stages": max_stages,
+                    "max_cost_level": max_cost,
+                    "max_branches_per_stage": max_branches,
+                    "max_candidates_per_stage": max_candidates,
+                    "remaining_expensive_candidates": max(0, max_expensive_candidates - expensive_candidates_used),
+                    "no_improvement_stages": no_improvement_stages,
+                    "patience_stages": patience,
+                    "frontier_convergence_stages": frontier_convergence_stages,
+                    "branch_registry": registry.describe(),
+                    "branch_settings": branch_settings,
+                },
+                deprioritized_history=deprioritized_history,
+            )
+            decision = research_decider.decide(
+                stage_index=stage_index,
+                evidence=evidence,
+                legal_actions=legal_actions,
+                deterministic_plan=deterministic_plan,
+                max_actions=max_branches,
+                identity_context={
+                    "dataset_sha256": dataset.sha256,
+                    "tune_scope": sorted(tune_sessions),
+                    "anchor_candidate_hash": anchor_result.candidate_hash,
+                    "anchor_config_hash": candidate_config_hash(anchor.config),
+                    "branch_registry_state_hash": stable_hash(
+                        {
+                            "registry": registry.describe(),
+                            "settings": branch_settings,
+                            "coverage_policy": coverage_policy,
+                            "attempt_counts": attempt_counts,
+                            "exhausted": sorted(exhausted),
+                        }
+                    ),
+                },
+            )
+            stage_research_decision = decision.serializable()
+            research_decisions.append(stage_research_decision)
+            selected = [
+                registry.get(str(action.branch))
+                for action in decision.selected_actions
+                if action.action_type == "branch" and action.branch is not None
+            ]
+            legal_by_id = {action.action_id: action for action in legal_actions}
+            stage_deprioritized: list[dict[str, Any]] = []
+            for item in decision.deprioritized:
+                action = legal_by_id[str(item["action_id"])]
+                if action.action_type != "branch" or action.branch is None:
+                    continue
+                record = {
+                    "stage_index": stage_index,
+                    "decision_id": decision.decision_id,
+                    "branch": action.branch,
+                    "generation_round": action.generation_round,
+                    "status": "DEPRIORITIZED",
+                    "reason": item["reason"],
+                    "evidence_hash": decision.evidence_hash,
+                }
+                stage_deprioritized.append(record)
+                deprioritized_history.append(record)
+                skipped.append(record)
+            branch_events.append(
+                {
+                    "stage_index": stage_index,
+                    "branch": "__research_decision__",
+                    "diagnostic_regime": str(diagnostic["regime"]),
+                    "status": "DETERMINISTIC_FALLBACK" if decision.fallback_used else "VALIDATED",
+                    "reason": decision.rationale,
+                    "candidate_names": [],
+                    "candidate_count": 0,
+                    "provenance": {
+                        "decision": stage_research_decision,
+                        "deprioritized": stage_deprioritized,
+                        "coverage": coverage_before,
+                    },
+                    "llm_calls": 0 if decision.cache_hit else decision.attempt_count,
+                    "embedding_calls": 0,
+                    "reused_artifacts": [decision.decision_id] if decision.cache_hit else [],
+                }
+            )
+            if decision.stop_action is not None:
+                stop_reason = str(decision.stop_action.stop_reason or "frontier_converged")
+                history.append(
+                    {
+                        "stage_index": stage_index,
+                        "diagnostic_before": dict(diagnostic),
+                        "branches": [],
+                        "outcomes": [],
+                        "candidate_count": 0,
+                        "improvement_pp": 0.0,
+                        "status": "RESEARCH_SELECTED_STOP",
+                        "coverage_before": coverage_before,
+                        "research_decision": stage_research_decision,
+                    }
+                )
+                break
         stage_candidates: list[Candidate] = []
         stage_outcomes: list[dict[str, Any]] = []
         candidate_branches: dict[str, str] = {}
@@ -347,6 +484,7 @@ def run_staged_search(
                     "improvement_pp": 0.0,
                     "status": "NO_EXECUTABLE_CANDIDATE",
                     "coverage_before": coverage_before,
+                    "research_decision": stage_research_decision,
                 }
             )
             no_improvement_stages += 1
@@ -359,12 +497,17 @@ def run_staged_search(
                     history[-1]["patience_decision"] = "patience_soft_exhausted"
                     record_policy_event(
                         stage_index=stage_index,
-                        status="PATIENCE_SOFT_EXHAUSTED",
+                        status=(
+                            "PATIENCE_DEFERRED_TO_RESEARCH"
+                            if research_decider is not None
+                            else "PATIENCE_SOFT_EXHAUSTED"
+                        ),
                         reason="no executable Candidate, but relevant Branch coverage remains",
                         snapshot=coverage_after,
                     )
-                    no_improvement_stages = 0
-                    frontier_convergence_stages = 0
+                    if research_decider is None:
+                        no_improvement_stages = 0
+                        frontier_convergence_stages = 0
                 else:
                     stop_reason = terminal_reason(coverage_after)
                     break
@@ -403,6 +546,7 @@ def run_staged_search(
                     "improvement_pp": 0.0,
                     "status": "ALL_CANDIDATES_PRUNED_BY_SCREENING",
                     "coverage_before": coverage_before,
+                    "research_decision": stage_research_decision,
                 }
             )
             no_improvement_stages += 1
@@ -415,12 +559,17 @@ def run_staged_search(
                     history[-1]["patience_decision"] = "patience_soft_exhausted"
                     record_policy_event(
                         stage_index=stage_index,
-                        status="PATIENCE_SOFT_EXHAUSTED",
+                        status=(
+                            "PATIENCE_DEFERRED_TO_RESEARCH"
+                            if research_decider is not None
+                            else "PATIENCE_SOFT_EXHAUSTED"
+                        ),
                         reason="screening found no survivor, but relevant Branch coverage remains",
                         snapshot=coverage_after,
                     )
-                    no_improvement_stages = 0
-                    frontier_convergence_stages = 0
+                    if research_decider is None:
+                        no_improvement_stages = 0
+                        frontier_convergence_stages = 0
                 else:
                     stop_reason = terminal_reason(coverage_after)
                     break
@@ -456,6 +605,7 @@ def run_staged_search(
                 "diagnostic_after": dict(diagnostic),
                 "status": "COMPLETE",
                 "coverage_before": coverage_before,
+                "research_decision": stage_research_decision,
             }
         )
         valid_by_name = {result.name: result for result in stage_results if result.status == "VALID"}
@@ -517,12 +667,15 @@ def run_staged_search(
                 history[-1]["patience_decision"] = "patience_soft_exhausted"
                 record_policy_event(
                     stage_index=stage_index,
-                    status="PATIENCE_SOFT_EXHAUSTED",
+                    status=(
+                        "PATIENCE_DEFERRED_TO_RESEARCH" if research_decider is not None else "PATIENCE_SOFT_EXHAUSTED"
+                    ),
                     reason=f"{trigger} reached, but meaningful relevant Branch work remains",
                     snapshot=coverage_after,
                 )
-                no_improvement_stages = 0
-                frontier_convergence_stages = 0
+                if research_decider is None:
+                    no_improvement_stages = 0
+                    frontier_convergence_stages = 0
             elif convergence_triggered:
                 history[-1]["patience_decision"] = "hard_stop_after_coverage"
                 stop_reason = "frontier_converged"
@@ -535,6 +688,7 @@ def run_staged_search(
         stop_reason = "stage_budget_exhausted"
 
     final_coverage = coverage_snapshot(str(diagnostic["regime"]))
+    final_coverage["deprioritized_events"] = deprioritized_history
     record_policy_event(
         stage_index=len(history),
         status="SEARCH_STOP",
@@ -572,6 +726,8 @@ def run_staged_search(
         skipped_branches=skipped,
         stop_reason=stop_reason,
         coverage_audit=final_coverage,
+        research_decisions=research_decisions,
+        research_stats=(research_decider.stats.serializable() if research_decider is not None else {}),
         llm_calls=total_llm_calls,
         embedding_calls=total_embedding_calls,
         reused_artifacts=sorted(reused_artifacts),

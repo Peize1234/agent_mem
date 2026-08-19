@@ -28,6 +28,8 @@ from .production_midterm_adapter import (
     production_candidate_from_manifests,
     source_worker_parallelism,
 )
+from .research_decision import ResearchDecisionEngine
+from .research_runtime import ResearchLLMRuntime
 from .split_sessions import create_or_load_split
 from .staged_search import run_staged_search
 
@@ -395,6 +397,9 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
     trace_path = run_dir / "search_trace.jsonl"
     if not trace_path.exists():
         trace_path.touch()
+    research_trace_path = run_dir / "research_trace.jsonl"
+    if not research_trace_path.exists():
+        research_trace_path.touch()
 
     memory_config_values = load_json(config.memory_config)
     shortterm_window, shortterm_window_validation = _resolve_shortterm_window(space, memory_config_values)
@@ -513,6 +518,17 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         resources=resources,
     )
     model_discovery.flush()
+    research_settings = (space.get("search") or {}).get("research") or {}
+    research_decider: ResearchDecisionEngine | None = None
+    research_runtime: ResearchLLMRuntime | None = None
+    if research_settings.get("enabled", True):
+        research_runtime = ResearchLLMRuntime(memory_config=dict(memory_config_values), llm_mode=config.llm_mode)
+        research_decider = ResearchDecisionEngine(
+            runtime=research_runtime,
+            artifact_registry=registry,
+            trace_path=research_trace_path,
+            max_attempts=int(research_settings.get("max_attempts") or 3),
+        )
     search_result = run_staged_search(
         dataset=dataset,
         baseline=midterm_baseline,
@@ -530,6 +546,7 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         evaluate=evaluate_tune_candidates,
         diagnose=lambda result: _diagnose(result, audit, space),
         execution_settings=execution,
+        research_decider=research_decider,
     )
     write_jsonl(run_dir / "branch_trace.jsonl", search_result.branch_events)
     for stage in search_result.stage_history:
@@ -545,6 +562,7 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
                 "coverage_before": stage.get("coverage_before"),
                 "coverage_after": stage.get("coverage_after"),
                 "patience_decision": stage.get("patience_decision"),
+                "research_decision": stage.get("research_decision"),
             },
         )
     tune_results = search_result.tune_results
@@ -712,6 +730,8 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
     )
     evaluation_llm_calls = sum(result.llm_calls for result in evaluation_results)
     evaluation_embedding_calls = sum(result.embedding_calls for result in evaluation_results)
+    current_research_stats = dict(search_result.research_stats or {})
+    research_llm_calls = int(current_research_stats.get("llm_calls") or 0)
     if full_memory_regression_result is None:
         full_memory_regression = {
             "status": "SKIPPED",
@@ -755,6 +775,7 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         "llm_calls": int(previous_metadata.get("llm_calls") or 0)
         + source_llm_calls
         + search_result.llm_calls
+        + research_llm_calls
         + evaluation_llm_calls,
         "embedding_calls": int(previous_metadata.get("embedding_calls") or 0)
         + source_embedding_calls
@@ -766,6 +787,21 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         "evaluation_embedding_calls": evaluation_embedding_calls,
         "branch_generation_llm_calls": search_result.llm_calls,
         "branch_generation_embedding_calls": search_result.embedding_calls,
+        "research_llm_calls": int(previous_metadata.get("research_llm_calls") or 0) + research_llm_calls,
+        "research_llm_successful_calls": int(previous_metadata.get("research_llm_successful_calls") or 0)
+        + int(current_research_stats.get("successful_calls") or 0),
+        "research_llm_failed_calls": int(previous_metadata.get("research_llm_failed_calls") or 0)
+        + int(current_research_stats.get("failed_calls") or 0),
+        "research_decisions": int(previous_metadata.get("research_decisions") or 0)
+        + int(current_research_stats.get("decisions") or 0),
+        "research_fallback_decisions": int(previous_metadata.get("research_fallback_decisions") or 0)
+        + int(current_research_stats.get("fallback_decisions") or 0),
+        "research_cache_hits": int(previous_metadata.get("research_cache_hits") or 0)
+        + int(current_research_stats.get("cache_hits") or 0),
+        "research_decision_records": search_result.research_decisions,
+        "research_trace_path": str(research_trace_path),
+        "research_enabled": research_decider is not None,
+        "research_model_config": research_runtime.model_config if research_runtime is not None else None,
         "reused_artifacts": sorted(set(previous_metadata.get("reused_artifacts") or []) | set(reused)),
         "failed_turns": 0,
         "stop_reason": stop_reason,

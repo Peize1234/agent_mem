@@ -84,6 +84,21 @@ class DeterministicTunerLLM:
         system = str(messages[0].get("content", "")) if messages else ""
         user = str(messages[-1].get("content", "")) if messages else ""
         payload = self._safe_json(user)
+        if payload.get("research_decision_schema") and payload.get("legal_actions"):
+            deterministic = list(payload.get("deterministic_plan") or [])
+            selected = [str(item.get("action_id")) for item in deterministic if item.get("action_id")]
+            if not selected:
+                selected = [
+                    str(item["action_id"]) for item in payload["legal_actions"] if item.get("action_type") == "branch"
+                ][:1]
+            return json.dumps(
+                {
+                    "action_ids": selected,
+                    "rationale": "mock runtime follows the deterministic plan",
+                    "deprioritized": [],
+                },
+                ensure_ascii=False,
+            )
         if "resolved_query" in system and payload.get("current_query"):
             return json.dumps({"resolved_query": str(payload["current_query"])}, ensure_ascii=False)
         if "attribute_catalog" in user and "current_profile" in user:
@@ -172,6 +187,30 @@ class TunerPolicyLLM:
         finally:
             if operation and self._observability_enabled:
                 LOGGER.info("LLM operation=%s elapsed_ms=%.1f", operation, (time.perf_counter() - started) * 1000.0)
+
+
+def create_tuner_policy_llm(config: dict[str, Any], *, llm_mode: str) -> Any:
+    """Create the configured LLM without constructing a Memory/vector-store runtime."""
+
+    mode = str(llm_mode or "real").strip().lower()
+    if mode not in {"real", "mock"}:
+        raise ValueError("llm_mode must be real or mock")
+    if mode == "mock":
+        return DeterministicTunerLLM()
+    from mem0.configs.base import MemoryConfig
+    from mem0.utils.factory import LlmFactory
+
+    from .benchmark_support import expand_env_placeholders
+
+    parsed = MemoryConfig(**expand_env_placeholders(deepcopy(config)))
+    delegate = LlmFactory.create(parsed.llm.provider, parsed.llm.config)
+    runtime = dict(config.get("benchmark_runtime") or {})
+    return TunerPolicyLLM(
+        delegate,
+        observability_enabled=bool(runtime.get("llm_observability", False)),
+        deepseek_midterm_non_thinking=bool(runtime.get("deepseek_midterm_non_thinking", False)),
+        deepseek_longterm_non_thinking=bool(runtime.get("deepseek_longterm_non_thinking", False)),
+    )
 
 
 def create_production_memory(config: dict[str, Any], *, llm_mode: str) -> TunerAsyncMemory:

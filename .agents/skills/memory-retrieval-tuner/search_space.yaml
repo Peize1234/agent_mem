@@ -121,6 +121,13 @@ search:
   reuse_frozen_artifacts: true
   require_provenance_validation: true
 
+  # Stage 1 is always deterministic RetrievalControl. From Stage 2 onward the
+  # Research LLM may select only Python-generated legal action IDs. Set false
+  # for the unchanged fully deterministic policy.
+  research:
+    enabled: true
+    max_attempts: 3
+
   branch_registry:
     RetrievalControl:
       enabled: true
@@ -147,37 +154,37 @@ search:
       enabled: true
       max_rounds: 1
 
-  # Patience may stop only after the current diagnosis has no meaningful
-  # untried/refinable budget-eligible Branch. Cost rank is applied before
-  # this within-regime priority, preserving cheap -> high -> expensive escalation.
+  # Coverage tracks all relevant work. In Research mode only `required` is a
+  # hard minimum; selectable work may be temporarily deprioritized, while
+  # expensive_gated actions remain under Python's cost/resource gate.
   branch_coverage:
     candidate_coverage_bottleneck:
       relevant:
-        RetrievalControl: {priority: 10, minimum_attempts: 1}
-        HybridRetrieval: {priority: 20, minimum_attempts: 1}
-        Embedding: {priority: 30, minimum_attempts: 1}
-        QueryRepresentation: {priority: 40, minimum_attempts: 1}
-        PageRepresentation: {priority: 50, minimum_attempts: 1}
-        FieldAwareMultiVector: {priority: 60, minimum_attempts: 1}
-        MemoryWriteAddPrompt: {priority: 70, minimum_attempts: 1}
+        RetrievalControl: {priority: 10, minimum_attempts: 1, coverage_class: required}
+        HybridRetrieval: {priority: 20, minimum_attempts: 0, coverage_class: selectable}
+        Embedding: {priority: 30, minimum_attempts: 0, coverage_class: selectable}
+        QueryRepresentation: {priority: 40, minimum_attempts: 0, coverage_class: selectable}
+        PageRepresentation: {priority: 50, minimum_attempts: 0, coverage_class: selectable}
+        FieldAwareMultiVector: {priority: 60, minimum_attempts: 0, coverage_class: selectable}
+        MemoryWriteAddPrompt: {priority: 70, minimum_attempts: 0, coverage_class: expensive_gated}
     ranking_bottleneck:
       relevant:
-        RetrievalControl: {priority: 10, minimum_attempts: 1}
-        HybridRetrieval: {priority: 20, minimum_attempts: 1}
-        Reranking: {priority: 30, minimum_attempts: 1}
-        FieldAwareMultiVector: {priority: 40, minimum_attempts: 1}
-        QueryRepresentation: {priority: 50, minimum_attempts: 1}
+        RetrievalControl: {priority: 10, minimum_attempts: 1, coverage_class: required}
+        HybridRetrieval: {priority: 20, minimum_attempts: 0, coverage_class: selectable}
+        Reranking: {priority: 30, minimum_attempts: 0, coverage_class: selectable}
+        FieldAwareMultiVector: {priority: 40, minimum_attempts: 0, coverage_class: selectable}
+        QueryRepresentation: {priority: 50, minimum_attempts: 0, coverage_class: selectable}
     session_instability:
       relevant:
-        RetrievalControl: {priority: 10, minimum_attempts: 1}
-        PageRepresentation: {priority: 20, minimum_attempts: 1}
-        MemoryWriteAddPrompt: {priority: 30, minimum_attempts: 1}
+        RetrievalControl: {priority: 10, minimum_attempts: 1, coverage_class: required}
+        PageRepresentation: {priority: 20, minimum_attempts: 0, coverage_class: selectable}
+        MemoryWriteAddPrompt: {priority: 30, minimum_attempts: 0, coverage_class: expensive_gated}
     balanced_or_plateau:
       relevant:
-        RetrievalControl: {priority: 10, minimum_attempts: 1}
-        HybridRetrieval: {priority: 20, minimum_attempts: 1}
-        QueryRepresentation: {priority: 30, minimum_attempts: 1}
-        PageRepresentation: {priority: 40, minimum_attempts: 1}
+        RetrievalControl: {priority: 10, minimum_attempts: 1, coverage_class: required}
+        HybridRetrieval: {priority: 20, minimum_attempts: 0, coverage_class: selectable}
+        QueryRepresentation: {priority: 30, minimum_attempts: 0, coverage_class: selectable}
+        PageRepresentation: {priority: 40, minimum_attempts: 0, coverage_class: selectable}
 
   stages:
     cheap:
@@ -338,6 +345,7 @@ output:
     - split_manifest.json
     - search_trace.jsonl
     - branch_trace.jsonl
+    - research_trace.jsonl
     - model_discovery.json
     - leaderboard.csv
     - best_config.json

@@ -124,6 +124,8 @@ R@K = top K 内满足的 Gold requirement 数量
 
 - `experiment_branches.py`：Branch Registry 与实验 adapter；
 - `staged_search.py`：Tune-only successive filtering；
+- `research_evidence.py` / `research_policy.py`：Tune-only 结构化证据与 Python legal action 空间；
+- `research_decision.py` / `research_runtime.py`：Research LLM 决策、严格校验、重试、cache 与完整 trace；
 - `derived_artifacts.py`：Query/Page/Session/field 向量派生与 content-addressed cache；
 - `prompt_artifacts.py`：Query Prompt 受控迭代、逐 Query 原子缓存与恢复；
 - `source_prompt_variants.py`：Add/Page Summary 受控 Prompt 和 tuner-only context wrapper；
@@ -319,9 +321,15 @@ split_manifest.json
 - `FieldAwareMultiVector`；
 - `MemoryWriteAddPrompt`。
 
-搜索循环必须是：生成 Candidate → Tune → frontier/prune → 重新诊断 → 选择下一 Branch。Validation 仅在循环停止后运行。停止原因必须来自 budget、`min_improvement_pp`/`patience_stages`、frontier convergence、数据质量或资源约束，不得固定写成 validation selected。按 `search.branch_coverage` 审计当前诊断下的 relevant、attempted、exhausted、remaining 和 blocked Branch；patience 只在 relevant Branch 已覆盖且没有可 refine 的工作时硬停止，否则记录 `PATIENCE_SOFT_EXHAUSTED` 并继续由低成本向高成本推进。
+搜索循环必须是：生成 Candidate → Tune → frontier/prune → 重新诊断 → 选择下一 Branch。Validation 仅在循环停止后运行。停止原因必须来自 budget、`min_improvement_pp`/`patience_stages`、frontier convergence、数据质量或资源约束，不得固定写成 validation selected。按 `search.branch_coverage` 审计当前诊断下的 relevant、attempted、exhausted、remaining 和 blocked Branch。纯 deterministic 模式继续把 relevant coverage 用作 patience 的完整性 gate；Research 模式只强制 required coverage，并在 patience 生效时让模型在 Python 提供的继续/stop legal actions 中作结果导向选择。
 
 Branch Candidate 默认从当前 Tune frontier anchor 继承已经验证的维度；只有显式 ablation 才可设置 `ablation_from_baseline=true`。Branch 以 `(name, generation_round, effective config hash)` 跟踪，同一 Branch 可以 coarse → refine 后再次进入；`max_rounds`、全局 `max_stages`、candidate hash 去重和 patience 共同防止循环。
+
+Stage 1 始终由 Python deterministic policy 执行 `RetrievalControl`，不调用 Research LLM。从 Stage 2 开始，每个下一 Stage 选择边界只调用一次 Research Decision（单次 Decision 最多三次 retry）：Python 先完成 diagnose、coverage、原 `registry.select()` deterministic plan 以及带唯一 `action_id` 的 legal action space，Research LLM 只能选择这些 ID，随后 Python 再校验 budget、round、resource、required action 和 schema。三次 API/JSON/schema/action 校验均失败时，必须原样执行本轮预先计算的 `registry.select()` 结果，禁止另写替代策略。
+
+Coverage 分为 `required`、`selectable` 和 `expensive_gated`。`RetrievalControl` 是 required；其他研究 Branch 默认 selectable；Add/Page Prompt 等高成本 Branch 由 Python expensive gate 控制。Research LLM 可以把某次未选动作记录为临时 `DEPRIORITIZED`，但不能写入 `EXHAUSTED`/`BLOCKED`；Evidence、anchor 或合法动作变化后，该 Branch 可重新进入。真正的 exhausted/blocked 仍只由 Python 的无候选、max rounds、budget 或 resource 规则产生。Research 正常启用时不以“所有 selectable Branch 都跑过”为目标，可以在 required coverage 完成且 patience/frontier convergence 已触发时选择 Python 提供的 stop action。
+
+Research Prompt 只能包含 Tune Sessions 的聚合实验史、Candidate config diff/指标、frontier、failure distribution、diagnosis、deterministic plan、Branch 状态与硬约束。不得传入 held-out Validation、Gold dependency、答案或 future turns。每个 attempt 必须先向 `research_trace.jsonl` 写 REQUEST，再写 RESPONSE；非法响应、exception、retry、cache hit 和 deterministic fallback 均完整记录，敏感配置必须 redact。Decision cache identity 至少覆盖 dataset、Tune scope、anchor/evidence/legal-action hash、Branch registry/config 状态、Prompt、模型配置和 schema。
 
 `QueryRepresentation` 最多运行三轮，每轮以当前最佳 Query Prompt 为 parent 生成最多三个受控方向，并始终保留 production/original 结果作为全局参照。Rewrite history 必须由每份 production manifest 验证的 `memory_config.midterm.short_term_capacity / 2` 推导，只包含当前 Query 之前仍在 production ShortTerm 的 QA；缺失、非正偶数或 manifest/config 不一致时失败，不能使用默认窗口。artifact identity 必须记录 message/QA window、history policy 和 production config hash。失败模式只来自 Tune requirement rows；Validation 指标、Gold、未来轮次和已离开 ShortTerm 的历史不得进入 Prompt。任一轮低于 `min_improvement_pp`、全部变体无提升、original 仍优或 frontier 不再保留该方向时提前停止。
 
@@ -401,6 +409,7 @@ OVERFIT
 ```text
 leaderboard.csv
 search_trace.jsonl
+research_trace.jsonl
 best_config.json
 best_config_diff.json
 requirement_results.jsonl

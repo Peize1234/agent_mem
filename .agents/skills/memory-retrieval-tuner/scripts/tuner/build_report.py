@@ -212,6 +212,38 @@ def write_outputs(
             f"- Stop reason: `{stop_reason}`",
             f"- OVERFIT configs: `{list(overfit)}`",
             "",
+            "## Research LLM decisions",
+            "",
+            f"- Enabled: `{run_metadata.get('research_enabled', False)}`",
+            f"- Decisions / cache hits / deterministic fallbacks: "
+            f"{run_metadata.get('research_decisions', 0)} / "
+            f"{run_metadata.get('research_cache_hits', 0)} / "
+            f"{run_metadata.get('research_fallback_decisions', 0)}",
+            f"- LLM calls (successful / failed): {run_metadata.get('research_llm_calls', 0)} "
+            f"({run_metadata.get('research_llm_successful_calls', 0)} / "
+            f"{run_metadata.get('research_llm_failed_calls', 0)})",
+            f"- Full attempt trace: `{run_metadata.get('research_trace_path')}`",
+        )
+    )
+    research_records = list(run_metadata.get("research_decision_records") or [])
+    for decision in research_records:
+        lines.append(
+            f"- Stage {decision.get('stage_index')} `{decision.get('decision_id')}`: "
+            f"selected={[item.get('branch') or item.get('action_type') for item in decision.get('selected_actions') or []]}; "
+            f"deterministic={[item.get('branch') for item in decision.get('deterministic_plan') or []]}; "
+            f"fallback={decision.get('fallback_used')}; cache_hit={decision.get('cache_hit')}; "
+            f"reason={decision.get('rationale')}"
+        )
+        for item in decision.get("deprioritized") or []:
+            lines.append(
+                f"  - DEPRIORITIZED `{item.get('action_id')}` "
+                f"(`{item.get('branch')}`, round={item.get('generation_round')}): {item.get('reason')}"
+            )
+    if not research_records:
+        lines.append("- No Research LLM decision was required (Stage 1 is deterministic).")
+    lines.extend(
+        (
+            "",
             "## Cost, cache, and parallel execution",
             "",
             f"- Cumulative LLM calls: {run_metadata.get('llm_calls', 0)}",
@@ -222,6 +254,7 @@ def write_outputs(
             f"- Branch generation LLM / embedding calls: "
             f"{run_metadata.get('branch_generation_llm_calls', 0)} / "
             f"{run_metadata.get('branch_generation_embedding_calls', 0)}",
+            f"- Research decision LLM calls: {run_metadata.get('research_llm_calls', 0)}",
             f"- Reused artifacts: {run_metadata.get('reused_artifacts', [])}",
             f"- Model discovery: `{run_metadata.get('model_discovery_path')}`",
             f"- Runtime: {float(run_metadata.get('runtime_seconds') or 0):.3f}s",

@@ -12,10 +12,10 @@ from typing import Any, Mapping, Sequence
 from mem0.memory.utils import extract_json, remove_code_blocks
 
 from .artifact_registry import ArtifactRegistry
-from .benchmark_support import expand_env_placeholders, load_json, redact_secrets
+from .benchmark_support import load_json, redact_secrets
 from .io_utils import sha256_file, stable_hash
 from .models import Candidate, CandidateResult, Dataset, Turn
-from .production_runtime import DeterministicTunerLLM, TunerPolicyLLM
+from .production_runtime import create_tuner_policy_llm
 
 
 PROMPT_ARTIFACT_SCHEMA = 3
@@ -280,20 +280,7 @@ class QueryPromptArtifactGenerator:
     def _create_llm(self, config: Mapping[str, Any], llm_mode: str) -> Any:
         if self._llm_factory is not None:
             return self._llm_factory(config, llm_mode)
-        if llm_mode == "mock":
-            return DeterministicTunerLLM()
-        from mem0.configs.base import MemoryConfig
-        from mem0.utils.factory import LlmFactory
-
-        parsed = MemoryConfig(**expand_env_placeholders(dict(config)))
-        delegate = LlmFactory.create(parsed.llm.provider, parsed.llm.config)
-        runtime = dict(config.get("benchmark_runtime") or {})
-        return TunerPolicyLLM(
-            delegate,
-            observability_enabled=bool(runtime.get("llm_observability", False)),
-            deepseek_midterm_non_thinking=bool(runtime.get("deepseek_midterm_non_thinking", False)),
-            deepseek_longterm_non_thinking=bool(runtime.get("deepseek_longterm_non_thinking", False)),
-        )
+        return create_tuner_policy_llm(dict(config), llm_mode=llm_mode)
 
     def generate(
         self,
