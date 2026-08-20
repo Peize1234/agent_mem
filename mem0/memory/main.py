@@ -1025,6 +1025,7 @@ class _BackgroundMemoryMixin:
         self,
         retrieved_memories: Any,
         *,
+        current_turn_index: Optional[int] = None,
         exclude_midterm_page_ids: Optional[set[str]] = None,
     ) -> set[str]:
         """Confirm only memories that are actually projected into model context."""
@@ -1049,7 +1050,10 @@ class _BackgroundMemoryMixin:
             and item.get("memory")
         }
 
-        self._confirm_valid_midterm_page_ids(page_ids)
+        if page_ids:
+            if current_turn_index is None:
+                raise ValueError("current_turn_index is required to confirm Mid-term recalls")
+            self._confirm_valid_midterm_page_ids(page_ids, current_turn_index=current_turn_index)
 
         if cross_session_ids and self._cross_session_longterm_enabled():
             try:
@@ -1058,12 +1062,15 @@ class _BackgroundMemoryMixin:
                 logger.warning("Failed to record cross-session long-term recalls", exc_info=True)
         return page_ids
 
-    def _confirm_valid_midterm_page_ids(self, page_ids: Any) -> None:
+    def _confirm_valid_midterm_page_ids(self, page_ids: Any, *, current_turn_index: int) -> None:
         normalized_page_ids = sorted({str(page_id) for page_id in (page_ids or []) if page_id not in (None, "")})
         if not normalized_page_ids or not self._midterm_enabled():
             return
         try:
-            updated_sessions = self.midterm_memory.record_valid_recalls(normalized_page_ids)
+            updated_sessions = self.midterm_memory.record_valid_recalls(
+                normalized_page_ids,
+                recall_turn_index=current_turn_index,
+            )
             for session in updated_sessions:
                 if int(session.get("valid_recall_count", 0) or 0) < int(
                     self.config.midterm.promotion_min_recall_count
@@ -1204,6 +1211,9 @@ class _BackgroundMemoryMixin:
                         base_collection_name=self.collection_name,
                         embedding_model=self.embedding_model,
                         config=self.config.midterm,
+                        current_turn_index_provider=lambda filters: self.db.current_turn_index(
+                            _build_session_scope(filters)
+                        ),
                         primary_vector_store=self.vector_store,
                         output_is_visible=lambda payload: self._stage_output_is_visible(payload, "midterm"),
                         vector_store_timeout_seconds=getattr(
@@ -2136,6 +2146,9 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                         base_collection_name=self.collection_name,
                         embedding_model=self.embedding_model,
                         config=self.config.midterm,
+                        current_turn_index_provider=lambda filters: self.db.current_turn_index(
+                            _build_session_scope(filters)
+                        ),
                         primary_vector_store=self.vector_store,
                         output_is_visible=lambda payload: self._stage_output_is_visible(payload, "midterm"),
                         vector_store_timeout_seconds=getattr(
@@ -2221,7 +2234,18 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             if isinstance(search_result, dict) and "results" in search_result
             else search_result
         )
-        self._confirm_context_valid_recalls(context["retrieved_memories"])
+        has_midterm_page = any(
+            isinstance(item, dict)
+            and item.get("source") in {"mid_term_page", "midterm"}
+            and item.get("raw_dialogue")
+            for item in (context["retrieved_memories"] or [])
+        )
+        self._confirm_context_valid_recalls(
+            context["retrieved_memories"],
+            current_turn_index=(
+                self.db.current_turn_index(_build_session_scope(filters)) if has_midterm_page else None
+            ),
+        )
         return context
 
     def _retrieve_base_context(
@@ -4477,6 +4501,9 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                         base_collection_name=self.collection_name,
                         embedding_model=self.embedding_model,
                         config=self.config.midterm,
+                        current_turn_index_provider=lambda filters: self.db.current_turn_index(
+                            _build_session_scope(filters)
+                        ),
                         primary_vector_store=self.vector_store,
                         output_is_visible=lambda payload: self._stage_output_is_visible(payload, "midterm"),
                         vector_store_timeout_seconds=getattr(
@@ -4682,9 +4709,22 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             )
             for item in (context["retrieved_memories"] or [])
         ):
+            has_midterm_page = any(
+                isinstance(item, dict)
+                and item.get("source") in {"mid_term_page", "midterm"}
+                and item.get("raw_dialogue")
+                for item in (context["retrieved_memories"] or [])
+            )
             await asyncio.to_thread(
                 self._confirm_context_valid_recalls,
                 context["retrieved_memories"],
+                current_turn_index=(
+                    self.db.current_turn_index(
+                        _build_session_scope({"user_id": normalized_user_id, "run_id": normalized_session_id})
+                    )
+                    if has_midterm_page
+                    else None
+                ),
             )
         return context
 

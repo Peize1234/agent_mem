@@ -40,6 +40,10 @@ class MidTermUpdater:
             key: value for key, value in (filters or {}).items() if key in ("user_id", "agent_id", "run_id") and value
         }
 
+    def _current_turn_index(self, payload: Dict[str, Any]) -> int:
+        scope_filters = self._scope_filters(payload)
+        return int(self.midterm_memory.current_turn_index(scope_filters))
+
     @staticmethod
     def _parse_json_response(response: Any) -> Dict[str, Any]:
         if isinstance(response, dict):
@@ -175,6 +179,7 @@ class MidTermUpdater:
                     "user_input": content,
                     "assistant_response": "",
                     "created_at": message.get("created_at"),
+                    "turn_index": message.get("turn_index"),
                 }
             elif role == "assistant":
                 if current is None:
@@ -182,6 +187,7 @@ class MidTermUpdater:
                         "user_input": "",
                         "assistant_response": content,
                         "created_at": message.get("created_at"),
+                        "turn_index": message.get("turn_index"),
                     }
                 elif current.get("assistant_response"):
                     pairs.append(current)
@@ -189,6 +195,7 @@ class MidTermUpdater:
                         "user_input": "",
                         "assistant_response": content,
                         "created_at": message.get("created_at"),
+                        "turn_index": message.get("turn_index"),
                     }
                 else:
                     current["assistant_response"] = content
@@ -197,6 +204,16 @@ class MidTermUpdater:
             pairs.append(current)
 
         return [pair for pair in pairs if pair.get("user_input")]
+
+    @staticmethod
+    def _turn_indices(qa_pairs: List[Dict[str, Any]]) -> List[int]:
+        turn_indices = []
+        for pair in qa_pairs:
+            turn_index = pair.get("turn_index")
+            if turn_index is None or int(turn_index) <= 0:
+                raise ValueError("Mid-term source QA is missing a positive turn_index")
+            turn_indices.append(int(turn_index))
+        return turn_indices
 
     def _latest_page_id(self, filters: Dict[str, Any]) -> Optional[str]:
         rows = self.midterm_memory.list_pages(filters=filters, top_k=10000)
@@ -471,9 +488,9 @@ class MidTermUpdater:
                 "updated_at": beijing_now_iso(),
             }
         )
-        current_turn_index = page_payload.get("page_sequence")
+        current_turn_index = self._current_turn_index(page_payload)
         payload["R_recency"] = compute_recency(
-            payload.get("last_visit_turn_index", payload.get("created_turn_index")),
+            int(payload["last_visit_turn_index"]),
             current_turn_index,
             self.config.heat_recency_tau_turns,
         )
@@ -537,9 +554,9 @@ class MidTermUpdater:
                 "updated_at": beijing_now_iso(),
             }
         )
-        current_turn_index = page_payload.get("page_sequence")
+        current_turn_index = self._current_turn_index(page_payload)
         payload["R_recency"] = compute_recency(
-            payload.get("last_visit_turn_index", payload.get("created_turn_index")),
+            int(payload["last_visit_turn_index"]),
             current_turn_index,
             self.config.heat_recency_tau_turns,
         )
@@ -561,7 +578,7 @@ class MidTermUpdater:
     def _create_session(self, page_payload: Dict[str, Any], session_id: Optional[str] = None) -> str:
         now = beijing_now_iso()
         session_id = session_id or str(uuid.uuid4())
-        created_turn_index = page_payload.get("page_sequence")
+        created_turn_index = page_payload["turn_index"]
         payload = {
             "id": session_id,
             "summary": page_payload.get("summary", ""),
@@ -588,7 +605,13 @@ class MidTermUpdater:
             "created_by_source_job_id": page_payload.get("source_job_id"),
             "created_by_lease_token": page_payload.get("output_lease_token"),
         }
-        payload["H_segment"] = compute_session_heat(payload, self.config, created_turn_index)
+        current_turn_index = self._current_turn_index(page_payload)
+        payload["R_recency"] = compute_recency(
+            created_turn_index,
+            current_turn_index,
+            self.config.heat_recency_tau_turns,
+        )
+        payload["H_segment"] = compute_session_heat(payload, self.config, current_turn_index)
         self.midterm_memory.insert_session(session_id, payload)
         return session_id
 
@@ -701,6 +724,7 @@ class MidTermUpdater:
             return []
 
         qa_pairs = self._messages_to_qa_pairs(evicted_messages)
+        turn_indices = self._turn_indices(qa_pairs)
         page_ids = [
             str(uuid.uuid5(uuid.NAMESPACE_URL, f"mem0:midterm:{source_job_id}:{index}"))
             if source_job_id
@@ -723,6 +747,7 @@ class MidTermUpdater:
             if lease_is_current is not None and not lease_is_current():
                 raise RuntimeError("stale migration stage lease")
             page_id = page_ids[index]
+            turn_index = turn_indices[index]
             now = beijing_now_iso()
             raw_dialogue = _format_page_dialogue(
                 qa_pair.get("user_input", ""),
@@ -736,6 +761,8 @@ class MidTermUpdater:
                 page_payload = dict(getattr(existing_page, "payload", None) or {})
                 page_payload.setdefault("id", page_id)
                 page_payload.setdefault("page_sequence", page_sequence)
+                if int(page_payload["turn_index"]) != turn_index:
+                    raise RuntimeError("existing Mid-term Page turn_index does not match its source messages")
                 if source_job_id:
                     page_payload.update(
                         {
@@ -804,6 +831,7 @@ class MidTermUpdater:
                     "last_recall_at": None,
                     "last_recall_turn_index": None,
                     "page_sequence": page_sequence,
+                    "turn_index": turn_index,
                 }
                 if lease_is_current is not None and not lease_is_current():
                     raise RuntimeError("stale migration stage lease")
@@ -852,6 +880,7 @@ class MidTermUpdater:
             return []
 
         qa_pairs = self._messages_to_qa_pairs(evicted_messages)
+        turn_indices = self._turn_indices(qa_pairs)
         page_ids = [
             str(uuid.uuid5(uuid.NAMESPACE_URL, f"mem0:midterm:{source_job_id}:{index}"))
             if source_job_id
@@ -881,6 +910,7 @@ class MidTermUpdater:
             if lease_is_current is not None and not lease_is_current():
                 raise RuntimeError("stale migration stage lease")
             page_id = page_ids[index]
+            turn_index = turn_indices[index]
             now = beijing_now_iso()
             raw_dialogue = _format_page_dialogue(
                 qa_pair.get("user_input", ""),
@@ -894,6 +924,8 @@ class MidTermUpdater:
                 page_payload = dict(getattr(existing_page, "payload", None) or {})
                 page_payload.setdefault("id", page_id)
                 page_payload.setdefault("page_sequence", page_sequence)
+                if int(page_payload["turn_index"]) != turn_index:
+                    raise RuntimeError("existing Mid-term Page turn_index does not match its source messages")
                 if source_job_id:
                     page_payload.update(
                         {
@@ -973,6 +1005,7 @@ class MidTermUpdater:
                     "last_recall_at": None,
                     "last_recall_turn_index": None,
                     "page_sequence": page_sequence,
+                    "turn_index": turn_index,
                 }
                 if lease_is_current is not None and not lease_is_current():
                     raise RuntimeError("stale migration stage lease")
@@ -1205,7 +1238,7 @@ class MidTermUpdater:
             scope_filters = self._scope_filters(payload)
             current_turn_index = self.midterm_memory.current_turn_index(scope_filters)
             payload["R_recency"] = compute_recency(
-                payload.get("last_visit_turn_index", payload.get("created_turn_index")),
+                int(payload["last_visit_turn_index"]),
                 current_turn_index,
                 self.config.heat_recency_tau_turns,
             )

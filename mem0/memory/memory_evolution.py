@@ -33,7 +33,7 @@ def forgetting_factor(
     retention_floor: Optional[float] = None,
     reinforcement_gain: Optional[float] = None,
     current_turn_index: Optional[int] = None,
-    anchor_index_keys: tuple[str, ...] = ("last_recall_turn_index", "page_sequence", "turn_index"),
+    anchor_index_keys: tuple[str, ...] = ("last_recall_turn_index", "turn_index"),
     half_life_turns: Optional[float] = None,
     heat_factor: float = 1.0,
 ) -> float:
@@ -45,13 +45,9 @@ def forgetting_factor(
     configured_turn_half_life = getattr(config, "retention_half_life_turns", None)
     if half_life_turns is not None or (half_life_hours is None and configured_turn_half_life is not None):
         current_index = current_turn_index
-        if current_index is None:
-            current_index = payload.get("current_turn_index")
         anchor_index = next((payload.get(key) for key in anchor_index_keys if payload.get(key) is not None), None)
         if current_index is None or anchor_index is None:
-            # Legacy pages have no stable conversation index. Keeping them at
-            # full retention avoids silently applying wall-clock decay.
-            return 1.0
+            raise ValueError("Mid-term forgetting requires current_turn_index and a Page turn_index anchor")
         try:
             distance_turns = max(float(current_index) - float(anchor_index), 0.0)
             base_half_life = float(configured_turn_half_life if half_life_turns is None else half_life_turns)

@@ -79,7 +79,11 @@ class _FakeMidtermMemory:
         if self.visit_error is not None:
             raise self.visit_error
 
-    def record_valid_recalls(self, page_ids):
+    def current_turn_index(self, filters):
+        return 5
+
+    def record_valid_recalls(self, page_ids, *, recall_turn_index):
+        assert recall_turn_index == 5
         self.valid_recalls.append(list(page_ids))
         if self.visit_error is not None:
             raise self.visit_error

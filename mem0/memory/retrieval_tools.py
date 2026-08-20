@@ -208,11 +208,15 @@ class MemoryToolExecutor:
         if not page_ids:
             return
         try:
+            current_turn_index = self.memory.midterm_memory.current_turn_index(self._scope_filters)
             confirm = getattr(self.memory, "_confirm_valid_midterm_page_ids", None)
             if callable(confirm):
-                confirm(page_ids)
+                confirm(page_ids, current_turn_index=current_turn_index)
             else:
-                self.memory.midterm_memory.record_valid_recalls(page_ids)
+                self.memory.midterm_memory.record_valid_recalls(
+                    page_ids,
+                    recall_turn_index=current_turn_index,
+                )
         except Exception:
             logger.exception(
                 "Failed to record agentic valid mid-term recalls user_id=%s run_id=%s",

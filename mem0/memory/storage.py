@@ -54,6 +54,7 @@ class SQLiteManager:
         self._migrate_history_table()
         self._create_history_table()
         self._create_messages_table()
+        self._create_conversation_turns_table()
         self._create_background_job_tables()
         self._create_idempotency_table()
         self._create_profile_tables()
@@ -180,6 +181,7 @@ class SQLiteManager:
                         content TEXT,
                         name TEXT,
                         created_at DATETIME,
+                        turn_index INTEGER NOT NULL,
                         status TEXT NOT NULL DEFAULT 'active',
                         migration_job_id TEXT,
                         source_operation_key TEXT,
@@ -210,6 +212,24 @@ class SQLiteManager:
             except Exception as e:
                 self.connection.execute("ROLLBACK")
                 logger.error(f"Failed to create messages table: {e}")
+                raise
+
+    def _create_conversation_turns_table(self) -> None:
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN IMMEDIATE")
+                self.connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS conversation_turns (
+                        session_scope TEXT PRIMARY KEY,
+                        current_turn_index INTEGER NOT NULL DEFAULT 0,
+                        open_turn_index INTEGER
+                    )
+                    """
+                )
+                self.connection.execute("COMMIT")
+            except Exception:
+                self.connection.execute("ROLLBACK")
                 raise
 
     def _create_background_job_tables(self) -> None:
@@ -649,30 +669,13 @@ class SQLiteManager:
             return [] if return_evicted else None
         with self._lock:
             try:
-                self.connection.execute("BEGIN")
-                for message in messages:
-                    now = normalize_iso_timestamp_to_beijing(message.get("created_at")) or beijing_now_iso()
-                    self.connection.execute(
-                        """
-                        INSERT INTO messages (
-                            id, session_scope, role, content, name, created_at, status, migration_job_id
-                        )
-                        VALUES (?, ?, ?, ?, ?, ?, 'active', NULL)
-                    """,
-                        (
-                            str(uuid.uuid4()),
-                            session_scope,
-                            message.get("role"),
-                            message.get("content"),
-                            message.get("name"),
-                            now,
-                        ),
-                )
+                self.connection.execute("BEGIN IMMEDIATE")
+                self._insert_messages_in_transaction(messages, session_scope, source_operation_key=None)
                 max_messages = max(int(max_messages), 0)
 
                 rows = self.connection.execute(
                     """
-                    SELECT id, role, content, name, created_at
+                    SELECT id, role, content, name, created_at, turn_index
                     FROM messages
                     WHERE session_scope = ? AND status = 'active'
                     ORDER BY DATETIME(created_at) ASC, rowid ASC
@@ -700,6 +703,7 @@ class SQLiteManager:
                         "content": r[2],
                         "name": r[3],
                         "created_at": r[4],
+                        "turn_index": r[5],
                         "session_scope": session_scope,
                     }
                     for r in evicted_rows
@@ -719,7 +723,7 @@ class SQLiteManager:
         with self._lock:
             cur = self.connection.execute(
                 """
-                SELECT id, role, content, name, created_at
+                SELECT id, role, content, name, created_at, turn_index
                 FROM messages
                 WHERE session_scope = ? AND status = 'active'
                 ORDER BY DATETIME(created_at) ASC, rowid ASC
@@ -736,6 +740,7 @@ class SQLiteManager:
                 "content": r[2],
                 "name": r[3],
                 "created_at": r[4],
+                "turn_index": r[5],
                 "session_scope": session_scope,
             }
             for r in rows
@@ -768,8 +773,8 @@ class SQLiteManager:
             # re-sorts them chronologically (ASC) for the caller.
             cur = self.connection.execute(
                 """
-                SELECT role, content, name, created_at FROM (
-                    SELECT rowid, role, content, name, created_at
+                SELECT role, content, name, created_at, turn_index FROM (
+                    SELECT rowid, role, content, name, created_at, turn_index
                     FROM messages
                     WHERE session_scope = ? AND status = 'active'
                     ORDER BY DATETIME(created_at) DESC, rowid DESC
@@ -786,6 +791,7 @@ class SQLiteManager:
                 "content": r[1],
                 "name": r[2],
                 "created_at": r[3],
+                "turn_index": r[4],
             }
             for r in rows
         ]
@@ -1057,26 +1063,71 @@ class SQLiteManager:
         *,
         source_operation_key: Optional[str],
     ) -> None:
+        state = self.connection.execute(
+            """
+            SELECT current_turn_index, open_turn_index
+            FROM conversation_turns
+            WHERE session_scope = ?
+            """,
+            (session_scope,),
+        ).fetchone()
+        current_turn_index = int(state[0]) if state else 0
+        open_turn_index = int(state[1]) if state and state[1] is not None else None
+
         for index, message in enumerate(messages):
+            role = message.get("role")
+            if role == "user":
+                current_turn_index += 1
+                open_turn_index = current_turn_index
+                turn_index = current_turn_index
+            elif role == "assistant":
+                if open_turn_index is None:
+                    current_turn_index += 1
+                    open_turn_index = current_turn_index
+                turn_index = open_turn_index
+                open_turn_index = None
+            else:
+                turn_index = open_turn_index if open_turn_index is not None else current_turn_index
+
             created_at = normalize_iso_timestamp_to_beijing(message.get("created_at")) or beijing_now_iso()
             self.connection.execute(
                 """
                 INSERT INTO messages (
-                    id, session_scope, role, content, name, created_at, status,
+                    id, session_scope, role, content, name, created_at, turn_index, status,
                     migration_job_id, source_operation_key, source_message_index
-                ) VALUES (?, ?, ?, ?, ?, ?, 'active', NULL, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', NULL, ?, ?)
                 """,
                 (
                     str(uuid.uuid4()),
                     session_scope,
-                    message.get("role"),
+                    role,
                     message.get("content"),
                     message.get("name"),
                     created_at,
+                    turn_index,
                     source_operation_key,
                     index if source_operation_key is not None else None,
                 ),
             )
+
+        self.connection.execute(
+            """
+            INSERT INTO conversation_turns (session_scope, current_turn_index, open_turn_index)
+            VALUES (?, ?, ?)
+            ON CONFLICT(session_scope) DO UPDATE SET
+                current_turn_index = excluded.current_turn_index,
+                open_turn_index = excluded.open_turn_index
+            """,
+            (session_scope, current_turn_index, open_turn_index),
+        )
+
+    def current_turn_index(self, session_scope: str) -> int:
+        with self._lock:
+            row = self.connection.execute(
+                "SELECT current_turn_index FROM conversation_turns WHERE session_scope = ?",
+                (session_scope,),
+            ).fetchone()
+        return int(row[0]) if row else 0
 
     def _reserve_migration_job_in_transaction(
         self,
@@ -1309,7 +1360,7 @@ class SQLiteManager:
         with self._lock:
             rows = self.connection.execute(
                 """
-                SELECT id, session_scope, role, content, name, created_at, status
+                SELECT id, session_scope, role, content, name, created_at, turn_index, status
                 FROM messages
                 WHERE migration_job_id = ?
                 ORDER BY DATETIME(created_at) ASC, rowid ASC
@@ -1324,7 +1375,8 @@ class SQLiteManager:
                 "content": row[3],
                 "name": row[4],
                 "created_at": row[5],
-                "status": row[6],
+                "turn_index": row[6],
+                "status": row[7],
             }
             for row in rows
         ]
@@ -1348,8 +1400,8 @@ class SQLiteManager:
         with self._lock:
             active_rows = self.connection.execute(
                 """
-                SELECT rowid, role, content, name, created_at, status FROM (
-                    SELECT rowid, role, content, name, created_at, status
+                SELECT rowid, role, content, name, created_at, turn_index, status FROM (
+                    SELECT rowid, role, content, name, created_at, turn_index, status
                     FROM messages
                     WHERE session_scope = ? AND status = 'active'
                     ORDER BY DATETIME(created_at) DESC, rowid DESC
@@ -1360,7 +1412,7 @@ class SQLiteManager:
             ).fetchall()
             migration_rows = self.connection.execute(
                 """
-                SELECT m.rowid, m.role, m.content, m.name, m.created_at, m.status
+                SELECT m.rowid, m.role, m.content, m.name, m.created_at, m.turn_index, m.status
                 FROM messages AS m
                 JOIN memory_migration_jobs AS job ON job.job_id = m.migration_job_id
                 WHERE m.session_scope = ? AND job.finalized_at IS NULL
@@ -1377,7 +1429,8 @@ class SQLiteManager:
                 "content": row[2],
                 "name": row[3],
                 "created_at": row[4],
-                "status": row[5],
+                "turn_index": row[5],
+                "status": row[6],
             }
             for row in rows
         ]
@@ -2934,6 +2987,7 @@ class SQLiteManager:
                 self.connection.execute("DROP TABLE IF EXISTS memory_promotion_jobs")
                 self.connection.execute("DROP TABLE IF EXISTS memory_migration_jobs")
                 self.connection.execute("DROP TABLE IF EXISTS memory_idempotency_operations")
+                self.connection.execute("DROP TABLE IF EXISTS conversation_turns")
                 self.connection.execute("DROP TABLE IF EXISTS history")
                 self.connection.execute("DROP TABLE IF EXISTS messages")
                 self.connection.execute("COMMIT")

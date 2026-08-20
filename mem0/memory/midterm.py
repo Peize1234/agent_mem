@@ -20,7 +20,7 @@ def vector_rows(listed) -> List[Any]:
 
 
 def derived_output_is_visible(payload: Dict[str, Any]) -> bool:
-    """Manual/legacy rows are committed; background rows require an explicit commit."""
+    """Manual rows are committed; background rows require an explicit commit."""
     return not payload.get("source_job_id") or payload.get("output_state") == "committed"
 
 
@@ -33,42 +33,31 @@ def keyword_overlap(left: List[str], right: List[str]) -> float:
 
 
 def compute_recency(
-    last_visit_turn_index: Optional[int],
-    current_turn_index: Optional[int],
+    last_visit_turn_index: int,
+    current_turn_index: int,
     tau_turns: float,
 ) -> float:
     """Return session visit recency from conversation distance, never wall time."""
-    if last_visit_turn_index is None or current_turn_index is None:
-        return 1.0
-    try:
-        distance_turns = max(float(current_turn_index) - float(last_visit_turn_index), 0.0)
-        tau = float(tau_turns)
-    except (TypeError, ValueError):
-        return 1.0
+    distance_turns = max(float(current_turn_index) - float(last_visit_turn_index), 0.0)
+    tau = float(tau_turns)
     if tau <= 0:
-        return 1.0
+        raise ValueError("tau_turns must be positive")
     return math.exp(-distance_turns / tau)
 
 
 def compute_session_heat(
     payload: Dict[str, Any],
     config,
-    current_turn_index: Optional[int] = None,
+    current_turn_index: int,
 ) -> float:
-    if not any(key in payload for key in ("N_visit", "L_interaction", "last_visit_turn_index", "created_turn_index")):
-        return float(payload.get("H_segment", 0.0) or 0.0)
-    recency = (
-        compute_recency(
-            payload.get("last_visit_turn_index", payload.get("created_turn_index")),
-            current_turn_index,
-            config.heat_recency_tau_turns,
-        )
-        if current_turn_index is not None
-        else float(payload.get("R_recency", 1.0) or 0.0)
+    recency = compute_recency(
+        int(payload["last_visit_turn_index"]),
+        current_turn_index,
+        config.heat_recency_tau_turns,
     )
     return (
-        config.heat_alpha * float(payload.get("N_visit", 0) or 0)
-        + config.heat_beta * float(payload.get("L_interaction", 0) or 0)
+        config.heat_alpha * float(payload["N_visit"])
+        + config.heat_beta * float(payload["L_interaction"])
         + config.heat_gamma * recency
     )
 
@@ -82,6 +71,7 @@ class MidTermMemory:
         base_collection_name: str,
         embedding_model,
         config,
+        current_turn_index_provider,
         primary_vector_store=None,
         output_is_visible=None,
         vector_store_timeout_seconds: Optional[float] = None,
@@ -91,6 +81,7 @@ class MidTermMemory:
         self.base_collection_name = base_collection_name
         self.embedding_model = embedding_model
         self.config = config
+        self.current_turn_index_provider = current_turn_index_provider
         self.primary_vector_store = primary_vector_store
         self.output_is_visible = output_is_visible or derived_output_is_visible
         self.vector_store_timeout_seconds = vector_store_timeout_seconds
@@ -291,23 +282,15 @@ class MidTermMemory:
             return list(range(start, start + count))
 
     def current_turn_index(self, filters: Dict[str, Any]) -> int:
-        """Return the latest persisted Page sequence for a conversation scope."""
-        rows = self.list_pages(filters=filters, top_k=10000)
-        return max(
-            (
-                int(payload["page_sequence"])
-                for row in rows
-                if (payload := (getattr(row, "payload", None) or {})).get("page_sequence") is not None
-            ),
-            default=0,
-        )
+        """Return the latest persisted conversation turn for a Session scope."""
+        return int(self.current_turn_index_provider(filters))
 
     def record_valid_recalls(
         self,
         page_ids: List[str],
         *,
+        recall_turn_index: int,
         recalled_at: Optional[str] = None,
-        recall_turn_index: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         """Move Page and Session recall anchors after they enter model context."""
         normalized_page_ids = unique_ids(page_ids)
@@ -315,6 +298,7 @@ class MidTermMemory:
             return []
 
         now = recalled_at or beijing_now_iso()
+        current_index = int(recall_turn_index)
         updated_sessions: List[Dict[str, Any]] = []
         with self._evolution_lock:
             session_ids: List[tuple[Any, int]] = []
@@ -324,14 +308,6 @@ class MidTermMemory:
                     continue
                 payload = dict(getattr(page, "payload", None) or {})
                 count = int(payload.get("valid_recall_count", 0) or 0) + 1
-                scope_filters = {
-                    key: payload.get(key)
-                    for key in ("user_id", "agent_id", "run_id")
-                    if payload.get(key) not in (None, "")
-                }
-                current_index = (
-                    int(recall_turn_index) if recall_turn_index is not None else self.current_turn_index(scope_filters)
-                )
                 payload.update(
                     {
                         "valid_recall_count": count,
@@ -340,7 +316,6 @@ class MidTermMemory:
                         "updated_at": now,
                     }
                 )
-                payload.pop("memory_strength", None)
                 self.update_page(page_id, payload, reembed=False)
                 session_ids.append((payload.get("session_id"), current_index))
 
@@ -365,7 +340,6 @@ class MidTermMemory:
                         "updated_at": now,
                     }
                 )
-                payload.pop("memory_strength", None)
                 payload["H_segment"] = compute_session_heat(payload, self.config, current_index)
                 self.update_session(session_id, payload, reembed=False)
                 updated_sessions.append({"id": session_id, **payload})

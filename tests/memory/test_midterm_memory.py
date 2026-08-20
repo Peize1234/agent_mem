@@ -113,8 +113,8 @@ def test_midterm_summary_request_and_persisted_dialogue_share_real_blank_line_se
     llm = RecordingFakeLLM()
     memory.midterm_updater.llm = llm
     messages = [
-        {"role": "user", "content": '用户第一行\n用户第二行，含引号 " 和 emoji 😀'},
-        {"role": "assistant", "content": "助手第一行\n助手第二行，含反斜杠 \\"},
+        {"role": "user", "content": '用户第一行\n用户第二行，含引号 " 和 emoji 😀', "turn_index": 1},
+        {"role": "assistant", "content": "助手第一行\n助手第二行，含反斜杠 \\", "turn_index": 1},
     ]
     expected = 'User: 用户第一行\n用户第二行，含引号 " 和 emoji 😀\n\nAssistant: 助手第一行\n助手第二行，含反斜杠 \\'
 
@@ -128,6 +128,7 @@ def test_midterm_summary_request_and_persisted_dialogue_share_real_blank_line_se
         assert summary_call["messages"][1]["content"] == expected
         assert pages[0]["raw_dialogue"] == expected
         assert pages[0]["page_sequence"] == 1
+        assert pages[0]["turn_index"] == 1
         assert "User: " in expected
         assert "\n\nAssistant: " in expected
         assert "\\n\\nAssistant" not in expected
@@ -270,26 +271,26 @@ def test_midterm_config_rejects_negative_page_limits():
         MidTermMemoryConfig(max_total_pages=-1)
 
 
-def test_legacy_midterm_evolution_config_maps_half_life_and_ignores_reinforcement():
-    config = MidTermMemoryConfig(retention_half_life_hours=12.0, reinforcement_gain=9.0)
-
-    assert config.retention_half_life_turns == 12.0
-    assert not hasattr(config, "retention_half_life_hours")
-    assert not hasattr(config, "reinforcement_gain")
-
-
 def _midterm_row(row_id, score, **payload):
+    if "session_id" in payload:
+        payload.setdefault("turn_index", 1)
+    else:
+        payload.setdefault("N_visit", payload.get("H_segment", 0))
+        payload.setdefault("L_interaction", 0 if "H_segment" in payload else 1)
+        payload.setdefault("created_turn_index", 1)
+        payload.setdefault("last_visit_turn_index", 1)
     return SimpleNamespace(id=row_id, score=score, payload=payload)
 
 
 class FakeMidTermRetrievalStore:
-    def __init__(self, sessions, pages_by_session):
+    def __init__(self, sessions, pages_by_session, *, current_turn_index=1):
         self.sessions = sessions
         self.pages_by_session = pages_by_session
         self.session_filters = []
         self.page_filters = []
         self.visited_sessions = []
         self.valid_recalled_pages = []
+        self.current_turn = current_turn_index
 
     def search_sessions(self, query, filters=None, top_k=5):
         self.session_filters.append(dict(filters or {}))
@@ -306,8 +307,11 @@ class FakeMidTermRetrievalStore:
     def record_session_visit(self, session_id):
         self.visited_sessions.append(session_id)
 
-    def record_valid_recalls(self, page_ids):
+    def record_valid_recalls(self, page_ids, *, recall_turn_index):
         self.valid_recalled_pages.extend(page_ids)
+
+    def current_turn_index(self, filters):
+        return self.current_turn
 
     def get_session(self, session_id):
         return next((session for session in self.sessions if str(session.id) == str(session_id)), None)
@@ -435,6 +439,9 @@ def test_midterm_retriever_preserves_run_id_isolation():
 
 def test_midterm_retriever_concurrent_search_results_do_not_mix():
     class QueryScopedStore:
+        def current_turn_index(self, filters):
+            return 1
+
         def search_sessions(self, query, filters=None, top_k=5):
             return [
                 _midterm_row(
@@ -580,9 +587,9 @@ def test_midterm_threshold_uses_raw_score_not_heat_modulated_final_score():
 
     assert [page["id"] for page in pages] == ["raw-pass"]
     assert pages[0]["raw_rag_score"] == pytest.approx(0.51)
-    assert pages[0]["heat_factor"] == pytest.approx(config.heat_modulation_min)
+    assert config.heat_modulation_min < pages[0]["heat_factor"] < config.heat_modulation_max
+    assert pages[0]["final_score"] == pytest.approx(pages[0]["raw_rag_score"] * pages[0]["forgetting_factor"])
     assert pages[0]["final_score"] == pytest.approx(0.51)
-    assert pages[0]["final_score"] >= config.midterm_rag_threshold
 
 
 def test_midterm_forgetting_uses_page_distance_and_not_wall_clock():
@@ -591,15 +598,15 @@ def test_midterm_forgetting_uses_page_distance_and_not_wall_clock():
     config.retention_floor = 0.1
     now = beijing_now()
     near = {
-        "page_sequence": 8,
+        "turn_index": 8,
         "created_at": (now - timedelta(hours=24)).isoformat(),
     }
     far = {
-        "page_sequence": 4,
+        "turn_index": 4,
         "created_at": (now - timedelta(hours=48)).isoformat(),
     }
     same_distance_different_time = {
-        "page_sequence": 8,
+        "turn_index": 8,
         "created_at": (now - timedelta(days=365)).isoformat(),
     }
 
@@ -628,7 +635,7 @@ def test_heat_maps_absolute_session_heat_to_bounded_half_life_factor():
 
     config = _retriever_config()
     config.retention_half_life_turns = 10.0
-    payload = {"page_sequence": 0}
+    payload = {"turn_index": 0}
     cold_retention = forgetting_factor(
         payload,
         config,
@@ -671,16 +678,73 @@ def test_messages_to_qa_pairs_tolerates_partial_pairs():
     pairs = MidTermUpdater._messages_to_qa_pairs(
         [
             {"role": "assistant", "content": "orphan assistant"},
-            {"role": "user", "content": "u1"},
-            {"role": "assistant", "content": "a1"},
-            {"role": "user", "content": "u2"},
+            {"role": "user", "content": "u1", "turn_index": 1},
+            {"role": "assistant", "content": "a1", "turn_index": 1},
+            {"role": "user", "content": "u2", "turn_index": 2},
         ]
     )
     assert pairs == [
-        {"user_input": "u1", "assistant_response": "a1", "created_at": None},
-        {"user_input": "u2", "assistant_response": "", "created_at": None},
+        {"user_input": "u1", "assistant_response": "a1", "created_at": None, "turn_index": 1},
+        {"user_input": "u2", "assistant_response": "", "created_at": None, "turn_index": 2},
     ]
     assert MidTermUpdater._messages_to_qa_pairs([{"role": "assistant", "content": "assistant-only"}]) == []
+
+
+def test_conversation_turn_index_is_transactional_and_independent_of_eviction(tmp_path):
+    manager = SQLiteManager(str(tmp_path / "conversation-turns.db"))
+    scope = "run_id=run-1&user_id=user-1"
+    try:
+        for index in range(1, 6):
+            manager.save_messages(
+                [
+                    {"role": "user", "content": f"q{index}"},
+                    {"role": "assistant", "content": f"a{index}"},
+                ],
+                scope,
+                max_messages=6,
+            )
+
+        assert manager.current_turn_index(scope) == 5
+        retained = manager.get_messages(scope, limit=10)
+        assert [(message["content"], message["turn_index"]) for message in retained] == [
+            ("q3", 3),
+            ("a3", 3),
+            ("q4", 4),
+            ("a4", 4),
+            ("q5", 5),
+            ("a5", 5),
+        ]
+    finally:
+        manager.close()
+
+
+def test_concurrent_qa_writes_allocate_each_turn_once(tmp_path):
+    manager = SQLiteManager(str(tmp_path / "concurrent-conversation-turns.db"))
+    scope = "run_id=run-1&user_id=user-1"
+
+    def save_turn(index):
+        manager.save_messages(
+            [
+                {"role": "user", "content": f"q{index}"},
+                {"role": "assistant", "content": f"a{index}"},
+            ],
+            scope,
+            max_messages=100,
+        )
+
+    try:
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            list(pool.map(save_turn, range(1, 13)))
+
+        messages = manager.get_messages(scope, limit=100)
+        turns = {}
+        for message in messages:
+            turns.setdefault(message["turn_index"], []).append(message["role"])
+        assert manager.current_turn_index(scope) == 12
+        assert sorted(turns) == list(range(1, 13))
+        assert all(roles == ["user", "assistant"] for roles in turns.values())
+    finally:
+        manager.close()
 
 
 def test_session_merge_uses_llm_and_bounds_keywords():
@@ -760,10 +824,10 @@ async def test_async_midterm_page_and_session_llm_calls_remain_ordered_within_jo
     try:
         pages = await memory.midterm_updater.process_evicted_messages_async(
             [
-                {"role": "user", "content": "first question"},
-                {"role": "assistant", "content": "first answer"},
-                {"role": "user", "content": "second question"},
-                {"role": "assistant", "content": "second answer"},
+                {"role": "user", "content": "first question", "turn_index": 1},
+                {"role": "assistant", "content": "first answer", "turn_index": 1},
+                {"role": "user", "content": "second question", "turn_index": 2},
+                {"role": "assistant", "content": "second answer", "turn_index": 2},
             ],
             {"user_id": "u1", "run_id": "r1"},
         )
@@ -824,8 +888,8 @@ def test_midterm_partial_write_is_not_visible_before_commit(tmp_path, fake_memor
     config.background.enabled = False
     memory = Memory(config)
     messages = [
-        {"role": "user", "content": "我偏好中长期投资。"},
-        {"role": "assistant", "content": "我会记住。"},
+        {"role": "user", "content": "我偏好中长期投资。", "turn_index": 1},
+        {"role": "assistant", "content": "我会记住。", "turn_index": 1},
     ]
     filters = {"user_id": "u1", "run_id": "r1"}
 
@@ -855,8 +919,8 @@ def test_midterm_retry_preserves_page_sequence_without_advancing_future_pages(tm
     memory = Memory(config)
     filters = {"user_id": "u1", "run_id": "r1"}
     messages = [
-        {"role": "user", "content": "retry keeps order"},
-        {"role": "assistant", "content": "ack"},
+        {"role": "user", "content": "retry keeps order", "turn_index": 1},
+        {"role": "assistant", "content": "ack", "turn_index": 1},
     ]
 
     first = memory.midterm_updater.process_evicted_messages(
@@ -876,6 +940,9 @@ def test_midterm_retry_preserves_page_sequence_without_advancing_future_pages(tm
     assert first[0]["page_sequence"] == 1
     assert retried[0]["page_sequence"] == 1
     assert following[0]["page_sequence"] == 2
+    assert first[0]["turn_index"] == 1
+    assert retried[0]["turn_index"] == 1
+    assert following[0]["turn_index"] == 1
     memory.close()
 
 
@@ -886,8 +953,8 @@ def test_discarded_midterm_does_not_pollute_existing_session_summary(tmp_path, f
     filters = {"user_id": "u1", "run_id": "r1"}
     memory._process_midterm_evictions(
         [
-            {"role": "user", "content": "我比较保守，最大亏损10%。"},
-            {"role": "assistant", "content": "我会按这个约束考虑。"},
+            {"role": "user", "content": "我比较保守，最大亏损10%。", "turn_index": 1},
+            {"role": "assistant", "content": "我会按这个约束考虑。", "turn_index": 1},
         ],
         filters,
         raise_on_error=True,
@@ -896,8 +963,8 @@ def test_discarded_midterm_does_not_pollute_existing_session_summary(tmp_path, f
 
     memory._process_midterm_evictions(
         [
-            {"role": "user", "content": "这条内容不应进入现有摘要。"},
-            {"role": "assistant", "content": "临时回答。"},
+            {"role": "user", "content": "这条内容不应进入现有摘要。", "turn_index": 2},
+            {"role": "assistant", "content": "临时回答。", "turn_index": 2},
         ],
         filters,
         source_job_id="discarded-midterm-job",
@@ -932,8 +999,8 @@ def test_old_midterm_lease_cannot_cleanup_new_lease_output(tmp_path, fake_memory
     filters = {"user_id": "u1", "run_id": "r1"}
     memory._process_midterm_evictions(
         [
-            {"role": "user", "content": "新的租约应保留这条页面。"},
-            {"role": "assistant", "content": "收到。"},
+            {"role": "user", "content": "新的租约应保留这条页面。", "turn_index": 1},
+            {"role": "assistant", "content": "收到。", "turn_index": 1},
         ],
         filters,
         source_job_id="shared-job",
@@ -963,8 +1030,8 @@ def test_stale_midterm_cleanup_cannot_restore_new_session_state(tmp_path, fake_m
     filters = {"user_id": "u1", "run_id": "r1"}
     memory._process_midterm_evictions(
         [
-            {"role": "user", "content": "旧租约页面。"},
-            {"role": "assistant", "content": "旧租约回答。"},
+            {"role": "user", "content": "旧租约页面。", "turn_index": 1},
+            {"role": "assistant", "content": "旧租约回答。", "turn_index": 1},
         ],
         filters,
         source_job_id="shared-job",
@@ -1011,8 +1078,8 @@ def test_stale_midterm_cleanup_cannot_modify_committed_page(tmp_path, fake_memor
     memory = Memory(config)
     memory._process_midterm_evictions(
         [
-            {"role": "user", "content": "已提交页面。"},
-            {"role": "assistant", "content": "不会被旧租约清理。"},
+            {"role": "user", "content": "已提交页面。", "turn_index": 1},
+            {"role": "assistant", "content": "不会被旧租约清理。", "turn_index": 1},
         ],
         {"user_id": "u1", "run_id": "r1"},
         source_job_id="shared-job",
@@ -1037,8 +1104,8 @@ def test_success_commits_all_midterm_stage_outputs(tmp_path, fake_memory_env):
     config.background.enabled = False
     memory = Memory(config)
     messages = [
-        {"role": "user", "content": "我偏好中长期投资。"},
-        {"role": "assistant", "content": "我会记住。"},
+        {"role": "user", "content": "我偏好中长期投资。", "turn_index": 1},
+        {"role": "assistant", "content": "我会记住。", "turn_index": 1},
     ]
     filters = {"user_id": "u1", "run_id": "r1"}
     job_id = memory.db.save_messages_and_create_migration_job(
@@ -1221,6 +1288,16 @@ def _insert_midterm_page_and_session(
     page_sequence=1,
 ):
     now = beijing_now().isoformat()
+    scope = f"run_id={run_id}&user_id=user-1"
+    if memory.db.current_turn_index(scope) == 0:
+        memory.db.save_messages(
+            [
+                {"role": "user", "content": "seed turn"},
+                {"role": "assistant", "content": "seed response"},
+            ],
+            scope,
+            max_messages=100,
+        )
     memory.midterm_memory.insert_page(
         page_id,
         {
@@ -1236,6 +1313,7 @@ def _insert_midterm_page_and_session(
             "user_id": "user-1",
             "run_id": run_id,
             "page_sequence": page_sequence,
+            "turn_index": page_sequence,
             "valid_recall_count": 0,
             "last_recall_at": None,
             "last_recall_turn_index": None,
@@ -1266,6 +1344,149 @@ def _insert_midterm_page_and_session(
     )
 
 
+def _add_numbered_turn(memory, turn_index, *, run_id="run-1"):
+    memory.add(
+        [
+            {"role": "user", "content": f"risk discussion q{turn_index}"},
+            {"role": "assistant", "content": f"risk response a{turn_index}"},
+        ],
+        user_id="user-1",
+        run_id=run_id,
+        infer=False,
+    )
+
+
+def _page_for_turn(memory, turn_index):
+    return next(
+        row
+        for row in memory.midterm_memory.list_pages(
+            filters={"user_id": "user-1", "run_id": "run-1"},
+            top_k=100,
+        )
+        if row.payload["turn_index"] == turn_index
+    )
+
+
+def test_short_term_turns_advance_midterm_forgetting_without_new_page_clock(tmp_path, fake_memory_env):
+    config = _memory_config(tmp_path, collection_name="true_turn_window")
+    config.background.enabled = False
+    config.midterm.short_term_capacity = 6
+    config.midterm.retention_half_life_turns = 4.0
+    config.midterm.retention_floor = 0.0
+    config.midterm.heat_alpha = 0.0
+    config.midterm.heat_beta = 0.0
+    config.midterm.heat_gamma = 0.0
+    memory = Memory(config)
+    scope = "run_id=run-1&user_id=user-1"
+    try:
+        for turn_index in range(1, 5):
+            _add_numbered_turn(memory, turn_index)
+
+        q1_page = _page_for_turn(memory, 1)
+        q1_at_turn_4 = next(
+            item
+            for item in memory.midterm_retriever.search(
+                "risk discussion q1",
+                {"user_id": "user-1", "run_id": "run-1"},
+            )
+            if item.get("id") == str(q1_page.id)
+        )
+        assert memory.db.current_turn_index(scope) == 4
+
+        _add_numbered_turn(memory, 5)
+        q1_at_turn_5 = next(
+            item
+            for item in memory.midterm_retriever.search(
+                "risk discussion q1",
+                {"user_id": "user-1", "run_id": "run-1"},
+            )
+            if item.get("id") == str(q1_page.id)
+        )
+
+        current_page = memory.midterm_memory.get_page(str(q1_page.id)).payload
+        assert current_page["turn_index"] == 1
+        assert memory.db.current_turn_index(scope) == 5
+        assert memory.midterm_memory.current_turn_index({"user_id": "user-1", "run_id": "run-1"}) == 5
+        assert 5 - current_page["turn_index"] == 4
+        assert q1_at_turn_5["forgetting_factor"] < q1_at_turn_4["forgetting_factor"]
+    finally:
+        memory.close()
+
+
+def test_recall_and_heat_recency_use_true_conversation_turn(tmp_path, fake_memory_env):
+    config = _memory_config(tmp_path, collection_name="true_turn_recall")
+    config.background.enabled = False
+    config.midterm.short_term_capacity = 6
+    config.midterm.heat_recency_tau_turns = 4.0
+    memory = Memory(config)
+    filters = {"user_id": "user-1", "run_id": "run-1"}
+    scope = "run_id=run-1&user_id=user-1"
+    try:
+        for turn_index in range(1, 6):
+            _add_numbered_turn(memory, turn_index)
+        q1_page = _page_for_turn(memory, 1)
+        page_id = str(q1_page.id)
+        session_id = q1_page.payload["session_id"]
+
+        memory._confirm_valid_midterm_page_ids([page_id], current_turn_index=5)
+        recalled_page = memory.midterm_memory.get_page(page_id).payload
+        recalled_session = memory.midterm_memory.get_session(session_id).payload
+        assert recalled_page["last_recall_turn_index"] == 5
+        assert recalled_session["N_visit"] == 1
+        assert recalled_session["last_visit_turn_index"] == 5
+
+        for turn_index in range(6, 9):
+            _add_numbered_turn(memory, turn_index)
+        assert memory.db.current_turn_index(scope) == 8
+        assert 8 - memory.midterm_memory.get_page(page_id).payload["last_recall_turn_index"] == 3
+
+        _add_numbered_turn(memory, 9)
+        session_result = next(
+            item
+            for item in memory.midterm_retriever.search("risk discussion q1", filters)
+            if item.get("id") == session_id
+        )
+        assert memory.db.current_turn_index(scope) == 9
+        assert session_result["R_recency"] == pytest.approx(math.exp(-(9 - 5) / 4.0))
+    finally:
+        memory.close()
+
+
+def test_delayed_migration_and_retry_preserve_source_turn_index(tmp_path, fake_memory_env):
+    config = _memory_config(tmp_path, collection_name="delayed_turn_migration")
+    config.background.enabled = False
+    config.midterm.short_term_capacity = 100
+    memory = Memory(config)
+    filters = {"user_id": "user-1", "run_id": "run-1"}
+    scope = "run_id=run-1&user_id=user-1"
+    try:
+        for turn_index in range(1, 5):
+            _add_numbered_turn(memory, turn_index)
+        source_q1 = memory.db.get_messages(scope, limit=2)
+        assert memory.db.current_turn_index(scope) == 4
+        assert {message["turn_index"] for message in source_q1} == {1}
+
+        first = memory.midterm_updater.process_evicted_messages(
+            source_q1,
+            filters,
+            source_job_id="delayed-q1",
+            lease_token="lease-1",
+        )
+        retried = memory.midterm_updater.process_evicted_messages(
+            source_q1,
+            filters,
+            source_job_id="delayed-q1",
+            lease_token="lease-2",
+        )
+
+        assert first[0]["turn_index"] == 1
+        assert retried[0]["turn_index"] == 1
+        assert retried[0]["id"] == first[0]["id"]
+        assert retried[0]["page_sequence"] == first[0]["page_sequence"]
+    finally:
+        memory.close()
+
+
 def test_valid_recall_is_confirmed_only_for_pages_entering_context(tmp_path, fake_memory_env):
     config = _memory_config(tmp_path, collection_name="valid_recall_context")
     config.background.enabled = False
@@ -1278,7 +1499,7 @@ def test_valid_recall_is_confirmed_only_for_pages_entering_context(tmp_path, fak
     assert memory.midterm_memory.get_page("page-1").payload["valid_recall_count"] == 0
     assert memory.midterm_memory.get_session("session-1").payload["valid_recall_count"] == 0
 
-    memory._confirm_context_valid_recalls(candidates)
+    memory._confirm_context_valid_recalls(candidates, current_turn_index=1)
     page = memory.midterm_memory.get_page("page-1").payload
     session = memory.midterm_memory.get_session("session-1").payload
     assert page["valid_recall_count"] == 1
@@ -1293,7 +1514,7 @@ def test_valid_recall_is_confirmed_only_for_pages_entering_context(tmp_path, fak
 
     # Deduplication is per confirmation round, even if two retrieval paths
     # produced the same page.
-    memory._confirm_context_valid_recalls([*candidates, *candidates])
+    memory._confirm_context_valid_recalls([*candidates, *candidates], current_turn_index=1)
     assert memory.midterm_memory.get_page("page-1").payload["valid_recall_count"] == 2
     memory.close()
 
@@ -1313,6 +1534,26 @@ def test_valid_recall_resets_turn_recency_anchor_and_future_search_recomputes_it
     assert recalled_session["last_visit_turn_index"] == 4
     assert recalled_session["R_recency"] == pytest.approx(1.0)
 
+    memory.db.save_messages(
+        [
+            {"role": "user", "content": "turn 5"},
+            {"role": "assistant", "content": "turn 5 response"},
+            {"role": "user", "content": "turn 6"},
+            {"role": "assistant", "content": "turn 6 response"},
+            {"role": "user", "content": "turn 7"},
+            {"role": "assistant", "content": "turn 7 response"},
+            {"role": "user", "content": "turn 8"},
+            {"role": "assistant", "content": "turn 8 response"},
+            {"role": "user", "content": "turn 9"},
+            {"role": "assistant", "content": "turn 9 response"},
+            {"role": "user", "content": "turn 10"},
+            {"role": "assistant", "content": "turn 10 response"},
+            {"role": "user", "content": "turn 11"},
+            {"role": "assistant", "content": "turn 11 response"},
+        ],
+        "run_id=run-1&user_id=user-1",
+        max_messages=100,
+    )
     memory.midterm_memory.insert_page(
         "page-clock",
         {
@@ -1325,6 +1566,7 @@ def test_valid_recall_resets_turn_recency_anchor_and_future_search_recomputes_it
             "user_id": "user-1",
             "run_id": "run-1",
             "page_sequence": 8,
+            "turn_index": 2,
             "output_state": "committed",
         },
     )
@@ -1348,7 +1590,7 @@ def test_threshold_filtered_midterm_page_is_not_reinforced(tmp_path, fake_memory
         "unrelated bonds",
         {"user_id": "user-1", "run_id": "run-1"},
     )
-    memory._confirm_context_valid_recalls(results)
+    memory._confirm_context_valid_recalls(results, current_turn_index=1)
 
     assert _page_results(results) == []
     assert memory.midterm_memory.get_page("page-1").payload["valid_recall_count"] == 0
@@ -1407,9 +1649,9 @@ def test_cross_session_longterm_promotion_is_user_scoped_and_idempotent(tmp_path
         "raw_dialogue": "User: maximum loss?\n\nAssistant: 10%",
     }
 
-    memory._confirm_context_valid_recalls([recalled_page])
+    memory._confirm_context_valid_recalls([recalled_page], current_turn_index=1)
     assert memory.cross_session_longterm.list(filters={"user_id": "user-1"}, top_k=10) == []
-    memory._confirm_context_valid_recalls([recalled_page])
+    memory._confirm_context_valid_recalls([recalled_page], current_turn_index=1)
     assert memory.flush_background_tasks(5)
 
     promoted = memory.cross_session_longterm.list(filters={"user_id": "user-1"}, top_k=10)
@@ -1433,7 +1675,7 @@ def test_cross_session_longterm_promotion_is_user_scoped_and_idempotent(tmp_path
     assert not [item for item in new_session_results if item.get("source") == "long_term"]
     assert memory.cross_session_longterm.get(promoted[0].id).payload["recall_count"] == 0
 
-    memory._confirm_context_valid_recalls(cross_session_results)
+    memory._confirm_context_valid_recalls(cross_session_results, current_turn_index=1)
     recalled = memory.cross_session_longterm.get(promoted[0].id).payload
     assert recalled["recall_count"] == 1
     assert recalled["last_recall_at"]
@@ -1445,7 +1687,7 @@ def test_cross_session_longterm_promotion_is_user_scoped_and_idempotent(tmp_path
     session["summary"] = "The user discussed a 10% loss limit and long-term investing."
     session["summary_keywords"] = ["loss", "10%", "long-term"]
     memory.midterm_memory.update_session("session-1", session, reembed=False)
-    memory._confirm_context_valid_recalls([recalled_page])
+    memory._confirm_context_valid_recalls([recalled_page], current_turn_index=1)
     assert memory.flush_background_tasks(5)
 
     refreshed_rows = memory.cross_session_longterm.list(filters={"user_id": "user-1"}, top_k=10)
@@ -1465,7 +1707,7 @@ def test_cross_session_retrieval_uses_slow_reinforcement_and_raw_threshold(tmp_p
     config.cross_session_longterm_rag_threshold = 0.8
     memory = Memory(config)
     _insert_midterm_page_and_session(memory, run_id="run-a")
-    memory.midterm_memory.record_valid_recalls(["page-1"])
+    memory.midterm_memory.record_valid_recalls(["page-1"], recall_turn_index=1)
     promoted = memory.cross_session_longterm.promote_session("session-1", memory.midterm_memory)
     assert promoted["memory_strength"] == pytest.approx(1.0)
 
@@ -1502,7 +1744,7 @@ def test_cross_session_retrieval_uses_slow_reinforcement_and_raw_threshold(tmp_p
     assert candidate["final_score"] < config.cross_session_longterm_rag_threshold
     assert memory.cross_session_longterm.get(memory_id).payload["recall_count"] == 0
 
-    memory._confirm_context_valid_recalls(candidates)
+    memory._confirm_context_valid_recalls(candidates, current_turn_index=1)
     recalled = memory.cross_session_longterm.get(memory_id).payload
     assert recalled["recall_count"] == 1
     assert recalled["last_recall_at"]
@@ -1520,7 +1762,7 @@ def test_cross_session_retrieval_uses_slow_reinforcement_and_raw_threshold(tmp_p
         reinforcement_gain=config.cross_session_reinforcement_gain,
     )
     midterm_retention = forgetting_factor(
-        {"created_at": old, "page_sequence": 0, "valid_recall_count": 99},
+        {"created_at": old, "turn_index": 0, "valid_recall_count": 99},
         config.midterm,
         now=now.isoformat(),
         current_turn_index=config.midterm.retention_half_life_turns,
@@ -1528,7 +1770,7 @@ def test_cross_session_retrieval_uses_slow_reinforcement_and_raw_threshold(tmp_p
     assert cross_retention == pytest.approx(0.5)
     assert midterm_retention == pytest.approx(0.5)
     assert forgetting_factor(
-        {"created_at": now.isoformat(), "page_sequence": 0, "valid_recall_count": 0},
+        {"created_at": now.isoformat(), "turn_index": 0, "valid_recall_count": 0},
         config.midterm,
         now=(now + timedelta(days=365)).isoformat(),
         current_turn_index=config.midterm.retention_half_life_turns,
@@ -1552,7 +1794,10 @@ def test_valid_recall_only_enqueues_promotion_without_embedding(tmp_path, fake_m
 
     memory.embedding_model.embed = recording_embed
     embedding_calls.clear()
-    memory._confirm_context_valid_recalls([{"id": "page-1", "source": "mid_term_page", "raw_dialogue": "context"}])
+    memory._confirm_context_valid_recalls(
+        [{"id": "page-1", "source": "mid_term_page", "raw_dialogue": "context"}],
+        current_turn_index=1,
+    )
 
     jobs = memory.db.list_promotion_jobs()
     assert len(jobs) == 1
@@ -1570,7 +1815,7 @@ def test_blocked_promotion_does_not_block_another_memory_valid_recall(tmp_path, 
     memory = Memory(config)
     _insert_midterm_page_and_session(memory, page_id="page-a", session_id="session-a")
     _insert_midterm_page_and_session(memory, page_id="page-b", session_id="session-b")
-    memory.midterm_memory.record_valid_recalls(["page-a", "page-b"])
+    memory.midterm_memory.record_valid_recalls(["page-a", "page-b"], recall_turn_index=1)
     session_a = memory.midterm_memory.get_session("session-a").payload
     session_a["summary"] = "blocked-promotion-session-a"
     memory.midterm_memory.update_session("session-a", session_a, reembed=False)
@@ -1622,7 +1867,7 @@ def test_different_sessions_enter_promotion_embedding_concurrently(tmp_path, fak
     memory = Memory(config)
     _insert_midterm_page_and_session(memory, page_id="page-a", session_id="session-a")
     _insert_midterm_page_and_session(memory, page_id="page-b", session_id="session-b")
-    memory.midterm_memory.record_valid_recalls(["page-a", "page-b"])
+    memory.midterm_memory.record_valid_recalls(["page-a", "page-b"], recall_turn_index=1)
     for session_id in ("session-a", "session-b"):
         session = memory.midterm_memory.get_session(session_id).payload
         session["summary"] = f"slow-promotion-{session_id}"

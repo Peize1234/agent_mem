@@ -91,19 +91,6 @@ class MidTermMemoryConfig(BaseModel):
             raise ValueError("heat_modulation_min must be less than heat_modulation_max")
         return self
 
-    @model_validator(mode="before")
-    @classmethod
-    def migrate_legacy_evolution_config(cls, values):
-        """Accept legacy keys without retaining their wall-clock/reinforcement semantics."""
-        if not isinstance(values, dict):
-            return values
-        migrated = dict(values)
-        legacy_half_life = migrated.pop("retention_half_life_hours", None)
-        if legacy_half_life is not None and "retention_half_life_turns" not in migrated:
-            migrated["retention_half_life_turns"] = legacy_half_life
-        migrated.pop("reinforcement_gain", None)
-        return migrated
-
 
 class UserProfileConfig(BaseModel):
     enabled: bool = True

@@ -75,6 +75,7 @@ class MidTermRetriever:
             "valid_recall_count": payload.get("valid_recall_count", 0),
             "last_recall_at": payload.get("last_recall_at"),
             "last_recall_turn_index": payload.get("last_recall_turn_index"),
+            "turn_index": payload.get("turn_index"),
             "page_sequence": payload.get("page_sequence"),
             "source": "mid_term_page",
             "session_id": payload.get("session_id"),
@@ -163,21 +164,8 @@ class MidTermRetriever:
                 payloads[str(session_id)] = dict(getattr(session, "payload", None) or {})
         return payloads
 
-    def _current_turn_index(self, scope_filters: Dict[str, Any], pages: List[Any]) -> int:
-        get_current_turn_index = getattr(self.midterm_memory, "current_turn_index", None)
-        if callable(get_current_turn_index):
-            try:
-                return int(get_current_turn_index(scope_filters))
-            except Exception:
-                logger.debug("Failed to load current mid-term turn index", exc_info=True)
-        return max(
-            (
-                int(payload["page_sequence"])
-                for page in pages
-                if (payload := (getattr(page, "payload", None) or {})).get("page_sequence") is not None
-            ),
-            default=0,
-        )
+    def _current_turn_index(self, scope_filters: Dict[str, Any]) -> int:
+        return int(self.midterm_memory.current_turn_index(scope_filters))
 
     def _session_evolution(
         self,
@@ -186,7 +174,7 @@ class MidTermRetriever:
     ) -> tuple[Dict[str, float], Dict[str, float]]:
         recencies = {
             session_id: compute_recency(
-                payload.get("last_visit_turn_index", payload.get("created_turn_index")),
+                int(payload["last_visit_turn_index"]),
                 current_turn_index,
                 self.config.heat_recency_tau_turns,
             )
@@ -230,7 +218,7 @@ class MidTermRetriever:
             top_k=top_k_sessions,
         )
         if top_k_pages <= 0 or max_total_pages <= 0:
-            current_turn_index = self._current_turn_index(scope_filters, [])
+            current_turn_index = self._current_turn_index(scope_filters)
             session_payloads = self._session_payloads(sessions, [])
             recencies, heats = self._session_evolution(session_payloads, current_turn_index)
             return [
@@ -287,7 +275,7 @@ class MidTermRetriever:
             for page in unique_candidates
             if (getattr(page, "payload", None) or {}).get("session_id") not in (None, "")
         }
-        current_turn_index = self._current_turn_index(scope_filters, unique_candidates)
+        current_turn_index = self._current_turn_index(scope_filters)
         recencies, all_heats = self._session_evolution(session_payloads, current_turn_index)
         heats = {session_id: all_heats.get(session_id, 0.0) for session_id in candidate_session_ids}
         modulations = heat_modulations(
