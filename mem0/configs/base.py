@@ -43,10 +43,10 @@ class MidTermMemoryConfig(BaseModel):
         description="Minimum raw RAG score for a mid-term page to enter context",
     )
 
-    retention_half_life_hours: float = Field(
+    retention_half_life_turns: float = Field(
         168.0,
         gt=0,
-        description="Base half-life used by deterministic mid-term retrieval decay",
+        description="Base conversation-turn half-life used by deterministic mid-term retrieval decay",
     )
     retention_floor: float = Field(
         0.2,
@@ -54,24 +54,24 @@ class MidTermMemoryConfig(BaseModel):
         le=1,
         description="Minimum mid-term forgetting factor",
     )
-    reinforcement_gain: float = Field(
-        0.5,
-        ge=0,
-        description="Logarithmic strength gain per valid recall",
+    heat_recency_tau_turns: float = Field(
+        24.0,
+        gt=0,
+        description="Conversation-turn decay constant for session visit recency",
     )
     heat_modulation_min: float = Field(
         0.9,
         gt=0,
         lt=1,
-        description="Minimum candidate-pool heat multiplier",
+        description="Minimum session-heat factor applied to the mid-term half-life",
     )
     heat_modulation_max: float = Field(
         1.1,
         gt=1,
-        description="Maximum candidate-pool heat multiplier",
+        description="Maximum session-heat factor applied to the mid-term half-life",
     )
 
-    heat_alpha: float = Field(1.0, description="Session heat weight for valid recall count")
+    heat_alpha: float = Field(1.0, description="Session heat weight for visit count")
     heat_beta: float = Field(0.5, description="Session heat weight for interaction count")
     heat_gamma: float = Field(1.0, description="Session heat weight for recall recency")
     promotion_min_recall_count: int = Field(
@@ -90,6 +90,19 @@ class MidTermMemoryConfig(BaseModel):
         if self.heat_modulation_min >= self.heat_modulation_max:
             raise ValueError("heat_modulation_min must be less than heat_modulation_max")
         return self
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_evolution_config(cls, values):
+        """Accept legacy keys without retaining their wall-clock/reinforcement semantics."""
+        if not isinstance(values, dict):
+            return values
+        migrated = dict(values)
+        legacy_half_life = migrated.pop("retention_half_life_hours", None)
+        if legacy_half_life is not None and "retention_half_life_turns" not in migrated:
+            migrated["retention_half_life_turns"] = legacy_half_life
+        migrated.pop("reinforcement_gain", None)
+        return migrated
 
 
 class UserProfileConfig(BaseModel):
@@ -111,7 +124,9 @@ class UserProfileConfig(BaseModel):
         reserved = {"messages", "response_format", "tools", "tool_choice", "max_tokens", "_return_metadata"}
         conflicts = sorted(reserved & set(options))
         if conflicts:
-            raise ValueError(f"llm_request_options cannot override reserved profile request fields: {', '.join(conflicts)}")
+            raise ValueError(
+                f"llm_request_options cannot override reserved profile request fields: {', '.join(conflicts)}"
+            )
         return options
 
 
@@ -263,12 +278,6 @@ class MemoryConfig(BaseModel):
         description="Configuration for optional model-directed mid-term retrieval",
         default_factory=AgenticRetrievalConfig,
     )
-
-    @model_validator(mode="after")
-    def validate_cross_session_half_life(self):
-        if self.cross_session_retention_half_life_hours <= self.midterm.retention_half_life_hours:
-            raise ValueError("cross_session_retention_half_life_hours must exceed mid-term retention half-life")
-        return self
 
 
 class AzureConfig(BaseModel):

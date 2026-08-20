@@ -102,13 +102,11 @@ class CrossSessionLongTermMemory:
         }
 
     def _retention_half_life_hours(self) -> float:
-        return float(
-            getattr(
-                self.config,
-                "cross_session_retention_half_life_hours",
-                getattr(self.config.midterm, "retention_half_life_hours", 720.0) * 4,
-            )
-        )
+        configured = getattr(self.config, "cross_session_retention_half_life_hours", None)
+        if configured is not None:
+            return float(configured)
+        legacy_midterm_half_life = getattr(self.config.midterm, "retention_half_life_hours", None)
+        return float(legacy_midterm_half_life) * 4 if legacy_midterm_half_life is not None else 720.0
 
     def _retention_floor(self) -> float:
         return float(
@@ -120,13 +118,10 @@ class CrossSessionLongTermMemory:
         )
 
     def _reinforcement_gain(self) -> float:
-        return float(
-            getattr(
-                self.config,
-                "cross_session_reinforcement_gain",
-                getattr(self.config.midterm, "reinforcement_gain", 0.25),
-            )
-        )
+        configured = getattr(self.config, "cross_session_reinforcement_gain", None)
+        if configured is not None:
+            return float(configured)
+        return float(getattr(self.config.midterm, "reinforcement_gain", 0.25))
 
     def _rag_threshold(self) -> float:
         return float(

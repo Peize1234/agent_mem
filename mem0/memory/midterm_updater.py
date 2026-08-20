@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT, MIDTERM_SESSION_MERGE_PROMPT
-from mem0.memory.midterm import compute_session_heat, keyword_overlap
+from mem0.memory.midterm import compute_recency, compute_session_heat, keyword_overlap
 from mem0.memory.utils import extract_json, remove_code_blocks
 from mem0.utils.timestamps import (
     BEIJING_TIMEZONE,
@@ -37,9 +37,7 @@ class MidTermUpdater:
     @staticmethod
     def _scope_filters(filters: Dict[str, Any]) -> Dict[str, Any]:
         return {
-            key: value
-            for key, value in (filters or {}).items()
-            if key in ("user_id", "agent_id", "run_id") and value
+            key: value for key, value in (filters or {}).items() if key in ("user_id", "agent_id", "run_id") and value
         }
 
     @staticmethod
@@ -205,18 +203,21 @@ class MidTermUpdater:
         if not rows:
             return None
 
-        def created_at(row):
+        def page_order(row):
             payload = getattr(row, "payload", None) or {}
+            sequence = payload.get("page_sequence")
+            if sequence is not None:
+                return (1, int(sequence), datetime.min.replace(tzinfo=BEIJING_TIMEZONE))
             value = payload.get("created_at") or ""
             try:
                 parsed = datetime.fromisoformat(value)
                 if parsed.tzinfo is None:
                     parsed = parsed.replace(tzinfo=BEIJING_TIMEZONE)
-                return parsed
+                return (0, 0, parsed)
             except (TypeError, ValueError):
-                return datetime.min.replace(tzinfo=BEIJING_TIMEZONE)
+                return (0, 0, datetime.min.replace(tzinfo=BEIJING_TIMEZONE))
 
-        rows.sort(key=created_at)
+        rows.sort(key=page_order)
         return str(rows[-1].id)
 
     def _session_id_for_page(
@@ -470,8 +471,13 @@ class MidTermUpdater:
                 "updated_at": beijing_now_iso(),
             }
         )
-        payload["R_recency"] = float(payload.get("R_recency", 1.0) or 1.0)
-        payload["H_segment"] = compute_session_heat(payload, self.config)
+        current_turn_index = page_payload.get("page_sequence")
+        payload["R_recency"] = compute_recency(
+            payload.get("last_visit_turn_index", payload.get("created_turn_index")),
+            current_turn_index,
+            self.config.heat_recency_tau_turns,
+        )
+        payload["H_segment"] = compute_session_heat(payload, self.config, current_turn_index)
         if page_source_job_id and page_payload.get("output_state") == "staging":
             page_payload["_commit_session_id"] = session_id
             page_payload["_commit_session_backup"] = dict(getattr(session, "payload", None) or {})
@@ -531,8 +537,13 @@ class MidTermUpdater:
                 "updated_at": beijing_now_iso(),
             }
         )
-        payload["R_recency"] = float(payload.get("R_recency", 1.0) or 1.0)
-        payload["H_segment"] = compute_session_heat(payload, self.config)
+        current_turn_index = page_payload.get("page_sequence")
+        payload["R_recency"] = compute_recency(
+            payload.get("last_visit_turn_index", payload.get("created_turn_index")),
+            current_turn_index,
+            self.config.heat_recency_tau_turns,
+        )
+        payload["H_segment"] = compute_session_heat(payload, self.config, current_turn_index)
         if page_source_job_id and page_payload.get("output_state") == "staging":
             page_payload["_commit_session_id"] = session_id
             page_payload["_commit_session_backup"] = dict(getattr(session, "payload", None) or {})
@@ -550,6 +561,7 @@ class MidTermUpdater:
     def _create_session(self, page_payload: Dict[str, Any], session_id: Optional[str] = None) -> str:
         now = beijing_now_iso()
         session_id = session_id or str(uuid.uuid4())
+        created_turn_index = page_payload.get("page_sequence")
         payload = {
             "id": session_id,
             "summary": page_payload.get("summary", ""),
@@ -558,13 +570,13 @@ class MidTermUpdater:
             "N_visit": 0,
             "valid_recall_count": 0,
             "last_recall_at": None,
-            "memory_strength": 1.0,
             "L_interaction": 1,
             "R_recency": 1.0,
             "H_segment": 0.0,
+            "created_turn_index": created_turn_index,
+            "last_visit_turn_index": created_turn_index,
             "created_at": now,
             "updated_at": now,
-            "last_visit_time": now,
             "user_id": page_payload.get("user_id"),
             "agent_id": page_payload.get("agent_id"),
             "run_id": page_payload.get("run_id"),
@@ -576,7 +588,7 @@ class MidTermUpdater:
             "created_by_source_job_id": page_payload.get("source_job_id"),
             "created_by_lease_token": page_payload.get("output_lease_token"),
         }
-        payload["H_segment"] = compute_session_heat(payload, self.config)
+        payload["H_segment"] = compute_session_heat(payload, self.config, created_turn_index)
         self.midterm_memory.insert_session(session_id, payload)
         return session_id
 
@@ -688,25 +700,42 @@ class MidTermUpdater:
         if not evicted_messages or not scope_filters:
             return []
 
+        qa_pairs = self._messages_to_qa_pairs(evicted_messages)
+        page_ids = [
+            str(uuid.uuid5(uuid.NAMESPACE_URL, f"mem0:midterm:{source_job_id}:{index}"))
+            if source_job_id
+            else str(uuid.uuid4())
+            for index in range(len(qa_pairs))
+        ]
+        existing_pages = (
+            {page_id: self.midterm_memory.get_page(page_id) for page_id in page_ids}
+            if source_job_id
+            else {page_id: None for page_id in page_ids}
+        )
+        sequences_to_reserve = sum(
+            not existing_page or (getattr(existing_page, "payload", None) or {}).get("page_sequence") is None
+            for existing_page in existing_pages.values()
+        )
+        reserved_sequences = iter(self.midterm_memory.reserve_page_sequences(scope_filters, sequences_to_reserve))
         pages = []
         previous_page_id = self._latest_page_id(scope_filters)
-        for index, qa_pair in enumerate(self._messages_to_qa_pairs(evicted_messages)):
+        for index, qa_pair in enumerate(qa_pairs):
             if lease_is_current is not None and not lease_is_current():
                 raise RuntimeError("stale migration stage lease")
-            page_id = (
-                str(uuid.uuid5(uuid.NAMESPACE_URL, f"mem0:midterm:{source_job_id}:{index}"))
-                if source_job_id
-                else str(uuid.uuid4())
-            )
+            page_id = page_ids[index]
             now = beijing_now_iso()
             raw_dialogue = _format_page_dialogue(
                 qa_pair.get("user_input", ""),
                 qa_pair.get("assistant_response", ""),
             )
-            existing_page = self.midterm_memory.get_page(page_id) if source_job_id else None
+            existing_page = existing_pages.get(page_id)
+            page_sequence = (getattr(existing_page, "payload", None) or {}).get("page_sequence")
+            if page_sequence is None:
+                page_sequence = next(reserved_sequences)
             if existing_page:
                 page_payload = dict(getattr(existing_page, "payload", None) or {})
                 page_payload.setdefault("id", page_id)
+                page_payload.setdefault("page_sequence", page_sequence)
                 if source_job_id:
                     page_payload.update(
                         {
@@ -773,7 +802,8 @@ class MidTermUpdater:
                     "needs_reprocessing": degraded,
                     "valid_recall_count": 0,
                     "last_recall_at": None,
-                    "memory_strength": 1.0,
+                    "last_recall_turn_index": None,
+                    "page_sequence": page_sequence,
                 }
                 if lease_is_current is not None and not lease_is_current():
                     raise RuntimeError("stale migration stage lease")
@@ -821,27 +851,49 @@ class MidTermUpdater:
         if not evicted_messages or not scope_filters:
             return []
 
+        qa_pairs = self._messages_to_qa_pairs(evicted_messages)
+        page_ids = [
+            str(uuid.uuid5(uuid.NAMESPACE_URL, f"mem0:midterm:{source_job_id}:{index}"))
+            if source_job_id
+            else str(uuid.uuid4())
+            for index in range(len(qa_pairs))
+        ]
+        existing_rows = (
+            await asyncio.gather(*(asyncio.to_thread(self.midterm_memory.get_page, page_id) for page_id in page_ids))
+            if source_job_id
+            else [None] * len(page_ids)
+        )
+        existing_pages = dict(zip(page_ids, existing_rows))
+        sequences_to_reserve = sum(
+            not existing_page or (getattr(existing_page, "payload", None) or {}).get("page_sequence") is None
+            for existing_page in existing_pages.values()
+        )
+        reserved_sequences = iter(
+            await asyncio.to_thread(
+                self.midterm_memory.reserve_page_sequences,
+                scope_filters,
+                sequences_to_reserve,
+            )
+        )
         pages = []
         previous_page_id = await asyncio.to_thread(self._latest_page_id, scope_filters)
-        for index, qa_pair in enumerate(self._messages_to_qa_pairs(evicted_messages)):
+        for index, qa_pair in enumerate(qa_pairs):
             if lease_is_current is not None and not lease_is_current():
                 raise RuntimeError("stale migration stage lease")
-            page_id = (
-                str(uuid.uuid5(uuid.NAMESPACE_URL, f"mem0:midterm:{source_job_id}:{index}"))
-                if source_job_id
-                else str(uuid.uuid4())
-            )
+            page_id = page_ids[index]
             now = beijing_now_iso()
             raw_dialogue = _format_page_dialogue(
                 qa_pair.get("user_input", ""),
                 qa_pair.get("assistant_response", ""),
             )
-            existing_page = (
-                await asyncio.to_thread(self.midterm_memory.get_page, page_id) if source_job_id else None
-            )
+            existing_page = existing_pages.get(page_id)
+            page_sequence = (getattr(existing_page, "payload", None) or {}).get("page_sequence")
+            if page_sequence is None:
+                page_sequence = next(reserved_sequences)
             if existing_page:
                 page_payload = dict(getattr(existing_page, "payload", None) or {})
                 page_payload.setdefault("id", page_id)
+                page_payload.setdefault("page_sequence", page_sequence)
                 if source_job_id:
                     page_payload.update(
                         {
@@ -919,7 +971,8 @@ class MidTermUpdater:
                     "needs_reprocessing": degraded,
                     "valid_recall_count": 0,
                     "last_recall_at": None,
-                    "memory_strength": 1.0,
+                    "last_recall_turn_index": None,
+                    "page_sequence": page_sequence,
                 }
                 if lease_is_current is not None and not lease_is_current():
                     raise RuntimeError("stale migration stage lease")
@@ -967,11 +1020,7 @@ class MidTermUpdater:
     ) -> None:
         """Publish all prepared pages only while the caller still owns the stage."""
         rows = self.midterm_memory.list_pages(top_k=10000, include_uncommitted=True)
-        rows = [
-            row
-            for row in rows
-            if (getattr(row, "payload", None) or {}).get("source_job_id") == source_job_id
-        ]
+        rows = [row for row in rows if (getattr(row, "payload", None) or {}).get("source_job_id") == source_job_id]
         rows.sort(key=lambda row: (getattr(row, "payload", None) or {}).get("created_at") or "")
         for row in rows:
             if not lease_is_current():
@@ -1038,11 +1087,7 @@ class MidTermUpdater:
             top_k=10000,
             include_uncommitted=True,
         )
-        rows = [
-            row
-            for row in rows
-            if (getattr(row, "payload", None) or {}).get("source_job_id") == source_job_id
-        ]
+        rows = [row for row in rows if (getattr(row, "payload", None) or {}).get("source_job_id") == source_job_id]
         rows.sort(key=lambda row: (getattr(row, "payload", None) or {}).get("created_at") or "")
         for row in rows:
             if not lease_is_current():
@@ -1110,11 +1155,7 @@ class MidTermUpdater:
         """Hide first, then best-effort restore/delete session side effects."""
         cleanup_errors = []
         rows = self.midterm_memory.list_pages(top_k=10000, include_uncommitted=True)
-        rows = [
-            row
-            for row in rows
-            if (getattr(row, "payload", None) or {}).get("source_job_id") == source_job_id
-        ]
+        rows = [row for row in rows if (getattr(row, "payload", None) or {}).get("source_job_id") == source_job_id]
         for row in rows:
             page_payload = dict(getattr(row, "payload", None) or {})
             if page_payload.get("output_state") != "staging":
@@ -1160,7 +1201,15 @@ class MidTermUpdater:
     def promote_hot_sessions(self) -> List[Dict[str, Any]]:
         hot_sessions = []
         for session in self.midterm_memory.list_sessions(top_k=10000):
-            payload = getattr(session, "payload", None) or {}
-            if float(payload.get("H_segment", 0.0) or 0.0) >= self.config.promotion_heat_threshold:
+            payload = dict(getattr(session, "payload", None) or {})
+            scope_filters = self._scope_filters(payload)
+            current_turn_index = self.midterm_memory.current_turn_index(scope_filters)
+            payload["R_recency"] = compute_recency(
+                payload.get("last_visit_turn_index", payload.get("created_turn_index")),
+                current_turn_index,
+                self.config.heat_recency_tau_turns,
+            )
+            payload["H_segment"] = compute_session_heat(payload, self.config, current_turn_index)
+            if payload["H_segment"] >= self.config.promotion_heat_threshold:
                 hot_sessions.append({"id": str(session.id), **payload})
         return hot_sessions

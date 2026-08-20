@@ -116,24 +116,18 @@ def test_midterm_summary_request_and_persisted_dialogue_share_real_blank_line_se
         {"role": "user", "content": '用户第一行\n用户第二行，含引号 " 和 emoji 😀'},
         {"role": "assistant", "content": "助手第一行\n助手第二行，含反斜杠 \\"},
     ]
-    expected = (
-        'User: 用户第一行\n用户第二行，含引号 " 和 emoji 😀\n\n'
-        "Assistant: 助手第一行\n助手第二行，含反斜杠 \\"
-    )
+    expected = 'User: 用户第一行\n用户第二行，含引号 " 和 emoji 😀\n\nAssistant: 助手第一行\n助手第二行，含反斜杠 \\'
 
     try:
         pages = memory.midterm_updater.process_evicted_messages(
             messages,
             {"user_id": "u1", "run_id": "r1"},
         )
-        summary_call = next(
-            call
-            for call in llm.calls
-            if call["messages"][0]["content"] == MIDTERM_PAGE_SUMMARY_PROMPT
-        )
+        summary_call = next(call for call in llm.calls if call["messages"][0]["content"] == MIDTERM_PAGE_SUMMARY_PROMPT)
 
         assert summary_call["messages"][1]["content"] == expected
         assert pages[0]["raw_dialogue"] == expected
+        assert pages[0]["page_sequence"] == 1
         assert "User: " in expected
         assert "\n\nAssistant: " in expected
         assert "\\n\\nAssistant" not in expected
@@ -257,10 +251,10 @@ def test_midterm_config_defaults():
     assert config.cross_session_retention_half_life_hours == 720.0
     assert config.cross_session_retention_floor == 0.2
     assert config.cross_session_reinforcement_gain == 0.25
-    assert config.cross_session_retention_half_life_hours > config.midterm.retention_half_life_hours
-    assert config.midterm.retention_half_life_hours == 168.0
+    assert config.midterm.retention_half_life_turns == 168.0
+    assert config.midterm.heat_recency_tau_turns == 24.0
     assert config.midterm.retention_floor == 0.2
-    assert config.midterm.reinforcement_gain == 0.5
+    assert not hasattr(config.midterm, "reinforcement_gain")
     assert config.midterm.heat_modulation_min == 0.9
     assert config.midterm.heat_modulation_max == 1.1
     assert config.midterm.promotion_min_recall_count == 3
@@ -274,8 +268,14 @@ def test_midterm_config_rejects_negative_page_limits():
         MidTermMemoryConfig(top_k_pages=-1)
     with pytest.raises(ValueError):
         MidTermMemoryConfig(max_total_pages=-1)
-    with pytest.raises(ValueError, match="cross_session_retention_half_life_hours"):
-        MemoryConfig(cross_session_retention_half_life_hours=100.0)
+
+
+def test_legacy_midterm_evolution_config_maps_half_life_and_ignores_reinforcement():
+    config = MidTermMemoryConfig(retention_half_life_hours=12.0, reinforcement_gain=9.0)
+
+    assert config.retention_half_life_turns == 12.0
+    assert not hasattr(config, "retention_half_life_hours")
+    assert not hasattr(config, "reinforcement_gain")
 
 
 def _midterm_row(row_id, score, **payload):
@@ -550,10 +550,26 @@ def test_midterm_threshold_uses_raw_score_not_heat_modulated_final_score():
     ]
     pages_by_session = {
         "cold": [
-            _midterm_row("raw-pass", 0.51, session_id="cold", summary="pass", user_id="u1", run_id="r1")
+            _midterm_row(
+                "raw-pass",
+                0.51,
+                session_id="cold",
+                summary="pass",
+                user_id="u1",
+                run_id="r1",
+                page_sequence=1,
+            )
         ],
         "hot": [
-            _midterm_row("final-pass-only", 0.49, session_id="hot", summary="fail", user_id="u1", run_id="r1")
+            _midterm_row(
+                "final-pass-only",
+                0.49,
+                session_id="hot",
+                summary="fail",
+                user_id="u1",
+                run_id="r1",
+                page_sequence=1,
+            )
         ],
     }
     config = _retriever_config(top_k_sessions=2, top_k_pages=1, max_total_pages=2)
@@ -564,47 +580,68 @@ def test_midterm_threshold_uses_raw_score_not_heat_modulated_final_score():
 
     assert [page["id"] for page in pages] == ["raw-pass"]
     assert pages[0]["raw_rag_score"] == pytest.approx(0.51)
-    assert pages[0]["final_score"] == pytest.approx(0.51 * config.heat_modulation_min)
-    assert pages[0]["final_score"] < config.midterm_rag_threshold
+    assert pages[0]["heat_factor"] == pytest.approx(config.heat_modulation_min)
+    assert pages[0]["final_score"] == pytest.approx(0.51)
+    assert pages[0]["final_score"] >= config.midterm_rag_threshold
 
 
-def test_deterministic_forgetting_and_reinforcement():
+def test_midterm_forgetting_uses_page_distance_and_not_wall_clock():
     config = _retriever_config()
-    config.retention_half_life_hours = 24.0
+    config.retention_half_life_turns = 4.0
     config.retention_floor = 0.1
-    config.reinforcement_gain = 0.5
     now = beijing_now()
-    weak = {
+    near = {
+        "page_sequence": 8,
         "created_at": (now - timedelta(hours=24)).isoformat(),
-        "valid_recall_count": 0,
     }
-    old = {
+    far = {
+        "page_sequence": 4,
         "created_at": (now - timedelta(hours=48)).isoformat(),
-        "valid_recall_count": 0,
     }
-    strong = {
-        "created_at": weak["created_at"],
-        "valid_recall_count": 8,
+    same_distance_different_time = {
+        "page_sequence": 8,
+        "created_at": (now - timedelta(days=365)).isoformat(),
     }
 
-    weak_retention = forgetting_factor(weak, config, now=now.isoformat())
-    old_retention = forgetting_factor(old, config, now=now.isoformat())
-    strong_retention = forgetting_factor(strong, config, now=now.isoformat())
+    near_retention = forgetting_factor(near, config, current_turn_index=12, now=now.isoformat())
+    far_retention = forgetting_factor(far, config, current_turn_index=12, now=now.isoformat())
+    wall_clock_independent = forgetting_factor(
+        same_distance_different_time,
+        config,
+        current_turn_index=12,
+        now=(now + timedelta(days=30)).isoformat(),
+    )
 
-    assert old_retention < weak_retention
-    assert memory_strength(8, config.reinforcement_gain) > memory_strength(0, config.reinforcement_gain)
-    assert strong_retention > weak_retention
-    assert forgetting_factor(weak, config, now=now.isoformat()) == weak_retention
+    assert near_retention == pytest.approx(0.5)
+    assert far_retention == pytest.approx(0.25)
+    assert far_retention < near_retention
+    assert wall_clock_independent == pytest.approx(near_retention)
 
 
-def test_heat_modulation_normalizes_pool_and_handles_equal_heat():
-    assert heat_modulations({"only": 7.0}, minimum=0.9, maximum=1.1) == {"only": 1.0}
-    assert heat_modulations({"a": 2.0, "b": 2.0}, minimum=0.9, maximum=1.1) == {
-        "a": 1.0,
-        "b": 1.0,
-    }
+def test_heat_maps_absolute_session_heat_to_bounded_half_life_factor():
+    assert heat_modulations({"only": 7.0}, minimum=0.9, maximum=1.1) == {"only": pytest.approx(1.075)}
+    equal = heat_modulations({"a": 2.0, "b": 2.0}, minimum=0.9, maximum=1.1)
+    assert equal["a"] == pytest.approx(equal["b"])
     modulations = heat_modulations({"cold": 0.0, "warm": 5.0, "hot": 10.0}, minimum=0.8, maximum=1.2)
-    assert modulations == {"cold": 0.8, "warm": 1.0, "hot": 1.2}
+    assert modulations["cold"] == pytest.approx(0.8)
+    assert 0.8 < modulations["warm"] < modulations["hot"] < 1.2
+
+    config = _retriever_config()
+    config.retention_half_life_turns = 10.0
+    payload = {"page_sequence": 0}
+    cold_retention = forgetting_factor(
+        payload,
+        config,
+        current_turn_index=10,
+        heat_factor=modulations["cold"],
+    )
+    hot_retention = forgetting_factor(
+        payload,
+        config,
+        current_turn_index=10,
+        heat_factor=modulations["hot"],
+    )
+    assert hot_retention > cold_retention
 
 
 def test_sqlite_save_messages_returns_natural_evictions():
@@ -753,9 +790,7 @@ async def test_async_midterm_llm_waits_can_overlap_between_jobs():
 
     llm = OverlapLLM()
     updater = MidTermUpdater(midterm_memory=None, llm=llm, config=MidTermMemoryConfig())
-    await asyncio.gather(
-        *(updater._summarize_page_async(f"user-{index}", f"assistant-{index}") for index in range(8))
-    )
+    await asyncio.gather(*(updater._summarize_page_async(f"user-{index}", f"assistant-{index}") for index in range(8)))
     assert llm.maximum == 8
 
 
@@ -814,6 +849,36 @@ def test_midterm_partial_write_is_not_visible_before_commit(tmp_path, fake_memor
     memory.close()
 
 
+def test_midterm_retry_preserves_page_sequence_without_advancing_future_pages(tmp_path, fake_memory_env):
+    config = _memory_config(tmp_path, collection_name="midterm_retry_sequence")
+    config.background.enabled = False
+    memory = Memory(config)
+    filters = {"user_id": "u1", "run_id": "r1"}
+    messages = [
+        {"role": "user", "content": "retry keeps order"},
+        {"role": "assistant", "content": "ack"},
+    ]
+
+    first = memory.midterm_updater.process_evicted_messages(
+        messages,
+        filters,
+        source_job_id="stable-sequence-job",
+        lease_token="first-lease",
+    )
+    retried = memory.midterm_updater.process_evicted_messages(
+        messages,
+        filters,
+        source_job_id="stable-sequence-job",
+        lease_token="second-lease",
+    )
+    following = memory.midterm_updater.process_evicted_messages(messages, filters)
+
+    assert first[0]["page_sequence"] == 1
+    assert retried[0]["page_sequence"] == 1
+    assert following[0]["page_sequence"] == 2
+    memory.close()
+
+
 def test_discarded_midterm_does_not_pollute_existing_session_summary(tmp_path, fake_memory_env):
     config = _memory_config(tmp_path, collection_name="midterm_discard")
     config.background.enabled = False
@@ -827,10 +892,7 @@ def test_discarded_midterm_does_not_pollute_existing_session_summary(tmp_path, f
         filters,
         raise_on_error=True,
     )
-    before = {
-        row.id: dict(row.payload)
-        for row in memory.midterm_memory.list_sessions(filters=filters, top_k=10)
-    }
+    before = {row.id: dict(row.payload) for row in memory.midterm_memory.list_sessions(filters=filters, top_k=10)}
 
     memory._process_midterm_evictions(
         [
@@ -846,10 +908,7 @@ def test_discarded_midterm_does_not_pollute_existing_session_summary(tmp_path, f
         "discarded-midterm-job",
         "discarded-midterm-lease",
     )
-    after = {
-        row.id: dict(row.payload)
-        for row in memory.midterm_memory.list_sessions(filters=filters, top_k=10)
-    }
+    after = {row.id: dict(row.payload) for row in memory.midterm_memory.list_sessions(filters=filters, top_k=10)}
     staged = memory.midterm_memory.list_pages(
         filters=filters,
         top_k=10,
@@ -859,7 +918,10 @@ def test_discarded_midterm_does_not_pollute_existing_session_summary(tmp_path, f
     assert cleanup_error is None
     assert before == after
     assert any(row.payload.get("output_state") == "discarded" for row in staged)
-    assert all(row.payload.get("source_job_id") != "discarded-midterm-job" for row in memory.midterm_memory.list_pages(filters=filters))
+    assert all(
+        row.payload.get("source_job_id") != "discarded-midterm-job"
+        for row in memory.midterm_memory.list_pages(filters=filters)
+    )
     memory.close()
 
 
@@ -1150,7 +1212,14 @@ def test_midterm_disabled_preserves_search_shape_and_lazy_state(tmp_path, fake_m
     memory.close()
 
 
-def _insert_midterm_page_and_session(memory, *, page_id="page-1", session_id="session-1", run_id="run-1"):
+def _insert_midterm_page_and_session(
+    memory,
+    *,
+    page_id="page-1",
+    session_id="session-1",
+    run_id="run-1",
+    page_sequence=1,
+):
     now = beijing_now().isoformat()
     memory.midterm_memory.insert_page(
         page_id,
@@ -1166,9 +1235,10 @@ def _insert_midterm_page_and_session(memory, *, page_id="page-1", session_id="se
             "updated_at": now,
             "user_id": "user-1",
             "run_id": run_id,
+            "page_sequence": page_sequence,
             "valid_recall_count": 0,
             "last_recall_at": None,
-            "memory_strength": 1.0,
+            "last_recall_turn_index": None,
             "output_state": "committed",
         },
     )
@@ -1182,10 +1252,11 @@ def _insert_midterm_page_and_session(memory, *, page_id="page-1", session_id="se
             "N_visit": 0,
             "valid_recall_count": 0,
             "last_recall_at": None,
-            "memory_strength": 1.0,
             "L_interaction": 1,
             "R_recency": 1.0,
             "H_segment": 0.5,
+            "created_turn_index": page_sequence,
+            "last_visit_turn_index": page_sequence,
             "created_at": now,
             "updated_at": now,
             "user_id": "user-1",
@@ -1212,14 +1283,57 @@ def test_valid_recall_is_confirmed_only_for_pages_entering_context(tmp_path, fak
     session = memory.midterm_memory.get_session("session-1").payload
     assert page["valid_recall_count"] == 1
     assert page["last_recall_at"]
-    assert page["memory_strength"] > 1.0
+    assert page["last_recall_turn_index"] == 1
+    assert "memory_strength" not in page
     assert session["valid_recall_count"] == 1
+    assert session["N_visit"] == 1
+    assert session["last_visit_turn_index"] == 1
+    assert session["R_recency"] == pytest.approx(1.0)
     assert session["H_segment"] > 0.5
 
     # Deduplication is per confirmation round, even if two retrieval paths
     # produced the same page.
     memory._confirm_context_valid_recalls([*candidates, *candidates])
     assert memory.midterm_memory.get_page("page-1").payload["valid_recall_count"] == 2
+    memory.close()
+
+
+def test_valid_recall_resets_turn_recency_anchor_and_future_search_recomputes_it(tmp_path, fake_memory_env):
+    config = _memory_config(tmp_path, collection_name="valid_recall_turn_recency")
+    config.background.enabled = False
+    config.midterm.heat_recency_tau_turns = 4.0
+    memory = Memory(config)
+    _insert_midterm_page_and_session(memory)
+
+    memory.midterm_memory.record_valid_recalls(["page-1"], recall_turn_index=4)
+    recalled_page = memory.midterm_memory.get_page("page-1").payload
+    recalled_session = memory.midterm_memory.get_session("session-1").payload
+    assert forgetting_factor(recalled_page, config.midterm, current_turn_index=4) == pytest.approx(1.0)
+    assert recalled_session["N_visit"] == 1
+    assert recalled_session["last_visit_turn_index"] == 4
+    assert recalled_session["R_recency"] == pytest.approx(1.0)
+
+    memory.midterm_memory.insert_page(
+        "page-clock",
+        {
+            "id": "page-clock",
+            "session_id": "session-clock",
+            "summary": "conversation advanced",
+            "raw_dialogue": "User: next\n\nAssistant: next",
+            "created_at": beijing_now().isoformat(),
+            "updated_at": beijing_now().isoformat(),
+            "user_id": "user-1",
+            "run_id": "run-1",
+            "page_sequence": 8,
+            "output_state": "committed",
+        },
+    )
+    results = memory.midterm_retriever.search(
+        "maximum loss",
+        {"user_id": "user-1", "run_id": "run-1"},
+    )
+    recalled_result = next(item for item in results if item.get("id") == "session-1")
+    assert recalled_result["R_recency"] == pytest.approx(math.exp(-1.0))
     memory.close()
 
 
@@ -1313,9 +1427,7 @@ def test_cross_session_longterm_promotion_is_user_scoped_and_idempotent(tmp_path
         {"user_id": "user-1", "run_id": "run-b"},
         [],
     )
-    cross_session_results = [
-        item for item in new_session_results if item.get("source") == "cross_session_long_term"
-    ]
+    cross_session_results = [item for item in new_session_results if item.get("source") == "cross_session_long_term"]
     assert len(cross_session_results) == 1
     assert cross_session_results[0]["source_run_id"] == "run-a"
     assert not [item for item in new_session_results if item.get("source") == "long_term"]
@@ -1386,9 +1498,7 @@ def test_cross_session_retrieval_uses_slow_reinforcement_and_raw_threshold(tmp_p
     assert len(candidates) == 1
     candidate = candidates[0]
     assert candidate["forgetting_factor"] == pytest.approx(0.5)
-    assert candidate["final_score"] == pytest.approx(
-        candidate["raw_rag_score"] * candidate["forgetting_factor"]
-    )
+    assert candidate["final_score"] == pytest.approx(candidate["raw_rag_score"] * candidate["forgetting_factor"])
     assert candidate["final_score"] < config.cross_session_longterm_rag_threshold
     assert memory.cross_session_longterm.get(memory_id).payload["recall_count"] == 0
 
@@ -1396,9 +1506,7 @@ def test_cross_session_retrieval_uses_slow_reinforcement_and_raw_threshold(tmp_p
     recalled = memory.cross_session_longterm.get(memory_id).payload
     assert recalled["recall_count"] == 1
     assert recalled["last_recall_at"]
-    assert recalled["memory_strength"] == pytest.approx(
-        memory_strength(1, config.cross_session_reinforcement_gain)
-    )
+    assert recalled["memory_strength"] == pytest.approx(memory_strength(1, config.cross_session_reinforcement_gain))
 
     cross_payload = {"promoted_at": old, "recall_count": 0}
     cross_retention = forgetting_factor(
@@ -1412,11 +1520,19 @@ def test_cross_session_retrieval_uses_slow_reinforcement_and_raw_threshold(tmp_p
         reinforcement_gain=config.cross_session_reinforcement_gain,
     )
     midterm_retention = forgetting_factor(
-        {"created_at": old, "valid_recall_count": 0},
+        {"created_at": old, "page_sequence": 0, "valid_recall_count": 99},
         config.midterm,
         now=now.isoformat(),
+        current_turn_index=config.midterm.retention_half_life_turns,
     )
-    assert cross_retention > midterm_retention
+    assert cross_retention == pytest.approx(0.5)
+    assert midterm_retention == pytest.approx(0.5)
+    assert forgetting_factor(
+        {"created_at": now.isoformat(), "page_sequence": 0, "valid_recall_count": 0},
+        config.midterm,
+        now=(now + timedelta(days=365)).isoformat(),
+        current_turn_index=config.midterm.retention_half_life_turns,
+    ) == pytest.approx(midterm_retention)
     memory.close()
 
 
@@ -1436,9 +1552,7 @@ def test_valid_recall_only_enqueues_promotion_without_embedding(tmp_path, fake_m
 
     memory.embedding_model.embed = recording_embed
     embedding_calls.clear()
-    memory._confirm_context_valid_recalls(
-        [{"id": "page-1", "source": "mid_term_page", "raw_dialogue": "context"}]
-    )
+    memory._confirm_context_valid_recalls([{"id": "page-1", "source": "mid_term_page", "raw_dialogue": "context"}])
 
     jobs = memory.db.list_promotion_jobs()
     assert len(jobs) == 1

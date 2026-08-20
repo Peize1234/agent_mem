@@ -1,8 +1,8 @@
 import logging
 from typing import Any, Dict, List
 
-from mem0.memory.memory_evolution import forgetting_factor, heat_modulations, memory_strength
-from mem0.utils.timestamps import beijing_now_iso
+from mem0.memory.memory_evolution import forgetting_factor, heat_modulations
+from mem0.memory.midterm import compute_recency, compute_session_heat
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,13 @@ class MidTermRetriever:
         }
 
     @staticmethod
-    def _format_session(session, score: float) -> Dict[str, Any]:
+    def _format_session(
+        session,
+        score: float,
+        *,
+        session_heat: float | None = None,
+        session_recency: float | None = None,
+    ) -> Dict[str, Any]:
         payload = getattr(session, "payload", None) or {}
         return {
             "id": str(session.id),
@@ -35,10 +41,11 @@ class MidTermRetriever:
             "agent_id": payload.get("agent_id"),
             "run_id": payload.get("run_id"),
             "summary_keywords": payload.get("summary_keywords", []),
-            "H_segment": payload.get("H_segment"),
+            "R_recency": session_recency if session_recency is not None else payload.get("R_recency"),
+            "H_segment": session_heat if session_heat is not None else payload.get("H_segment"),
             "valid_recall_count": payload.get("valid_recall_count", 0),
-            "memory_strength": payload.get("memory_strength", 1.0),
             "last_recall_at": payload.get("last_recall_at"),
+            "last_visit_turn_index": payload.get("last_visit_turn_index"),
             "source_job_id": payload.get("source_job_id"),
             "source_job_ids": payload.get("source_job_ids", []),
         }
@@ -51,8 +58,8 @@ class MidTermRetriever:
         *,
         raw_rag_score: float | None = None,
         page_forgetting_factor: float = 1.0,
-        heat_modulation: float = 1.0,
-        page_memory_strength: float | None = None,
+        heat_factor: float = 1.0,
+        effective_half_life_turns: float | None = None,
     ) -> Dict[str, Any]:
         payload = getattr(page, "payload", None) or {}
         raw_score = score if raw_rag_score is None else raw_rag_score
@@ -63,12 +70,12 @@ class MidTermRetriever:
             "raw_rag_score": raw_score,
             "final_score": score,
             "forgetting_factor": page_forgetting_factor,
-            "heat_modulation": heat_modulation,
-            "memory_strength": (
-                page_memory_strength if page_memory_strength is not None else payload.get("memory_strength", 1.0)
-            ),
+            "heat_factor": heat_factor,
+            "effective_half_life_turns": effective_half_life_turns,
             "valid_recall_count": payload.get("valid_recall_count", 0),
             "last_recall_at": payload.get("last_recall_at"),
+            "last_recall_turn_index": payload.get("last_recall_turn_index"),
+            "page_sequence": payload.get("page_sequence"),
             "source": "mid_term_page",
             "session_id": payload.get("session_id"),
             "summary": payload.get("summary"),
@@ -156,6 +163,41 @@ class MidTermRetriever:
                 payloads[str(session_id)] = dict(getattr(session, "payload", None) or {})
         return payloads
 
+    def _current_turn_index(self, scope_filters: Dict[str, Any], pages: List[Any]) -> int:
+        get_current_turn_index = getattr(self.midterm_memory, "current_turn_index", None)
+        if callable(get_current_turn_index):
+            try:
+                return int(get_current_turn_index(scope_filters))
+            except Exception:
+                logger.debug("Failed to load current mid-term turn index", exc_info=True)
+        return max(
+            (
+                int(payload["page_sequence"])
+                for page in pages
+                if (payload := (getattr(page, "payload", None) or {})).get("page_sequence") is not None
+            ),
+            default=0,
+        )
+
+    def _session_evolution(
+        self,
+        payloads: Dict[str, Dict[str, Any]],
+        current_turn_index: int,
+    ) -> tuple[Dict[str, float], Dict[str, float]]:
+        recencies = {
+            session_id: compute_recency(
+                payload.get("last_visit_turn_index", payload.get("created_turn_index")),
+                current_turn_index,
+                self.config.heat_recency_tau_turns,
+            )
+            for session_id, payload in payloads.items()
+        }
+        heats = {
+            session_id: compute_session_heat(payload, self.config, current_turn_index)
+            for session_id, payload in payloads.items()
+        }
+        return recencies, heats
+
     def search(
         self,
         query: str,
@@ -187,9 +229,19 @@ class MidTermRetriever:
             filters=scope_filters,
             top_k=top_k_sessions,
         )
-        results = [self._format_session(session, float(getattr(session, "score", 0.0) or 0.0)) for session in sessions]
         if top_k_pages <= 0 or max_total_pages <= 0:
-            return results
+            current_turn_index = self._current_turn_index(scope_filters, [])
+            session_payloads = self._session_payloads(sessions, [])
+            recencies, heats = self._session_evolution(session_payloads, current_turn_index)
+            return [
+                self._format_session(
+                    session,
+                    float(getattr(session, "score", 0.0) or 0.0),
+                    session_heat=heats.get(str(session.id)),
+                    session_recency=recencies.get(str(session.id)),
+                )
+                for session in sessions
+            ]
 
         page_candidates: List[Any] = []
         session_scores: Dict[str, float] = {}
@@ -235,29 +287,37 @@ class MidTermRetriever:
             for page in unique_candidates
             if (getattr(page, "payload", None) or {}).get("session_id") not in (None, "")
         }
-        heats = {
-            session_id: float((session_payloads.get(session_id) or {}).get("H_segment", 0.0) or 0.0)
-            for session_id in candidate_session_ids
-        }
+        current_turn_index = self._current_turn_index(scope_filters, unique_candidates)
+        recencies, all_heats = self._session_evolution(session_payloads, current_turn_index)
+        heats = {session_id: all_heats.get(session_id, 0.0) for session_id in candidate_session_ids}
         modulations = heat_modulations(
             heats,
             minimum=self.config.heat_modulation_min,
             maximum=self.config.heat_modulation_max,
         )
 
-        now = beijing_now_iso()
+        results = [
+            self._format_session(
+                session,
+                float(getattr(session, "score", 0.0) or 0.0),
+                session_heat=all_heats.get(str(session.id)),
+                session_recency=recencies.get(str(session.id)),
+            )
+            for session in sessions
+        ]
         ranked_pages: List[Dict[str, Any]] = []
         for page in unique_candidates:
             payload = getattr(page, "payload", None) or {}
             session_id = str(payload.get("session_id") or "")
             raw_score = float(getattr(page, "score", 0.0) or 0.0)
-            retention = forgetting_factor(payload, self.config, now=now)
             modulation = modulations.get(session_id, 1.0)
-            strength = memory_strength(
-                payload.get("valid_recall_count", 0) or 0,
-                self.config.reinforcement_gain,
+            retention = forgetting_factor(
+                payload,
+                self.config,
+                current_turn_index=current_turn_index,
+                heat_factor=modulation,
             )
-            final_score = raw_score * retention * modulation
+            final_score = raw_score * retention
             ranked_pages.append(
                 self._format_page(
                     page,
@@ -265,8 +325,8 @@ class MidTermRetriever:
                     session_score=session_scores.get(session_id, 0.0),
                     raw_rag_score=raw_score,
                     page_forgetting_factor=retention,
-                    heat_modulation=modulation,
-                    page_memory_strength=strength,
+                    heat_factor=modulation,
+                    effective_half_life_turns=float(self.config.retention_half_life_turns) * modulation,
                 )
             )
 
