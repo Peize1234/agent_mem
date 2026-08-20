@@ -48,7 +48,8 @@ class CrossSessionLongTermMemory:
         self.primary_vector_store = primary_vector_store
         self.vector_store_timeout_seconds = vector_store_timeout_seconds
         self.collection_name = f"{base_collection_name}_cross_session_longterm"
-        self._lock = threading.RLock()
+        self._memory_locks_guard = threading.Lock()
+        self._memory_locks: Dict[str, threading.RLock] = {}
         self.store = self._create_store()
 
     def _base_config_dict(self) -> Dict[str, Any]:
@@ -136,6 +137,15 @@ class CrossSessionLongTermMemory:
             )
         )
 
+    def _memory_lock(self, memory_id: str):
+        """Return the stable per-record lock without holding the guard during I/O."""
+        with self._memory_locks_guard:
+            lock = self._memory_locks.get(memory_id)
+            if lock is None:
+                lock = threading.RLock()
+                self._memory_locks[memory_id] = lock
+            return lock
+
     def get(self, memory_id: str):
         return self.store.get(vector_id=memory_id)
 
@@ -168,37 +178,40 @@ class CrossSessionLongTermMemory:
         lease_is_current: Optional[Callable[[], bool]] = None,
     ) -> Optional[Dict[str, Any]]:
         """Idempotently promote an eligible session using a deterministic record ID."""
-        with self._lock:
-            session = midterm_memory.get_session(session_id)
-            if not session:
-                return None
-            session_payload = dict(getattr(session, "payload", None) or {})
-            recall_count = int(session_payload.get("valid_recall_count", 0) or 0)
-            absolute_heat = float(session_payload.get("H_segment", 0.0) or 0.0)
-            if recall_count < int(self.config.midterm.promotion_min_recall_count):
-                return None
-            if absolute_heat < float(self.config.midterm.promotion_heat_threshold):
-                return None
-            current_source_version = promotion_source_version(session_payload)
-            if expected_source_version and current_source_version != expected_source_version:
-                return None
-            if lease_is_current is not None and not lease_is_current():
-                raise RuntimeError("stale promotion job lease")
+        session = midterm_memory.get_session(session_id)
+        if not session:
+            return None
+        session_payload = dict(getattr(session, "payload", None) or {})
+        recall_count = int(session_payload.get("valid_recall_count", 0) or 0)
+        absolute_heat = float(session_payload.get("H_segment", 0.0) or 0.0)
+        if recall_count < int(self.config.midterm.promotion_min_recall_count):
+            return None
+        if absolute_heat < float(self.config.midterm.promotion_heat_threshold):
+            return None
+        current_source_version = promotion_source_version(session_payload)
+        if expected_source_version and current_source_version != expected_source_version:
+            return None
+        if lease_is_current is not None and not lease_is_current():
+            raise RuntimeError("stale promotion job lease")
 
-            user_id = session_payload.get("user_id")
-            if user_id in (None, ""):
-                return None
-            user_id = str(user_id)
-            memory_id = self._memory_id(user_id, session_id)
+        user_id = session_payload.get("user_id")
+        if user_id in (None, ""):
+            return None
+        user_id = str(user_id)
+        memory_id = self._memory_id(user_id, session_id)
+        summary = str(session_payload.get("summary") or "").strip()
+        if not summary:
+            return None
+        page_ids = unique_ids(session_payload.get("page_ids") or [])
+        keywords = list(session_payload.get("summary_keywords") or [])
+        evidence = self._evidence(midterm_memory, page_ids)
+
+        # Only promotions/recalls for this deterministic record serialize. The
+        # lock-pool guard is never held across embedding or vector-store I/O.
+        with self._memory_lock(memory_id):
             existing = self.get(memory_id)
             existing_payload = dict(getattr(existing, "payload", None) or {}) if existing else {}
             now = beijing_now_iso()
-            summary = str(session_payload.get("summary") or "").strip()
-            if not summary:
-                return None
-            page_ids = unique_ids(session_payload.get("page_ids") or [])
-            keywords = list(session_payload.get("summary_keywords") or [])
-            evidence = self._evidence(midterm_memory, page_ids)
             if existing and all(
                 (
                     existing_payload.get("memory") == summary,
@@ -235,6 +248,10 @@ class CrossSessionLongTermMemory:
             vector = self.embedding_model.embed(self._embedding_text(payload), "update" if existing else "add")
             if lease_is_current is not None and not lease_is_current():
                 raise RuntimeError("stale promotion job lease")
+            latest_session = midterm_memory.get_session(session_id)
+            latest_payload = dict(getattr(latest_session, "payload", None) or {}) if latest_session else {}
+            if promotion_source_version(latest_payload) != current_source_version:
+                return None
             if existing:
                 self.store.update(vector_id=memory_id, vector=vector, payload=stored_payload)
             else:
@@ -311,8 +328,8 @@ class CrossSessionLongTermMemory:
 
     def record_valid_recalls(self, memory_ids: List[str], *, recalled_at: Optional[str] = None) -> None:
         now = recalled_at or beijing_now_iso()
-        with self._lock:
-            for memory_id in unique_ids(memory_ids):
+        for memory_id in unique_ids(memory_ids):
+            with self._memory_lock(memory_id):
                 row = self.get(memory_id)
                 if not row:
                     continue

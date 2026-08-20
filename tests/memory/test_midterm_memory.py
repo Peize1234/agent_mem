@@ -1,6 +1,7 @@
 import asyncio
 import json
 import math
+import threading
 from datetime import timedelta
 from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
@@ -1444,4 +1445,111 @@ def test_valid_recall_only_enqueues_promotion_without_embedding(tmp_path, fake_m
     assert jobs[0]["status"] == "pending"
     assert embedding_calls == []
     assert memory.cross_session_longterm.list(filters={"user_id": "user-1"}, top_k=10) == []
+    memory.close()
+
+
+def test_blocked_promotion_does_not_block_another_memory_valid_recall(tmp_path, fake_memory_env):
+    config = _memory_config(tmp_path, collection_name="promotion_recall_lock_isolation")
+    config.background.enabled = False
+    config.midterm.promotion_min_recall_count = 1
+    config.midterm.promotion_heat_threshold = 0.0
+    memory = Memory(config)
+    _insert_midterm_page_and_session(memory, page_id="page-a", session_id="session-a")
+    _insert_midterm_page_and_session(memory, page_id="page-b", session_id="session-b")
+    memory.midterm_memory.record_valid_recalls(["page-a", "page-b"])
+    session_a = memory.midterm_memory.get_session("session-a").payload
+    session_a["summary"] = "blocked-promotion-session-a"
+    memory.midterm_memory.update_session("session-a", session_a, reembed=False)
+    promoted_b = memory.cross_session_longterm.promote_session("session-b", memory.midterm_memory)
+
+    original_embed = memory.embedding_model.embed
+    promotion_entered = threading.Event()
+    release_promotion = threading.Event()
+
+    def blocking_embed(text, memory_action=None):
+        if "blocked-promotion-session-a" in text and memory_action in {"add", "update"}:
+            promotion_entered.set()
+            assert release_promotion.wait(3)
+        return original_embed(text, memory_action)
+
+    memory.embedding_model.embed = blocking_embed
+    promotion_thread = threading.Thread(
+        target=memory.cross_session_longterm.promote_session,
+        args=("session-a", memory.midterm_memory),
+    )
+    recall_finished = threading.Event()
+    recall_thread = threading.Thread(
+        target=lambda: (
+            memory.cross_session_longterm.record_valid_recalls([promoted_b["id"]]),
+            recall_finished.set(),
+        )
+    )
+    try:
+        promotion_thread.start()
+        assert promotion_entered.wait(1)
+        recall_thread.start()
+        assert recall_finished.wait(1), "another memory's recall was blocked by promotion embedding"
+    finally:
+        release_promotion.set()
+        promotion_thread.join(3)
+        recall_thread.join(3)
+
+    assert not promotion_thread.is_alive()
+    assert not recall_thread.is_alive()
+    assert memory.cross_session_longterm.get(promoted_b["id"]).payload["recall_count"] == 1
+    memory.close()
+
+
+def test_different_sessions_enter_promotion_embedding_concurrently(tmp_path, fake_memory_env):
+    config = _memory_config(tmp_path, collection_name="promotion_true_concurrency")
+    config.background.enabled = False
+    config.midterm.promotion_min_recall_count = 1
+    config.midterm.promotion_heat_threshold = 0.0
+    memory = Memory(config)
+    _insert_midterm_page_and_session(memory, page_id="page-a", session_id="session-a")
+    _insert_midterm_page_and_session(memory, page_id="page-b", session_id="session-b")
+    memory.midterm_memory.record_valid_recalls(["page-a", "page-b"])
+    for session_id in ("session-a", "session-b"):
+        session = memory.midterm_memory.get_session(session_id).payload
+        session["summary"] = f"slow-promotion-{session_id}"
+        memory.midterm_memory.update_session(session_id, session, reembed=False)
+
+    original_embed = memory.embedding_model.embed
+    state_lock = threading.Lock()
+    active = 0
+    max_active = 0
+    both_entered = threading.Event()
+    release_promotions = threading.Event()
+
+    def concurrent_embed(text, memory_action=None):
+        nonlocal active, max_active
+        if "slow-promotion-session-" not in text or memory_action not in {"add", "update"}:
+            return original_embed(text, memory_action)
+        with state_lock:
+            active += 1
+            max_active = max(max_active, active)
+            if active == 2:
+                both_entered.set()
+        try:
+            assert release_promotions.wait(3)
+            return original_embed(text, memory_action)
+        finally:
+            with state_lock:
+                active -= 1
+
+    memory.embedding_model.embed = concurrent_embed
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [
+            executor.submit(memory.cross_session_longterm.promote_session, session_id, memory.midterm_memory)
+            for session_id in ("session-a", "session-b")
+        ]
+        try:
+            assert both_entered.wait(1), "different-session promotions were serialized"
+        finally:
+            release_promotions.set()
+        promoted = [future.result(timeout=3) for future in futures]
+
+    assert max_active == 2
+    assert all(item is not None for item in promoted)
+    assert len(memory.cross_session_longterm.list(filters={"user_id": "user-1"}, top_k=10)) == 2
     memory.close()

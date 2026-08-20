@@ -160,17 +160,15 @@ class TestEnsureJsonInstruction:
     # -------------------------------------------------------------------
 
     def test_default_prompts_already_contain_json(self):
-        """Built-in prompts already contain 'json', so ensure_json_instruction is a no-op."""
-        from mem0.configs.prompts import (
-            FACT_RETRIEVAL_PROMPT,
-            USER_MEMORY_EXTRACTION_PROMPT,
-            AGENT_MEMORY_EXTRACTION_PROMPT,
-        )
+        """Current production JSON-response prompts are already safe for json_object."""
+        from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT
+        from mem0.configs.profile_prompts import PROFILE_UPDATE_SYSTEM_PROMPT
+        from mem0.configs.prompts import ADDITIVE_EXTRACTION_PROMPT
 
         for name, prompt in [
-            ("FACT_RETRIEVAL_PROMPT", FACT_RETRIEVAL_PROMPT),
-            ("USER_MEMORY_EXTRACTION_PROMPT", USER_MEMORY_EXTRACTION_PROMPT),
-            ("AGENT_MEMORY_EXTRACTION_PROMPT", AGENT_MEMORY_EXTRACTION_PROMPT),
+            ("ADDITIVE_EXTRACTION_PROMPT", ADDITIVE_EXTRACTION_PROMPT),
+            ("MIDTERM_PAGE_SUMMARY_PROMPT", MIDTERM_PAGE_SUMMARY_PROMPT),
+            ("PROFILE_UPDATE_SYSTEM_PROMPT", PROFILE_UPDATE_SYSTEM_PROMPT),
         ]:
             assert "json" in prompt.lower(), (
                 f"{name} should contain 'json' — "
@@ -181,6 +179,70 @@ class TestEnsureJsonInstruction:
             assert system == prompt, f"ensure_json_instruction modified {name} unexpectedly"
 
     # -------------------------------------------------------------------
-    # Integration: verify fix is wired into both sync and async paths
+    # Integration: verify current production request wiring
     # -------------------------------------------------------------------
 
+    def test_midterm_production_request_pairs_current_prompt_with_json_object(self):
+        from unittest.mock import MagicMock
+
+        from mem0.configs.base import MidTermMemoryConfig
+        from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT
+        from mem0.memory.midterm_updater import MidTermUpdater
+
+        llm = MagicMock()
+        llm.generate_response.return_value = '{"summary":"kept","keywords":["key"]}'
+        updater = MidTermUpdater(None, llm, MidTermMemoryConfig())
+
+        assert updater._summarize_page("user message", "assistant response") == ("kept", ["key"])
+        request = llm.generate_response.call_args.kwargs
+        assert request["messages"][0]["content"] == MIDTERM_PAGE_SUMMARY_PROMPT
+        assert request["response_format"] == {"type": "json_object"}
+
+    def test_existing_longterm_production_request_pairs_current_prompt_with_json_object(self):
+        from types import SimpleNamespace
+        from unittest.mock import MagicMock
+
+        from mem0.configs.prompts import ADDITIVE_EXTRACTION_PROMPT
+        from mem0.memory.main import Memory
+
+        memory = Memory.__new__(Memory)
+        memory.config = SimpleNamespace(midterm=SimpleNamespace(enabled=False))
+        memory.custom_instructions = None
+        memory.db = MagicMock()
+        memory.db.get_last_messages.return_value = []
+        memory._short_term_capacity = MagicMock(return_value=2)
+        memory._midterm_enabled = MagicMock(return_value=False)
+        memory.embedding_model = MagicMock()
+        memory.embedding_model.embed.return_value = [0.1]
+        memory.vector_store = MagicMock()
+        memory.vector_store.search.return_value = []
+        memory.llm = MagicMock()
+        memory.llm.generate_response.return_value = '{"memory":[]}'
+
+        result = Memory._process_evicted_long_term_memories(
+            memory,
+            [{"role": "user", "content": "remember this"}],
+            {"user_id": "user-1", "run_id": "run-1"},
+            {"user_id": "user-1", "run_id": "run-1"},
+        )
+
+        assert result == []
+        request = memory.llm.generate_response.call_args.kwargs
+        assert request["messages"][0]["content"] == ADDITIVE_EXTRACTION_PROMPT
+        assert request["response_format"] == {"type": "json_object"}
+
+    def test_profile_production_request_pairs_current_prompt_with_json_object(self):
+        from unittest.mock import MagicMock
+
+        from mem0.configs.base import UserProfileConfig
+        from mem0.configs.profile_prompts import PROFILE_UPDATE_SYSTEM_PROMPT
+        from mem0.memory.profile_updater import ProfileUpdater
+
+        request = ProfileUpdater(MagicMock(), UserProfileConfig())._build_request(
+            {"user_id": "user-1", "profile": {}},
+            [],
+            ["I prefer concise answers."],
+        )
+
+        assert request["messages"][0]["content"] == PROFILE_UPDATE_SYSTEM_PROMPT
+        assert request["response_format"] == {"type": "json_object"}
