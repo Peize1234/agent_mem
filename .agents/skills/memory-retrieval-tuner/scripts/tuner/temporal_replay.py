@@ -13,6 +13,8 @@ from .io_utils import atomic_write_json, load_json, load_jsonl, sha256_file
 UNVALIDATED_NO_CROSS_SESSION_GOLD = "UNVALIDATED_NO_CROSS_SESSION_GOLD"
 UNSUPPORTED_TEMPORAL_GOLD_SCHEMA = "UNAVAILABLE_UNSUPPORTED_TEMPORAL_GOLD_SCHEMA"
 VALIDATED = "VALIDATED"
+CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD = "CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD"
+STRUCTURAL_ONLY_NOT_EVALUATED = "STRUCTURAL_ONLY_NOT_EVALUATED"
 
 
 @dataclass
@@ -286,10 +288,24 @@ def run_cross_session_temporal_replay(
         retrieve=lambda session, _states, _at: session.get("valid_recall_ids") or [],
         temporal_gold_evaluator=evaluate_gold if has_temporal_schema else None,
     )
+    # The ordinary tuner deliberately has no Cross-session optimization
+    # contract. Keep the engine status for provenance, but expose an
+    # unsupported tuning status so a future temporal evaluator cannot be
+    # mistaken for a selected/validated configuration.
+    if not bool(audit.get("cross_session_gold_available")):
+        tuning_status = CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD
+    elif not has_temporal_schema:
+        tuning_status = UNSUPPORTED_TEMPORAL_GOLD_SCHEMA
+    else:
+        tuning_status = "CROSS_SESSION_TUNING_UNSUPPORTED"
     payload = {
-        "status": replay.status,
+        "status": tuning_status,
+        "replay_engine_status": replay.status,
+        "structural_replay_status": STRUCTURAL_ONLY_NOT_EVALUATED,
         "executed": replay.executed,
-        "winner_selection_enabled": replay.winner_selection_enabled,
+        "winner_selection_enabled": False,
+        "tuning_enabled": False,
+        "production_defaults_unchanged": True,
         "metrics": replay.metrics,
         "transitions": replay.transitions,
         "provenance": {
@@ -300,6 +316,8 @@ def run_cross_session_temporal_replay(
             "synthetic_elapsed_hours_for_structural_replay": real_timestamp_count < len(temporal_sessions),
             "structural_probe": structural_probe,
             "temporal_gold_schema_supported": has_temporal_schema,
+            "tuning_status": tuning_status,
+            "structural_only": True,
         },
     }
     atomic_write_json(run_dir / "temporal_replay.json", payload)

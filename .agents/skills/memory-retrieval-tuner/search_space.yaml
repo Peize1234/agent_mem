@@ -255,7 +255,9 @@ search:
       enabled: true
       max_rounds: 2
     Promotion:
-      enabled: true
+      # Future infrastructure only. The current benchmark has no
+      # Cross-session Gold, so Promotion is never selected by staged tuning.
+      enabled: false
       max_rounds: 1
     MidtermSourceConfig:
       enabled: true
@@ -306,7 +308,6 @@ search:
       relevant:
         RetrievalControl: {priority: 10, minimum_attempts: 1, coverage_class: required}
         MidtermEvolution: {priority: 20, minimum_attempts: 1, coverage_class: required}
-        Promotion: {priority: 21, minimum_attempts: 1, coverage_class: required}
         PageRepresentation: {priority: 25, minimum_attempts: 1, coverage_class: selectable}
         MidtermSourceConfig: {priority: 28, minimum_attempts: 1, coverage_class: expensive_gated}
         MidtermPageSummaryPrompt: {priority: 30, minimum_attempts: 1, coverage_class: expensive_gated}
@@ -318,7 +319,6 @@ search:
         HybridRetrieval: {priority: 20, minimum_attempts: 1, coverage_class: required}
         QueryRewritePrompt: {priority: 30, minimum_attempts: 1, coverage_class: required}
         MidtermEvolution: {priority: 35, minimum_attempts: 1, coverage_class: required}
-        Promotion: {priority: 36, minimum_attempts: 1, coverage_class: required}
         PageRepresentation: {priority: 40, minimum_attempts: 1, coverage_class: selectable}
         MidtermSourceConfig: {priority: 45, minimum_attempts: 1, coverage_class: expensive_gated}
         SessionLongtermRetrieval: {priority: 50, minimum_attempts: 1, coverage_class: selectable}
@@ -406,8 +406,10 @@ search:
             interaction-heavy: [0.75, 1.0, 0.5]
             recency-heavy: [0.75, 0.25, 1.5]
           heat_modulation_pairs: [[0.80, 1.20], [0.90, 1.10], [0.95, 1.05]]
-          promotion_min_recall_count: [2, 3, 4, 5]
-          promotion_heat_threshold: dynamic_from_heat_distribution
+          # Cross-session Gold is unavailable; retain production defaults and
+          # do not materialize Promotion candidates in the current tuner.
+          promotion_min_recall_count: production_default_only
+          promotion_heat_threshold: production_default_only
 
     secondary:
       query_representation:
@@ -457,9 +459,12 @@ search:
         entity_similarity_threshold: [0.4, 0.5, 0.6, 0.7, 0.8]
 
       cross_session_temporal:
-        winner_selection: disabled_without_gold
-        no_gold_status: UNVALIDATED_NO_CROSS_SESSION_GOLD
-        cross_session_longterm_rag_threshold: [0.05, 0.10, 0.20, 0.30]
+        tuning: disabled
+        status: CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD
+        structural_replay: STRUCTURAL_ONLY_NOT_EVALUATED
+        winner_selection: disabled
+        no_gold_status: CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD
+        cross_session_longterm_rag_threshold: production_default_only
         cross_session_retention_half_life_hours: production_default_only
         cross_session_retention_floor: production_default_only
         cross_session_reinforcement_gain: production_default_only

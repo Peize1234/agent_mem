@@ -28,10 +28,17 @@ from tuner.parameter_schema import (
     promotion_threshold_candidates,
     validate_candidate_config,
 )
-from tuner.production_midterm_adapter import ProductionMidtermAdapter, _valid_recalled_page_ids
+from tuner.production_midterm_adapter import (
+    ProductionMidtermAdapter,
+    _diagnostic_rows_from_pages,
+    _unselected_page_diagnostic_rows,
+    _valid_recalled_page_ids,
+)
 from tuner.stateful_replay import WithinSessionStatefulReplay
 from tuner.temporal_replay import (
     CrossSessionTemporalReplay,
+    CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD,
+    STRUCTURAL_ONLY_NOT_EVALUATED,
     UNSUPPORTED_TEMPORAL_GOLD_SCHEMA,
     UNVALIDATED_NO_CROSS_SESSION_GOLD,
     run_cross_session_temporal_replay,
@@ -126,10 +133,26 @@ def test_new_branches_are_reachable_through_real_coverage_policy() -> None:
     assert next_branch(
         "session_instability", {"RetrievalControl": 1, "SessionLongtermRetrieval": 1}
     ) == "MidtermEvolution"
+    ranking_selected = registry.select(
+        regime="ranking_bottleneck",
+        max_cost_level="expensive",
+        attempt_counts={"RetrievalControl": 1, "HybridRetrieval": 1, "Reranking": 1, "QueryRewritePrompt": 1},
+        exhausted=set(),
+        initial_stage=False,
+        limit=5,
+        branch_settings=space["search"]["branch_registry"],
+        coverage_policy=policy,
+        remaining_expensive_candidates=100,
+    )
+    assert any(branch.spec.name == "MidtermEvolution" for branch in ranking_selected)
     assert next_branch(
         "session_instability",
         {"RetrievalControl": 1, "SessionLongtermRetrieval": 1, "MidtermEvolution": 1},
-    ) == "Promotion"
+    ) == "PageRepresentation"
+    assert "Promotion" not in policy["session_instability"]["relevant"]
+    assert "Promotion" not in policy["balanced_or_plateau"]["relevant"]
+    assert space["search"]["stages"]["secondary"]["cross_session_temporal"]["tuning"] == "disabled"
+    assert space["search"]["stages"]["cheap"]["retrieval"]["midterm_evolution"]["promotion_min_recall_count"] == "production_default_only"
     assert next_branch(
         "candidate_coverage_bottleneck",
         {
@@ -143,6 +166,19 @@ def test_new_branches_are_reachable_through_real_coverage_policy() -> None:
     assert candidate_relevant["MidtermSourceConfig"]["minimum_attempts"] == 1
     assert candidate_relevant["MidtermSourceConfig"]["coverage_class"] == "expensive_gated"
     assert "QueryRepresentation" not in candidate_relevant
+
+
+def test_yaml_and_branch_specs_agree_on_midterm_evolution_regimes() -> None:
+    space = yaml.safe_load((Path(__file__).resolve().parents[2] / "search_space.yaml").read_text())
+    policy = space["search"]["branch_coverage"]
+    spec = BranchRegistry().get("MidtermEvolution").spec
+    configured = {
+        regime
+        for regime, value in policy.items()
+        if "MidtermEvolution" in (value.get("relevant") or {})
+    }
+    assert configured <= set(spec.diagnostic_regimes)
+    assert "ranking_bottleneck" in spec.diagnostic_regimes
 
 
 def test_final_context_uses_page_budget_not_candidate_depth() -> None:
@@ -165,7 +201,111 @@ def test_final_context_uses_page_budget_not_candidate_depth() -> None:
         max_total_pages=1,
     )
     assert result["metrics"]["candidate_pool_recall"] == 1.0
+    assert result["metrics"]["midterm_final_context_recall"] == 0.0
     assert result["metrics"]["final_context_recall"] == 0.0
+
+
+def test_adapter_diagnostic_trace_drives_all_failure_classes() -> None:
+    dataset = _dataset("目标事实")
+    turn = dataset.sessions["S001"][1]
+
+    def evaluate(rows: list[dict[str, object]]) -> str:
+        ranking = {turn.query_id: {"midterm": rows, "session_longterm": []}}
+        result = _evaluate_session(
+            dataset,
+            "S001",
+            ranking,
+            k=1,
+            target="all_memory",
+            shortterm_window=0,
+            max_total_pages=1,
+            longterm_top_k=30,
+        )
+        return str(result["requirements"][0]["failure_class"])
+
+    def page(**overrides: object) -> dict[str, object]:
+        return {
+            "id": "page",
+            "source": "mid_term_page",
+            "source_job_id": "job",
+            "memory": "目标事实",
+            "summary": "目标事实",
+            "raw_dialogue": "目标事实",
+            "raw_rag_score": 0.9,
+            "final_score": 0.9,
+            "rank_before_threshold": 1,
+            "threshold_passed": True,
+            "threshold_filtered": False,
+            "final_rank": 1,
+            "final_visible": True,
+            "routed_candidate": True,
+            **overrides,
+        }
+
+    routed = {"selected_sessions": [{"id": "session", "session_id": "session"}]}
+    checkpoint = {
+        "sessions": [{"id": "session", "payload": {"session_id": "session"}}],
+        "pages": [
+            {
+                "id": "page",
+                "payload": {"session_id": "session", "source_job_id": "job", "summary": "目标事实"},
+            }
+        ],
+    }
+    routing_rows = _unselected_page_diagnostic_rows(
+        {**checkpoint, "sessions": [{"id": "other", "payload": {"session_id": "other"}}]},
+        {"selected_sessions": [{"id": "other", "session_id": "other"}]},
+        {"job": ["S001-Q001"]},
+    )
+    assert evaluate(routing_rows) == "Session Routing Loss"
+
+    coverage_rows = _unselected_page_diagnostic_rows(
+        checkpoint, routed, {"job": ["S001-Q001"]}
+    )
+    assert evaluate(coverage_rows) == "Candidate Coverage Loss"
+    assert evaluate(_diagnostic_rows_from_pages([page(threshold_filtered=True, threshold_passed=False, final_visible=False)], {"job": ["S001-Q001"]})) == "Threshold Loss"
+    assert evaluate(_diagnostic_rows_from_pages([page(ranking_loss=True, final_visible=None)], {"job": ["S001-Q001"]})) == "Ranking Loss"
+    assert evaluate(
+        _diagnostic_rows_from_pages([page(final_visible=False, context_budget_filtered=True)], {"job": ["S001-Q001"]})
+    ) == "Context Budget Loss"
+
+
+def test_adapter_candidate_pool_recall_is_pre_threshold_and_capped_final() -> None:
+    pages = [
+        {
+            "id": f"p{index}",
+            "source": "mid_term_page",
+            "source_job_id": f"job{index}",
+            "memory": "目标事实" if index == 5 else "无关",
+            "raw_rag_score": 0.9 if index != 5 else 0.8,
+            "final_score": 1.0 - index / 10,
+            "rank_before_threshold": index + 1,
+            "threshold_passed": index != 5,
+            "threshold_filtered": index == 5,
+            "final_rank": index + 1 if index != 5 else None,
+            "final_visible": index < 2,
+            "routed_candidate": True,
+        }
+        for index in range(6)
+    ]
+    rows = _diagnostic_rows_from_pages(pages, {f"job{index}": [f"T{index}"] for index in range(6)})
+    assert len({row["page_id"] for row in rows}) == 6
+    assert sum(bool(row["threshold_filtered"]) for row in rows) == 1
+    assert sum(bool(row["final_visible"]) for row in rows) == 2
+    assert max(int(row["rank_before_threshold"] or 0) for row in rows) == 6
+    result = _evaluate_session(
+        dataset=_dataset("目标事实"),
+        session_id="S001",
+        rankings={"S001-Q002": {"midterm": rows, "session_longterm": []}},
+        k=1,
+        target="all_memory",
+        shortterm_window=0,
+        max_total_pages=2,
+        longterm_top_k=30,
+    )
+    metrics = result["metrics"]
+    assert metrics["candidate_pool_recall"] >= metrics["post_threshold_recall"] >= metrics["final_context_recall"]
+    assert metrics["candidate_pool_recall"] == 1.0
 
 
 def test_max_total_pages_searches_every_legal_final_budget() -> None:
@@ -407,7 +547,9 @@ def test_orchestrator_executes_temporal_replay_without_gold(tmp_path: Path) -> N
         run_dir=tmp_path,
     )
     assert result["executed"] is True
-    assert result["status"] == UNVALIDATED_NO_CROSS_SESSION_GOLD
+    assert result["status"] == CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD
+    assert result["structural_replay_status"] == STRUCTURAL_ONLY_NOT_EVALUATED
+    assert result["production_defaults_unchanged"] is True
     assert result["winner_selection_enabled"] is False
     assert result["provenance"]["structural_probe"] is True
     assert {row["event"] for row in result["transitions"]} >= {

@@ -968,7 +968,7 @@ class MidtermEvolutionBranch(BaseBranch):
 
     spec = BranchSpec(
         name="MidtermEvolution",
-        diagnostic_regimes=frozenset({"session_instability", "balanced_or_plateau"}),
+        diagnostic_regimes=frozenset({"session_instability", "balanced_or_plateau", "ranking_bottleneck"}),
         cost_level="high",
         required_artifacts=("production_midterm_checkpoints", "stateful_replay_contract"),
         execution_adapter="WithinSessionStatefulReplay",
@@ -1675,7 +1675,11 @@ class BranchRegistry:
                     "rounds": list((branch_history or {}).get(name) or []),
                 }
             reason: str | None = None
-            if enabled is not None and name not in enabled:
+            configured_enabled = None
+            raw_settings = settings.get(name)
+            if isinstance(raw_settings, Mapping) and "enabled" in raw_settings:
+                configured_enabled = bool(raw_settings.get("enabled"))
+            if (enabled is not None and name not in enabled) or configured_enabled is False:
                 reason = "disabled by search.branch_registry"
             elif regime not in branch.spec.diagnostic_regimes:
                 reason = f"not relevant to adapter regime={regime}"

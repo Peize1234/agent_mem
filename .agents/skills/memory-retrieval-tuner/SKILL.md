@@ -65,9 +65,9 @@ $memory-retrieval-tuner dataset=exp/my_dataset.xlsx k=3 target=midterm sessions=
 
 最终评价覆盖 ShortTerm + MidTerm + Session-scoped Long-term union，并报告 fact/requirement Recall@K、macro session recall、MRR、candidate-pool recall、final-context recall、context precision、mean returned pages、每层 contribution、query completion、session stability、runtime、LLM/embedding calls。诊断 artifact 可记录 routed pool、global supplement、threshold 和 final visible hit，但这些 Gold 细节不会进入 Research LLM。
 
-参数由 `scripts/tuner/parameter_schema.py` 分为 query-time/retrieval-only、source-changing、within-session-stateful、cross-session-temporal-stateful。Source-changing 参数必须重新执行真实 Add/Mid-term source generation；Evolution/Heat/Promotion 参数必须真实 replay；retrieval-only 才允许复用 source artifact。所有 hard constraint 同时由 YAML 与 Python 校验：Mid-term final `max_total_pages` 为 1..5，Session Long-term `longterm_top_k` 为 1..30，Mid-term candidate multiplier 为 1..8，Agentic 固定 `max_iterations=2`、`max_tool_calls=1`，仅 `max_queries=1..3` 与 `max_total_results=1..5` 可调。生产 `MidTermRetriever` 当前忽略 `candidate_pool_size`，因此它不进入 search space。
+参数由 `scripts/tuner/parameter_schema.py` 分为 query-time/retrieval-only、source-changing、within-session-stateful、cross-session-temporal-stateful。Source-changing 参数必须重新执行真实 Add/Mid-term source generation；Evolution/Heat 参数必须真实 replay；Promotion/Cross-session 参数当前仅保留 future schema，不能在本 Benchmark 调优；retrieval-only 才允许复用 source artifact。所有 hard constraint 同时由 YAML 与 Python 校验：Mid-term final `max_total_pages` 为 1..5，Session Long-term `longterm_top_k` 为 1..30，Mid-term candidate multiplier 为 1..8，Agentic 固定 `max_iterations=2`、`max_tool_calls=1`，仅 `max_queries=1..3` 与 `max_total_results=1..5` 可调。生产 `MidTermRetriever` 当前忽略 `candidate_pool_size`，因此它不进入 search space。
 
-`WithinSessionStatefulReplay` 严格执行 `Search(Qn) -> valid recall/Heat update -> Add(Qn, An)`；搜索时不加入当前 turn，遗忘只使用 production `turn_index`，不使用 `page_sequence`。`CrossSessionTemporalReplay` 使用真实 elapsed hours 处理 Promotion、decay、reinforcement。没有 cross-session Gold 时状态为 `UNVALIDATED_NO_CROSS_SESSION_GOLD`，只做结构检查，不参与 winner selection，也不会报告未经验证的 cross-session “最佳参数”。
+`WithinSessionStatefulReplay` 严格执行 `Search(Qn) -> valid recall/Heat update -> Add(Qn, An)`；搜索时不加入当前 turn，遗忘只使用 production `turn_index`，不使用 `page_sequence`。当前普通 Benchmark 只评价 Short-term、Mid-term 与 Session-scoped Long-term；Skill 暂不支持 Cross-session Long-term 或 Promotion 参数调优。没有 Cross-session Gold 时仍可执行 `CrossSessionTemporalReplay` 结构检查，但运行状态必须为 `CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD`，Replay 仅标记 `STRUCTURAL_ONLY_NOT_EVALUATED`，Cross-session/Promotion production defaults unchanged、excluded from winner selection，不能报告 validated/tuned/optimized/selected 参数。
 
 Query、Page、Session merge、Session-longterm extraction prompt 是独立 branch。Query Rewrite 每轮最多 3 variants、最多 3 rounds，以 Tune 当前最佳 parent 并始终保留 production/original；prompt/source identity 变化会使 downstream artifact 失效。Research LLM 只能从 Python 生成的 legal action ID 中选择，永远看不到 Validation、Gold answer、required_context 原文或 future turns。
 
@@ -334,7 +334,7 @@ split_manifest.json
 - `MidtermPageSummaryPrompt`、`MidtermSessionMergePrompt`、`SessionLongtermExtractionPrompt`；
 - `MidtermSourceConfig`；
 - `MidtermEvolution`；
-- `Promotion`。
+- `Promotion`（仅保留为 future infrastructure，当前默认 branch coverage 禁用）。
 
 搜索循环必须是：生成 Candidate → Tune → frontier/prune → 重新诊断 → 选择下一 Branch。Validation 仅在循环停止后运行。停止原因必须来自 budget、`min_improvement_pp`/`patience_stages`、frontier convergence、数据质量或资源约束，不得固定写成 validation selected。按 `search.branch_coverage` 审计当前诊断下的 relevant、attempted、exhausted、remaining 和 blocked Branch。纯 deterministic 模式继续把 relevant coverage 用作 patience 的完整性 gate；Research 模式只强制 required coverage，并在 patience 生效时让模型在 Python 提供的继续/stop legal actions 中作结果导向选择。
 

@@ -41,7 +41,7 @@ from .retrieval_primitives import (
 )
 from .source_prompt_variants import ContextAwareMidTermUpdater, visible_context_by_dialogue
 
-ADAPTER_SCHEMA = 4
+ADAPTER_SCHEMA = 5  # adds complete candidate/threshold/final diagnostic trace
 PRODUCTION_BACKEND = "production_midterm"
 SUPPORTED_RETRIEVAL_METHODS = {"dense", "dense_bm25_fusion"}
 logger = logging.getLogger(__name__)
@@ -218,6 +218,128 @@ def _source_ids(result: Mapping[str, Any], lineage: LineageTracker) -> list[str]
     for job_id in source_job_ids:
         values.extend(lineage.turn_ids_for_job(str(job_id) if job_id else None))
     return list(dict.fromkeys(values))
+
+
+def _diagnostic_source_ids(result: Mapping[str, Any], source_turn_ids_by_job: Mapping[str, Any]) -> list[str]:
+    """Resolve production diagnostic Page lineage without evaluator guesses."""
+    values: list[str] = []
+    for job_id in [result.get("source_job_id"), *(result.get("source_job_ids") or [])]:
+        values.extend(str(value).upper() for value in source_turn_ids_by_job.get(str(job_id), []) if value)
+    explicit = result.get("source_turn_id")
+    if explicit:
+        values.append(str(explicit).upper())
+    return list(dict.fromkeys(values))
+
+
+def _diagnostic_rows_from_pages(
+    pages: Sequence[Mapping[str, Any]],
+    source_turn_ids_by_job: Mapping[str, Any],
+    *,
+    ranking_depth: int | None = None,
+) -> list[dict[str, Any]]:
+    """Expand the production Page-level trace to evaluator source-turn rows.
+
+    Every row still carries the Page-stage fields.  This is deliberately kept
+    in the production adapter so candidate-pool recall cannot be inferred from
+    the final <=5 return list.
+    """
+    rows: list[dict[str, Any]] = []
+    for page in pages:
+        source_ids = _diagnostic_source_ids(page, source_turn_ids_by_job)
+        if not source_ids:
+            source_ids = [str(page.get("id") or page.get("page_id") or "").upper()]
+        for source_turn_id in source_ids:
+            if not source_turn_id:
+                continue
+            rows.append(
+                {
+                    "page_id": str(page.get("id") or page.get("page_id") or ""),
+                    "source_turn_id": source_turn_id,
+                    "source": str(page.get("source") or "mid_term_page"),
+                    "score": float(page.get("score") or page.get("final_score") or 0.0),
+                    "memory": page.get("memory"),
+                    "summary": page.get("summary"),
+                    "raw_dialogue": page.get("raw_dialogue"),
+                    "raw_rag_score": page.get("raw_rag_score"),
+                    "forgetting_factor": page.get("forgetting_factor"),
+                    "heat_modulation": page.get("heat_factor", page.get("heat_modulation")),
+                    "final_score": page.get("final_score"),
+                    "routed_candidate": bool(page.get("routed_candidate")),
+                    "in_routed_pool": bool(page.get("routed_candidate")),
+                    "global_supplement": bool(page.get("global_supplement")),
+                    "selected_session_count": page.get("selected_session_count"),
+                    "session_routed_page_count": page.get("session_routed_page_count"),
+                    "global_supplement_page_count": page.get("global_supplement_page_count"),
+                    "dedup_candidate_count": page.get("dedup_candidate_count"),
+                    "candidate_pool_count": page.get("candidate_pool_count"),
+                    "in_candidate_pool": True,
+                    "rank_before_threshold": page.get("rank_before_threshold"),
+                    "threshold_passed": page.get("threshold_passed") is True
+                    if "threshold_passed" in page
+                    else not bool(page.get("threshold_filtered")),
+                    "threshold_filtered": bool(page.get("threshold_filtered")),
+                    "final_rank": page.get("final_rank"),
+                    "final_visible": page.get("final_visible"),
+                    "context_budget_filtered": page.get("final_visible") is False,
+                    "ranking_loss": bool(page.get("ranking_loss"))
+                    or (
+                        ranking_depth is not None
+                        and page.get("rank_before_threshold") is not None
+                        and int(page.get("rank_before_threshold") or 0) > int(ranking_depth)
+                    ),
+                }
+            )
+    return rows
+
+
+def _unselected_page_diagnostic_rows(
+    checkpoint: Mapping[str, Any],
+    diagnostics: Mapping[str, Any],
+    source_turn_ids_by_job: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    """Expose source Pages omitted before candidate pooling for loss diagnosis."""
+    pool_ids = {
+        str(row.get("id") or "")
+        for row in diagnostics.get("deduplicated_candidate_pool") or []
+        if row.get("id")
+    }
+    routed_session_ids = {
+        str(row.get("session_id") or row.get("id") or "")
+        for row in diagnostics.get("selected_sessions") or []
+        if row.get("session_id") or row.get("id")
+    }
+    rows: list[dict[str, Any]] = []
+    for point in checkpoint.get("pages") or []:
+        page_id = str(point.get("id") or "")
+        if not page_id or page_id in pool_ids:
+            continue
+        payload = dict(point.get("payload") or {})
+        routed = str(payload.get("session_id") or "") in routed_session_ids
+        source_ids = _diagnostic_source_ids(payload, source_turn_ids_by_job)
+        if not source_ids:
+            source_ids = [page_id.upper()]
+        for source_turn_id in source_ids:
+            rows.append(
+                {
+                    "page_id": page_id,
+                    "source_turn_id": source_turn_id,
+                    "source": "mid_term_page",
+                    "memory": payload.get("summary") or payload.get("raw_dialogue") or "",
+                    "summary": payload.get("summary"),
+                    "raw_dialogue": payload.get("raw_dialogue"),
+                    "in_candidate_pool": False,
+                    "routed_candidate": routed,
+                    "in_routed_pool": routed,
+                    "global_supplement": False,
+                    "candidate_pool_count": len(pool_ids),
+                    "threshold_passed": None,
+                    "threshold_filtered": None,
+                    "final_rank": None,
+                    "final_visible": False,
+                    "diagnostic_only": True,
+                }
+            )
+    return rows
 
 
 def _longterm_candidate_pool(
@@ -425,6 +547,9 @@ def _checkpoint(
             job_id: list(turn_ids) for job_id, turn_ids in sorted(lineage.job_to_turn_ids.items())
         },
         "baseline_ranking": baseline_ranking,
+        # This is the complete production retrieval chain, not just the
+        # thresholded/capped user-visible result.
+        "retrieval_diagnostics": deepcopy(getattr(memory.midterm_retriever, "last_search_diagnostics", {})),
         "retrieved_results": [
             {
                 key: item.get(key)
@@ -1307,59 +1432,50 @@ class ProductionMidtermAdapter:
                 str(job_id): [str(turn_id).upper() for turn_id in turn_ids]
                 for job_id, turn_ids in (checkpoint.get("source_turn_ids_by_job") or {}).items()
             }
-            ranking: list[dict[str, Any]] = []
-            page_results = [row for row in results if row.get("source") == "mid_term_page"]
-            page_results = self._rerank_pages(
-                page_results,
-                query=query,
-                query_vector=query_vector,
-                point_by_id=point_by_kind_and_id["pages"],
-                derived=derived,
-                config=config,
-            )
-            ordered_results = [
-                *page_results,
-                *[row for row in results if row.get("source") == "mid_term_session"],
-            ]
-            seen_source_ids: set[str] = set()
-            for row in ordered_results:
-                source_ids: list[str] = []
-                for job_id in [row.get("source_job_id"), *(row.get("source_job_ids") or [])]:
-                    source_ids.extend(job_map.get(str(job_id), []))
-                for source_turn_id in dict.fromkeys(source_ids):
-                    if source_turn_id in seen_source_ids:
-                        continue
-                    seen_source_ids.add(source_turn_id)
-                    ranking.append(
-                        {
-                            "page_id": str(row.get("id") or ""),
-                            "source_turn_id": source_turn_id,
-                            "source": str(row.get("source") or ""),
-                            "score": float(row.get("score") or 0.0),
-                            "memory": row.get("memory"),
-                            "summary": row.get("summary"),
-                            "raw_dialogue": row.get("raw_dialogue"),
-                            "raw_rag_score": row.get("raw_rag_score"),
-                            "forgetting_factor": row.get("forgetting_factor"),
-                            "heat_modulation": row.get("heat_factor"),
-                            "final_score": row.get("final_score"),
-                            "session_score": row.get("session_score"),
-                            "routed_candidate": row.get("routed_candidate"),
-                            "global_supplement": row.get("global_supplement"),
-                            "selected_session_count": row.get("selected_session_count"),
-                            "session_routed_page_count": row.get("session_routed_page_count"),
-                            "global_supplement_page_count": row.get("global_supplement_page_count"),
-                            "dedup_candidate_count": row.get("dedup_candidate_count"),
-                            "candidate_pool_count": row.get("candidate_pool_count"),
-                            "rank_before_threshold": row.get("rank_before_threshold"),
-                            "final_rank": row.get("final_rank"),
-                            "threshold_filtered": row.get("threshold_filtered"),
-                        }
-                    )
-                    if len(ranking) >= self.ranking_depth:
-                        break
-                if len(ranking) >= self.ranking_depth:
-                    break
+            retrieval_diagnostics = getattr(retriever, "last_search_diagnostics", {}) or {}
+            diagnostic_pages = list(retrieval_diagnostics.get("pre_threshold_ranking") or [])
+            if diagnostic_pages:
+                # Reranking is allowed to inspect a diagnostic candidate depth;
+                # the final_visible flags are recomputed below and still obey
+                # production max_total_pages.
+                page_results = self._rerank_pages(
+                    [dict(row) for row in diagnostic_pages],
+                    query=query,
+                    query_vector=query_vector,
+                    point_by_id=point_by_kind_and_id["pages"],
+                    derived=derived,
+                    config=config,
+                )
+                max_total_pages = min(5, max(1, int(config.get("max_total_pages", 5))))
+                for rank, row in enumerate(page_results, start=1):
+                    row["rank_before_threshold"] = rank
+                thresholded = [row for row in page_results if not bool(row.get("threshold_filtered"))]
+                for rank, row in enumerate(thresholded, start=1):
+                    row["final_rank"] = rank
+                    row["final_visible"] = rank <= max_total_pages
+                ranking = _diagnostic_rows_from_pages(page_results, job_map, ranking_depth=self.ranking_depth)
+                ranking.extend(_unselected_page_diagnostic_rows(checkpoint, retrieval_diagnostics, job_map))
+            else:
+                # Checkpoints produced before the diagnostic contract remain
+                # replayable, but are explicitly a degraded trace.
+                page_results = [row for row in results if row.get("source") == "mid_term_page"]
+                page_results = self._rerank_pages(
+                    page_results,
+                    query=query,
+                    query_vector=query_vector,
+                    point_by_id=point_by_kind_and_id["pages"],
+                    derived=derived,
+                    config=config,
+                )
+                ordered_results = [
+                    *page_results,
+                    *[row for row in results if row.get("source") == "mid_term_session"],
+                ]
+                ranking = _diagnostic_rows_from_pages(ordered_results, job_map)
+                for rank, row in enumerate(ranking, start=1):
+                    row["rank_before_threshold"] = row.get("rank_before_threshold") or rank
+                    row["final_rank"] = row.get("final_rank") or rank
+                    row["final_visible"] = row.get("final_visible", rank <= min(5, self.ranking_depth))
             longterm_ranking = self._rank_session_longterm(checkpoint, config)
             combined = [*ranking, *longterm_ranking]
             return [{**row, "rank": rank} for rank, row in enumerate(combined, start=1)]

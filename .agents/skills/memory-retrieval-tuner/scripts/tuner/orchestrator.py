@@ -129,6 +129,23 @@ def _execution_settings(config: TunerConfig, space: Mapping[str, Any]) -> dict[s
 
 def _diagnose(best: CandidateResult, audit: Mapping[str, Any], space: Mapping[str, Any]) -> dict[str, Any]:
     metrics = best.metrics
+    failure_names = (
+        "Session Routing Loss",
+        "Candidate Coverage Loss",
+        "Threshold Loss",
+        "Ranking Loss",
+        "Context Budget Loss",
+    )
+    failure_counts = {
+        name: sum(
+            str(row.get("failure_class") or "") == name
+            for row in best.requirement_rows
+            if not bool(row.get("hit_at_k"))
+        )
+        for name in failure_names
+    }
+    missed_count = sum(not bool(row.get("hit_at_k")) for row in best.requirement_rows)
+    failure_rates = {name: count / max(1, missed_count) for name, count in failure_counts.items()}
     gap_pp = (float(metrics.get("recall_at_4k") or 0) - float(metrics.get("recall_at_k") or 0)) * 100.0
     deep_recall = float(metrics.get("recall_at_4k") or 0) * 100.0
     stddev_pp = float(metrics.get("session_stddev") or 0) * 100.0
@@ -155,6 +172,16 @@ def _diagnose(best: CandidateResult, audit: Mapping[str, Any], space: Mapping[st
         "recall_4k_percent": deep_recall,
         "stddev_pp": stddev_pp,
         "worst_session_gap_from_macro_pp": worst_gap_pp,
+        # These are aggregate stage diagnostics only; individual Gold text and
+        # requirement rows never cross the Research LLM boundary.
+        "candidate_pool_recall": float(metrics.get("candidate_pool_recall") or 0.0),
+        "post_threshold_recall": float(metrics.get("post_threshold_recall") or 0.0),
+        "midterm_final_context_recall": float(metrics.get("midterm_final_context_recall") or 0.0),
+        "final_context_recall": float(metrics.get("final_context_recall") or 0.0),
+        "mean_candidate_pool_size": float(metrics.get("candidate_pool_count") or 0.0),
+        "mean_final_page_count": float(metrics.get("mean_returned_pages") or 0.0),
+        "failure_class_counts": failure_counts,
+        "failure_class_rates": failure_rates,
     }
 
 
@@ -802,6 +829,11 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         "shortterm_qa_turns": shortterm_window,
         "shortterm_window_validation": shortterm_window_validation,
         "cross_session_gold_available": bool(audit.get("cross_session_gold_available", False)),
+        "cross_session_tuning_enabled": False,
+        "cross_session_tuning_status": temporal_replay["status"],
+        "promotion_tuning_enabled": False,
+        "promotion_tuning_status": "CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD",
+        "cross_session_defaults_unchanged": True,
         "cross_session_temporal_status": temporal_replay["status"],
         "cross_session_temporal_replay": temporal_replay,
         "cross_session_winner_selection_enabled": temporal_replay["winner_selection_enabled"],

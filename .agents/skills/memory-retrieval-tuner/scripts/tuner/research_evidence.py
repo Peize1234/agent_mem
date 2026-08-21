@@ -128,9 +128,13 @@ def _metric_summary(result: CandidateResult) -> dict[str, Any]:
         "eligible_requirement_count": metrics.get("eligible_requirement_count"),
         "evaluated_query_count": metrics.get("evaluated_query_count"),
         "candidate_pool_recall": metrics.get("candidate_pool_recall"),
+        "post_threshold_recall": metrics.get("post_threshold_recall"),
+        "midterm_final_context_recall": metrics.get("midterm_final_context_recall"),
         "final_context_recall": metrics.get("final_context_recall"),
         "context_precision": metrics.get("context_precision"),
         "mean_returned_pages": metrics.get("mean_returned_pages"),
+        "mean_candidate_pool_size": metrics.get("candidate_pool_count"),
+        "mean_final_page_count": metrics.get("returned_page_count", metrics.get("mean_returned_pages")),
         "shortterm_coverage": metrics.get("shortterm_coverage"),
         "midterm_contribution": metrics.get("midterm_contribution"),
         "session_longterm_contribution": metrics.get("session_longterm_contribution"),
@@ -193,6 +197,20 @@ def _failure_distribution(result: CandidateResult, tune_sessions: Sequence[str])
     tune_scope = set(tune_sessions)
     rows = [row for row in result.requirement_rows if str(row.get("session_id") or "") in tune_scope]
     misses = [row for row in rows if not bool(row.get("hit_at_k"))]
+    failure_classes = (
+        "Session Routing Loss",
+        "Candidate Coverage Loss",
+        "Threshold Loss",
+        "Ranking Loss",
+        "Context Budget Loss",
+    )
+    failure_counts = {
+        name: sum(str(row.get("failure_class") or "") == name for row in misses)
+        for name in failure_classes
+    }
+    failure_rates = {
+        name: count / len(misses) if misses else 0.0 for name, count in failure_counts.items()
+    }
     by_session: dict[str, dict[str, int]] = {}
     for session_id in tune_sessions:
         session_rows = [row for row in rows if str(row.get("session_id") or "") == session_id]
@@ -210,6 +228,8 @@ def _failure_distribution(result: CandidateResult, tune_sessions: Sequence[str])
         "present_at_2k": sum(bool(row.get("hit_at_2k")) for row in misses),
         "present_at_4k": sum(bool(row.get("hit_at_4k")) for row in misses),
         "absent_at_4k": sum(not bool(row.get("hit_at_4k")) for row in misses),
+        "failure_class_counts": failure_counts,
+        "failure_class_rates": failure_rates,
         "per_session": by_session,
     }
 

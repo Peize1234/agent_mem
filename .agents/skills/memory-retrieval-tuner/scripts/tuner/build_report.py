@@ -142,7 +142,8 @@ def write_outputs(
         f"- MRR: {float(best.metrics.get('mrr') or 0):.4f}",
         f"- Macro R@{k} / session stddev: {float(best.metrics.get('macro_session_recall_at_k') or 0):.4f} / "
         f"{float(best.metrics.get('session_stddev') or 0):.4f}",
-        f"- Candidate-pool recall / final-context recall: {optional_metric(best.metrics, 'candidate_pool_recall')} / {optional_metric(best.metrics, 'final_context_recall')}",
+        f"- Candidate-pool / post-threshold / Mid-term-final / union-final recall: {optional_metric(best.metrics, 'candidate_pool_recall')} / {optional_metric(best.metrics, 'post_threshold_recall')} / {optional_metric(best.metrics, 'midterm_final_context_recall')} / {optional_metric(best.metrics, 'final_context_recall')}",
+        f"- Mean candidate pool / final visible Mid-term pages: {optional_metric(best.metrics, 'candidate_pool_count')} / {optional_metric(best.metrics, 'returned_page_count')}",
         f"- Context precision / mean returned pages: {optional_metric(best.metrics, 'context_precision')} / {optional_metric(best.metrics, 'mean_returned_pages')}",
         f"- ShortTerm / MidTerm / Session-LongTerm contributions: {optional_metric(best.metrics, 'shortterm_contribution')} / {optional_metric(best.metrics, 'midterm_contribution')} / {optional_metric(best.metrics, 'session_longterm_contribution')}",
         f"- Short + Mid + Session-LongTerm union / query completion: {optional_metric(best.metrics, 'short_mid_session_longterm_union')} / {optional_metric(best.metrics, 'query_completion')}",
@@ -214,6 +215,11 @@ def write_outputs(
             "",
             f"- Classification: `{diagnostics.get('regime')}`",
             f"- Evidence: `{dict(diagnostics)}`",
+            f"- Candidate Pool → Threshold → Final Context diagnostics: "
+            f"{diagnostics.get('candidate_pool_recall', 'N/A')} → "
+            f"{diagnostics.get('post_threshold_recall', 'N/A')} → "
+            f"{diagnostics.get('final_context_recall', 'N/A')}",
+            f"- Failure classes (aggregate count/rate): `{diagnostics.get('failure_class_counts', {})}` / `{diagnostics.get('failure_class_rates', {})}`",
             f"- Relevant branches: `{coverage.get('relevant_branches', [])}`",
             f"- Attempted branches: `{coverage.get('attempted_branches', {})}`",
             f"- Exhausted branches: `{coverage.get('exhausted_branches', [])}`",
@@ -269,12 +275,13 @@ def write_outputs(
             "### Production defaults / unvalidated",
             "",
             f"- Cross-session Gold available: `{run_metadata.get('cross_session_gold_available', False)}`",
-            f"- Cross-session Temporal Replay: `{run_metadata.get('cross_session_temporal_status', 'UNVALIDATED_NO_CROSS_SESSION_GOLD')}`",
-            f"- Temporal Replay executed / winner selection enabled: "
-            f"`{temporal.get('executed', False)}` / `{temporal.get('winner_selection_enabled', False)}`",
+            f"- Cross-session tuning status: `{run_metadata.get('cross_session_tuning_status', 'CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD')}`",
+            f"- Cross-session Temporal Replay: `{run_metadata.get('cross_session_temporal_status', 'CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD')}`",
+            f"- Temporal Replay structural-only / winner selection enabled: "
+            f"`{temporal.get('structural_replay_status', 'STRUCTURAL_ONLY_NOT_EVALUATED')}` / `{temporal.get('winner_selection_enabled', False)}`",
             f"- Temporal structural/evaluation metrics: `{temporal.get('metrics', {})}`",
             f"- Temporal provenance: `{temporal.get('provenance', {})}`",
-            "- Cross-session threshold, retention, floor and reinforcement parameters remain production defaults unless a supported temporal Gold schema is really replayed and evaluated; an audit marker alone is never validation.",
+            "- Cross-session Long-term and Promotion parameter tuning is unsupported in this benchmark: production defaults are unchanged, excluded from winner selection, and not reported as tuned. Structural replay is not evaluated.",
             "- Agentic `max_queries` / `max_total_results` remain production defaults unless a production Agentic trace is evaluated; ignored `candidate_pool_size` is never reported as tuned.",
             f"- Stateful replay: `{run_metadata.get('stateful_replay_status', 'not recorded')}`",
             f"- Stateful replay Candidates: `{run_metadata.get('stateful_replay_candidates', [])}`",

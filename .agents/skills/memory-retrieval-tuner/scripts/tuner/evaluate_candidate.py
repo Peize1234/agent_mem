@@ -124,6 +124,20 @@ def _row_text(row: Mapping[str, Any]) -> str:
     return f"{identifiers} {content}".strip()
 
 
+def _visible_midterm_rows(rows: Sequence[Mapping[str, Any]], context_budget: int) -> list[dict[str, Any]]:
+    """Select the production-visible Mid-term Pages from a diagnostic trace."""
+    budget = min(5, max(1, int(context_budget)))
+    diagnostic_rows = [row for row in rows if "final_visible" in row or "threshold_passed" in row]
+    if diagnostic_rows:
+        return [
+            dict(row)
+            for row in diagnostic_rows
+            if row.get("final_visible") is True
+            and row.get("threshold_filtered") is not True
+        ][:budget]
+    return [dict(row) for row in rows[:budget]]
+
+
 def _fact_rows_for_visible(
     turn: Turn,
     visible_rows: Sequence[Mapping[str, Any]],
@@ -137,8 +151,16 @@ def _fact_rows_for_visible(
     requirements = list(parse_required_context(turn.required_context))
     if not requirements:
         return [], []
-    pre_threshold_rows = [row for row in candidate_rows if row.get("in_candidate_pool", True) is not False]
+    pre_threshold_rows = [
+        row
+        for row in candidate_rows
+        if row.get("in_candidate_pool", True) is not False
+        and str(row.get("source") or "").lower()
+        not in {"long_term", "cross_session_long_term", "shortterm", "mid_term_session"}
+    ]
     candidate_text = "\n".join(_row_text(row) for row in pre_threshold_rows)
+    post_threshold_rows = [row for row in pre_threshold_rows if row.get("threshold_filtered") is not True]
+    post_threshold_text = "\n".join(_row_text(row) for row in post_threshold_rows)
     short_text = "\n".join(_row_text(row) for row in shortterm_rows)
     # ``visible_rows`` has already been clipped to the actual configured
     # context budgets by the caller.  Never substitute evaluation K for the
@@ -160,9 +182,12 @@ def _fact_rows_for_visible(
             hit(_row_text(row))
             and bool(row.get("in_routed_pool", row.get("routed_candidate", not row.get("global_supplement"))))
             for row in candidate_rows
+            if str(row.get("source") or "").lower() not in {"mid_term_session", "long_term", "cross_session_long_term"}
         )
         final_hit = hit(final_text)
+        midterm_final_hit = hit("\n".join(_row_text(row) for row in midterm_rows))
         candidate_hit = hit(candidate_text)
+        post_threshold_hit = hit(post_threshold_text)
         if final_hit:
             failure_class = None
         elif not candidate_hit and not candidate_rows:
@@ -175,7 +200,13 @@ def _fact_rows_for_visible(
             failure_class = "Threshold Loss"
         elif matched_row and not any(matched_row.get(key) for key in ("raw_dialogue", "memory", "summary", "content")):
             failure_class = "Representation Loss"
-        elif matched_row and matched_row.get("final_rank") is not None:
+        elif matched_row and matched_row.get("ranking_loss"):
+            failure_class = "Ranking Loss"
+        elif matched_row and (
+            matched_row.get("context_budget_filtered")
+            or matched_row.get("final_visible") is False
+            or matched_row.get("final_rank") is not None
+        ):
             failure_class = "Context Budget Loss"
         else:
             failure_class = "Ranking Loss"
@@ -192,7 +223,9 @@ def _fact_rows_for_visible(
                 "hit_at_2k": hit("\n".join(_row_text(row) for row in candidate_rows[: 2 * max(k, 1)])),
                 "hit_at_4k": hit("\n".join(_row_text(row) for row in candidate_rows[: 4 * max(k, 1)])),
                 "candidate_pool_hit": candidate_hit,
+                "post_threshold_hit": post_threshold_hit,
                 "final_context_hit": final_hit,
+                "midterm_final_context_hit": midterm_final_hit,
                 "shortterm_hit": hit(short_text),
                 "midterm_hit": hit("\n".join(_row_text(row) for row in midterm_rows)),
                 "session_longterm_hit": hit("\n".join(_row_text(row) for row in session_longterm_rows[:30])),
@@ -204,14 +237,20 @@ def _fact_rows_for_visible(
                         hit(_row_text(row)) and bool(row.get("global_supplement")) for row in midterm_rows
                     ),
                     "candidate_pool": hit(candidate_text),
+                    "post_threshold": post_threshold_hit,
                     "final_context": hit(final_text),
                     "raw_rag_score": matched_row.get("raw_rag_score") if matched_row else None,
                     "forgetting_factor": matched_row.get("forgetting_factor") if matched_row else None,
                     "heat_modulation": matched_row.get("heat_modulation") if matched_row else None,
                     "final_score": matched_row.get("final_score") if matched_row else None,
                     "threshold_filtered": bool(matched_row.get("threshold_filtered")) if matched_row else None,
+                    "threshold_passed": bool(matched_row.get("threshold_passed")) if matched_row else None,
                     "rank_before_threshold": rank,
                     "final_rank": matched_row.get("final_rank") if matched_row else None,
+                    "final_visible": matched_row.get("final_visible") if matched_row else None,
+                    "context_budget_filtered": bool(matched_row.get("context_budget_filtered"))
+                    if matched_row
+                    else None,
                 },
             }
         )
@@ -222,11 +261,18 @@ def _apply_retrieval_controls(
     ranking: Sequence[Mapping[str, Any]], config: Mapping[str, Any], ranking_depth: int
 ) -> list[dict[str, Any]]:
     rows = [dict(row) for row in ranking]
-    midterm = [
+    all_midterm = [
         row
         for row in rows
         if str(row.get("source") or "").lower() not in {"long_term", "cross_session_long_term"}
-    ][:ranking_depth]
+    ]
+    # A production diagnostic ranking contains the complete deduplicated
+    # pre-threshold pool. Preserve it for candidate-pool recall; final context
+    # selection is performed from explicit ``final_visible`` flags below.
+    has_diagnostic_pool = any(
+        row.get("in_candidate_pool") is True or "final_visible" in row for row in all_midterm
+    )
+    midterm = all_midterm if has_diagnostic_pool else all_midterm[:ranking_depth]
     session_longterm = [
         row for row in rows if str(row.get("source") or "").lower() == "long_term"
     ][: min(30, max(1, int(config.get("longterm_top_k", 20))))]
@@ -446,12 +492,19 @@ def _evaluate_session(
         # Cross-session memory has a separate Temporal Replay/Gold contract.
         # It is never counted in an ordinary run_id-scoped Session benchmark.
         candidate_rows = [*session_rows, *midterm_rows, *longterm_rows]
+        candidate_page_ids = {
+            str(item.get("page_id") or item.get("id") or "")
+            for item in midterm_rows
+            if str(item.get("source") or "").lower()
+            not in {"mid_term_session", "long_term", "cross_session_longterm", "cross_session_long_term"}
+            and (item.get("page_id") or item.get("id"))
+        }
         context_budget = min(5, max(1, int(max_total_pages)))
         # Candidate configs are not part of the evaluator API; callers may
         # pass a synthetic ``max_total_pages`` on the ranking mapping.
         if isinstance(rankings.get("__meta__"), Mapping):
             context_budget = min(5, max(1, int(rankings["__meta__"].get("max_total_pages", context_budget))))
-        visible_midterm = midterm_rows[:context_budget]
+        visible_midterm = _visible_midterm_rows(midterm_rows, context_budget)
         visible_longterm = longterm_rows[: min(30, max(1, int(longterm_top_k)))]
         visible_rows = [*short_rows, *session_rows, *visible_midterm, *visible_longterm]
         returned_page_counts.append(len(visible_midterm) + len(visible_longterm))
@@ -473,9 +526,9 @@ def _evaluate_session(
                             [int(item.get("session_routed_page_count") or 0) for item in midterm_rows] or [len(midterm_rows)]
                         ),
                         "global_supplement_page_count": sum(1 for item in midterm_rows if item.get("global_supplement")),
-                        "dedup_candidate_count": len({str(item.get("page_id") or item.get("id")) for item in candidate_rows}),
-                        "candidate_pool_count": len(candidate_rows),
-                        "returned_page_count": len(midterm_rows[:context_budget]),
+                        "dedup_candidate_count": len(candidate_page_ids),
+                        "candidate_pool_count": len(candidate_page_ids),
+                        "returned_page_count": len(visible_midterm),
                     }
                 )
             # Context requirements, rather than source IDs, are the fixed Gold
@@ -518,9 +571,9 @@ def _evaluate_session(
                     "global_supplement_page_count": sum(
                         1 for item in midterm_rows if bool(item.get("global_supplement"))
                     ),
-                    "dedup_candidate_count": len({str(item.get("page_id") or item.get("id")) for item in candidate_rows}),
-                    "candidate_pool_count": len(candidate_rows),
-                    "returned_page_count": len(midterm_rows[:context_budget]),
+                    "dedup_candidate_count": len(candidate_page_ids),
+                    "candidate_pool_count": len(candidate_page_ids),
+                    "returned_page_count": len(_visible_midterm_rows(midterm_rows, context_budget)),
                 }
             )
     total = len(requirement_rows)
@@ -543,6 +596,8 @@ def _evaluate_session(
         "shortterm_requirement_count": shortterm_hits,
         "total_gold_requirement_count": shortterm_total,
         "candidate_pool_recall": sum(bool(row.get("candidate_pool_hit", row.get("best_rank") is not None)) for row in requirement_rows) / total if total else 0.0,
+        "post_threshold_recall": sum(bool(row.get("post_threshold_hit")) for row in requirement_rows) / total if total else 0.0,
+        "midterm_final_context_recall": sum(bool(row.get("midterm_final_context_hit")) for row in requirement_rows) / total if total else 0.0,
         "final_context_recall": sum(bool(row.get("final_context_hit", row.get("hit_at_k"))) for row in requirement_rows) / total if total else 0.0,
         "context_precision": statistics.fmean(precision_values) if precision_values else 0.0,
         "mean_returned_pages": statistics.fmean(returned_page_counts) if returned_page_counts else 0.0,
@@ -600,9 +655,13 @@ def _aggregate(
     }
     for name in (
         "candidate_pool_recall",
+        "post_threshold_recall",
+        "midterm_final_context_recall",
         "final_context_recall",
         "context_precision",
         "mean_returned_pages",
+        "candidate_pool_count",
+        "returned_page_count",
         "shortterm_contribution",
         "midterm_contribution",
         "session_longterm_contribution",

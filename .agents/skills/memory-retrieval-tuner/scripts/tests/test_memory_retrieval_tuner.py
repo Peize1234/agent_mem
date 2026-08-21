@@ -611,6 +611,71 @@ def test_production_adapter_calls_real_midterm_retriever(tmp_path: Path) -> None
     assert hybrid_ranking[0]["source"] == "mid_term_page"
 
 
+def test_production_adapter_exports_full_candidate_threshold_and_cap_trace(tmp_path: Path) -> None:
+    session_id = "11111111-1111-1111-1111-111111111111"
+    scope = {"user_id": "recall::S001_trace", "run_id": "S001_trace"}
+    pages = []
+    lineage = {}
+    for index in range(6):
+        page_id = f"22222222-2222-2222-2222-{index:012d}"
+        job_id = f"job-{index}"
+        pages.append(
+            {
+                "id": page_id,
+                "vector": [1.0, 0.0],
+                "payload": {
+                    **scope,
+                    "session_id": session_id,
+                    "source_job_id": job_id,
+                    "summary": f"trace page {index}",
+                    "raw_dialogue": f"trace page {index}",
+                    "output_state": "committed",
+                },
+            }
+        )
+        lineage[job_id] = [f"S001-Q00{index + 1}"]
+    checkpoint = {
+        "query_id": "S001-Q005",
+        "query": "trace query",
+        "filters": scope,
+        "query_vector": [1.0, 0.0],
+        "sessions": [
+            {
+                "id": session_id,
+                "vector": [1.0, 0.0],
+                "payload": {**scope, "session_id": session_id, "summary": "trace session", "page_ids": [row["id"] for row in pages], "output_state": "committed"},
+            }
+        ],
+        "pages": pages,
+        "source_turn_ids_by_job": lineage,
+    }
+    adapter = ProductionMidtermAdapter(
+        run_dir=tmp_path,
+        candidate_hash="trace-candidate",
+        session_id="S001_trace",
+        ranking_depth=3,
+    )
+    rows = adapter.rank(
+        checkpoint,
+        {
+            "backend": "production_midterm",
+            "retrieval_method": "dense",
+            "query_representation": "original",
+            "page_representation": "production",
+            "top_k_sessions": 1,
+            "top_k_pages": 6,
+            "max_total_pages": 2,
+            "midterm_rag_threshold": 0.0,
+        },
+    )
+    page_rows = [row for row in rows if row.get("source") == "mid_term_page"]
+    assert len(page_rows) == 6
+    assert len([row for row in page_rows if row.get("final_visible")]) <= 2
+    assert all(row.get("rank_before_threshold") for row in page_rows)
+    assert all("threshold_filtered" in row for row in page_rows)
+    assert any(row.get("ranking_loss") for row in page_rows if row.get("rank_before_threshold", 0) > 3)
+
+
 def test_candidate_selection_near_tie_and_overfit() -> None:
     baseline_tune = result("baseline", 0.50)
     baseline_validation = result("baseline", 0.50)

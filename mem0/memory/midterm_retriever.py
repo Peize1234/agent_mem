@@ -1,3 +1,4 @@
+import copy
 import logging
 from typing import Any, Dict, List
 
@@ -11,6 +12,9 @@ class MidTermRetriever:
     def __init__(self, midterm_memory, config):
         self.midterm_memory = midterm_memory
         self.config = config
+        # Diagnostic-only snapshot consumed by the tuner adapter.  The public
+        # ``search`` return value remains the thresholded, context-capped list.
+        self.last_search_diagnostics: Dict[str, Any] = {}
 
     @staticmethod
     def _scope_filters(filters: Dict[str, Any]) -> Dict[str, Any]:
@@ -213,6 +217,7 @@ class MidTermRetriever:
         and the candidate target is always derived from ``max_total_pages``.
         """
         del record_visits, candidate_pool_size
+        self.last_search_diagnostics = {}
         scope_filters = self._scope_filters(filters)
         if not scope_filters:
             return []
@@ -353,11 +358,37 @@ class MidTermRetriever:
         for rank, page in enumerate(ranked_pages, start=1):
             page["rank_before_threshold"] = rank
         threshold = float(self.config.midterm_rag_threshold)
-        selected_pages = [page for page in ranked_pages if float(page.get("raw_rag_score") or 0.0) >= threshold][
-            :max_total_pages
-        ]
-        for rank, page in enumerate(selected_pages, start=1):
+        for page in ranked_pages:
+            page["threshold_passed"] = float(page.get("raw_rag_score") or 0.0) >= threshold
+            page["threshold_filtered"] = not page["threshold_passed"]
+        post_threshold_pages = [page for page in ranked_pages if page["threshold_passed"]]
+        for rank, page in enumerate(post_threshold_pages, start=1):
             page["final_rank"] = rank
-            page["threshold_filtered"] = False
+            page["final_visible"] = rank <= max_total_pages
+        # Keep a deep copy so later return-shaping changes cannot erase the
+        # complete pre-threshold trace.
+        self.last_search_diagnostics = {
+            "selected_sessions": copy.deepcopy(results),
+            "routed_page_pool": copy.deepcopy(
+                [page for page in ranked_pages if page.get("routed_candidate")]
+            ),
+            "global_supplement_pool": copy.deepcopy(
+                [page for page in ranked_pages if page.get("global_supplement")]
+            ),
+            "deduplicated_candidate_pool": copy.deepcopy(ranked_pages),
+            "pre_threshold_ranking": copy.deepcopy(ranked_pages),
+            "threshold": threshold,
+            "max_total_pages": max_total_pages,
+            "candidate_pool_count": len(ranked_pages),
+            "post_threshold_count": len(post_threshold_pages),
+        }
+        selected_pages = []
+        for page in post_threshold_pages[:max_total_pages]:
+            # Keep the public result contract unchanged; diagnostic-only
+            # fields live in ``last_search_diagnostics``.
+            public_page = copy.deepcopy(page)
+            public_page.pop("threshold_passed", None)
+            public_page.pop("final_visible", None)
+            selected_pages.append(public_page)
         results.extend(selected_pages)
         return results
