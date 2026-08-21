@@ -20,6 +20,21 @@ Audit
   -> Stable selection
 ```
 
+For the current complete Agent Memory contract, the operational order is:
+
+```text
+Production Baseline
+ -> Static Retrieval Tuning
+ -> Source-generation Screening
+ -> Cheap Retrieval Re-tuning
+ -> Within-session Stateful Replay
+ -> Cross-session Temporal Replay
+ -> Joint Refinement
+ -> Held-out Validation
+```
+
+`required_context` is fixed Gold; ShortTerm capacity never changes its denominator. Source-changing, within-session-stateful and cross-session-temporal parameters are separate from retrieval-only controls. Cross-session Temporal Replay is structural only when temporal Gold is unavailable and is excluded from winner selection.
+
 Never copy the historical sequence of successful changes as if it were universally optimal.
 
 ## 2. Configurable Recall@K
@@ -335,7 +350,7 @@ The orchestrator does not construct Branch-specific candidates. Every registered
 - candidate generator and execution adapter;
 - provenance contract.
 
-Built-in Branches are RetrievalControl, QueryRepresentation, PageRepresentation, HybridRetrieval, Reranking, Embedding, FieldAwareMultiVector and MemoryWriteAddPrompt. Add a new adapter to the registry when a diagnosis requires an unsupported technique; do not add another conditional candidate block to the orchestrator.
+Built-in Branches are RetrievalControl, QueryRepresentation, PageRepresentation, HybridRetrieval, Reranking, Embedding, FieldAwareMultiVector, MidtermSourceConfig, MidtermEvolution, Promotion, SessionLongtermRetrieval, QueryRewritePrompt, MidtermPageSummaryPrompt, MidtermSessionMergePrompt and SessionLongtermExtractionPrompt. Add a new adapter to the registry when a diagnosis requires an unsupported technique; do not add another conditional candidate block to the orchestrator.
 
 ## 10. Stage D — expensive LLM search
 

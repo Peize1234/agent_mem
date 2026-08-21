@@ -10,6 +10,7 @@ from .models import Candidate, CandidateResult, Dataset
 from .research_decision import ResearchDecisionEngine
 from .research_evidence import build_research_evidence
 from .research_policy import build_legal_actions, deterministic_plan_actions
+from .parameter_schema import validate_candidate_config
 
 EvaluateCandidates = Callable[[Sequence[Candidate], Sequence[str] | None, str], list[CandidateResult]]
 Diagnose = Callable[[CandidateResult], dict[str, Any]]
@@ -441,6 +442,20 @@ def run_staged_search(
                 },
             )
             outcome = registry.generate(branch, context)
+            legal_candidates: list[Candidate] = []
+            rejected_candidates: list[str] = []
+            for candidate in outcome.candidates:
+                try:
+                    validate_candidate_config(candidate.config)
+                except ValueError as exc:
+                    rejected_candidates.append(f"{candidate.name}: {exc}")
+                    continue
+                legal_candidates.append(candidate)
+            outcome.candidates = legal_candidates
+            if rejected_candidates:
+                outcome.reason = "; ".join(filter(None, [outcome.reason, *rejected_candidates]))
+                if not outcome.candidates:
+                    outcome.status = "INVALID"
             event = outcome.event(stage_index=stage_index, diagnostic_regime=str(diagnostic["regime"]))
             event["generation_round"] = attempt_counts[branch.spec.name]
             event["effective_config_hashes"] = [

@@ -108,6 +108,7 @@ class MemoryToolExecutor:
         config: AgenticRetrievalConfig,
         record_midterm_visits: bool = True,
         exclude_midterm_page_ids: set[str] | None = None,
+        max_total_page_budget: int = 5,
     ) -> None:
         self.memory = memory
         self.user_id = user_id
@@ -115,6 +116,7 @@ class MemoryToolExecutor:
         self.config = config
         self.record_midterm_visits = record_midterm_visits
         self.exclude_midterm_page_ids = {str(value) for value in (exclude_midterm_page_ids or set())}
+        self.max_total_page_budget = max(0, min(int(max_total_page_budget), 5))
         self._pending_valid_page_ids: list[str] = []
         self._scope_filters = {"user_id": user_id, "run_id": run_id}
 
@@ -257,7 +259,10 @@ class MemoryToolExecutor:
                 if current is None or _score(item) > _score(current):
                     best_by_page_id[result_id] = item
 
-        items = sorted(best_by_page_id.values(), key=_score, reverse=True)[: self.config.max_total_results]
+        # Agentic retrieval shares the production Mid-term raw-page budget;
+        # callers cannot append another five pages on top of normal retrieval.
+        final_budget = min(int(self.config.max_total_results), self.max_total_page_budget, 5)
+        items = sorted(best_by_page_id.values(), key=_score, reverse=True)[:final_budget]
         payload: dict[str, Any] = {"ok": successful_queries > 0, "items": items}
         if errors:
             payload["errors"] = errors

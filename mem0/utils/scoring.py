@@ -55,6 +55,13 @@ def normalize_bm25(raw_score: float, midpoint: float, steepness: float) -> float
 
 
 ENTITY_BOOST_WEIGHT = 0.5
+HYBRID_PRESET_WEIGHTS = {
+    "semantic-heavy": {"semantic": 0.70, "bm25": 0.20, "entity": 0.10},
+    # 0.4 / 0.4 / 0.2 is exactly the historical 1 / 1 / 0.5 ratio.
+    "balanced": {"semantic": 0.40, "bm25": 0.40, "entity": 0.20},
+    "keyword-heavy": {"semantic": 0.25, "bm25": 0.65, "entity": 0.10},
+    "entity-aware": {"semantic": 0.50, "bm25": 0.15, "entity": 0.35},
+}
 
 
 def score_and_rank(
@@ -64,6 +71,7 @@ def score_and_rank(
     threshold: float,
     top_k: int,
     explain: bool = False,
+    weights: Optional[Dict[str, float]] = None,
 ) -> List[Dict[str, Any]]:
     """Score candidates additively and return top-k results.
 
@@ -94,11 +102,24 @@ def score_and_rank(
     has_bm25 = bool(bm25_scores)
     has_entity = bool(entity_boosts)
 
-    max_possible = 1.0
-    if has_bm25:
-        max_possible += 1.0
-    if has_entity:
-        max_possible += ENTITY_BOOST_WEIGHT
+    selected_weights = dict(weights) if weights is not None else None
+    if selected_weights is not None:
+        if set(selected_weights) != {"semantic", "bm25", "entity"}:
+            raise ValueError("hybrid weights must define semantic, bm25, and entity")
+        if any(not math.isfinite(float(value)) or not 0 <= float(value) <= 1 for value in selected_weights.values()):
+            raise ValueError("hybrid weights must be finite values between 0 and 1")
+        if not math.isclose(sum(float(value) for value in selected_weights.values()), 1.0, abs_tol=1e-9):
+            raise ValueError("hybrid weights must sum to 1")
+    if selected_weights is None:
+        # Preserve the historical scoring contract exactly. Entity boosts are
+        # already capped at ENTITY_BOOST_WEIGHT by the production matcher.
+        max_possible = 1.0 + (1.0 if has_bm25 else 0.0) + (ENTITY_BOOST_WEIGHT if has_entity else 0.0)
+    else:
+        max_possible = float(selected_weights.get("semantic", 0.0))
+        if has_bm25:
+            max_possible += float(selected_weights.get("bm25", 0.0))
+        if has_entity:
+            max_possible += float(selected_weights.get("entity", 0.0))
 
     scored: List[Dict[str, Any]] = []
 
@@ -115,7 +136,15 @@ def score_and_rank(
         bm25_score = bm25_scores.get(mem_id_str, 0.0)
         entity_boost = entity_boosts.get(mem_id_str, 0.0)
 
-        raw_combined = semantic_score + bm25_score + entity_boost
+        if selected_weights is None:
+            raw_combined = semantic_score + bm25_score + entity_boost
+        else:
+            normalized_entity = entity_boost / ENTITY_BOOST_WEIGHT if ENTITY_BOOST_WEIGHT else entity_boost
+            raw_combined = (
+                float(selected_weights.get("semantic", 0.0)) * semantic_score
+                + float(selected_weights.get("bm25", 0.0)) * bm25_score
+                + float(selected_weights.get("entity", 0.0)) * normalized_entity
+            )
         combined = min(raw_combined / max_possible, 1.0)
 
         scored_result = {
@@ -133,6 +162,8 @@ def score_and_rank(
                 "final_score": combined,
                 "threshold": threshold,
             }
+            if selected_weights is not None:
+                scored_result["score_details"]["weights"] = selected_weights
         scored.append(scored_result)
 
     scored.sort(key=lambda x: x["score"], reverse=True)

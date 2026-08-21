@@ -84,6 +84,14 @@ def write_outputs(
     best_metric = float(best.metrics.get("recall_at_k") or 0.0)
     improvement_pp = (best_metric - baseline_metric) * 100.0
     tune_rows = {result.name: result for result in tune_results}
+    validated_parameters = sorted(
+        {
+            key
+            for result in validation_by_name.values()
+            for key in config_diff(baseline_tune.config, result.config)
+            if key not in {"experiment_branch", "branch_cost_level", "parent_candidate_hash", "applied_branches"}
+        }
+    )
 
     def optional_metric(metrics: Mapping[str, Any], name: str) -> str:
         value = metrics.get(name)
@@ -134,6 +142,10 @@ def write_outputs(
         f"- MRR: {float(best.metrics.get('mrr') or 0):.4f}",
         f"- Macro R@{k} / session stddev: {float(best.metrics.get('macro_session_recall_at_k') or 0):.4f} / "
         f"{float(best.metrics.get('session_stddev') or 0):.4f}",
+        f"- Candidate-pool recall / final-context recall: {optional_metric(best.metrics, 'candidate_pool_recall')} / {optional_metric(best.metrics, 'final_context_recall')}",
+        f"- Context precision / mean returned pages: {optional_metric(best.metrics, 'context_precision')} / {optional_metric(best.metrics, 'mean_returned_pages')}",
+        f"- ShortTerm / MidTerm / Session-LongTerm contributions: {optional_metric(best.metrics, 'shortterm_contribution')} / {optional_metric(best.metrics, 'midterm_contribution')} / {optional_metric(best.metrics, 'session_longterm_contribution')}",
+        f"- Short + Mid + Session-LongTerm union / query completion: {optional_metric(best.metrics, 'short_mid_session_longterm_union')} / {optional_metric(best.metrics, 'query_completion')}",
         "",
         "## Memory-layer metrics",
         "",
@@ -244,6 +256,24 @@ def write_outputs(
     lines.extend(
         (
             "",
+            "## Tuning coverage and validation boundary",
+            "",
+            "### Automatically tuned",
+            "",
+            f"- Parameters actually evaluated on Tune and the final Validation frontier: `{validated_parameters}`",
+            f"- Winning config diff only: `{sorted(config_diff(baseline_tune.config, best.config))}`",
+            "- Retrieval-only changes reuse immutable source artifacts when provenance matches.",
+            "- Source-changing, stateful and prompt changes are materialized/replayed with their own artifact identity.",
+            "",
+            "### Production defaults / unvalidated",
+            "",
+            f"- Cross-session Gold available: `{run_metadata.get('cross_session_gold_available', False)}`",
+            f"- Cross-session Temporal Replay: `{run_metadata.get('cross_session_temporal_status', 'UNVALIDATED_NO_CROSS_SESSION_GOLD')}`",
+            "- Cross-session threshold, retention, floor and reinforcement parameters remain production defaults and do not participate in winner selection without temporal Gold.",
+            "- Agentic `max_queries` / `max_total_results` remain production defaults unless a production Agentic trace is evaluated; ignored `candidate_pool_size` is never reported as tuned.",
+            f"- Stateful replay: `{run_metadata.get('stateful_replay_status', 'not recorded')}`",
+            f"- Stateful replay Candidates: `{run_metadata.get('stateful_replay_candidates', [])}`",
+            "",
             "## Cost, cache, and parallel execution",
             "",
             f"- Cumulative LLM calls: {run_metadata.get('llm_calls', 0)}",
@@ -283,7 +313,7 @@ def write_outputs(
             f"`{(run_metadata.get('midterm_baseline_provenance') or {}).get('prompt_provenance') or 'explicit prompt hashes validated'}`.",
             "- Frozen rankings are eligible only when dataset provenance and the `production_midterm_v1` retrieval contract validate.",
             "- Query/Page/embedding variants are derived from production MidTerm checkpoints and remain explicitly marked as Benchmark candidates, not production behavior.",
-            "- Query Prompt generation requires standard/deep budget; Add/Page Prompt generation requires deep budget. Missing API/model resources are recorded as unavailable rather than replaced by surrogate artifacts.",
+            "- Query Rewrite requires standard/deep budget; Page Summary, Session Merge and Session Long-term Extraction prompt branches require deep budget. Missing API/model resources are recorded as unavailable rather than replaced by surrogate artifacts.",
         )
     )
     atomic_write_text(run_dir / "final_report.md", "\n".join(lines) + "\n")

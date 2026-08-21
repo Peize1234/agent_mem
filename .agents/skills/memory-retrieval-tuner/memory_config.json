@@ -40,14 +40,35 @@
   "entity_extraction_timeout_seconds": 120,
   "midterm": {
     "enabled": true,
-    "short_term_capacity": 6,
-    "session_similarity_threshold": 0.6,
+    "short_term_capacity": 10,
+    "session_similarity_threshold": 0.8,
     "embedding_similarity_weight": 0.7,
     "keyword_overlap_weight": 0.3,
     "top_k_sessions": 5,
     "top_k_pages": 5,
-    "max_total_pages": 5
+    "max_total_pages": 4,
+    "midterm_candidate_pool_multiplier": 4,
+    "midterm_rag_threshold": 0.1,
+    "retention_half_life_turns": 168.0,
+    "retention_floor": 0.2,
+    "heat_alpha": 1.0,
+    "heat_beta": 0.5,
+    "heat_gamma": 1.0,
+    "heat_recency_tau_turns": 24.0,
+    "heat_modulation_min": 0.9,
+    "heat_modulation_max": 1.1,
+    "promotion_min_recall_count": 3,
+    "promotion_heat_threshold": 5.0
   },
+  "longterm_rag_threshold": 0.1,
+  "longterm_top_k": 20,
+  "longterm_candidate_pool_multiplier": 4,
+  "entity_similarity_threshold": 0.5,
+  "longterm_hybrid_preset": "balanced",
+  "cross_session_longterm_rag_threshold": 0.1,
+  "cross_session_retention_half_life_hours": 720.0,
+  "cross_session_retention_floor": 0.2,
+  "cross_session_reinforcement_gain": 0.25,
   "profile": {
     "enabled": true,
     "update_on_add": true,
@@ -77,6 +98,13 @@
     "include_failed_in_context": false
   },
   "agentic_retrieval": {
-    "enabled": false
+    "enabled": true,
+    "max_iterations": 2,
+    "max_tool_calls": 1,
+    "max_queries": 3,
+    "candidate_pool_size": 20,
+    "max_total_results": 5,
+    "max_tool_result_chars": 10000,
+    "force_final_answer": true
   }
 }

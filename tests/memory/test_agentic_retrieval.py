@@ -169,7 +169,7 @@ def test_agentic_config_defaults_and_validates_low_latency_limits():
     assert config.max_tool_calls == 1
     assert config.max_queries == 3
     assert config.candidate_pool_size == 20
-    assert config.max_total_results == 6
+    assert config.max_total_results == 5
     assert "max_chars_per_result" not in AgenticRetrievalConfig.model_fields
     assert "default_threshold" not in AgenticRetrievalConfig.model_fields
     with pytest.raises(ValidationError):
@@ -178,6 +178,8 @@ def test_agentic_config_defaults_and_validates_low_latency_limits():
         AgenticRetrievalConfig(max_tool_calls=2)
     with pytest.raises(ValidationError):
         AgenticRetrievalConfig(max_queries=4)
+    with pytest.raises(ValidationError):
+        AgenticRetrievalConfig(max_total_results=6)
 
 
 def test_only_search_memory_tool_with_queries_is_exposed():
@@ -552,6 +554,22 @@ def test_configurable_max_total_results_limits_complete_pages():
         "mid_term_page:page-1",
     ]
     assert len(result["items"]) == 2
+
+
+def test_agentic_pages_share_remaining_normal_midterm_budget():
+    pages = [_page(f"page-{index}", 0.9 - index * 0.1) for index in range(5)]
+    memory = _FakeMemory({"remaining": [_session(), *pages]})
+    executor = MemoryToolExecutor(
+        memory,
+        user_id="user-1",
+        run_id="run-1",
+        config=AgenticRetrievalConfig(max_total_results=5),
+        max_total_page_budget=1,
+    )
+
+    result = executor.execute("search_memory", {"queries": ["remaining"]})
+
+    assert len(result["items"]) == 1
 
 
 def test_global_tool_limit_drops_whole_low_score_pages_without_truncation():

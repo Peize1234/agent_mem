@@ -26,6 +26,8 @@ def tune_frontier(results: Sequence[CandidateResult], *, tolerance_pp: float, li
             -_metric(result, "recall_at_k"),
             -_metric(result, "macro_session_recall_at_k"),
             _metric(result, "session_stddev"),
+            -_metric(result, "context_precision"),
+            _metric(result, "mean_returned_pages"),
             -_metric(result, "mrr"),
             -_metric(result, "recall_at_2k"),
             -_metric(result, "recall_at_4k"),
@@ -86,6 +88,8 @@ def select_best(
         key=lambda result: (
             -_metric(result, "macro_session_recall_at_k"),
             _metric(result, "session_stddev"),
+            -_metric(result, "context_precision"),
+            _metric(result, "mean_returned_pages"),
             -_metric(result, "mrr"),
             -_metric(result, "recall_at_2k"),
             -_metric(result, "recall_at_4k"),
@@ -104,6 +108,8 @@ def select_best(
         "tie_breakers": [
             "macro_session_recall_at_k",
             "session_stability",
+            "context_precision",
+            "lower_context_budget",
             "mrr",
             "recall_at_2k",
             "recall_at_4k",

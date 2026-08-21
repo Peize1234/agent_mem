@@ -419,6 +419,7 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
     session_turn_counts = {session_id: len(turns) for session_id, turns in dataset.sessions.items()}
     generated_source = False
     source_generation_stats: dict[str, Any] = {}
+    generated_trace_paths: list[Path] = []
     execution["source_worker_parallelism"] = 0
     midterm_baseline = registry.discover_production_midterm(
         dataset_sha256=dataset.sha256,
@@ -463,6 +464,7 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
             generation_stats=source_generation_stats,
         )
         generated_source = bool(source_generation_stats.get("generated_sessions", True))
+        generated_trace_paths = [Path(path).parent / "recall_turn_results.jsonl" for path in manifest_paths]
         production_config, production_provenance = production_candidate_from_manifests(manifest_paths)
         midterm_baseline = Candidate(
             name="baseline",
@@ -473,6 +475,26 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         )
     if midterm_baseline is None or midterm_baseline.config.get("backend") != "production_midterm":
         raise RuntimeError("Unable to establish a replayable production MidTerm baseline")
+
+    # Source generation is intentionally completed before searching.  Re-scan
+    # the newly generated exact traces so the baseline can also be evaluated as
+    # Short + Mid + Session-Longterm, when the trace carries all layers.
+    if full_memory_regression_baseline is None:
+        full_memory_regression_baseline = registry.discover_production_trace(
+            dataset_path=Path(dataset.path),
+            dataset_sha256=dataset.sha256,
+            session_query_counts=session_turn_counts,
+            memory_config_path=config.memory_config,
+            extra_trace_paths=generated_trace_paths,
+        )
+        if full_memory_regression_baseline is not None:
+            full_memory_regression_baseline = Candidate(
+                name="full_memory_regression_baseline",
+                stage="regression_baseline",
+                config=full_memory_regression_baseline.config,
+                provenance=full_memory_regression_baseline.provenance,
+                complexity=full_memory_regression_baseline.complexity,
+            )
 
     def evaluate_tune_candidates(
         candidates: Sequence[Candidate],
@@ -750,6 +772,10 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
             "metrics": full_memory_regression_result.metrics,
         }
 
+    stateful_results = [
+        result for result in tune_results if bool(result.config.get("requires_within_session_replay"))
+    ]
+    stateful_status = "COMPLETE" if stateful_results else "NOT_RUN_BUDGET_OR_DIAGNOSTIC_GATE"
     run_metadata = {
         "status": "COMPLETE",
         "dataset": dataset.path,
@@ -764,6 +790,12 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         "seed": seed,
         "shortterm_qa_turns": shortterm_window,
         "shortterm_window_validation": shortterm_window_validation,
+        "cross_session_gold_available": bool(audit.get("cross_session_gold_available", False)),
+        "cross_session_temporal_status": (
+            "VALIDATED" if audit.get("cross_session_gold_available") else "UNVALIDATED_NO_CROSS_SESSION_GOLD"
+        ),
+        "stateful_replay_status": stateful_status,
+        "stateful_replay_candidates": [result.name for result in stateful_results],
         "run_dir": str(run_dir),
         "execution": execution,
         "runtime_seconds": cumulative_runtime,

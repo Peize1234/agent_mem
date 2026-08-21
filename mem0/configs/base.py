@@ -29,13 +29,16 @@ class MemoryItem(BaseModel):
 
 class MidTermMemoryConfig(BaseModel):
     enabled: bool = Field(True, description="Enable the mid-term memory layer")
-    short_term_capacity: int = Field(10, description="Number of recent SQLite messages to keep per session")
-    session_similarity_threshold: float = Field(0.8, description="Minimum score for assigning a page to a session")
-    embedding_similarity_weight: float = Field(0.7, description="Weight for embedding similarity during topic routing")
-    keyword_overlap_weight: float = Field(0.3, description="Weight for keyword overlap during topic routing")
-    top_k_sessions: int = Field(5, ge=0, description="Number of mid-term sessions to retrieve")
-    top_k_pages: int = Field(5, ge=0, description="Number of candidate mid-term pages to retrieve per session")
-    max_total_pages: int = Field(4, ge=0, description="Maximum total mid-term pages to return")
+    short_term_capacity: int = Field(10, gt=0, description="Number of recent SQLite messages to keep per session")
+    session_similarity_threshold: float = Field(0.8, ge=0, le=1, description="Minimum score for assigning a page to a session")
+    embedding_similarity_weight: float = Field(0.7, ge=0, description="Weight for embedding similarity during topic routing")
+    keyword_overlap_weight: float = Field(0.3, ge=0, description="Weight for keyword overlap during topic routing")
+    top_k_sessions: int = Field(5, ge=1, description="Number of mid-term sessions to retrieve")
+    top_k_pages: int = Field(5, ge=1, description="Number of candidate mid-term pages to retrieve per session")
+    max_total_pages: int = Field(4, ge=1, le=5, description="Maximum total mid-term pages to return")
+    # The production retriever uses this only for global Page supplementation.
+    # Keep the historical multiplier as the default while making experiments explicit.
+    midterm_candidate_pool_multiplier: int = Field(4, ge=1, le=8)
     midterm_rag_threshold: float = Field(
         0.1,
         ge=0,
@@ -71,9 +74,9 @@ class MidTermMemoryConfig(BaseModel):
         description="Maximum session-heat factor applied to the mid-term half-life",
     )
 
-    heat_alpha: float = Field(1.0, description="Session heat weight for visit count")
-    heat_beta: float = Field(0.5, description="Session heat weight for interaction count")
-    heat_gamma: float = Field(1.0, description="Session heat weight for recall recency")
+    heat_alpha: float = Field(1.0, ge=0, description="Session heat weight for visit count")
+    heat_beta: float = Field(0.5, ge=0, description="Session heat weight for interaction count")
+    heat_gamma: float = Field(1.0, ge=0, description="Session heat weight for recall recency")
     promotion_min_recall_count: int = Field(
         3,
         ge=1,
@@ -89,6 +92,10 @@ class MidTermMemoryConfig(BaseModel):
     def validate_heat_modulation_range(self):
         if self.heat_modulation_min >= self.heat_modulation_max:
             raise ValueError("heat_modulation_min must be less than heat_modulation_max")
+        if self.short_term_capacity % 2:
+            raise ValueError("short_term_capacity must be a positive even number of messages")
+        if not math.isclose(self.embedding_similarity_weight + self.keyword_overlap_weight, 1.0, abs_tol=1e-9):
+            raise ValueError("embedding_similarity_weight + keyword_overlap_weight must equal 1")
         return self
 
 
@@ -174,9 +181,9 @@ class AgenticRetrievalConfig(BaseModel):
     max_queries: int = Field(3, ge=1, le=3)
     candidate_pool_size: int = Field(20, ge=5, le=100)
     max_total_results: int = Field(
-        6,
+        5,
         ge=1,
-        le=20,
+        le=5,
         description="最终返回给模型的完整中期记忆 Page 数量",
     )
     max_tool_result_chars: int = Field(10000, ge=1000)
@@ -226,6 +233,28 @@ class MemoryConfig(BaseModel):
         ge=0,
         le=1,
         description="Minimum raw RAG score for existing session-scoped long-term memory",
+    )
+    longterm_top_k: int = Field(
+        20,
+        ge=1,
+        le=30,
+        description="Maximum session-scoped long-term memories in final context",
+    )
+    longterm_candidate_pool_multiplier: int = Field(
+        4,
+        ge=1,
+        le=6,
+        description="Candidate over-fetch multiplier; the production floor remains 60",
+    )
+    entity_similarity_threshold: float = Field(
+        0.5,
+        ge=0,
+        le=1,
+        description="Minimum entity similarity used for entity-aware long-term scoring",
+    )
+    longterm_hybrid_preset: Literal["semantic-heavy", "balanced", "keyword-heavy", "entity-aware"] = Field(
+        "balanced",
+        description="High-level long-term hybrid scoring preset",
     )
     cross_session_longterm_rag_threshold: float = Field(
         0.1,

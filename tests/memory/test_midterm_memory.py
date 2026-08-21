@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
 
 import pytest
+from pydantic import ValidationError
 
 from mem0 import Memory
 from mem0.configs.base import MemoryConfig, MidTermMemoryConfig
@@ -405,17 +406,11 @@ def test_midterm_retriever_returns_all_pages_when_candidates_below_limit():
     assert [page["id"] for page in pages] == ["p1", "p2"]
 
 
-def test_midterm_retriever_max_total_pages_zero_returns_no_pages():
-    sessions = [_midterm_row("s1", 0.9, summary="session 1", user_id="u1", run_id="r1")]
-    pages_by_session = {"s1": [_midterm_row("p1", 0.7, session_id="s1", summary="page 1", user_id="u1", run_id="r1")]}
-    store = FakeMidTermRetrievalStore(sessions, pages_by_session)
-    retriever = MidTermRetriever(store, _retriever_config(max_total_pages=0))
-
-    results = retriever.search("risk", {"user_id": "u1", "run_id": "r1"})
-
-    assert _page_results(results) == []
-    assert [item["source"] for item in results] == ["mid_term_session"]
-    assert store.page_filters == []
+def test_midterm_retriever_max_total_pages_requires_positive_bounded_budget():
+    with pytest.raises(ValidationError):
+        _retriever_config(max_total_pages=0)
+    with pytest.raises(ValidationError):
+        _retriever_config(max_total_pages=6)
 
 
 def test_midterm_retriever_preserves_run_id_isolation():

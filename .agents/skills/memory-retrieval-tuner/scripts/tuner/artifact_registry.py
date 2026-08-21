@@ -5,7 +5,7 @@ import os
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable, Iterator, Mapping
+from typing import Any, Callable, Iterator, Mapping, Sequence
 
 from .io_utils import atomic_write_json, load_json, load_jsonl, sha256_file, stable_hash
 from .models import Candidate
@@ -344,9 +344,14 @@ class ArtifactRegistry:
         dataset_sha256: str,
         session_query_counts: Mapping[str, int],
         memory_config_path: Path | None = None,
+        extra_trace_paths: Sequence[Path] | None = None,
     ) -> Candidate | None:
         """Find a complete production recall trace with exact dataset provenance."""
         trace_paths: set[Path] = set()
+        for raw_path in extra_trace_paths or ():
+            path = Path(raw_path).expanduser()
+            if path.exists():
+                trace_paths.add(path.resolve())
         for summary_path in self.results_root.glob("**/isolated_run_summary.json"):
             try:
                 summary = load_json(summary_path)
@@ -460,7 +465,7 @@ class ArtifactRegistry:
         source_run: Path | None = None,
     ) -> Candidate | None:
         """Find complete replayable checkpoints created from the production MidTerm pipeline."""
-        from .production_midterm_adapter import production_candidate_from_manifests
+        from .production_midterm_adapter import ADAPTER_SCHEMA, production_candidate_from_manifests
 
         roots = [self.results_root]
         if source_run is not None:
@@ -476,7 +481,8 @@ class ArtifactRegistry:
                     continue
                 session_id = str(manifest.get("session_id") or "")
                 if (
-                    manifest.get("status") != "COMPLETE"
+                    manifest.get("schema") != ADAPTER_SCHEMA
+                    or manifest.get("status") != "COMPLETE"
                     or manifest.get("dataset_sha256") != dataset_sha256
                     or session_id not in session_turn_counts
                     or int(manifest.get("turn_count") or 0) != int(session_turn_counts[session_id])

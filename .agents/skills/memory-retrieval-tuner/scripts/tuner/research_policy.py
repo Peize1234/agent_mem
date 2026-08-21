@@ -62,6 +62,7 @@ def build_legal_actions(
         remaining_required = {
             name for name in remaining if roles.get(name) == "required" and not attempt_counts.get(name)
         }
+    required_now_queue = [name for name in remaining if name in remaining_required][:max_branches_per_stage]
     actions: list[LegalAction] = []
     for name in remaining:
         branch = registry.get(name)
@@ -71,8 +72,9 @@ def build_legal_actions(
         # Do not wait for cheaper/selectable work to be consumed. Required
         # coverage still cannot be skipped: hide expensive_gated until required
         # work is done, unless the deterministic plan already opened it.
-        if coverage_class == "expensive_gated" and remaining_required and name not in deterministic_names:
+        if coverage_class == "expensive_gated" and (remaining_required - {name}) and name not in deterministic_names:
             continue
+        required_now = name in required_now_queue
         actions.append(
             LegalAction(
                 action_id=f"A{len(actions) + 1:02d}",
@@ -83,10 +85,10 @@ def build_legal_actions(
                 cost_level=branch.spec.cost_level,
                 reason=(
                     "required minimum attempt is still unmet"
-                    if coverage_class == "required" and not attempt_counts.get(name)
+                    if required_now
                     else "Python registry reports this Branch as executable and diagnostically relevant"
                 ),
-                required_now=coverage_class == "required" and not bool(attempt_counts.get(name)),
+                required_now=required_now,
             )
         )
     required_unmet = [action for action in actions if action.required_now]

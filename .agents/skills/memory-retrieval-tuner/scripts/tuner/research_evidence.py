@@ -40,6 +40,30 @@ RESEARCH_CONFIG_KEYS = frozenset(
         "source_variant",
         "context_mode",
         "ablation_from_baseline",
+        "midterm_rag_threshold",
+        "midterm_candidate_pool_multiplier",
+        "longterm_top_k",
+        "longterm_rag_threshold",
+        "longterm_candidate_pool_multiplier",
+        "longterm_hybrid_preset",
+        "entity_similarity_threshold",
+        "max_queries",
+        "max_total_results",
+        "retention_half_life_turns",
+        "retention_floor",
+        "heat_alpha",
+        "heat_beta",
+        "heat_gamma",
+        "heat_recency_tau_turns",
+        "heat_modulation_min",
+        "heat_modulation_max",
+        "promotion_min_recall_count",
+        "promotion_heat_threshold",
+        "short_term_capacity",
+        "session_similarity_threshold",
+        "embedding_similarity_weight",
+        "keyword_overlap_weight",
+        "top_k_sessions",
     }
 )
 RESEARCH_BUDGET_KEYS = frozenset(
@@ -103,6 +127,19 @@ def _metric_summary(result: CandidateResult) -> dict[str, Any]:
         "worst_session_recall_at_k": metrics.get("worst_session_recall_at_k"),
         "eligible_requirement_count": metrics.get("eligible_requirement_count"),
         "evaluated_query_count": metrics.get("evaluated_query_count"),
+        "candidate_pool_recall": metrics.get("candidate_pool_recall"),
+        "final_context_recall": metrics.get("final_context_recall"),
+        "context_precision": metrics.get("context_precision"),
+        "mean_returned_pages": metrics.get("mean_returned_pages"),
+        "shortterm_coverage": metrics.get("shortterm_coverage"),
+        "midterm_contribution": metrics.get("midterm_contribution"),
+        "session_longterm_contribution": metrics.get("session_longterm_contribution"),
+        "short_mid_session_longterm_union": metrics.get("short_mid_session_longterm_union"),
+        "runtime_seconds": result.runtime_seconds,
+        "llm_calls": metrics.get("llm_calls", metrics.get("tuning_llm_calls", result.llm_calls)),
+        "embedding_calls": metrics.get(
+            "embedding_calls", metrics.get("tuning_embedding_calls", result.embedding_calls)
+        ),
     }
 
 

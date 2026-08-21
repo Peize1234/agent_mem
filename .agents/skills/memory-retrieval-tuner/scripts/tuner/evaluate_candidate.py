@@ -12,6 +12,8 @@ from .artifact_registry import ArtifactRegistry
 from .io_utils import atomic_write_json, load_jsonl, stable_hash
 from .models import Candidate, CandidateResult, Dataset, Requirement, Turn
 from .production_midterm_adapter import PRODUCTION_BACKEND, ProductionMidtermAdapter, load_checkpoints
+from .fact_evaluator import FactRequirement, fact_member_hit, parse_required_context
+from .parameter_schema import validate_candidate_config
 
 
 def candidate_hash(dataset_sha256: str, candidate: Candidate) -> str:
@@ -44,24 +46,190 @@ def _ranking_identity_config(config: Mapping[str, Any]) -> dict[str, Any]:
 def _eligible_requirements(
     turn: Turn, session_turns: Sequence[Turn], target: str, shortterm_window: int
 ) -> list[Requirement]:
+    dependency_type = str(turn.dependency_type or "").lower()
+    if any(marker in dependency_type for marker in ("cross", "temporal", "promotion")):
+        return []
+    local_ids = {item.query_id for item in session_turns}
+    local_requirements = [
+        requirement for requirement in turn.requirements if all(member in local_ids for member in requirement.members)
+    ]
+    # ``required_context`` is the benchmark contract.  Its denominator is
+    # fixed for a Query and must not move when a candidate changes the
+    # ShortTerm window.  Legacy ID-only workbooks retain the old eligibility
+    # behaviour for backwards-compatible regression fixtures.
+    if str(turn.required_context or "").strip():
+        # required_context is the fixed benchmark contract.  Ignore legacy
+        # source-ID rows whenever both representations are present.
+        return [Requirement((), str(turn.required_context))]
     if target == "all_memory":
-        return list(turn.requirements)
+        return local_requirements
     shortterm_ids = {
         item.query_id for item in session_turns[max(0, turn.turn_index - shortterm_window) : turn.turn_index]
     }
     return [
         requirement
-        for requirement in turn.requirements
+        for requirement in local_requirements
         if not any(member in shortterm_ids for member in requirement.members)
     ]
+
+
+def _ranking_layers(rankings: Mapping[str, Any], query_id: str) -> dict[str, list[dict[str, Any]]]:
+    raw = rankings.get(query_id, [])
+    if isinstance(raw, Mapping):
+        layers = {}
+        for key, value in raw.items():
+            if key in {"shortterm", "sessions", "midterm", "session_longterm", "cross_session_longterm", "all_memory", "rows"}:
+                layers[key] = [dict(item) for item in (value or [])]
+        if layers:
+            return layers
+    rows = [dict(item) for item in (raw or [])]
+    sessions, midterm, longterm, cross = [], [], [], []
+    for row in rows:
+        source = str(row.get("layer") or row.get("memory_layer") or row.get("source") or "").lower()
+        if "cross_session" in source:
+            cross.append(row)
+        elif source == "mid_term_session":
+            sessions.append(row)
+        elif "long" in source:
+            longterm.append(row)
+        elif "short" in source:
+            # ShortTerm rows are generally supplied separately, but accepting
+            # them here makes the evaluator usable with full trace artifacts.
+            rows_short = [row]
+            return {
+                "shortterm": rows_short,
+                "sessions": sessions,
+                "midterm": midterm,
+                "session_longterm": longterm,
+                "cross_session_longterm": cross,
+            }
+        else:
+            midterm.append(row)
+    return {
+        "sessions": sessions,
+        "midterm": midterm,
+        "session_longterm": longterm,
+        "cross_session_longterm": cross,
+    }
+
+
+def _row_text(row: Mapping[str, Any]) -> str:
+    identifiers = " ".join(
+        str(row.get(key) or "") for key in ("source_turn_id", "turn_id", "page_id", "id")
+    )
+    content = " ".join(
+        str(row.get(key) or "")
+        for key in ("raw_dialogue", "content", "memory", "summary", "text", "data")
+    )
+    return f"{identifiers} {content}".strip()
+
+
+def _fact_rows_for_visible(
+    turn: Turn,
+    visible_rows: Sequence[Mapping[str, Any]],
+    candidate_rows: Sequence[Mapping[str, Any]],
+    shortterm_rows: Sequence[Mapping[str, Any]],
+    *,
+    k: int,
+    midterm_rows: Sequence[Mapping[str, Any]] = (),
+    session_longterm_rows: Sequence[Mapping[str, Any]] = (),
+) -> tuple[list[dict[str, Any]], list[FactRequirement]]:
+    requirements = list(parse_required_context(turn.required_context))
+    if not requirements:
+        return [], []
+    candidate_text = "\n".join(_row_text(row) for row in candidate_rows)
+    short_text = "\n".join(_row_text(row) for row in shortterm_rows)
+    # ``visible_rows`` has already been clipped to the actual configured
+    # context budgets by the caller.  Never substitute evaluation K for the
+    # final Mid-term Page budget.
+    final_text = "\n".join(_row_text(row) for row in visible_rows)
+    output = []
+    for index, requirement in enumerate(requirements, start=1):
+        def hit(text: str) -> bool:
+            return any(fact_member_hit(member, text) for member in requirement.members)
+
+        rank = None
+        matched_row: Mapping[str, Any] | None = None
+        for row_index, row in enumerate(candidate_rows, start=1):
+            if hit(_row_text(row)):
+                rank = row_index
+                matched_row = row
+                break
+        final_hit = hit(final_text)
+        candidate_hit = hit(candidate_text)
+        if final_hit:
+            failure_class = None
+        elif not candidate_hit and not candidate_rows:
+            failure_class = "Source Generation Loss"
+        elif not candidate_hit and not midterm_rows:
+            failure_class = "Session Routing Loss"
+        elif not candidate_hit:
+            failure_class = "Candidate Coverage Loss"
+        elif matched_row and matched_row.get("threshold_filtered"):
+            failure_class = "Threshold Loss"
+        elif matched_row and not any(matched_row.get(key) for key in ("raw_dialogue", "memory", "summary", "content")):
+            failure_class = "Representation Loss"
+        elif rank is not None and rank > len([*midterm_rows, *session_longterm_rows]):
+            failure_class = "Context Budget Loss"
+        elif rank is not None:
+            failure_class = "Context Budget Loss"
+        else:
+            failure_class = "Ranking Loss"
+        output.append(
+            {
+                "requirement_id": f"{turn.query_id}::CONTEXT{index}",
+                "session_id": turn.session_id,
+                "query_id": turn.query_id,
+                "turn_index": turn.turn_index,
+                "gold_members": list(requirement.members),
+                "is_or": requirement.is_or,
+                "best_rank": rank,
+                "hit_at_k": final_hit,
+                "hit_at_2k": hit("\n".join(_row_text(row) for row in candidate_rows[: 2 * max(k, 1)])),
+                "hit_at_4k": hit("\n".join(_row_text(row) for row in candidate_rows[: 4 * max(k, 1)])),
+                "candidate_pool_hit": candidate_hit,
+                "final_context_hit": final_hit,
+                "shortterm_hit": hit(short_text),
+                "midterm_hit": hit("\n".join(_row_text(row) for row in midterm_rows)),
+                "session_longterm_hit": hit("\n".join(_row_text(row) for row in session_longterm_rows[:30])),
+                "reciprocal_rank": 1.0 / rank if rank else 0.0,
+                "failure_class": failure_class,
+                "diagnostics": {
+                    "routed_pool": any(hit(_row_text(row)) for row in midterm_rows),
+                    "global_supplement": any(
+                        hit(_row_text(row)) and bool(row.get("global_supplement")) for row in midterm_rows
+                    ),
+                    "candidate_pool": hit(candidate_text),
+                    "final_context": hit(final_text),
+                    "raw_rag_score": matched_row.get("raw_rag_score") if matched_row else None,
+                    "forgetting_factor": matched_row.get("forgetting_factor") if matched_row else None,
+                    "heat_modulation": matched_row.get("heat_modulation") if matched_row else None,
+                    "final_score": matched_row.get("final_score") if matched_row else None,
+                    "threshold_filtered": bool(matched_row.get("threshold_filtered")) if matched_row else None,
+                    "rank_before_threshold": rank,
+                    "final_rank": rank if final_hit else None,
+                },
+            }
+        )
+    return output, requirements
 
 
 def _apply_retrieval_controls(
     ranking: Sequence[Mapping[str, Any]], config: Mapping[str, Any], ranking_depth: int
 ) -> list[dict[str, Any]]:
-    del config
     rows = [dict(row) for row in ranking]
-    rows = rows[:ranking_depth]
+    midterm = [
+        row
+        for row in rows
+        if str(row.get("source") or "").lower() not in {"long_term", "cross_session_long_term"}
+    ][:ranking_depth]
+    session_longterm = [
+        row for row in rows if str(row.get("source") or "").lower() == "long_term"
+    ][: min(30, max(1, int(config.get("longterm_top_k", 20))))]
+    cross_session = [
+        row for row in rows if str(row.get("source") or "").lower() == "cross_session_long_term"
+    ]
+    rows = [*midterm, *session_longterm, *cross_session]
     for rank, row in enumerate(rows, start=1):
         row["rank"] = rank
     return rows
@@ -85,6 +253,11 @@ def _load_frozen_rankings(config: Mapping[str, Any]) -> dict[str, list[dict[str,
                 "source_turn_id": source_turn_id,
                 "rank": int(row.get("rank") or row.get("c3_rank") or len(grouped[query_id]) + 1),
                 "score": float(row.get("score") or 0.0),
+                **{
+                    key: row[key]
+                    for key in ("source", "layer", "memory_layer", "memory", "summary", "raw_dialogue", "content", "text")
+                    if key in row
+                },
             }
         )
     for query_id in grouped:
@@ -104,11 +277,44 @@ def _load_production_trace_rankings(config: Mapping[str, Any], target: str) -> d
             query_id = str(row.get("turn_id") or row.get("query_id") or "").upper()
             if not query_id or row.get("error"):
                 continue
+            layered = [item for item in row.get("all_memory_results") or [] if isinstance(item, Mapping)]
+            if target == "midterm":
+                layered = [
+                    item for item in layered if str(item.get("source") or "") in {"mid_term_page", "mid_term_session", "midterm"}
+                ]
+            elif target == "longterm":
+                layered = [item for item in layered if str(item.get("source") or "") == "long_term"]
+            else:
+                layered = [
+                    item for item in layered if "cross_session" not in str(item.get("source") or "").lower()
+                ]
+            if layered:
+                grouped[query_id] = [
+                    {
+                        "page_id": str(item.get("id") or item.get("source_turn_id") or rank),
+                        "source_turn_id": str(item.get("source_turn_id") or item.get("id") or rank).upper(),
+                        "rank": rank,
+                        "score": float(item.get("score") or 0.0),
+                        "source": str(item.get("source") or "long_term"),
+                        "memory": item.get("memory"),
+                        "summary": item.get("summary"),
+                        "raw_dialogue": item.get("raw_dialogue"),
+                    }
+                    for rank, item in enumerate(layered, start=1)
+                ]
+                continue
             retrieved = [str(value).upper() for value in row.get(field) or []]
-            grouped[query_id] = [
-                {"page_id": source_turn_id, "source_turn_id": source_turn_id, "rank": rank, "score": 0.0}
-                for rank, source_turn_id in enumerate(dict.fromkeys(retrieved), start=1)
-            ]
+            grouped[query_id] = []
+            for rank, source_turn_id in enumerate(dict.fromkeys(retrieved), start=1):
+                grouped[query_id].append(
+                    {
+                        "page_id": source_turn_id,
+                        "source_turn_id": source_turn_id,
+                        "rank": rank,
+                        "score": 0.0,
+                        "source": "mid_term_page" if field == "mid_retrieved_turn_ids" else "long_term",
+                    }
+                )
     return grouped
 
 
@@ -128,7 +334,7 @@ def _rank_session(
     candidate_id: str,
 ) -> tuple[dict[str, list[dict[str, Any]]], bool]:
     ranking_config = _ranking_identity_config(candidate.config)
-    raw_depth = ranking_depth
+    raw_depth = ranking_depth + min(30, max(1, int(candidate.config.get("longterm_top_k", 20))))
     identity = {
         "schema": 1,
         "dataset_sha256": dataset.sha256,
@@ -179,9 +385,8 @@ def _rank_session(
             raise ValueError(
                 f"Candidate {candidate.name} does not use a supported production/frozen backend: {backend!r}"
             )
-        raw_ranking = ranking[:raw_depth]
-        grouped[turn.query_id] = _apply_retrieval_controls(raw_ranking, candidate.config, ranking_depth)
-        flat.extend({"query_id": turn.query_id, **row} for row in raw_ranking)
+        grouped[turn.query_id] = _apply_retrieval_controls(ranking, candidate.config, ranking_depth)
+        flat.extend({"query_id": turn.query_id, **row} for row in ranking)
     registry.store_ranking(identity, flat, raw_depth)
     return grouped, False
 
@@ -194,23 +399,99 @@ def _evaluate_session(
     k: int,
     target: str,
     shortterm_window: int,
+    max_total_pages: int = 5,
+    longterm_top_k: int = 30,
 ) -> dict[str, Any]:
     session_turns = dataset.sessions[session_id]
     requirement_rows: list[dict[str, Any]] = []
     shortterm_total = 0
     shortterm_hits = 0
+    context_mode = any(str(turn.required_context or "").strip() for turn in session_turns)
+    returned_page_counts: list[int] = []
+    precision_values: list[float] = []
+    contribution_counts = {"midterm": 0, "session_longterm": 0, "shortterm": 0}
     for turn in session_turns:
         shortterm_ids = [
             item.query_id for item in session_turns[max(0, turn.turn_index - shortterm_window) : turn.turn_index]
         ]
-        shortterm_total += len(turn.requirements)
-        shortterm_hits += sum(
-            any(member in shortterm_ids for member in requirement.members) for requirement in turn.requirements
-        )
+        short_rows = [
+            {"source_turn_id": item.query_id, "memory": f"{item.question}\n{item.answer}", "source": "shortterm"}
+            for item in session_turns[max(0, turn.turn_index - shortterm_window) : turn.turn_index]
+        ]
+        local_requirements = _eligible_requirements(turn, session_turns, "all_memory", 0)
+        if str(turn.required_context or "").strip():
+            shortterm_requirements = parse_required_context(turn.required_context)
+            shortterm_text = "\n".join(_row_text(row) for row in short_rows)
+            shortterm_total += len(shortterm_requirements)
+            shortterm_hits += sum(
+                any(fact_member_hit(member, shortterm_text) for member in requirement.members)
+                for requirement in shortterm_requirements
+            )
+        else:
+            shortterm_total += len(local_requirements)
+            shortterm_hits += sum(
+                any(member in shortterm_ids for member in requirement.members) for requirement in local_requirements
+            )
         eligible = _eligible_requirements(turn, session_turns, target, shortterm_window)
         if not eligible:
             continue
-        ranked_ids = [str(row.get("source_turn_id") or row.get("page_id")) for row in rankings.get(turn.query_id, [])]
+        layers = _ranking_layers(rankings, turn.query_id)
+        session_rows = layers.get("sessions", [])
+        midterm_rows = layers.get("midterm", [])
+        longterm_rows = layers.get("session_longterm", [])
+        # Cross-session memory has a separate Temporal Replay/Gold contract.
+        # It is never counted in an ordinary run_id-scoped Session benchmark.
+        candidate_rows = [*session_rows, *midterm_rows, *longterm_rows]
+        context_budget = min(5, max(1, int(max_total_pages)))
+        # Candidate configs are not part of the evaluator API; callers may
+        # pass a synthetic ``max_total_pages`` on the ranking mapping.
+        if isinstance(rankings.get("__meta__"), Mapping):
+            context_budget = min(5, max(1, int(rankings["__meta__"].get("max_total_pages", context_budget))))
+        visible_midterm = midterm_rows[:context_budget]
+        visible_longterm = longterm_rows[: min(30, max(1, int(longterm_top_k)))]
+        visible_rows = [*short_rows, *session_rows, *visible_midterm, *visible_longterm]
+        returned_page_counts.append(len(visible_midterm) + len(visible_longterm))
+        if context_mode and str(turn.required_context or "").strip():
+            context_rows, context_requirements = _fact_rows_for_visible(
+                turn,
+                visible_rows,
+                candidate_rows,
+                short_rows,
+                k=k,
+                midterm_rows=[*session_rows, *visible_midterm],
+                session_longterm_rows=visible_longterm,
+            )
+            for row in context_rows:
+                row.update(
+                    {
+                        "selected_session_count": len(session_rows),
+                        "session_routed_page_count": max(
+                            [int(item.get("session_routed_page_count") or 0) for item in midterm_rows] or [len(midterm_rows)]
+                        ),
+                        "global_supplement_page_count": sum(1 for item in midterm_rows if item.get("global_supplement")),
+                        "dedup_candidate_count": len({str(item.get("page_id") or item.get("id")) for item in candidate_rows}),
+                        "candidate_pool_count": len(candidate_rows),
+                        "returned_page_count": len(midterm_rows[:context_budget]),
+                    }
+                )
+            # Context requirements, rather than source IDs, are the fixed Gold
+            # denominator.  Preserve the legacy ID rows only for ID-only data.
+            requirement_rows.extend(context_rows)
+            for row in context_rows:
+                contribution_counts["shortterm"] += int(bool(row["shortterm_hit"]))
+                contribution_counts["midterm"] += int(bool(row["midterm_hit"]))
+                contribution_counts["session_longterm"] += int(bool(row["session_longterm_hit"]))
+            returned_memory_rows = [*session_rows, *visible_midterm, *visible_longterm]
+            relevant_pages = sum(
+                any(
+                    any(fact_member_hit(member, _row_text(page)) for member in requirement.members)
+                    for requirement in context_requirements
+                )
+                for page in returned_memory_rows
+            )
+            precision_values.append(relevant_pages / max(len(returned_memory_rows), 1))
+            continue
+        ranked_ids = [str(row.get("source_turn_id") or row.get("page_id")) for row in midterm_rows]
         rank_by_id = {page_id: rank for rank, page_id in enumerate(ranked_ids, start=1)}
         for group_index, requirement in enumerate(eligible, start=1):
             member_ranks = [rank_by_id[member] for member in requirement.members if member in rank_by_id]
@@ -228,6 +509,14 @@ def _evaluate_session(
                     "hit_at_2k": bool(best_rank is not None and best_rank <= 2 * k),
                     "hit_at_4k": bool(best_rank is not None and best_rank <= 4 * k),
                     "reciprocal_rank": 1.0 / best_rank if best_rank else 0.0,
+                    "selected_session_count": len(layers.get("sessions", [])),
+                    "session_routed_page_count": len(midterm_rows),
+                    "global_supplement_page_count": sum(
+                        1 for item in midterm_rows if bool(item.get("global_supplement"))
+                    ),
+                    "dedup_candidate_count": len({str(item.get("page_id") or item.get("id")) for item in candidate_rows}),
+                    "candidate_pool_count": len(candidate_rows),
+                    "returned_page_count": len(midterm_rows[:context_budget]),
                 }
             )
     total = len(requirement_rows)
@@ -249,6 +538,21 @@ def _evaluate_session(
         "shortterm_coverage": shortterm_hits / shortterm_total if shortterm_total else 0.0,
         "shortterm_requirement_count": shortterm_hits,
         "total_gold_requirement_count": shortterm_total,
+        "candidate_pool_recall": sum(bool(row.get("candidate_pool_hit", row.get("best_rank") is not None)) for row in requirement_rows) / total if total else 0.0,
+        "final_context_recall": sum(bool(row.get("final_context_hit", row.get("hit_at_k"))) for row in requirement_rows) / total if total else 0.0,
+        "context_precision": statistics.fmean(precision_values) if precision_values else 0.0,
+        "mean_returned_pages": statistics.fmean(returned_page_counts) if returned_page_counts else 0.0,
+        "shortterm_contribution": contribution_counts["shortterm"] / total if total else 0.0,
+        "midterm_contribution": contribution_counts["midterm"] / total if total else 0.0,
+        "session_longterm_contribution": contribution_counts["session_longterm"] / total if total else 0.0,
+        "short_mid_session_longterm_union": sum(bool(row.get("final_context_hit", row.get("hit_at_k"))) for row in requirement_rows) / total if total else 0.0,
+        "required_context_evaluation": context_mode,
+        "selected_session_count": statistics.fmean([float(row.get("selected_session_count") or 0) for row in requirement_rows]) if requirement_rows else 0.0,
+        "session_routed_page_count": statistics.fmean([float(row.get("session_routed_page_count") or 0) for row in requirement_rows]) if requirement_rows else 0.0,
+        "global_supplement_page_count": statistics.fmean([float(row.get("global_supplement_page_count") or 0) for row in requirement_rows]) if requirement_rows else 0.0,
+        "dedup_candidate_count": statistics.fmean([float(row.get("dedup_candidate_count") or 0) for row in requirement_rows]) if requirement_rows else 0.0,
+        "candidate_pool_count": statistics.fmean([float(row.get("candidate_pool_count") or 0) for row in requirement_rows]) if requirement_rows else 0.0,
+        "returned_page_count": statistics.fmean([float(row.get("returned_page_count") or 0) for row in requirement_rows]) if requirement_rows else 0.0,
     }
     metrics["target_layer_union"] = (shortterm_hits + sum(row["hit_at_k"] for row in requirement_rows)) / max(
         shortterm_total, 1
@@ -290,6 +594,23 @@ def _aggregate(
         "all_memory_union": None,
         "query_completion": None,
     }
+    for name in (
+        "candidate_pool_recall",
+        "final_context_recall",
+        "context_precision",
+        "mean_returned_pages",
+        "shortterm_contribution",
+        "midterm_contribution",
+        "session_longterm_contribution",
+        "short_mid_session_longterm_union",
+    ):
+        values = [float(row.get(name) or 0.0) for row in session_rows]
+        metrics[name] = statistics.fmean(values) if values else 0.0
+    metrics["query_completion"] = metrics["final_context_recall"]
+    if any(bool(row.get("required_context_evaluation")) for row in session_rows):
+        metrics["target_layer_union"] = metrics["final_context_recall"]
+        metrics["all_memory_union"] = metrics["final_context_recall"]
+        metrics["query_completion"] = metrics["final_context_recall"]
     return metrics, requirement_rows, session_rows
 
 
@@ -385,6 +706,28 @@ def evaluate_candidate(
     run_dir: Path,
 ) -> CandidateResult:
     started = time.perf_counter()
+    try:
+        # Legacy frozen ID-ranking fixtures predate the production context
+        # budget and are retained only for cache regression tests.  Live
+        # production/source candidates always take the strict path.
+        if candidate.config.get("backend") != "frozen_ranking":
+            validate_candidate_config(candidate.config)
+    except ValueError as exc:
+        return CandidateResult(
+            name=candidate.name,
+            candidate_hash=candidate_hash(dataset.sha256, candidate),
+            stage=candidate.stage,
+            config=copy.deepcopy(candidate.config),
+            metrics={"recall_at_k": 0.0, "invalid_reason": str(exc)},
+            requirement_rows=[],
+            session_rows=[],
+            runtime_seconds=0.0,
+            work_seconds=0.0,
+            cache_hits=0,
+            cache_misses=0,
+            complexity=candidate.complexity,
+            status="INVALID",
+        )
     backend = candidate.config.get("backend")
     if backend == "frozen_ranking":
         frozen = _load_frozen_rankings(candidate.config)
@@ -441,6 +784,8 @@ def evaluate_candidate(
             k=k,
             target=target,
             shortterm_window=shortterm_window,
+            max_total_pages=min(5, max(1, int(candidate.config.get("max_total_pages", 5)))),
+            longterm_top_k=min(30, max(1, int(candidate.config.get("longterm_top_k", 30)))),
         )
         if int(result["metrics"]["evaluated_query_count"]) != expected_queries:
             raise RuntimeError(

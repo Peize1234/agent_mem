@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT
+from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT, MIDTERM_SESSION_MERGE_PROMPT
+from mem0.configs.prompts import ADDITIVE_EXTRACTION_PROMPT
 from mem0.memory.midterm_updater import MidTermUpdater
 
 _SUMMARY_HEADING = "## summary 要求"
@@ -65,6 +66,38 @@ def controlled_page_prompt_variants(
             "context_mode": "none",
             "kind": "page_summary",
         },
+    }
+
+
+def controlled_session_merge_prompt_variants() -> dict[str, str]:
+    """Preserve the production schema while refining Session representation."""
+    return {
+        "session_merge_evidence_preserving": (
+            MIDTERM_SESSION_MERGE_PROMPT
+            + "\n\n受控 Tune 变体：合并时保留能区分各 Page 的主体、期间、指标、修订关系和证据限制；"
+            "不得引入输入 Page 中不存在的事实，输出格式保持不变。"
+        ),
+        "session_merge_deduplicated": (
+            MIDTERM_SESSION_MERGE_PROMPT
+            + "\n\n受控 Tune 变体：去除重复公共背景，保留各 Page 新增或修订的信息及准确检索词；"
+            "不得丢失数值、单位、日期和实体，输出格式保持不变。"
+        ),
+    }
+
+
+def controlled_session_longterm_prompt_variants() -> dict[str, str]:
+    """Refine run-scoped Long-term extraction without changing its contract."""
+    return {
+        "session_longterm_fact_preserving": (
+            ADDITIVE_EXTRACTION_PROMPT
+            + "\n\n受控 Tune 变体：仅从当前 Session 可见输入提取可长期复用的事实，保留实体、日期、数值、"
+            "单位和适用条件；不得复制无关背景或推断未来信息。"
+        ),
+        "session_longterm_conservative": (
+            ADDITIVE_EXTRACTION_PROMPT
+            + "\n\n受控 Tune 变体：优先精确、可归因且跨后续问题仍有用的信息；存在冲突或证据不足时不写入，"
+            "输出格式保持不变。"
+        ),
     }
 
 

@@ -36,7 +36,7 @@ from tuner.experiment_branches import (  # noqa: E402
     BranchOutcome,
     BranchRegistry,
     BranchSpec,
-    MemoryWriteAddPromptBranch,
+    SourcePromptBranch,
     QueryRepresentationBranch,
     RerankingBranch,
     _derived_dimensions,
@@ -59,6 +59,7 @@ from tuner.orchestrator import (  # noqa: E402
     _resolve_shortterm_window,
 )
 from tuner.production_midterm_adapter import (  # noqa: E402
+    ADAPTER_SCHEMA,
     ProductionMidtermAdapter,
     generate_production_sources,
     isolated_runtime_layout,
@@ -321,15 +322,16 @@ def test_audit_future_dependency_and_cross_session(tmp_path: Path) -> None:
             "S002_x": [("S002-Q001", "")],
         },
     )
-    with pytest.raises(DatasetAuditFailed):
-        audit_dataset(
-            cross,
-            output_dir=tmp_path / "cross-output",
-            shortterm_qa_turns=3,
-            warning_config={},
-        )
+    audit_dataset(
+        cross,
+        output_dir=tmp_path / "cross-output",
+        shortterm_qa_turns=3,
+        warning_config={},
+    )
     audit = json.loads((tmp_path / "cross-output/dataset_audit.json").read_text(encoding="utf-8"))
     assert audit["cross_session_dependency_count"] == 1
+    assert audit["cross_session_gold_available"] is False
+    assert not any(error["code"] == "CROSS_SESSION_DEPENDENCY" for error in audit["hard_errors"])
 
 
 def test_auxiliary_sheet_is_not_a_session(tmp_path: Path) -> None:
@@ -427,7 +429,7 @@ def test_production_adapter_manifest_and_runtime_isolation(tmp_path: Path) -> No
         manifest.write_text(
             json.dumps(
                 {
-                    "schema": 1,
+                    "schema": ADAPTER_SCHEMA,
                     "status": "COMPLETE",
                     "backend": "production_midterm",
                     "session_id": session,
@@ -580,15 +582,15 @@ def test_production_adapter_calls_real_midterm_retriever(tmp_path: Path) -> None
         session_id="S001_test",
         ranking_depth=20,
     )
-    assert adapter.rank(checkpoint, config) == [
-        {
-            "page_id": page_point_id,
-            "source_turn_id": "S001-Q001",
-            "source": "mid_term_page",
-            "score": pytest.approx(1.0),
-            "rank": 1,
-        }
-    ]
+    result = adapter.rank(checkpoint, config)
+    assert len(result) == 1
+    assert result[0]["page_id"] == page_point_id
+    assert result[0]["source_turn_id"] == "S001-Q001"
+    assert result[0]["source"] == "mid_term_page"
+    assert result[0]["score"] == pytest.approx(1.0)
+    assert result[0]["rank"] == 1
+    assert result[0]["candidate_pool_count"] == 1
+    assert result[0]["final_rank"] == 1
 
     hybrid = ProductionMidtermAdapter(
         run_dir=tmp_path,
@@ -827,7 +829,7 @@ def test_trace_does_not_replace_midterm_checkpoints_and_regression_is_separate(
             observed.append((scope, candidate.name, backend, dict(candidate.config)))
             if backend == "production_trace":
                 recall = 0.99
-            elif candidate.config.get("top_k_sessions") == 6:
+            elif candidate.config.get("top_k_pages") == 10:
                 recall = 0.70
             else:
                 recall = 0.50
@@ -899,11 +901,11 @@ def test_trace_does_not_replace_midterm_checkpoints_and_regression_is_separate(
     assert metadata["embedding_calls"] == 11
     assert metadata["execution"]["source_worker_parallelism"] == 2
     assert metadata["shortterm_qa_turns"] == 3
-    assert best["candidate"].startswith("RetrievalControl:top_k_sessions=6")
-    assert best["config"]["top_k_sessions"] == 6
+    assert best["candidate"].startswith("RetrievalControl:top_k_pages=10")
+    assert best["config"]["top_k_pages"] == 10
     assert best["validation_metrics"]["recall_at_k"] == pytest.approx(0.70)
     cheap_configs = [value for scope, _, _, value in observed if scope == "stage_1_tune"]
-    assert any(value.get("top_k_sessions") != 5 for value in cheap_configs)
+    assert all(value.get("top_k_sessions") == 5 for value in cheap_configs)
     assert any(value.get("top_k_pages") != 5 for value in cheap_configs)
     assert any(value.get("max_total_pages") != 5 for value in cheap_configs)
     assert all(scope == "full_memory_regression" for scope, _, backend, _ in observed if backend == "production_trace")
@@ -1108,7 +1110,10 @@ def test_branch_registry_exposes_required_experiment_contracts() -> None:
         "Reranking",
         "Embedding",
         "FieldAwareMultiVector",
-        "MemoryWriteAddPrompt",
+        "QueryRewritePrompt",
+        "MidtermPageSummaryPrompt",
+        "MidtermSessionMergePrompt",
+        "SessionLongtermExtractionPrompt",
     } <= set(descriptions)
     for item in descriptions.values():
         assert item["diagnostic_regimes"]
@@ -1577,7 +1582,7 @@ def _production_branch_inputs(
         manifest.write_text(
             json.dumps(
                 {
-                    "schema": 1,
+                    "schema": ADAPTER_SCHEMA,
                     "status": "COMPLETE",
                     "dataset_sha256": dataset.sha256,
                     "session_id": session_id,
@@ -1986,7 +1991,7 @@ def _run_coverage_search(
         _CoverageBranch("QueryRepresentation", cost_level="high", priority=40),
         _CoverageBranch("PageRepresentation", cost_level="high", priority=50),
         _CoverageBranch("FieldAwareMultiVector", cost_level="high", priority=60),
-        _CoverageBranch("MemoryWriteAddPrompt", cost_level="expensive", priority=70),
+        _CoverageBranch("MidtermPageSummaryPrompt", cost_level="expensive", priority=70),
     ]
     search_space = yaml.safe_load((SCRIPTS.parent / "search_space.yaml").read_text(encoding="utf-8"))
     search_space["selection"]["patience_stages"] = 1
@@ -2022,7 +2027,7 @@ def _run_coverage_search(
     )
 
 
-def test_deep_patience_waits_for_relevant_coverage_and_memory_write(tmp_path: Path) -> None:
+def test_deep_patience_waits_for_relevant_coverage_and_source_prompt(tmp_path: Path) -> None:
     search = _run_coverage_search(tmp_path)
     attempted = [event["branch"] for event in search.branch_events if event["branch"] != "__search_policy__"]
     assert attempted == [
@@ -2032,7 +2037,7 @@ def test_deep_patience_waits_for_relevant_coverage_and_memory_write(tmp_path: Pa
         "QueryRepresentation",
         "PageRepresentation",
         "FieldAwareMultiVector",
-        "MemoryWriteAddPrompt",
+        "MidtermPageSummaryPrompt",
     ]
     assert any(event["status"] == "PATIENCE_SOFT_EXHAUSTED" for event in search.branch_events)
     assert search.stop_reason == "converged_after_relevant_branch_coverage"
@@ -2057,9 +2062,9 @@ def test_stage_and_expensive_resource_budgets_remain_hard_stops(tmp_path: Path) 
     )
     assert resource_limited.stop_reason == "resource_budget_exhausted"
     blocked = {row["branch"]: row["reason"] for row in resource_limited.coverage_audit["blocked_branches"]}
-    assert blocked["MemoryWriteAddPrompt"] == "max_expensive_candidates exhausted"
+    assert blocked["MidtermPageSummaryPrompt"] == "max_expensive_candidates exhausted"
     assert any(
-        row["branch"] == "MemoryWriteAddPrompt" and row["status"] == "BUDGET_OR_RESOURCE_BLOCKED"
+        row["branch"] == "MidtermPageSummaryPrompt" and row["status"] == "BUDGET_OR_RESOURCE_BLOCKED"
         for row in resource_limited.skipped_branches
     )
 
@@ -2121,7 +2126,7 @@ def test_deep_memory_write_generates_current_dataset_artifacts_without_frozen_ra
     monkeypatch.setattr(generated_sources, "generate_production_sources", fake_generate)
     discovery = SimpleNamespace(resources=SimpleNamespace(gpu_count=0))
     context = _branch_context(tmp_path, dataset, baseline, budget="deep", model_discovery=discovery)
-    branch = MemoryWriteAddPromptBranch()
+    branch = SourcePromptBranch()
     outcome = BranchRegistry([branch]).generate(branch, context)
     assert outcome.status == "READY"
     assert len(outcome.candidates) == 4

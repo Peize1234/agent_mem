@@ -89,6 +89,7 @@ from mem0.utils.factory import (
 from mem0.utils.lemmatization import lemmatize_for_bm25
 from mem0.utils.scoring import (
     ENTITY_BOOST_WEIGHT,
+    HYBRID_PRESET_WEIGHTS,
     get_bm25_params,
     normalize_bm25,
     score_and_rank,
@@ -2221,6 +2222,10 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             "user_id": context["user_id"],
             "run_id": context["session_id"],
         }
+        # Session-scoped Long-term has its own bounded context budget.  The
+        # caller may request a larger all-memory result, but this layer must
+        # never expose more than the production-configured cap.
+        top_k = min(int(top_k), int(getattr(getattr(self, "config", None), "longterm_top_k", 30)))
         search_result = self.search(
             context["query"],
             top_k=top_k,
@@ -2359,6 +2364,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             generation_kwargs=generation_kwargs,
             record_midterm_visits=record_midterm_visits,
             exclude_midterm_page_ids=already_recalled_page_ids,
+            max_additional_midterm_pages=max(0, 5 - len(already_recalled_page_ids)),
         )
 
     def run_agentic_retrieval(
@@ -2395,12 +2401,14 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         generation_kwargs: Optional[Dict[str, Any]] = None,
         record_midterm_visits: bool = True,
         exclude_midterm_page_ids: Optional[set[str]] = None,
+        max_additional_midterm_pages: int = 5,
     ) -> Dict[str, Any]:
         executor = self._create_agentic_tool_executor(
             user_id=user_id,
             session_id=session_id,
             record_midterm_visits=record_midterm_visits,
             exclude_midterm_page_ids=exclude_midterm_page_ids,
+            max_additional_midterm_pages=max_additional_midterm_pages,
         )
         runner = AgenticMemoryRunner(
             self.llm,
@@ -2417,6 +2425,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         session_id: str,
         record_midterm_visits: bool,
         exclude_midterm_page_ids: Optional[set[str]] = None,
+        max_additional_midterm_pages: int = 5,
     ) -> MemoryToolExecutor:
         """Create the core Agentic tool executor, allowing scoped runtime decoration."""
         return MemoryToolExecutor(
@@ -2426,6 +2435,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             config=self.config.agentic_retrieval,
             record_midterm_visits=record_midterm_visits,
             exclude_midterm_page_ids=exclude_midterm_page_ids,
+            max_total_page_budget=max_additional_midterm_pages,
         )
 
     def update_profile(self, user_id: str, messages):
@@ -3863,6 +3873,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         # Guard against None threshold (backward compat)
         if threshold is None:
             threshold = 0.1
+        limit = min(int(limit), int(getattr(getattr(self, "config", None), "longterm_top_k", 30)))
 
         # Step 1: Preprocess query
         query_lemmatized = lemmatize_for_bm25(query, language=getattr(self, "_bm25_language", None))
@@ -3872,7 +3883,10 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         embeddings = self.embedding_model.embed(query, "search")
 
         # Step 3: Semantic search (over-fetch for scoring pool)
-        internal_limit = max(limit * 4, 60)
+        candidate_multiplier = int(
+            getattr(getattr(self, "config", None), "longterm_candidate_pool_multiplier", 4)
+        )
+        internal_limit = max(limit * candidate_multiplier, 60)
         semantic_results = self.vector_store.search(
             query=query, vectors=embeddings, top_k=internal_limit, filters=filters
         )
@@ -3920,6 +3934,10 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             threshold=threshold,
             top_k=limit,
             explain=explain,
+            weights=HYBRID_PRESET_WEIGHTS.get(
+                str(getattr(getattr(self, "config", None), "longterm_hybrid_preset", "balanced")),
+                HYBRID_PRESET_WEIGHTS["balanced"],
+            ),
         )
 
         # Step 9: Format results
@@ -3966,7 +3984,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
 
         return original_memories
 
-    def _compute_entity_boosts(self, query_entities, filters):
+    def _compute_entity_boosts(self, query_entities, filters, *, threshold=None):
         """Compute per-memory entity boosts from entity store search.
 
         For each extracted entity from the query:
@@ -3992,6 +4010,15 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         memory_boosts = {}
 
+        threshold_value = float(
+            getattr(
+                getattr(self, "config", None),
+                "entity_similarity_threshold",
+                0.5,
+            )
+            if threshold is None
+            else threshold
+        )
         try:
             entity_texts = [text for _, text in deduped]
             embeddings = self.embedding_model.embed_batch(entity_texts, "search")
@@ -4026,7 +4053,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
 
                     for match in matches:
                         similarity = match.score if hasattr(match, 'score') else 0.0
-                        if similarity < 0.5:
+                        if similarity < threshold_value:
                             continue
 
                         payload = match.payload if hasattr(match, 'payload') else {}
@@ -4689,7 +4716,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             ),
             self.search(
                 normalized_query,
-                top_k=top_k,
+                top_k=min(int(top_k), int(getattr(getattr(self, "config", None), "longterm_top_k", 30))),
                 threshold=threshold,
                 rerank=rerank,
                 explain=explain,
@@ -4848,6 +4875,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             generation_kwargs=generation_kwargs,
             record_midterm_visits=record_midterm_visits,
             exclude_midterm_page_ids=already_recalled_page_ids,
+            max_additional_midterm_pages=max(0, 5 - len(already_recalled_page_ids)),
         )
 
     async def _run_agentic_retrieval_messages(
@@ -4859,6 +4887,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         generation_kwargs: Optional[Dict[str, Any]] = None,
         record_midterm_visits: bool = True,
         exclude_midterm_page_ids: Optional[set[str]] = None,
+        max_additional_midterm_pages: int = 5,
     ) -> Dict[str, Any]:
         """Run the async Agentic tool loop for prebuilt messages."""
         executor = self._create_agentic_tool_executor(
@@ -4866,6 +4895,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             session_id=session_id,
             record_midterm_visits=record_midterm_visits,
             exclude_midterm_page_ids=exclude_midterm_page_ids,
+            max_additional_midterm_pages=max_additional_midterm_pages,
         )
         runner = AsyncAgenticMemoryRunner(
             self.llm,
@@ -4882,6 +4912,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         session_id: str,
         record_midterm_visits: bool,
         exclude_midterm_page_ids: Optional[set[str]] = None,
+        max_additional_midterm_pages: int = 5,
     ) -> AsyncMemoryToolExecutor:
         """Create the async core Agentic tool executor."""
         return AsyncMemoryToolExecutor(
@@ -4891,6 +4922,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             config=self.config.agentic_retrieval,
             record_midterm_visits=record_midterm_visits,
             exclude_midterm_page_ids=exclude_midterm_page_ids,
+            max_total_page_budget=max_additional_midterm_pages,
         )
 
     async def run_agentic_retrieval(
@@ -6424,6 +6456,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
     async def _search_vector_store(self, query, filters, limit, threshold=0.1, explain=False, show_expired=False):
         if threshold is None:
             threshold = 0.1
+        limit = min(int(limit), int(getattr(getattr(self, "config", None), "longterm_top_k", 30)))
 
         # Step 1: Preprocess query (CPU-bound)
         query_lemmatized = await asyncio.to_thread(
@@ -6437,7 +6470,10 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         embeddings = await asyncio.to_thread(self.embedding_model.embed, query, "search")
 
         # Step 3: Semantic search (over-fetch)
-        internal_limit = max(limit * 4, 60)
+        candidate_multiplier = int(
+            getattr(getattr(self, "config", None), "longterm_candidate_pool_multiplier", 4)
+        )
+        internal_limit = max(limit * candidate_multiplier, 60)
         semantic_results = await asyncio.to_thread(
             self.vector_store.search, query=query, vectors=embeddings, top_k=internal_limit, filters=filters
         )
@@ -6485,6 +6521,10 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             threshold=threshold,
             top_k=limit,
             explain=explain,
+            weights=HYBRID_PRESET_WEIGHTS.get(
+                str(getattr(getattr(self, "config", None), "longterm_hybrid_preset", "balanced")),
+                HYBRID_PRESET_WEIGHTS["balanced"],
+            ),
         )
 
         # Step 9: Format results
@@ -6530,7 +6570,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
 
         return original_memories
 
-    async def _compute_entity_boosts_async(self, query_entities, filters):
+    async def _compute_entity_boosts_async(self, query_entities, filters, *, threshold=None):
         """Async version of entity boost computation."""
         seen = set()
         deduped = []
@@ -6546,6 +6586,15 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         memory_boosts = {}
 
+        threshold_value = float(
+            getattr(
+                getattr(self, "config", None),
+                "entity_similarity_threshold",
+                0.5,
+            )
+            if threshold is None
+            else threshold
+        )
         try:
             entity_texts = [text for _, text in deduped]
             embeddings = await asyncio.to_thread(self.embedding_model.embed_batch, entity_texts, "search")
@@ -6582,7 +6631,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
 
                 for match in matches:
                     similarity = match.score if hasattr(match, 'score') else 0.0
-                    if similarity < 0.5:
+                    if similarity < threshold_value:
                         continue
 
                     payload = match.payload if hasattr(match, 'payload') else {}

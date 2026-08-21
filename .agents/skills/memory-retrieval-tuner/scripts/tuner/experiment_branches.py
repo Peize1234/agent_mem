@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Protocol
@@ -11,7 +12,12 @@ from .io_utils import load_json, sha256_file, stable_hash
 from .model_discovery import ModelDiscovery
 from .models import Candidate, CandidateResult, Dataset
 from .prompt_artifacts import QueryPromptArtifactGenerator, controlled_query_prompt_variants
-from .source_prompt_variants import controlled_page_prompt_variants
+from .source_prompt_variants import (
+    controlled_page_prompt_variants,
+    controlled_session_longterm_prompt_variants,
+    controlled_session_merge_prompt_variants,
+)
+from .parameter_schema import validate_candidate_config
 
 COST_RANK = {"cheap": 0, "medium": 1, "high": 2, "expensive": 3}
 ALL_REGIMES = frozenset(
@@ -126,6 +132,8 @@ def _candidate(
     config["parent_candidate_hash"] = stable_hash(source.config)
     config["applied_branches"] = list(dict.fromkeys([*(source.config.get("applied_branches") or []), branch]))
     config.setdefault("ablation_from_baseline", False)
+    # Validate at generation time as well as at Research-decision time.
+    validate_candidate_config(config)
     anchor_suffix = stable_hash(source.config)[:6]
     return Candidate(
         name=f"{branch}:{label}:from-{anchor_suffix}",
@@ -179,6 +187,49 @@ def _tuning_cost_provenance(
     }
 
 
+def _stateful_source_spec(
+    context: BranchContext,
+    *,
+    overrides: Mapping[str, Any],
+    kind: str,
+) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    """Build an immutable production replay spec for a stateful candidate."""
+    manifests = [Path(str(value)) for value in context.anchor.config.get("manifest_paths") or []]
+    if not manifests:
+        return None
+    manifest = load_json(manifests[0])
+    identity = {
+        "schema": 3,
+        "kind": kind,
+        "dataset_sha256": context.dataset.sha256,
+        "base_manifest": sha256_file(manifests[0]),
+        "overrides": dict(overrides),
+        "stateful_replay": True,
+    }
+    base_spec = dict(context.anchor.config.get("source_generation_spec") or {})
+    if not base_spec:
+        base_spec = {
+            "dataset_path": context.dataset.path,
+            "dataset_sha256": context.dataset.sha256,
+            "session_turn_counts": {key: len(turns) for key, turns in context.dataset.sessions.items()},
+            "memory_config_path": manifest.get("memory_config_path"),
+            "llm_mode": manifest.get("llm_mode") or "real",
+            "page_summary_prompt": None,
+            "context_mode": "none",
+            "source_variant": kind,
+            "session_order": sorted(context.dataset.sessions),
+        }
+    spec = {
+        **base_spec,
+        "config_overrides": dict(overrides),
+        "source_identity": identity,
+        "source_variant": kind,
+        "stateful_replay": True,
+        "source_root": str(context.registry.cache_root / "production_variants" / stable_hash(identity)),
+    }
+    return spec, identity
+
+
 class BaseBranch:
     spec: BranchSpec
 
@@ -220,9 +271,9 @@ class RetrievalControlBranch(BaseBranch):
         ) or {}
         candidates: list[Candidate] = []
         axes = (
-            ("top_k_sessions", 1),
             ("top_k_pages", context.k),
-            ("max_total_pages", context.k),
+            ("max_total_pages", 1),
+            ("midterm_candidate_pool_multiplier", 1),
         )
         for axis, minimum in axes:
             baseline = int(context.anchor.config.get(axis) or minimum)
@@ -232,6 +283,12 @@ class RetrievalControlBranch(BaseBranch):
             else:
                 step = max(1, int(axis_config.get("refine_step") or 1))
                 values = sorted({max(minimum, baseline - step), baseline, baseline + step})
+            if axis == "max_total_pages":
+                configured = axis_config.get("values") or [1, 2, 3, 4, 5]
+                values = [int(value) for value in configured if 1 <= int(value) <= 5]
+            if axis == "midterm_candidate_pool_multiplier":
+                configured = axis_config.get("values") or [2, 4, 6, 8]
+                values = [int(value) for value in configured if 1 <= int(value) <= 8]
             for value in values:
                 if value == baseline:
                     continue
@@ -243,8 +300,24 @@ class RetrievalControlBranch(BaseBranch):
                         cost_level=self.spec.cost_level,
                         complexity=1,
                         **{axis: value},
-                    )
                 )
+            )
+        threshold_config = retrieval.get("midterm_rag_threshold") or {}
+        threshold_values = threshold_config.get("coarse") or [0.00, 0.05, 0.10, 0.15, 0.20, 0.30]
+        baseline_threshold = float(context.anchor.config.get("midterm_rag_threshold", 0.1))
+        for threshold in sorted({float(value) for value in threshold_values if 0 <= float(value) <= 1}):
+            if threshold == baseline_threshold:
+                continue
+            candidates.append(
+                _candidate(
+                    context,
+                    branch=self.spec.name,
+                    label=f"midterm_rag_threshold={threshold:.2f}",
+                    cost_level=self.spec.cost_level,
+                    complexity=1,
+                    midterm_rag_threshold=threshold,
+                )
+            )
         return BranchOutcome(self.spec.name, "READY", candidates=candidates)
 
 
@@ -491,7 +564,7 @@ class HybridRetrievalBranch(BaseBranch):
                 dense_weight=float(weight),
             )
             for weight in weights[:limit]
-            if 0.0 <= float(weight) < 1.0 and float(weight) != float(context.anchor.config.get("dense_weight") or -1)
+            if 0.0 <= float(weight) <= 1.0 and float(weight) != float(context.anchor.config.get("dense_weight") or -1)
         ]
         return BranchOutcome(self.spec.name, "READY", candidates=candidates)
 
@@ -531,9 +604,10 @@ class RerankingBranch(BaseBranch):
                     complexity=2,
                     reranker_method="field_lexical",
                     reranker_dense_weight=0.75,
-                    max_total_pages=max(
-                        context.ranking_depth, int(context.anchor.config.get("max_total_pages") or context.k)
-                    ),
+                        # Reranking may inspect a deep candidate pool, but the
+                        # final raw Mid-term context budget remains <= 5.
+                        rerank_depth=context.ranking_depth,
+                        max_total_pages=min(5, max(1, int(context.anchor.config.get("max_total_pages") or 1))),
                 )
             )
         unavailable: list[str] = []
@@ -567,10 +641,8 @@ class RerankingBranch(BaseBranch):
                         reranker_model_id=model.model_id,
                         reranker_model_revision=model.revision,
                         reranker_model_path=model.local_path,
-                        max_total_pages=max(
-                            context.ranking_depth,
-                            int(context.anchor.config.get("max_total_pages") or context.k),
-                        ),
+                        rerank_depth=context.ranking_depth,
+                        max_total_pages=min(5, max(1, int(context.anchor.config.get("max_total_pages") or 1))),
                     )
                 )
         return BranchOutcome(
@@ -710,9 +782,8 @@ class FieldAwareMultiVectorBranch(BaseBranch):
                     reranker_method="field_lexical",
                     field_weights={"summary": 0.5, "keywords": 0.3, "user_input": 0.2},
                     reranker_dense_weight=0.7,
-                    max_total_pages=max(
-                        context.ranking_depth, int(context.anchor.config.get("max_total_pages") or context.k)
-                    ),
+                        rerank_depth=context.ranking_depth,
+                        max_total_pages=min(5, max(1, int(context.anchor.config.get("max_total_pages") or 1))),
                 )
             )
         embeddings = 0
@@ -744,10 +815,8 @@ class FieldAwareMultiVectorBranch(BaseBranch):
                         reranker_method="multi_vector_maxsim",
                         derived_artifact_path=str(result.path),
                         derived_artifact_sha256=result.sha256,
-                        max_total_pages=max(
-                            context.ranking_depth,
-                            int(context.anchor.config.get("max_total_pages") or context.k),
-                        ),
+                        rerank_depth=context.ranking_depth,
+                        max_total_pages=min(5, max(1, int(context.anchor.config.get("max_total_pages") or 1))),
                     )
                 )
             except Exception as exc:
@@ -767,9 +836,9 @@ class FieldAwareMultiVectorBranch(BaseBranch):
         )
 
 
-class MemoryWriteAddPromptBranch(BaseBranch):
+class SourcePromptBranch(BaseBranch):
     spec = BranchSpec(
-        name="MemoryWriteAddPrompt",
+        name="SourcePrompt",
         diagnostic_regimes=frozenset({"candidate_coverage_bottleneck", "session_instability"}),
         cost_level="expensive",
         required_artifacts=("production_generated_pages", "prompt_hash", "model_config"),
@@ -868,6 +937,7 @@ class MemoryWriteAddPromptBranch(BaseBranch):
                         "source_root": str(source_root.resolve()),
                         "session_order": sorted(context.dataset.sessions),
                     },
+                    page_summary_prompt=prompt,
                     page_summary_prompt_hash=prompt_hash,
                     source_variant=label,
                 )
@@ -890,6 +960,536 @@ class MemoryWriteAddPromptBranch(BaseBranch):
                     for label, value in variants.items()
                 ],
             },
+        )
+
+
+class MidtermEvolutionBranch(BaseBranch):
+    """Generate data-derived Evolution candidates for stateful replay."""
+
+    spec = BranchSpec(
+        name="MidtermEvolution",
+        diagnostic_regimes=frozenset({"session_instability", "balanced_or_plateau"}),
+        cost_level="high",
+        required_artifacts=("production_midterm_checkpoints", "stateful_replay_contract"),
+        execution_adapter="WithinSessionStatefulReplay",
+        provenance_contract=("dataset_sha256", "turn_distance_distribution", "replay_order"),
+        resource_requirements={"llm": True, "embedding": True, "gpu": False},
+        priority=35,
+    )
+
+    def generate(self, context: BranchContext) -> BranchOutcome:
+        from .parameter_schema import dynamic_turn_distance_candidates, heat_modulation_candidates, heat_preset_candidates
+
+        distances = []
+        positions = {turn.query_id: turn.turn_index for turns in context.dataset.sessions.values() for turn in turns}
+        for turns in context.dataset.sessions.values():
+            for turn in turns:
+                for requirement in turn.requirements:
+                    for member in requirement.members:
+                        if member in positions and positions[member] < turn.turn_index:
+                            distances.append(turn.turn_index - positions[member])
+        half_lives = dynamic_turn_distance_candidates(distances)
+        tau_values = dynamic_turn_distance_candidates(distances)
+        groups: list[list[tuple[str, dict[str, float]]]] = [
+            [(f"half-life={value}", {"retention_half_life_turns": value}) for value in half_lives[:5]],
+            [(f"recency-tau={value}", {"heat_recency_tau_turns": value}) for value in tau_values[:5]],
+            [
+                (f"retention-floor={value:.2f}", {"retention_floor": value})
+                for value in (0.05, 0.10, 0.20, 0.30, 0.40)
+            ],
+            [
+                (f"heat-preset={index + 1}", preset)
+                for index, preset in enumerate(heat_preset_candidates())
+            ],
+            [
+                (f"heat-modulation={index + 1}", preset)
+                for index, preset in enumerate(heat_modulation_candidates())
+            ],
+        ]
+        # Search each semantic axis independently first.  This preserves the
+        # staged-search design and avoids a half-life × tau × heat Cartesian
+        # grid while still letting later rounds refine a winning parent.
+        changesets: list[tuple[str, dict[str, float]]] = []
+        for offset in range(max(len(group) for group in groups)):
+            for group in groups:
+                if offset < len(group):
+                    changesets.append(group[offset])
+
+        candidates = []
+        for label, changes in changesets:
+            if all(context.anchor.config.get(key) == value for key, value in changes.items()):
+                continue
+            source = _stateful_source_spec(
+                context,
+                overrides={"midterm": changes},
+                kind="within-session-evolution",
+            )
+            if source is None:
+                continue
+            spec, identity = source
+            candidates.append(
+                _candidate(
+                    context,
+                    branch=self.spec.name,
+                    label=label,
+                    cost_level=self.spec.cost_level,
+                    complexity=3,
+                    provenance={
+                        "stateful_replay": True,
+                        "source_identity": identity,
+                        "requires_source_regeneration": True,
+                        "cartesian_grid": False,
+                    },
+                    source_generation_spec=spec,
+                    source_config_overrides={"midterm": changes},
+                    requires_within_session_replay=True,
+                    **changes,
+                )
+            )
+        limit = max(1, int(context.execution_settings.get("max_candidates_per_stage") or 8))
+        return BranchOutcome(
+            self.spec.name,
+            "READY" if candidates else "UNAVAILABLE",
+            candidates=candidates[:limit],
+        )
+
+
+class PromotionBranch(BaseBranch):
+    """Tune promotion thresholds only after a Heat preset replay."""
+
+    spec = BranchSpec(
+        name="Promotion",
+        diagnostic_regimes=frozenset({"session_instability", "balanced_or_plateau"}),
+        cost_level="high",
+        required_artifacts=("stateful_replay_contract", "heat_distribution"),
+        execution_adapter="WithinSessionStatefulReplay",
+        provenance_contract=("dataset_sha256", "heat_preset", "heat_distribution"),
+        resource_requirements={"llm": True, "embedding": True, "gpu": False},
+        priority=40,
+    )
+
+    def generate(self, context: BranchContext) -> BranchOutcome:
+        from .parameter_schema import promotion_threshold_candidates
+
+        heat_values = [float(row.get("heat") or row.get("H_segment") or 0.0) for row in context.anchor_result.session_rows]
+        thresholds = promotion_threshold_candidates(heat_values)
+        baseline_count = int(context.anchor.config.get("promotion_min_recall_count", 3))
+        baseline_threshold = float(context.anchor.config.get("promotion_heat_threshold", 5.0))
+        changesets = [
+            (f"recalls={count}", {"promotion_min_recall_count": count})
+            for count in (2, 3, 4, 5)
+            if count != baseline_count
+        ]
+        changesets.extend(
+            (
+                f"heat={threshold:.3f}",
+                {"promotion_heat_threshold": threshold},
+            )
+            for threshold in thresholds
+            if not math.isclose(threshold, baseline_threshold)
+        )
+        candidates = []
+        for label, changes in changesets:
+            source = _stateful_source_spec(
+                context,
+                overrides={"midterm": changes},
+                kind="within-session-promotion",
+            )
+            if source is None:
+                continue
+            spec, identity = source
+            candidates.append(
+                _candidate(
+                    context,
+                    branch=self.spec.name,
+                    label=label,
+                    cost_level=self.spec.cost_level,
+                    complexity=2,
+                    provenance={
+                        "stateful_replay": True,
+                        "source_identity": identity,
+                        "requires_source_regeneration": True,
+                    },
+                    source_generation_spec=spec,
+                    source_config_overrides={"midterm": changes},
+                    requires_within_session_replay=True,
+                    **changes,
+                )
+            )
+        return BranchOutcome(self.spec.name, "READY", candidates=candidates[: max(1, int(context.execution_settings.get("max_candidates_per_stage") or 8))])
+
+
+class MidtermSourceConfigBranch(BaseBranch):
+    """Screen source-changing Mid-term config candidates with real Add replay."""
+
+    spec = BranchSpec(
+        name="MidtermSourceConfig",
+        diagnostic_regimes=frozenset({"candidate_coverage_bottleneck", "session_instability", "balanced_or_plateau"}),
+        cost_level="expensive",
+        required_artifacts=("production_midterm_checkpoints", "source_generation_contract"),
+        execution_adapter="ProductionGeneratedSourceAdapter",
+        provenance_contract=("dataset_sha256", "effective_source_config_hash", "manifest_sha256"),
+        resource_requirements={"llm": True, "embedding": True, "network": False},
+        priority=25,
+    )
+
+    def generate(self, context: BranchContext) -> BranchOutcome:
+        if context.budget != "deep":
+            return BranchOutcome(self.spec.name, "BUDGET_BLOCKED", reason="source-changing candidates require deep budget")
+        manifests = [Path(str(value)) for value in context.anchor.config.get("manifest_paths") or []]
+        if not manifests:
+            return BranchOutcome(self.spec.name, "UNAVAILABLE", reason="source manifest is missing")
+        manifest = load_json(manifests[0])
+        base_spec = dict(context.anchor.config.get("source_generation_spec") or {})
+        if not base_spec:
+            base_spec = {
+                "dataset_path": context.dataset.path,
+                "dataset_sha256": context.dataset.sha256,
+                "session_turn_counts": {key: len(turns) for key, turns in context.dataset.sessions.items()},
+                "memory_config_path": manifest.get("memory_config_path"),
+                "llm_mode": manifest.get("llm_mode") or "real",
+                "page_summary_prompt": None,
+                "context_mode": "none",
+                "source_variant": "source-config",
+                "source_root": str(context.registry.cache_root / "production_variants"),
+                "session_order": sorted(context.dataset.sessions),
+            }
+        baseline_midterm = dict(manifest.get("production_config") or {})
+        axes = [
+            ("short_term_capacity", [4, 6, 8]),
+            ("session_similarity_threshold", [0.5, 0.6, 0.7, 0.8, 0.9]),
+            ("top_k_sessions", [max(1, int(baseline_midterm.get("top_k_sessions", 5)) - 1), int(baseline_midterm.get("top_k_sessions", 5)), int(baseline_midterm.get("top_k_sessions", 5)) + 1, int(baseline_midterm.get("top_k_sessions", 5)) + 2]),
+        ]
+        candidates = []
+        for axis, values in axes:
+            for value in dict.fromkeys(values):
+                if value == baseline_midterm.get(axis):
+                    continue
+                overrides = {"midterm": {axis: value}}
+                identity = {
+                    "schema": 3,
+                    "kind": "production_midterm_source_config",
+                    "dataset_sha256": context.dataset.sha256,
+                    "base_manifest": sha256_file(manifests[0]),
+                    "overrides": overrides,
+                }
+                spec = {**base_spec, "config_overrides": overrides, "source_identity": identity, "source_root": str(context.registry.cache_root / "production_variants" / stable_hash(identity))}
+                candidates.append(
+                    _candidate(
+                        context,
+                        branch=self.spec.name,
+                        label=f"{axis}={value}",
+                        cost_level=self.spec.cost_level,
+                        complexity=5,
+                        provenance={"source_changing": True, "source_identity": identity, "requires_source_regeneration": True},
+                        source_generation_spec=spec,
+                        source_config_overrides=overrides,
+                        **{axis: value},
+                    )
+                )
+        # Session assignment weights are a paired preset, never an
+        # independent Cartesian grid.  Each pair changes the generated
+        # Session source and therefore receives its own source identity.
+        for embedding_weight, keyword_weight in ((0.5, 0.5), (0.6, 0.4), (0.7, 0.3), (0.8, 0.2), (0.9, 0.1)):
+            if (
+                math.isclose(float(baseline_midterm.get("embedding_similarity_weight", 0.7)), embedding_weight)
+                and math.isclose(float(baseline_midterm.get("keyword_overlap_weight", 0.3)), keyword_weight)
+            ):
+                continue
+            overrides = {
+                "midterm": {
+                    "embedding_similarity_weight": embedding_weight,
+                    "keyword_overlap_weight": keyword_weight,
+                }
+            }
+            identity = {
+                "schema": 3,
+                "kind": "production_midterm_source_weight_preset",
+                "dataset_sha256": context.dataset.sha256,
+                "base_manifest": sha256_file(manifests[0]),
+                "overrides": overrides,
+            }
+            spec = {
+                **base_spec,
+                "config_overrides": overrides,
+                "source_identity": identity,
+                "source_root": str(context.registry.cache_root / "production_variants" / stable_hash(identity)),
+            }
+            candidates.append(
+                _candidate(
+                    context,
+                    branch=self.spec.name,
+                    label=f"assignment_weights={embedding_weight:.1f}/{keyword_weight:.1f}",
+                    cost_level=self.spec.cost_level,
+                    complexity=5,
+                    provenance={"source_changing": True, "source_identity": identity, "requires_source_regeneration": True},
+                    source_generation_spec=spec,
+                    source_config_overrides=overrides,
+                    embedding_similarity_weight=embedding_weight,
+                    keyword_overlap_weight=keyword_weight,
+                )
+            )
+        return BranchOutcome(self.spec.name, "READY" if candidates else "UNAVAILABLE", candidates=candidates[: max(1, int(context.execution_settings.get("remaining_expensive_candidates") or 8))])
+
+
+class SessionLongtermRetrievalBranch(BaseBranch):
+    spec = BranchSpec(
+        name="SessionLongtermRetrieval",
+        diagnostic_regimes=ALL_REGIMES,
+        cost_level="medium",
+        required_artifacts=("production_full_memory_trace",),
+        execution_adapter="ProductionLongtermAdapter",
+        provenance_contract=("dataset_sha256", "longterm_config"),
+        resource_requirements={"llm": False, "embedding": False, "gpu": False},
+        priority=18,
+    )
+
+    def generate(self, context: BranchContext) -> BranchOutcome:
+        settings = (((context.search_space.get("search") or {}).get("stages") or {}).get("secondary") or {}).get("session_longterm") or {}
+        groups: list[list[Candidate]] = []
+        top_k_candidates = []
+        for top_k in settings.get("longterm_top_k") or [5, 10, 15, 20, 25, 30]:
+            top_k_candidates.append(
+                _candidate(
+                    context,
+                    branch=self.spec.name,
+                    label=f"top_k={top_k}",
+                    cost_level=self.spec.cost_level,
+                    complexity=1,
+                    longterm_top_k=int(top_k),
+                )
+            )
+        groups.append(top_k_candidates)
+        threshold_candidates = []
+        for threshold in settings.get("longterm_rag_threshold") or [0.05, 0.1, 0.2, 0.3, 0.4, 0.5]:
+            threshold_candidates.append(
+                _candidate(
+                    context,
+                    branch=self.spec.name,
+                    label=f"threshold={float(threshold):.2f}",
+                    cost_level=self.spec.cost_level,
+                    complexity=1,
+                    longterm_rag_threshold=float(threshold),
+                )
+            )
+        groups.append(threshold_candidates)
+        multiplier_candidates = []
+        for multiplier in settings.get("longterm_candidate_pool_multiplier") or [2, 4, 6]:
+            multiplier_candidates.append(
+                _candidate(
+                    context,
+                    branch=self.spec.name,
+                    label=f"candidate_multiplier={multiplier}",
+                    cost_level=self.spec.cost_level,
+                    complexity=1,
+                    longterm_candidate_pool_multiplier=int(multiplier),
+                )
+            )
+        groups.append(multiplier_candidates)
+        preset_candidates = []
+        for preset in settings.get("hybrid_presets") or [
+            "semantic-heavy",
+            "balanced",
+            "keyword-heavy",
+            "entity-aware",
+        ]:
+            preset_candidates.append(
+                _candidate(
+                    context,
+                    branch=self.spec.name,
+                    label=f"hybrid={preset}",
+                    cost_level=self.spec.cost_level,
+                    complexity=1,
+                    longterm_hybrid_preset=str(preset),
+                )
+            )
+        groups.append(preset_candidates)
+        entity_candidates = []
+        for threshold in settings.get("entity_similarity_threshold") or [0.4, 0.5, 0.6, 0.7, 0.8]:
+            entity_candidates.append(
+                _candidate(
+                    context,
+                    branch=self.spec.name,
+                    label=f"entity-threshold={float(threshold):.1f}",
+                    cost_level=self.spec.cost_level,
+                    complexity=1,
+                    entity_similarity_threshold=float(threshold),
+                )
+            )
+        groups.append(entity_candidates)
+
+        # Put one candidate from every high-level Long-term axis into the
+        # minimum screen before spending depth on any one axis.
+        candidates = []
+        for offset in range(max(len(group) for group in groups)):
+            for group in groups:
+                if offset < len(group):
+                    candidate = group[offset]
+                    changed = {
+                        key: value
+                        for key, value in candidate.config.items()
+                        if context.anchor.config.get(key) != value
+                    }
+                    if changed:
+                        candidates.append(candidate)
+        limit = max(1, int(context.execution_settings.get("max_candidates_per_stage") or 8))
+        return BranchOutcome(self.spec.name, "READY", candidates=candidates[:limit])
+
+
+class QueryRewritePromptBranch(QueryRepresentationBranch):
+    spec = BranchSpec(
+        name="QueryRewritePrompt",
+        diagnostic_regimes=QueryRepresentationBranch.spec.diagnostic_regimes,
+        cost_level="high",
+        required_artifacts=("production_midterm_checkpoints", "query_prompt_artifact"),
+        execution_adapter="DerivedQueryVectorAdapter",
+        provenance_contract=("dataset_sha256", "parent_prompt_hash", "prompt_hash", "query_artifact_sha256"),
+        resource_requirements={"llm": True, "embedding": True, "gpu": False},
+        priority=21,
+    )
+
+
+def _split_source_prompt_outcome(
+    context: BranchContext,
+    *,
+    branch_spec: BranchSpec,
+    prompt_field: str,
+    variants: Mapping[str, str],
+) -> BranchOutcome:
+    if context.budget != "deep":
+        return BranchOutcome(branch_spec.name, "BUDGET_BLOCKED", reason="source Prompt candidates require deep budget")
+    manifests = [Path(str(value)) for value in context.anchor.config.get("manifest_paths") or []]
+    if not manifests:
+        return BranchOutcome(branch_spec.name, "UNAVAILABLE", reason="production source manifest is missing")
+    manifest = load_json(manifests[0])
+    memory_config_path = Path(str(manifest["memory_config_path"]))
+    session_turn_counts = {session_id: len(turns) for session_id, turns in context.dataset.sessions.items()}
+    tune_scope = set(context.tune_sessions)
+    missed = sum(
+        str(row.get("session_id") or "") in tune_scope and not bool(row.get("hit_at_k"))
+        for row in context.anchor_result.requirement_rows
+    )
+    candidates = []
+    for label, base_prompt in variants.items():
+        prompt = (
+            f"{base_prompt}\n\nTune-only aggregate diagnostics: regime="
+            f"{context.diagnostic.get('regime', 'balanced_or_plateau')}, missed_requirements={missed}."
+        )
+        prompt_hash = hashlib.sha256(prompt.encode()).hexdigest()
+        identity = {
+            "schema": 3,
+            "kind": prompt_field,
+            "dataset_sha256": context.dataset.sha256,
+            "memory_config_sha256": sha256_file(memory_config_path),
+            "production_prompt_hashes": manifest.get("prompt_hashes") or {},
+            "prompt_hash": prompt_hash,
+            "invalidates": {
+                "session_merge_prompt": ["midterm_sessions", "promotion", "cross_session_longterm"],
+                "session_longterm_extraction_prompt": ["session_longterm", "all_memory_context"],
+            }.get(prompt_field, ["midterm_pages", "midterm_sessions", "downstream_memory"]),
+        }
+        source_root = context.registry.cache_root / "production_variants" / stable_hash(identity)
+        source_spec = {
+            "dataset_path": context.dataset.path,
+            "dataset_sha256": context.dataset.sha256,
+            "session_turn_counts": session_turn_counts,
+            "memory_config_path": str(memory_config_path.resolve()),
+            "llm_mode": str(manifest.get("llm_mode") or "real"),
+            "page_summary_prompt": None,
+            "session_merge_prompt": None,
+            "session_longterm_extraction_prompt": None,
+            "context_mode": "none",
+            "source_variant": label,
+            "source_identity": identity,
+            "source_root": str(source_root.resolve()),
+            "session_order": sorted(context.dataset.sessions),
+        }
+        source_spec[prompt_field] = prompt
+        candidates.append(
+            _candidate(
+                context,
+                branch=branch_spec.name,
+                label=label,
+                cost_level=branch_spec.cost_level,
+                complexity=4,
+                provenance={
+                    "dataset_sha256": context.dataset.sha256,
+                    "prompt_hash": prompt_hash,
+                    "prompt_kind": prompt_field,
+                    "source_identity": identity,
+                    "requires_source_regeneration": True,
+                    "tune_aggregate_only": True,
+                    "provenance_validated": True,
+                },
+                source_generation_spec=source_spec,
+                source_variant=label,
+                **{prompt_field: prompt, f"{prompt_field}_hash": prompt_hash},
+            )
+        )
+    return BranchOutcome(
+        branch_spec.name,
+        "READY" if candidates else "UNAVAILABLE",
+        candidates=candidates,
+        provenance={
+            "prompt_kind": prompt_field,
+            "parent": "production/original",
+            "analysis_session_ids": list(context.tune_sessions),
+        },
+    )
+
+
+class MidtermPageSummaryPromptBranch(SourcePromptBranch):
+    spec = BranchSpec(
+        name="MidtermPageSummaryPrompt",
+        diagnostic_regimes=SourcePromptBranch.spec.diagnostic_regimes,
+        cost_level="expensive",
+        required_artifacts=("production_generated_pages", "page_summary_prompt"),
+        execution_adapter="ProductionGeneratedSourceAdapter",
+        provenance_contract=("dataset_sha256", "page_summary_prompt_hash", "manifest_sha256"),
+        resource_requirements={"llm": True, "embedding": True, "network": True},
+        priority=31,
+    )
+
+
+class MidtermSessionMergePromptBranch(SourcePromptBranch):
+    spec = BranchSpec(
+        name="MidtermSessionMergePrompt",
+        diagnostic_regimes=frozenset({"session_instability", "candidate_coverage_bottleneck"}),
+        cost_level="expensive",
+        required_artifacts=("production_generated_sessions", "session_merge_prompt"),
+        execution_adapter="ProductionGeneratedSourceAdapter",
+        provenance_contract=("dataset_sha256", "session_merge_prompt_hash", "manifest_sha256"),
+        resource_requirements={"llm": True, "embedding": True, "network": True},
+        priority=32,
+    )
+
+    def generate(self, context: BranchContext) -> BranchOutcome:
+        return _split_source_prompt_outcome(
+            context,
+            branch_spec=self.spec,
+            prompt_field="session_merge_prompt",
+            variants=controlled_session_merge_prompt_variants(),
+        )
+
+
+class SessionLongtermExtractionPromptBranch(SourcePromptBranch):
+    spec = BranchSpec(
+        name="SessionLongtermExtractionPrompt",
+        diagnostic_regimes=frozenset({"candidate_coverage_bottleneck", "balanced_or_plateau"}),
+        cost_level="expensive",
+        required_artifacts=("production_longterm_outputs", "session_longterm_prompt"),
+        execution_adapter="ProductionGeneratedSourceAdapter",
+        provenance_contract=("dataset_sha256", "session_longterm_prompt_hash", "manifest_sha256"),
+        resource_requirements={"llm": True, "embedding": True, "network": True},
+        priority=33,
+    )
+
+    def generate(self, context: BranchContext) -> BranchOutcome:
+        return _split_source_prompt_outcome(
+            context,
+            branch_spec=self.spec,
+            prompt_field="session_longterm_extraction_prompt",
+            variants=controlled_session_longterm_prompt_variants(),
         )
 
 
@@ -1021,7 +1621,7 @@ class BranchRegistry:
             max_rounds = self._max_rounds(branch, settings)
             if not attempts:
                 unexplored.append(name)
-            if rule.coverage_class == "required" and attempts < rule.minimum_attempts:
+            if rule.minimum_attempts > 0 and attempts < rule.minimum_attempts:
                 remaining_required.append(name)
             if attempts:
                 attempted[name] = {
@@ -1166,5 +1766,12 @@ def default_branches() -> list[ExperimentBranch]:
         EmbeddingBranch(),
         FieldAwareMultiVectorBranch(),
         PageRepresentationBranch(),
-        MemoryWriteAddPromptBranch(),
+        MidtermEvolutionBranch(),
+        PromotionBranch(),
+        MidtermSourceConfigBranch(),
+        SessionLongtermRetrievalBranch(),
+        QueryRewritePromptBranch(),
+        MidtermPageSummaryPromptBranch(),
+        MidtermSessionMergePromptBranch(),
+        SessionLongtermExtractionPromptBranch(),
     ]

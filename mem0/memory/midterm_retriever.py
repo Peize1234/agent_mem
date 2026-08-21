@@ -172,17 +172,28 @@ class MidTermRetriever:
         payloads: Dict[str, Dict[str, Any]],
         current_turn_index: int,
     ) -> tuple[Dict[str, float], Dict[str, float]]:
+        # Older checkpoints may not contain evolution fields.  Treat them as
+        # an untouched Session instead of making adapter replay impossible.
+        normalized = {
+            session_id: {
+                **payload,
+                "last_visit_turn_index": payload.get("last_visit_turn_index") or 0,
+                "N_visit": payload.get("N_visit") or 0,
+                "L_interaction": payload.get("L_interaction") or 0,
+            }
+            for session_id, payload in payloads.items()
+        }
         recencies = {
             session_id: compute_recency(
                 int(payload["last_visit_turn_index"]),
                 current_turn_index,
                 self.config.heat_recency_tau_turns,
             )
-            for session_id, payload in payloads.items()
+            for session_id, payload in normalized.items()
         }
         heats = {
             session_id: compute_session_heat(payload, self.config, current_turn_index)
-            for session_id, payload in payloads.items()
+            for session_id, payload in normalized.items()
         }
         return recencies, heats
 
@@ -254,12 +265,22 @@ class MidTermRetriever:
             page_candidates.extend(matching_pages[:top_k_pages])
 
         unique_candidates = self._dedupe_pages(page_candidates)
-        target_candidate_count = 4 * max_total_pages
+        routed_candidate_ids = {str(page.id) for page in unique_candidates}
+        global_supplement_ids: set[str] = set()
+        # Global supplementation is intentionally independent from the final
+        # context budget.  The multiplier is configurable for experiments but
+        # bounded by MidTermMemoryConfig (default preserves production=4).
+        multiplier = int(getattr(self.config, "midterm_candidate_pool_multiplier", 4))
+        target_candidate_count = multiplier * max_total_pages
         if len(unique_candidates) < target_candidate_count:
+            global_candidates = self._global_page_candidates(query, scope_filters, target_candidate_count)
+            global_supplement_ids = {
+                str(page.id) for page in global_candidates if str(page.id) not in routed_candidate_ids
+            }
             unique_candidates = self._dedupe_pages(
                 [
                     *unique_candidates,
-                    *self._global_page_candidates(query, scope_filters, target_candidate_count),
+                    *global_candidates,
                 ]
             )
         if exclude_source_job_id is not None:
@@ -306,22 +327,37 @@ class MidTermRetriever:
                 heat_factor=modulation,
             )
             final_score = raw_score * retention
-            ranked_pages.append(
-                self._format_page(
-                    page,
-                    final_score,
-                    session_score=session_scores.get(session_id, 0.0),
-                    raw_rag_score=raw_score,
-                    page_forgetting_factor=retention,
-                    heat_factor=modulation,
-                    effective_half_life_turns=float(self.config.retention_half_life_turns) * modulation,
-                )
+            formatted = self._format_page(
+                page,
+                final_score,
+                session_score=session_scores.get(session_id, 0.0),
+                raw_rag_score=raw_score,
+                page_forgetting_factor=retention,
+                heat_factor=modulation,
+                effective_half_life_turns=float(self.config.retention_half_life_turns) * modulation,
             )
+            formatted.update(
+                {
+                    "routed_candidate": str(page.id) in routed_candidate_ids,
+                    "global_supplement": str(page.id) in global_supplement_ids,
+                    "selected_session_count": len(sessions),
+                    "session_routed_page_count": len(routed_candidate_ids),
+                    "global_supplement_page_count": len(global_supplement_ids),
+                    "dedup_candidate_count": len(unique_candidates),
+                    "candidate_pool_count": len(unique_candidates),
+                }
+            )
+            ranked_pages.append(formatted)
 
         ranked_pages.sort(key=lambda item: float(item.get("final_score") or 0.0), reverse=True)
+        for rank, page in enumerate(ranked_pages, start=1):
+            page["rank_before_threshold"] = rank
         threshold = float(self.config.midterm_rag_threshold)
         selected_pages = [page for page in ranked_pages if float(page.get("raw_rag_score") or 0.0) >= threshold][
             :max_total_pages
         ]
+        for rank, page in enumerate(selected_pages, start=1):
+            page["final_rank"] = rank
+            page["threshold_filtered"] = False
         results.extend(selected_pages)
         return results

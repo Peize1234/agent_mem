@@ -3,7 +3,9 @@ from __future__ import annotations
 import argparse
 import asyncio
 import hashlib
+import inspect
 import json
+import logging
 import math
 import os
 import re
@@ -27,6 +29,7 @@ from .benchmark_support import (
     safe_git_commit,
     wait_for_migration_jobs,
 )
+from .fact_evaluator import fact_member_hit, parse_required_context
 from .io_utils import atomic_write_json, load_jsonl, sha256_file, stable_hash, write_jsonl
 from .production_runtime import create_production_memory
 from .retrieval_primitives import (
@@ -38,17 +41,27 @@ from .retrieval_primitives import (
 )
 from .source_prompt_variants import ContextAwareMidTermUpdater, visible_context_by_dialogue
 
-ADAPTER_SCHEMA = 1
+ADAPTER_SCHEMA = 3
 PRODUCTION_BACKEND = "production_midterm"
 SUPPORTED_RETRIEVAL_METHODS = {"dense", "dense_bm25_fusion"}
+logger = logging.getLogger(__name__)
 
 
-def production_prompt_hashes(*, page_summary_prompt: str | None = None) -> dict[str, str]:
+def production_prompt_hashes(
+    *,
+    page_summary_prompt: str | None = None,
+    session_merge_prompt: str | None = None,
+    session_longterm_extraction_prompt: str | None = None,
+) -> dict[str, str]:
     from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT, MIDTERM_SESSION_MERGE_PROMPT
+    from mem0.configs.prompts import ADDITIVE_EXTRACTION_PROMPT
 
     return {
         "page_summary": hashlib.sha256((page_summary_prompt or MIDTERM_PAGE_SUMMARY_PROMPT).encode()).hexdigest(),
-        "session_merge": hashlib.sha256(MIDTERM_SESSION_MERGE_PROMPT.encode()).hexdigest(),
+        "session_merge": hashlib.sha256((session_merge_prompt or MIDTERM_SESSION_MERGE_PROMPT).encode()).hexdigest(),
+        "session_longterm_extraction": hashlib.sha256(
+            (session_longterm_extraction_prompt or ADDITIVE_EXTRACTION_PROMPT).encode()
+        ).hexdigest(),
     }
 
 
@@ -207,6 +220,77 @@ def _source_ids(result: Mapping[str, Any], lineage: LineageTracker) -> list[str]
     return list(dict.fromkeys(values))
 
 
+def _longterm_candidate_pool(
+    memory: Any,
+    *,
+    query: str,
+    query_vector: Sequence[float],
+    filters: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Freeze production Long-term signals deeply enough for query-only replay."""
+    from mem0.memory.main import _payload_is_expired
+    from mem0.utils.entity_extraction import extract_entities
+    from mem0.utils.lemmatization import lemmatize_for_bm25
+    from mem0.utils.scoring import get_bm25_params, normalize_bm25
+
+    pool_limit = max(30 * 6, 60)
+    semantic_rows = memory.vector_store.search(
+        query=query,
+        vectors=list(query_vector),
+        top_k=pool_limit,
+        filters=dict(filters),
+    )
+    candidates = []
+    for row in semantic_rows:
+        payload = dict(getattr(row, "payload", None) or {})
+        if not memory._stage_output_is_visible(payload, "longterm") or _payload_is_expired(payload):
+            continue
+        candidates.append(
+            {
+                "id": str(row.id),
+                "score": float(getattr(row, "score", 0.0) or 0.0),
+                "payload": payload,
+            }
+        )
+
+    query_lemmatized = lemmatize_for_bm25(query, language=getattr(memory, "_bm25_language", None))
+    keyword_rows = memory.vector_store.keyword_search(
+        query=query_lemmatized,
+        top_k=pool_limit,
+        filters=dict(filters),
+    )
+    midpoint, steepness = get_bm25_params(query, lemmatized=query_lemmatized)
+    bm25_scores: dict[str, float] = {}
+    for row in keyword_rows or []:
+        raw_score = float(getattr(row, "score", 0.0) or 0.0)
+        if raw_score > 0:
+            bm25_scores[str(row.id)] = normalize_bm25(raw_score, midpoint, steepness)
+
+    query_entities = memory._run_entity_extraction(extract_entities, query)
+    entity_boosts: dict[str, dict[str, float]] = {}
+    for threshold in (0.4, 0.5, 0.6, 0.7, 0.8):
+        if query_entities:
+            compute = getattr(memory, "_compute_entity_boosts_async", None)
+            boosts = (
+                asyncio.run(compute(query_entities, dict(filters), threshold=threshold))
+                if callable(compute)
+                else {}
+            )
+        else:
+            boosts = {}
+        entity_boosts[f"{threshold:.1f}"] = {
+            str(memory_id): float(score) for memory_id, score in boosts.items()
+        }
+
+    return {
+        "schema": 1,
+        "pool_limit": pool_limit,
+        "semantic_candidates": candidates,
+        "bm25_scores": bm25_scores,
+        "entity_boosts_by_threshold": entity_boosts,
+    }
+
+
 def _checkpoint(
     memory: Any,
     *,
@@ -248,18 +332,125 @@ def _checkpoint(
                 break
         if len(baseline_ranking) >= ranking_depth:
             break
+    # Keep a complete layered trace alongside the Mid-term checkpoint.  This
+    # is used only for final Short+Mid+Session-Longterm regression; it never
+    # enters static Mid-term winner selection.
+    layered_results: list[dict[str, Any]] = []
+    try:
+        raw = memory.search(
+            query,
+            top_k=min(int(getattr(memory.config, "longterm_top_k", 30)), 30),
+            filters={"user_id": user_id, "run_id": session_id},
+            threshold=None,
+        )
+        if inspect.isawaitable(raw):
+            raw = asyncio.run(raw)
+        layered_results = list(raw.get("results") if isinstance(raw, dict) else raw or [])
+    except Exception:
+        logger.debug("Layered production trace unavailable for %s", query_id, exc_info=True)
+    longterm_pool: dict[str, Any] = {}
+    try:
+        longterm_pool = _longterm_candidate_pool(
+            memory,
+            query=query,
+            query_vector=query_vector,
+            filters={"user_id": user_id, "run_id": session_id},
+        )
+    except Exception:
+        logger.debug("Long-term candidate pool unavailable for %s", query_id, exc_info=True)
     return {
         "query_id": query_id,
         "query": query,
         "filters": {"user_id": user_id, "run_id": session_id},
         "query_vector": list(query_vector),
+        # Search is performed before Add for this turn.  Persist the exact
+        # production clock so replay cannot substitute page_sequence.
+        "current_turn_index": int(memory.midterm_memory.current_turn_index({"user_id": user_id, "run_id": session_id})),
         "pages": pages,
         "sessions": sessions,
         "source_turn_ids_by_job": {
             job_id: list(turn_ids) for job_id, turn_ids in sorted(lineage.job_to_turn_ids.items())
         },
         "baseline_ranking": baseline_ranking,
+        "retrieved_results": [
+            {
+                key: item.get(key)
+                for key in (
+                    "id",
+                    "source",
+                    "raw_dialogue",
+                    "summary",
+                    "memory",
+                    "source_job_id",
+                    "source_job_ids",
+                    "raw_rag_score",
+                    "forgetting_factor",
+                    "heat_factor",
+                    "final_score",
+                )
+            }
+            for item in results
+            if isinstance(item, Mapping)
+        ],
+        "layered_results": [
+            {
+                "id": str(item.get("id") or ""),
+                "source": str(item.get("source") or "long_term"),
+                "memory": item.get("memory") or item.get("data") or item.get("raw_dialogue") or "",
+                "summary": item.get("summary"),
+                "raw_dialogue": item.get("raw_dialogue"),
+                "source_turn_id": item.get("source_turn_id"),
+                "score": float(item.get("score") or 0.0),
+            }
+            for item in layered_results
+            if isinstance(item, Mapping)
+        ],
+        "longterm_candidate_pool": longterm_pool,
     }
+
+
+def _valid_recalled_page_ids(turn: Any, checkpoint: Mapping[str, Any]) -> list[str]:
+    """Return only visible production Pages that satisfy this turn's Gold."""
+    pages = [
+        row
+        for row in checkpoint.get("retrieved_results") or []
+        if isinstance(row, Mapping) and row.get("source") in {"mid_term_page", "midterm"} and row.get("id")
+    ]
+    required_context = str(getattr(turn, "required_context", "") or "").strip()
+    if required_context:
+        requirements = parse_required_context(required_context)
+        return [
+            str(row["id"])
+            for row in pages
+            if any(
+                any(
+                    fact_member_hit(
+                        member,
+                        " ".join(str(row.get(key) or "") for key in ("raw_dialogue", "summary", "memory")),
+                    )
+                    for member in requirement.members
+                )
+                for requirement in requirements
+            )
+        ]
+
+    required_ids = {
+        str(member).upper()
+        for requirement in getattr(turn, "requirements", ())
+        for member in requirement.members
+    }
+    job_map = {
+        str(job_id): {str(turn_id).upper() for turn_id in turn_ids}
+        for job_id, turn_ids in (checkpoint.get("source_turn_ids_by_job") or {}).items()
+    }
+    valid = []
+    for row in pages:
+        source_ids: set[str] = set()
+        for job_id in [row.get("source_job_id"), *(row.get("source_job_ids") or [])]:
+            source_ids.update(job_map.get(str(job_id), set()))
+        if required_ids & source_ids:
+            valid.append(str(row["id"]))
+    return valid
 
 
 class CountingLLM:
@@ -333,27 +524,59 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
         profile_enabled=False,
         profile_update_on_add=False,
     )
+    # Source-changing candidates carry explicit production-config overrides;
+    # query-time candidates never reach this path.  Merge only declared config
+    # objects and let Pydantic enforce the production schema/ranges.
+    overrides = spec.get("config_overrides") or {}
+    if isinstance(overrides, Mapping):
+        for section, values in overrides.items():
+            if isinstance(values, Mapping) and isinstance(config.get(section), dict):
+                config[section].update(dict(values))
+            elif section in config:
+                config[section] = values
+    # Persist the effective production config beside the trace.  Artifact
+    # discovery uses it to validate complete-memory reuse without trusting
+    # mutable runtime paths or a stale manifest.
+    atomic_write_json(output_dir / "effective_memory_config.json", redact_secrets(config))
     config.setdefault("background", {})["midterm_worker_count"] = 1
     config["background"]["longterm_worker_count"] = 1
     page_summary_prompt = str(spec.get("page_summary_prompt") or "") or None
-    original_prompts: tuple[str, str] | None = None
-    if page_summary_prompt:
+    session_merge_prompt = str(spec.get("session_merge_prompt") or "") or None
+    session_longterm_extraction_prompt = str(spec.get("session_longterm_extraction_prompt") or "") or None
+    original_prompts: dict[str, str] = {}
+    if page_summary_prompt or session_merge_prompt or session_longterm_extraction_prompt:
+        import mem0.memory.main as memory_main_module
         import mem0.memory.midterm_updater as midterm_updater_module
 
         from . import production_runtime as production_runtime_module
 
-        original_prompts = (
-            midterm_updater_module.MIDTERM_PAGE_SUMMARY_PROMPT,
-            production_runtime_module.MIDTERM_PAGE_SUMMARY_PROMPT,
-        )
-        midterm_updater_module.MIDTERM_PAGE_SUMMARY_PROMPT = page_summary_prompt
-        production_runtime_module.MIDTERM_PAGE_SUMMARY_PROMPT = page_summary_prompt
+        original_prompts = {
+            "updater_page": midterm_updater_module.MIDTERM_PAGE_SUMMARY_PROMPT,
+            "runtime_page": production_runtime_module.MIDTERM_PAGE_SUMMARY_PROMPT,
+            "updater_session": midterm_updater_module.MIDTERM_SESSION_MERGE_PROMPT,
+            "runtime_session": production_runtime_module.MIDTERM_SESSION_MERGE_PROMPT,
+            "main_longterm": memory_main_module.ADDITIVE_EXTRACTION_PROMPT,
+            "runtime_longterm": production_runtime_module.ADDITIVE_EXTRACTION_PROMPT,
+        }
+        if page_summary_prompt:
+            midterm_updater_module.MIDTERM_PAGE_SUMMARY_PROMPT = page_summary_prompt
+            production_runtime_module.MIDTERM_PAGE_SUMMARY_PROMPT = page_summary_prompt
+        if session_merge_prompt:
+            midterm_updater_module.MIDTERM_SESSION_MERGE_PROMPT = session_merge_prompt
+            production_runtime_module.MIDTERM_SESSION_MERGE_PROMPT = session_merge_prompt
+        if session_longterm_extraction_prompt:
+            memory_main_module.ADDITIVE_EXTRACTION_PROMPT = session_longterm_extraction_prompt
+            production_runtime_module.ADDITIVE_EXTRACTION_PROMPT = session_longterm_extraction_prompt
     try:
         memory = create_production_memory(config, llm_mode=str(spec.get("llm_mode") or "real"))
     except Exception:
-        if original_prompts is not None:
-            midterm_updater_module.MIDTERM_PAGE_SUMMARY_PROMPT = original_prompts[0]
-            production_runtime_module.MIDTERM_PAGE_SUMMARY_PROMPT = original_prompts[1]
+        if original_prompts:
+            midterm_updater_module.MIDTERM_PAGE_SUMMARY_PROMPT = original_prompts["updater_page"]
+            production_runtime_module.MIDTERM_PAGE_SUMMARY_PROMPT = original_prompts["runtime_page"]
+            midterm_updater_module.MIDTERM_SESSION_MERGE_PROMPT = original_prompts["updater_session"]
+            production_runtime_module.MIDTERM_SESSION_MERGE_PROMPT = original_prompts["runtime_session"]
+            memory_main_module.ADDITIVE_EXTRACTION_PROMPT = original_prompts["main_longterm"]
+            production_runtime_module.ADDITIVE_EXTRACTION_PROMPT = original_prompts["runtime_longterm"]
         raise
     counted = CountingLLM(memory.llm)
     counted_embedding = CountingEmbedding(memory.embedding_model)
@@ -380,26 +603,33 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
 
     try:
         for turn in session.turns:
-            if turn.dependency_turn_ids:
-                await wait_for_migration_jobs(
-                    memory,
-                    pending,
-                    timeout_seconds=job_timeout,
-                    poll_interval_seconds=0.2,
-                )
-                pending.clear()
-                checkpoints.append(
+            await wait_for_migration_jobs(
+                memory,
+                pending,
+                timeout_seconds=job_timeout,
+                poll_interval_seconds=0.2,
+            )
+            pending.clear()
+            checkpoint = await asyncio.to_thread(
+                _checkpoint,
+                memory,
+                query_id=turn.turn_id,
+                query=turn.question,
+                session_id=session.session_id,
+                user_id=user_id,
+                lineage=lineage,
+                ranking_depth=int(spec["ranking_depth"]),
+            )
+            checkpoints.append(checkpoint)
+            valid_recalled_page_ids: list[str] = []
+            if bool(spec.get("stateful_replay")):
+                valid_recalled_page_ids = _valid_recalled_page_ids(turn, checkpoint)
+                if valid_recalled_page_ids:
                     await asyncio.to_thread(
-                        _checkpoint,
-                        memory,
-                        query_id=turn.turn_id,
-                        query=turn.question,
-                        session_id=session.session_id,
-                        user_id=user_id,
-                        lineage=lineage,
-                        ranking_depth=int(spec["ranking_depth"]),
+                        memory._confirm_valid_midterm_page_ids,
+                        valid_recalled_page_ids,
+                        current_turn_index=int(checkpoint["current_turn_index"]),
                     )
-                )
             add_result = await memory.add(
                 [
                     {"role": "user", "content": turn.question, "name": f"{turn.turn_id}:user"},
@@ -419,6 +649,19 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
             evicted = lineage.register_add(session.session_id, turn.turn_id, migration_job_id)
             if migration_job_id:
                 pending.append(str(migration_job_id))
+            layered = list(checkpoint.get("layered_results") or [])
+            all_retrieved_turn_ids = [
+                str(item.get("source_turn_id") or "").upper()
+                for item in layered
+                if isinstance(item, Mapping) and item.get("source_turn_id")
+            ]
+            long_retrieved_turn_ids = [
+                str(item.get("source_turn_id") or "").upper()
+                for item in layered
+                if isinstance(item, Mapping)
+                and item.get("source_turn_id")
+                and str(item.get("source") or "") not in {"mid_term_page", "mid_term_session", "midterm"}
+            ]
             turn_rows.append(
                 {
                     "session_id": session.session_id,
@@ -427,6 +670,16 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
                     "migration_job_id": migration_job_id,
                     "evicted_turn_ids": list(evicted),
                     "error": None,
+                    "mid_retrieved_turn_ids": [
+                        str(item.get("source_turn_id") or "").upper()
+                        for item in checkpoint.get("baseline_ranking") or []
+                        if item.get("source_turn_id")
+                    ],
+                    "all_memory_results": layered,
+                    "long_retrieved_turn_ids": list(dict.fromkeys(long_retrieved_turn_ids)),
+                    "all_retrieved_turn_ids": list(dict.fromkeys(all_retrieved_turn_ids)),
+                    "valid_recalled_page_ids": valid_recalled_page_ids,
+                    "stateful_replay": bool(spec.get("stateful_replay")),
                 }
             )
         await wait_for_migration_jobs(
@@ -438,19 +691,28 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
         await memory.flush_background_tasks(timeout=job_timeout)
     finally:
         memory.close()
-        if original_prompts is not None:
+        if original_prompts:
+            import mem0.memory.main as memory_main_module
             import mem0.memory.midterm_updater as midterm_updater_module
 
             from . import production_runtime as production_runtime_module
 
-            midterm_updater_module.MIDTERM_PAGE_SUMMARY_PROMPT = original_prompts[0]
-            production_runtime_module.MIDTERM_PAGE_SUMMARY_PROMPT = original_prompts[1]
+            midterm_updater_module.MIDTERM_PAGE_SUMMARY_PROMPT = original_prompts["updater_page"]
+            production_runtime_module.MIDTERM_PAGE_SUMMARY_PROMPT = original_prompts["runtime_page"]
+            midterm_updater_module.MIDTERM_SESSION_MERGE_PROMPT = original_prompts["updater_session"]
+            production_runtime_module.MIDTERM_SESSION_MERGE_PROMPT = original_prompts["runtime_session"]
+            memory_main_module.ADDITIVE_EXTRACTION_PROMPT = original_prompts["main_longterm"]
+            production_runtime_module.ADDITIVE_EXTRACTION_PROMPT = original_prompts["runtime_longterm"]
 
     checkpoints_path = output_dir / "production_midterm_checkpoints.jsonl"
     trace_path = output_dir / "recall_turn_results.jsonl"
     write_jsonl(checkpoints_path, checkpoints)
     write_jsonl(trace_path, turn_rows)
-    prompt_hashes = production_prompt_hashes(page_summary_prompt=page_summary_prompt)
+    prompt_hashes = production_prompt_hashes(
+        page_summary_prompt=page_summary_prompt,
+        session_merge_prompt=session_merge_prompt,
+        session_longterm_extraction_prompt=session_longterm_extraction_prompt,
+    )
     repo_root = Path(__file__).resolve().parents[5]
     manifest = {
         "schema": ADAPTER_SCHEMA,
@@ -472,10 +734,13 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
         "memory_config_sha256": sha256_file(Path(str(spec["memory_config_path"])).resolve()),
         "effective_memory_config": redact_secrets(config),
         "production_config": deepcopy(config.get("midterm") or {}),
+        "config_overrides": redact_secrets(dict(spec.get("config_overrides") or {})),
+        "effective_config_hash": stable_hash(redact_secrets(config)),
         "prompt_hashes": prompt_hashes,
         "source_variant": str(spec.get("source_variant") or "production"),
         "context_mode": str(spec.get("context_mode") or "none"),
         "source_identity": dict(spec.get("source_identity") or {}),
+        "stateful_replay": bool(spec.get("stateful_replay")),
         "llm_mode": str(spec.get("llm_mode") or "real"),
         "llm_calls": counted.calls,
         "embedding_calls": counted_embedding.calls,
@@ -499,11 +764,15 @@ def generate_production_sources(
     max_parallel_sessions: int,
     max_parallel_llm_calls: int,
     page_summary_prompt: str | None = None,
+    session_merge_prompt: str | None = None,
+    session_longterm_extraction_prompt: str | None = None,
     context_mode: str = "none",
     source_variant: str = "production",
     source_identity: Mapping[str, Any] | None = None,
     source_root: Path | None = None,
     generation_stats: dict[str, Any] | None = None,
+    config_overrides: Mapping[str, Any] | None = None,
+    stateful_replay: bool = False,
 ) -> list[Path]:
     """Generate missing production artifacts in isolated subprocesses."""
     from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -511,8 +780,13 @@ def generate_production_sources(
     source_root = source_root or run_dir / "production_source"
     source_root.mkdir(parents=True, exist_ok=True)
     memory_config_sha256 = sha256_file(memory_config_path)
-    prompt_hashes = production_prompt_hashes(page_summary_prompt=page_summary_prompt)
+    prompt_hashes = production_prompt_hashes(
+        page_summary_prompt=page_summary_prompt,
+        session_merge_prompt=session_merge_prompt,
+        session_longterm_extraction_prompt=session_longterm_extraction_prompt,
+    )
     expected_source_identity = dict(source_identity or {})
+    config_overrides_hash = stable_hash(dict(config_overrides or {}))
     generated_paths: list[Path] = []
     generated_lock = threading.Lock()
 
@@ -523,7 +797,8 @@ def generate_production_sources(
         if manifest_path.exists():
             value = load_json(manifest_path)
             if (
-                value.get("status") == "COMPLETE"
+                value.get("schema") == ADAPTER_SCHEMA
+                and value.get("status") == "COMPLETE"
                 and value.get("dataset_sha256") == dataset_sha256
                 and int(value.get("turn_count") or 0) == int(session_turn_counts[session_id])
                 and int(value.get("failed_turns") or 0) == 0
@@ -533,6 +808,8 @@ def generate_production_sources(
                 and str(value.get("source_variant") or "production") == source_variant
                 and str(value.get("context_mode") or "none") == context_mode
                 and dict(value.get("source_identity") or {}) == expected_source_identity
+                and stable_hash(value.get("config_overrides") or {}) == config_overrides_hash
+                and bool(value.get("stateful_replay")) is bool(stateful_replay)
                 and str(value.get("llm_mode") or "real") == llm_mode
                 and Path(str(value.get("checkpoints_path") or "")).exists()
                 and value.get("checkpoints_sha256") == sha256_file(Path(str(value["checkpoints_path"])))
@@ -554,9 +831,13 @@ def generate_production_sources(
             "ranking_depth": ranking_depth,
             "llm_mode": llm_mode,
             "page_summary_prompt": page_summary_prompt,
+            "session_merge_prompt": session_merge_prompt,
+            "session_longterm_extraction_prompt": session_longterm_extraction_prompt,
             "context_mode": context_mode,
             "source_variant": source_variant,
             "source_identity": expected_source_identity,
+            "config_overrides": dict(config_overrides or {}),
+            "stateful_replay": bool(stateful_replay),
         }
         spec_path = result_dir / "source_spec.json"
         atomic_write_json(spec_path, spec)
@@ -643,7 +924,27 @@ def production_candidate_from_manifests(
     if not manifests:
         raise ValueError("No production MidTerm manifests")
     config = deepcopy(manifests[0].get("production_config") or {})
-    vector_config = ((manifests[0].get("effective_memory_config") or {}).get("vector_store") or {}).get("config") or {}
+    effective_memory_config = manifests[0].get("effective_memory_config") or {}
+    vector_config = (effective_memory_config.get("vector_store") or {}).get("config") or {}
+    for key in (
+        "longterm_top_k",
+        "longterm_rag_threshold",
+        "longterm_candidate_pool_multiplier",
+        "longterm_hybrid_preset",
+        "entity_similarity_threshold",
+        "cross_session_longterm_rag_threshold",
+        "cross_session_retention_half_life_hours",
+        "cross_session_retention_floor",
+        "cross_session_reinforcement_gain",
+    ):
+        if key in effective_memory_config:
+            config[key] = deepcopy(effective_memory_config[key])
+    agentic = effective_memory_config.get("agentic_retrieval") or {}
+    if agentic:
+        config["max_queries"] = int(agentic.get("max_queries", 3))
+        config["max_total_results"] = int(agentic.get("max_total_results", 5))
+        config["agentic_fixed_max_iterations"] = int(agentic.get("max_iterations", 2))
+        config["agentic_fixed_max_tool_calls"] = int(agentic.get("max_tool_calls", 1))
     config.update(
         {
             "backend": PRODUCTION_BACKEND,
@@ -783,6 +1084,63 @@ class ProductionMidtermAdapter:
         )
         return list(reranked)
 
+    @staticmethod
+    def _rank_session_longterm(
+        checkpoint: Mapping[str, Any],
+        config: Mapping[str, Any],
+    ) -> list[dict[str, Any]]:
+        """Replay Session-scoped Long-term with frozen production signals."""
+        from mem0.utils.scoring import HYBRID_PRESET_WEIGHTS, score_and_rank
+
+        pool = checkpoint.get("longterm_candidate_pool") or {}
+        if not pool:
+            return []
+        top_k = min(30, max(1, int(config.get("longterm_top_k", 20))))
+        multiplier = min(6, max(1, int(config.get("longterm_candidate_pool_multiplier", 4))))
+        internal_limit = max(top_k * multiplier, 60)
+        semantic_candidates = [dict(row) for row in (pool.get("semantic_candidates") or [])[:internal_limit]]
+        threshold = float(config.get("longterm_rag_threshold", 0.1))
+        entity_threshold = float(config.get("entity_similarity_threshold", 0.5))
+        entity_maps = pool.get("entity_boosts_by_threshold") or {}
+        entity_boosts = entity_maps.get(f"{entity_threshold:.1f}") or {}
+        preset = str(config.get("longterm_hybrid_preset") or "balanced")
+        scored = score_and_rank(
+            semantic_results=semantic_candidates,
+            bm25_scores={str(key): float(value) for key, value in (pool.get("bm25_scores") or {}).items()},
+            entity_boosts={str(key): float(value) for key, value in entity_boosts.items()},
+            threshold=threshold,
+            top_k=top_k,
+            explain=True,
+            weights=HYBRID_PRESET_WEIGHTS[preset],
+        )
+        rows = []
+        for rank, item in enumerate(scored, start=1):
+            payload = dict(item.get("payload") or {})
+            metadata = payload.get("metadata") if isinstance(payload.get("metadata"), Mapping) else {}
+            source_turn_id = str(
+                payload.get("dataset_turn_id")
+                or metadata.get("dataset_turn_id")
+                or payload.get("source_turn_id")
+                or ""
+            ).upper()
+            details = item.get("score_details") or {}
+            rows.append(
+                {
+                    "page_id": str(item.get("id") or ""),
+                    "source_turn_id": source_turn_id,
+                    "source": "long_term",
+                    "score": float(item.get("score") or 0.0),
+                    "memory": payload.get("data") or "",
+                    "raw_rag_score": details.get("semantic_score"),
+                    "bm25_score": details.get("bm25_score"),
+                    "entity_boost": details.get("entity_boost"),
+                    "final_score": details.get("final_score"),
+                    "candidate_pool_count": len(semantic_candidates),
+                    "final_rank": rank,
+                }
+            )
+        return rows
+
     def rank(self, checkpoint: Mapping[str, Any], config: Mapping[str, Any]) -> list[dict[str, Any]]:
         from qdrant_client import QdrantClient
 
@@ -832,6 +1190,14 @@ class ProductionMidtermAdapter:
             embedding_model=FrozenQueryEmbedding({query: query_vector}),
             config=midterm_config,
             primary_vector_store=PrimaryStore(),
+            current_turn_index_provider=lambda filters: int(
+                checkpoint.get("current_turn_index", max(
+                    (int((point.get("payload") or {}).get("turn_index"))
+                     for point in checkpoint.get("pages") or []
+                     if (point.get("payload") or {}).get("turn_index") is not None),
+                    default=0,
+                ))
+            ),
             **extra,
         )
         try:
@@ -842,14 +1208,22 @@ class ProductionMidtermAdapter:
                 if points:
                     from .derived_artifacts import point_fingerprint
 
-                    replacements = (derived or {}).get(f"{key[:-1]}_vectors") or {}
-                    store.insert(
+                replacements = (derived or {}).get(f"{key[:-1]}_vectors") or {}
+                payloads = []
+                for point in points:
+                    payload = dict(point["payload"])
+                    if key == "pages":
+                        # Checkpoints emitted before the turn-clock contract
+                        # are still replayable at the current query clock.
+                        payload.setdefault("turn_index", int(checkpoint.get("current_turn_index", 0)))
+                    payloads.append(payload)
+                store.insert(
                         vectors=[
                             list(replacements.get(point_fingerprint(point)) or point["vector"]) for point in points
                         ],
                         ids=[str(point["id"]) for point in points],
-                        payloads=[dict(point["payload"]) for point in points],
-                    )
+                    payloads=payloads,
+                )
             retriever = MidTermRetriever(memory, midterm_config)
             results = retriever.search(
                 query,
@@ -889,13 +1263,33 @@ class ProductionMidtermAdapter:
                             "source_turn_id": source_turn_id,
                             "source": str(row.get("source") or ""),
                             "score": float(row.get("score") or 0.0),
+                            "memory": row.get("memory"),
+                            "summary": row.get("summary"),
+                            "raw_dialogue": row.get("raw_dialogue"),
+                            "raw_rag_score": row.get("raw_rag_score"),
+                            "forgetting_factor": row.get("forgetting_factor"),
+                            "heat_modulation": row.get("heat_factor"),
+                            "final_score": row.get("final_score"),
+                            "session_score": row.get("session_score"),
+                            "routed_candidate": row.get("routed_candidate"),
+                            "global_supplement": row.get("global_supplement"),
+                            "selected_session_count": row.get("selected_session_count"),
+                            "session_routed_page_count": row.get("session_routed_page_count"),
+                            "global_supplement_page_count": row.get("global_supplement_page_count"),
+                            "dedup_candidate_count": row.get("dedup_candidate_count"),
+                            "candidate_pool_count": row.get("candidate_pool_count"),
+                            "rank_before_threshold": row.get("rank_before_threshold"),
+                            "final_rank": row.get("final_rank"),
+                            "threshold_filtered": row.get("threshold_filtered"),
                         }
                     )
                     if len(ranking) >= self.ranking_depth:
                         break
                 if len(ranking) >= self.ranking_depth:
                     break
-            return [{**row, "rank": rank} for rank, row in enumerate(ranking, start=1)]
+            longterm_ranking = self._rank_session_longterm(checkpoint, config)
+            combined = [*ranking, *longterm_ranking]
+            return [{**row, "rank": rank} for rank, row in enumerate(combined, start=1)]
         finally:
             try:
                 memory.reset()

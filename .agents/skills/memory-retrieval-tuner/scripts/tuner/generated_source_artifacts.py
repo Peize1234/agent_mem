@@ -24,7 +24,7 @@ def prepare_generated_source_candidate(
 ) -> Candidate:
     """Materialize only the prompt-variant Sessions required by the next evaluation.
 
-    This is the execution half of ``MemoryWriteAddPromptBranch``. Candidate
+    This is the execution helper for source prompt branches. Candidate
     generation is cheap; Tune-subset screening triggers the first isolated
     source workers, and only promoted Candidates are completed for full Tune
     and later held-out Validation.
@@ -50,12 +50,22 @@ def prepare_generated_source_candidate(
             llm_mode=str(spec["llm_mode"]),
             max_parallel_sessions=max_parallel_sessions,
             max_parallel_llm_calls=max_parallel_llm_calls,
-            page_summary_prompt=str(spec["page_summary_prompt"]),
+            page_summary_prompt=(str(spec["page_summary_prompt"]) if spec.get("page_summary_prompt") else None),
+            session_merge_prompt=(
+                str(spec["session_merge_prompt"]) if spec.get("session_merge_prompt") else None
+            ),
+            session_longterm_extraction_prompt=(
+                str(spec["session_longterm_extraction_prompt"])
+                if spec.get("session_longterm_extraction_prompt")
+                else None
+            ),
             context_mode=str(spec["context_mode"]),
             source_variant=str(spec["source_variant"]),
             source_identity=identity,
             source_root=Path(str(spec["source_root"])),
             generation_stats=stats,
+            config_overrides=dict(spec.get("config_overrides") or {}),
+            stateful_replay=bool(spec.get("stateful_replay")),
         )
 
     manifests_by_session: dict[str, Path] = {}

@@ -9,6 +9,7 @@ from typing import Any, Mapping, Sequence
 from openpyxl import load_workbook
 
 from .benchmark_support import load_dataset, parse_gold_requirements
+from .fact_evaluator import parse_required_context
 from .io_utils import atomic_write_json, atomic_write_text, load_json, load_jsonl, sha256_file
 from .models import Dataset, Requirement, Turn
 
@@ -223,11 +224,12 @@ def audit_dataset(
 ) -> tuple[Dataset, dict[str, Any]]:
     hard_errors: list[dict[str, Any]] = []
     warnings: list[dict[str, Any]] = []
+    repository_schema_error: str | None = None
     try:
         # Reuse the production benchmark schema validator before the richer audit.
         load_dataset(dataset_path, include_sheets=None)
     except Exception as exc:
-        hard_errors.append({"code": "REPOSITORY_SCHEMA_VALIDATION", "message": str(exc)})
+        repository_schema_error = str(exc)
     try:
         dataset = load_benchmark_dataset(dataset_path, sessions)
     except Exception as exc:
@@ -292,9 +294,23 @@ def audit_dataset(
     if future:
         hard_errors.append({"code": "FUTURE_DEPENDENCY", "count": len(future), "examples": future[:20]})
     if cross_session:
-        hard_errors.append(
-            {"code": "CROSS_SESSION_DEPENDENCY", "count": len(cross_session), "examples": cross_session[:20]}
+        warnings.append(
+            {
+                "code": "CROSS_SESSION_DEPENDENCY_EXCLUDED_FROM_SESSION_RECALL",
+                "count": len(cross_session),
+                "examples": cross_session[:20],
+            }
         )
+    if repository_schema_error:
+        if cross_session and not missing and not future:
+            warnings.append(
+                {
+                    "code": "REPOSITORY_SCHEMA_VALIDATION_CROSS_SESSION_ONLY",
+                    "message": repository_schema_error,
+                }
+            )
+        else:
+            hard_errors.append({"code": "REPOSITORY_SCHEMA_VALIDATION", "message": repository_schema_error})
 
     source_check = _source_run_check(
         source_run,
@@ -306,7 +322,9 @@ def audit_dataset(
     if source_check["status"] == "INCOMPLETE":
         hard_errors.append({"code": "INCOMPLETE_SOURCE_RUN", **source_check})
 
-    gold_query_count = sum(bool(turn.requirements) for turn in all_turns)
+    fixed_fact_count = sum(len(parse_required_context(turn.required_context)) for turn in all_turns)
+    fixed_context_query_count = sum(bool(str(turn.required_context or "").strip()) for turn in all_turns)
+    gold_query_count = sum(bool(turn.requirements or str(turn.required_context or "").strip()) for turn in all_turns)
     leakage = [
         turn.query_id
         for turn in all_turns
@@ -352,7 +370,9 @@ def audit_dataset(
         "query_count": len(all_turns),
         "gold_bearing_query_count": gold_query_count,
         "independent_query_count": len(all_turns) - gold_query_count,
-        "gold_requirement_count": requirement_count,
+        "gold_requirement_count": fixed_fact_count or requirement_count,
+        "required_context_fact_count": fixed_fact_count,
+        "required_context_query_count": fixed_context_query_count,
         "and_requirement_count": requirement_count - or_count,
         "or_requirement_count": or_count,
         "shortterm_requirement_count": shortterm_count,
@@ -364,6 +384,12 @@ def audit_dataset(
         "explicit_history_leakage_ratio": leakage_ratio,
         "future_dependency_count": len(future),
         "cross_session_dependency_count": len(cross_session),
+        # Ordinary workbook rows carry only within-session dependency Gold;
+        # temporal promotion labels are a separate future contract.
+        "cross_session_gold_available": any(
+            any(marker in str(turn.dependency_type or "").lower() for marker in ("cross", "temporal", "promotion"))
+            for turn in all_turns
+        ),
         "missing_gold_target_count": len(missing),
         "duplicate_query_ids": duplicate_ids,
         "source_run": source_check,
