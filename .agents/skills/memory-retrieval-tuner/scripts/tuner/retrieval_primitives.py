@@ -6,6 +6,64 @@ from typing import Any
 
 from mem0.utils.lemmatization import lemmatize_for_bm25
 
+HYBRID_PRESET_WEIGHTS = {
+    "semantic-heavy": {"semantic": 0.70, "bm25": 0.20, "entity": 0.10},
+    "balanced": {"semantic": 0.40, "bm25": 0.40, "entity": 0.20},
+    "keyword-heavy": {"semantic": 0.25, "bm25": 0.65, "entity": 0.10},
+    "entity-aware": {"semantic": 0.50, "bm25": 0.15, "entity": 0.35},
+}
+
+
+def tuner_score_and_rank(
+    semantic_results: Sequence[Mapping[str, Any]],
+    bm25_scores: Mapping[str, float],
+    entity_boosts: Mapping[str, float],
+    *,
+    threshold: float,
+    top_k: int,
+    weights: Mapping[str, float],
+    explain: bool = False,
+) -> list[dict[str, Any]]:
+    """Tuner-only high-level weighting over frozen production signals."""
+    if set(weights) != {"semantic", "bm25", "entity"}:
+        raise ValueError("hybrid weights must define semantic, bm25, and entity")
+    normalized = {key: float(value) for key, value in weights.items()}
+    if any(not math.isfinite(value) or not 0 <= value <= 1 for value in normalized.values()):
+        raise ValueError("hybrid weights must be finite values between 0 and 1")
+    if not math.isclose(sum(normalized.values()), 1.0, abs_tol=1e-9):
+        raise ValueError("hybrid weights must sum to 1")
+
+    rows = []
+    for result in semantic_results:
+        memory_id = str(result.get("id") or "")
+        semantic_score = float(result.get("score") or 0.0)
+        if not memory_id or semantic_score < threshold:
+            continue
+        bm25_score = float(bm25_scores.get(memory_id, 0.0))
+        # Production entity boosts are capped at 0.5; normalize that existing
+        # signal before applying a tuner-only preset.
+        entity_boost = float(entity_boosts.get(memory_id, 0.0))
+        normalized_entity = entity_boost / 0.5
+        final_score = min(
+            normalized["semantic"] * semantic_score
+            + normalized["bm25"] * bm25_score
+            + normalized["entity"] * normalized_entity,
+            1.0,
+        )
+        row = {"id": memory_id, "score": final_score, "payload": result.get("payload")}
+        if explain:
+            row["score_details"] = {
+                "semantic_score": semantic_score,
+                "bm25_score": bm25_score,
+                "entity_boost": entity_boost,
+                "final_score": final_score,
+                "threshold": threshold,
+                "weights": normalized,
+            }
+        rows.append(row)
+    rows.sort(key=lambda row: float(row["score"]), reverse=True)
+    return rows[:top_k]
+
 
 def page_representation(payload: Mapping[str, Any], variant: str) -> str:
     """Controlled Page representations extracted from the historical P0-P8 ablations."""

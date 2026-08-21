@@ -892,6 +892,12 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         ),
         "production_source_generated": generated_source,
         "production_source_generation_stats": source_generation_stats,
+        "production_boundary": {
+            "diagnostic_trace": "SKILL_ONLY_DIAGNOSTIC_MIDTERM_RETRIEVER",
+            "hybrid_presets": "SKILL_ONLY_TUNER_SCORE_AND_RANK",
+            "prompt_overrides": "SKILL_ONLY_INSTANCE_WRAPPER",
+            "agentic_union_page_cap": "TUNER_EVALUATION_ONLY",
+        },
         "midterm_baseline_full_metrics": midterm_baseline_full.metrics,
         "full_memory_regression": full_memory_regression,
         "branch_registry": branch_registry.describe(),

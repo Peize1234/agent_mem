@@ -29,19 +29,22 @@ from .benchmark_support import (
     safe_git_commit,
     wait_for_migration_jobs,
 )
+from .diagnostic_midterm_retriever import DiagnosticMidTermRetriever
 from .fact_evaluator import fact_member_hit, parse_required_context
 from .io_utils import atomic_write_json, load_jsonl, sha256_file, stable_hash, write_jsonl
 from .production_runtime import create_production_memory
 from .retrieval_primitives import (
+    HYBRID_PRESET_WEIGHTS,
     cosine,
     field_aware_score,
     normalize_scores,
     normalized_score_fuse,
     page_representation,
+    tuner_score_and_rank,
 )
-from .source_prompt_variants import ContextAwareMidTermUpdater, visible_context_by_dialogue
+from .source_prompt_variants import ContextAwareMidTermUpdater, PromptOverrideLLM, visible_context_by_dialogue
 
-ADAPTER_SCHEMA = 5  # adds complete candidate/threshold/final diagnostic trace
+ADAPTER_SCHEMA = 6  # isolates complete diagnostic trace from production runtime state
 PRODUCTION_BACKEND = "production_midterm"
 SUPPORTED_RETRIEVAL_METHODS = {"dense", "dense_bm25_fusion"}
 logger = logging.getLogger(__name__)
@@ -470,7 +473,8 @@ def _checkpoint(
     query_vector = memory.embedding_model.embed(query, "search")
     pages = _scroll_points(memory.midterm_memory.pages_store)
     sessions = _scroll_points(memory.midterm_memory.sessions_store)
-    results = memory.midterm_retriever.search(
+    diagnostic_retriever = DiagnosticMidTermRetriever(memory.midterm_memory, memory.config.midterm)
+    results = diagnostic_retriever.search(
         query,
         {"user_id": user_id, "run_id": session_id},
         record_visits=False,
@@ -549,7 +553,7 @@ def _checkpoint(
         "baseline_ranking": baseline_ranking,
         # This is the complete production retrieval chain, not just the
         # thresholded/capped user-visible result.
-        "retrieval_diagnostics": deepcopy(getattr(memory.midterm_retriever, "last_search_diagnostics", {})),
+        "retrieval_diagnostics": deepcopy(diagnostic_retriever.last_search_diagnostics),
         "retrieved_results": [
             {
                 key: item.get(key)
@@ -721,42 +725,19 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
     page_summary_prompt = str(spec.get("page_summary_prompt") or "") or None
     session_merge_prompt = str(spec.get("session_merge_prompt") or "") or None
     session_longterm_extraction_prompt = str(spec.get("session_longterm_extraction_prompt") or "") or None
-    original_prompts: dict[str, str] = {}
-    if page_summary_prompt or session_merge_prompt or session_longterm_extraction_prompt:
-        import mem0.memory.main as memory_main_module
-        import mem0.memory.midterm_updater as midterm_updater_module
-
-        from . import production_runtime as production_runtime_module
-
-        original_prompts = {
-            "updater_page": midterm_updater_module.MIDTERM_PAGE_SUMMARY_PROMPT,
-            "runtime_page": production_runtime_module.MIDTERM_PAGE_SUMMARY_PROMPT,
-            "updater_session": midterm_updater_module.MIDTERM_SESSION_MERGE_PROMPT,
-            "runtime_session": production_runtime_module.MIDTERM_SESSION_MERGE_PROMPT,
-            "main_longterm": memory_main_module.ADDITIVE_EXTRACTION_PROMPT,
-            "runtime_longterm": production_runtime_module.ADDITIVE_EXTRACTION_PROMPT,
-        }
-        if page_summary_prompt:
-            midterm_updater_module.MIDTERM_PAGE_SUMMARY_PROMPT = page_summary_prompt
-            production_runtime_module.MIDTERM_PAGE_SUMMARY_PROMPT = page_summary_prompt
-        if session_merge_prompt:
-            midterm_updater_module.MIDTERM_SESSION_MERGE_PROMPT = session_merge_prompt
-            production_runtime_module.MIDTERM_SESSION_MERGE_PROMPT = session_merge_prompt
-        if session_longterm_extraction_prompt:
-            memory_main_module.ADDITIVE_EXTRACTION_PROMPT = session_longterm_extraction_prompt
-            production_runtime_module.ADDITIVE_EXTRACTION_PROMPT = session_longterm_extraction_prompt
-    try:
-        memory = create_production_memory(config, llm_mode=str(spec.get("llm_mode") or "real"))
-    except Exception:
-        if original_prompts:
-            midterm_updater_module.MIDTERM_PAGE_SUMMARY_PROMPT = original_prompts["updater_page"]
-            production_runtime_module.MIDTERM_PAGE_SUMMARY_PROMPT = original_prompts["runtime_page"]
-            midterm_updater_module.MIDTERM_SESSION_MERGE_PROMPT = original_prompts["updater_session"]
-            production_runtime_module.MIDTERM_SESSION_MERGE_PROMPT = original_prompts["runtime_session"]
-            memory_main_module.ADDITIVE_EXTRACTION_PROMPT = original_prompts["main_longterm"]
-            production_runtime_module.ADDITIVE_EXTRACTION_PROMPT = original_prompts["runtime_longterm"]
-        raise
-    counted = CountingLLM(memory.llm)
+    memory = create_production_memory(config, llm_mode=str(spec.get("llm_mode") or "real"))
+    prompt_kwargs = {
+        "page_summary_prompt": page_summary_prompt,
+        "session_merge_prompt": session_merge_prompt,
+        "session_longterm_extraction_prompt": session_longterm_extraction_prompt,
+    }
+    if hasattr(memory.llm, "_delegate"):
+        # Keep TunerPolicyLLM outside the override so it still recognizes the
+        # production operation before the instance-scoped delegate replaces it.
+        memory.llm._delegate = PromptOverrideLLM(memory.llm._delegate, **prompt_kwargs)
+        counted = CountingLLM(memory.llm)
+    else:
+        counted = CountingLLM(PromptOverrideLLM(memory.llm, **prompt_kwargs))
     counted_embedding = CountingEmbedding(memory.embedding_model)
     memory.llm = counted
     memory.embedding_model = counted_embedding
@@ -889,18 +870,6 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
         await memory.flush_background_tasks(timeout=job_timeout)
     finally:
         memory.close()
-        if original_prompts:
-            import mem0.memory.main as memory_main_module
-            import mem0.memory.midterm_updater as midterm_updater_module
-
-            from . import production_runtime as production_runtime_module
-
-            midterm_updater_module.MIDTERM_PAGE_SUMMARY_PROMPT = original_prompts["updater_page"]
-            production_runtime_module.MIDTERM_PAGE_SUMMARY_PROMPT = original_prompts["runtime_page"]
-            midterm_updater_module.MIDTERM_SESSION_MERGE_PROMPT = original_prompts["updater_session"]
-            production_runtime_module.MIDTERM_SESSION_MERGE_PROMPT = original_prompts["runtime_session"]
-            memory_main_module.ADDITIVE_EXTRACTION_PROMPT = original_prompts["main_longterm"]
-            production_runtime_module.ADDITIVE_EXTRACTION_PROMPT = original_prompts["runtime_longterm"]
 
     checkpoints_path = output_dir / "production_midterm_checkpoints.jsonl"
     trace_path = output_dir / "recall_turn_results.jsonl"
@@ -1140,7 +1109,7 @@ def production_candidate_from_manifests(
     agentic = effective_memory_config.get("agentic_retrieval") or {}
     if agentic:
         config["max_queries"] = int(agentic.get("max_queries", 3))
-        config["max_total_results"] = int(agentic.get("max_total_results", 5))
+        config["max_total_results"] = min(5, int(agentic.get("max_total_results", 6)))
         config["agentic_fixed_max_iterations"] = int(agentic.get("max_iterations", 2))
         config["agentic_fixed_max_tool_calls"] = int(agentic.get("max_tool_calls", 1))
     config.update(
@@ -1168,6 +1137,8 @@ def production_candidate_from_manifests(
         "llm_calls": sum(int(item.get("llm_calls") or 0) for item in manifests),
         "embedding_calls": sum(int(item.get("embedding_calls") or 0) for item in manifests),
         "candidate_name": name,
+        "production_agentic_max_total_results": int(agentic.get("max_total_results", 6)) if agentic else None,
+        "tuner_agentic_context_cap": 5,
     }
     return config, provenance
 
@@ -1288,8 +1259,6 @@ class ProductionMidtermAdapter:
         config: Mapping[str, Any],
     ) -> list[dict[str, Any]]:
         """Replay Session-scoped Long-term with frozen production signals."""
-        from mem0.utils.scoring import HYBRID_PRESET_WEIGHTS, score_and_rank
-
         pool = checkpoint.get("longterm_candidate_pool") or {}
         if not pool:
             return []
@@ -1302,7 +1271,7 @@ class ProductionMidtermAdapter:
         entity_maps = pool.get("entity_boosts_by_threshold") or {}
         entity_boosts = entity_maps.get(f"{entity_threshold:.1f}") or {}
         preset = str(config.get("longterm_hybrid_preset") or "balanced")
-        scored = score_and_rank(
+        scored = tuner_score_and_rank(
             semantic_results=semantic_candidates,
             bm25_scores={str(key): float(value) for key, value in (pool.get("bm25_scores") or {}).items()},
             entity_boosts={str(key): float(value) for key, value in entity_boosts.items()},
@@ -1344,7 +1313,6 @@ class ProductionMidtermAdapter:
 
         from mem0.configs.base import MidTermMemoryConfig
         from mem0.memory.midterm import MidTermMemory
-        from mem0.memory.midterm_retriever import MidTermRetriever
 
         self.supported(config)
         derived = self._derived_payload(config)
@@ -1422,7 +1390,7 @@ class ProductionMidtermAdapter:
                         ids=[str(point["id"]) for point in points],
                     payloads=payloads,
                 )
-            retriever = MidTermRetriever(memory, midterm_config)
+            retriever = DiagnosticMidTermRetriever(memory, midterm_config)
             results = retriever.search(
                 query,
                 dict(checkpoint["filters"]),
@@ -1432,7 +1400,7 @@ class ProductionMidtermAdapter:
                 str(job_id): [str(turn_id).upper() for turn_id in turn_ids]
                 for job_id, turn_ids in (checkpoint.get("source_turn_ids_by_job") or {}).items()
             }
-            retrieval_diagnostics = getattr(retriever, "last_search_diagnostics", {}) or {}
+            retrieval_diagnostics = retriever.last_search_diagnostics
             diagnostic_pages = list(retrieval_diagnostics.get("pre_threshold_ranking") or [])
             if diagnostic_pages:
                 # Reranking is allowed to inspect a diagnostic candidate depth;
@@ -1475,7 +1443,8 @@ class ProductionMidtermAdapter:
                 for rank, row in enumerate(ranking, start=1):
                     row["rank_before_threshold"] = row.get("rank_before_threshold") or rank
                     row["final_rank"] = row.get("final_rank") or rank
-                    row["final_visible"] = row.get("final_visible", rank <= min(5, self.ranking_depth))
+                    max_total_pages = min(5, max(1, int(config.get("max_total_pages", 5))))
+                    row["final_visible"] = row.get("final_visible", rank <= max_total_pages)
             longterm_ranking = self._rank_session_longterm(checkpoint, config)
             combined = [*ranking, *longterm_ranking]
             return [{**row, "rank": rank} for rank, row in enumerate(combined, start=1)]

@@ -117,13 +117,17 @@ R@K = top K 内满足的 Gold requirement 数量
 
 不要每完成一个阶段就停下来询问下一步做什么，应按照下面的搜索策略继续执行。
 
-不要为了运行实验而修改 `mem0/` 生产代码。优先使用：
+生产修改只允许将既有算法中的硬编码常量最小配置化：默认值必须等于原常量，默认结果必须通过 parity test 与原行为一致，生产算法不得增加新分支。当前允许保留的配置化包括 Mid-term 全局补充池倍率（历史值 `4`）、Session Long-term over-fetch 倍率（历史值 `4`）和实体匹配阈值（历史值 `0.5`）。
+
+除此以外，不要为了运行实验修改 `mem0/`。优先使用：
 
 1. 现有 Benchmark / Evaluation 代码；
 2. 实验 adapter / 配置覆盖；
 3. 本 Skill `scripts/` 下的新 adapter；`exp/benchmark/` 仅作为 legacy 参考，不得成为核心运行依赖。
 
-只有当用户明确要求落地所选配置时，才允许修改生产代码。
+完整 candidate/threshold/ranking trace 由 Skill 内 `DiagnosticMidTermRetriever` 生成，生产 `MidTermRetriever` 不得包含 `last_search_diagnostics` 或其他 benchmark 状态。Long-term hybrid presets 使用 Skill 内 `tuner_score_and_rank`；Source Prompt 通过实例级 `PromptOverrideLLM` 注入，不得修改 production module global。Agentic 与普通 Mid-term 合计 `<=5` 是 tuner evaluator 的 context constraint，不得改写生产 `AgenticRetrievalConfig` 或 `MemoryToolExecutor` 的正式默认行为。
+
+只有当用户明确要求落地所选配置时，才允许修改上述边界之外的生产代码。
 
 ## 自包含与 artifact 复用原则
 
@@ -139,7 +143,8 @@ R@K = top K 内满足的 Gold requirement 数量
 - `research_decision.py` / `research_runtime.py`：Research LLM 决策、严格校验、重试、cache 与完整 trace；
 - `derived_artifacts.py`：Query/Page/Session/field 向量派生与 content-addressed cache；
 - `prompt_artifacts.py`：Query Prompt 受控迭代、逐 Query 原子缓存与恢复；
-- `source_prompt_variants.py`：Add/Page Summary 受控 Prompt 和 tuner-only context wrapper；
+- `source_prompt_variants.py`：Add/Page Summary 受控 Prompt、实例级 Prompt override 和 tuner-only context wrapper；
+- `diagnostic_midterm_retriever.py`：与 production public result 保持 parity 的 Skill-only 完整候选诊断；
 - `generated_source_artifacts.py`：Add/Page Prompt 候选按 screening/Tune/Validation Session 延迟物化；
 - `encoding_contract.py`：模型自己的 Query/Document encoding contract；
 - `model_discovery.py`：cache-aware 的 Hugging Face 发现、统一质量排序、下载与 smoke；

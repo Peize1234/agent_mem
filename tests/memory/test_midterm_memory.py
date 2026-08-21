@@ -7,7 +7,6 @@ from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
 
 import pytest
-from pydantic import ValidationError
 
 from mem0 import Memory
 from mem0.configs.base import MemoryConfig, MidTermMemoryConfig
@@ -406,11 +405,9 @@ def test_midterm_retriever_returns_all_pages_when_candidates_below_limit():
     assert [page["id"] for page in pages] == ["p1", "p2"]
 
 
-def test_midterm_retriever_max_total_pages_requires_positive_bounded_budget():
-    with pytest.raises(ValidationError):
-        _retriever_config(max_total_pages=0)
-    with pytest.raises(ValidationError):
-        _retriever_config(max_total_pages=6)
+def test_midterm_production_config_retains_historical_page_budget_range():
+    assert _retriever_config(max_total_pages=0).max_total_pages == 0
+    assert _retriever_config(max_total_pages=6).max_total_pages == 6
 
 
 def test_midterm_retriever_preserves_run_id_isolation():

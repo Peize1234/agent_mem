@@ -308,6 +308,76 @@ def test_adapter_candidate_pool_recall_is_pre_threshold_and_capped_final() -> No
     assert metrics["candidate_pool_recall"] == 1.0
 
 
+def test_diagnostic_only_pages_do_not_inflate_candidate_pool_count() -> None:
+    result = _evaluate_session(
+        dataset=_dataset("目标事实"),
+        session_id="S001",
+        rankings={
+            "S001-Q002": {
+                "midterm": [
+                    {
+                        "page_id": "in-pool",
+                        "memory": "目标事实",
+                        "in_candidate_pool": True,
+                        "threshold_passed": True,
+                        "final_visible": True,
+                    },
+                    {
+                        "page_id": "diagnostic-only",
+                        "memory": "其他事实",
+                        "in_candidate_pool": False,
+                        "diagnostic_only": True,
+                        "final_visible": False,
+                    },
+                ],
+                "session_longterm": [],
+            }
+        },
+        k=1,
+        target="all_memory",
+        shortterm_window=0,
+        max_total_pages=1,
+        longterm_top_k=30,
+    )
+    assert result["metrics"]["candidate_pool_count"] == 1
+    assert result["requirements"][0]["candidate_pool_count"] == 1
+
+
+def test_ranking_loss_uses_diagnostic_depth_not_cache_depth() -> None:
+    pages = [
+        {
+            "id": f"p{rank}",
+            "source": "mid_term_page",
+            "source_job_id": f"job-{rank}",
+            "memory": "目标事实" if rank == 25 else "无关",
+            "rank_before_threshold": rank,
+            "threshold_passed": True,
+            "threshold_filtered": False,
+            "final_rank": rank,
+            "final_visible": False,
+            "routed_candidate": True,
+        }
+        for rank in range(1, 41)
+    ]
+    rows = _diagnostic_rows_from_pages(
+        pages,
+        {f"job-{rank}": [f"T{rank}"] for rank in range(1, 41)},
+        ranking_depth=20,
+    )
+    gold = next(row for row in rows if row["page_id"] == "p25")
+    assert gold["ranking_loss"] is True
+    turn = _dataset("目标事实").sessions["S001"][1]
+    facts, _ = _fact_rows_for_visible(
+        turn,
+        visible_rows=[{"memory": "无关可见内容"}],
+        candidate_rows=rows,
+        shortterm_rows=[],
+        k=5,
+        midterm_rows=rows,
+    )
+    assert facts[0]["failure_class"] == "Ranking Loss"
+
+
 def test_max_total_pages_searches_every_legal_final_budget() -> None:
     space = yaml.safe_load((Path(__file__).resolve().parents[2] / "search_space.yaml").read_text())
     config = space["search"]["stages"]["cheap"]["retrieval"]["max_total_pages"]

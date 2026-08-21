@@ -37,6 +37,8 @@ Production Baseline
 
 Research decisions use only the current run's Tune evidence and current-run experiment trajectory; previous-run winners, metrics or lessons are never search priors.
 
+Production changes are limited to parameterizing an existing hardcoded constant with the exact historical value as its default. Complete diagnostic state, hybrid scoring presets, Prompt overrides, cache/experiment state, and benchmark-only context caps remain inside this Skill. `DiagnosticMidTermRetriever` must return exactly the same public rows as production for the same query/store/config/turn clock, while retaining its trace only on the Skill-owned instance. The tuner `<=5` Agentic/Mid-term union is an evaluation constraint, not a production `AgenticRetrievalConfig` change.
+
 ## 2. Configurable Recall@K
 
 `K` is a run parameter.

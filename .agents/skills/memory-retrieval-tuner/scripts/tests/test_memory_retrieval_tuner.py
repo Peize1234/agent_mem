@@ -23,6 +23,7 @@ from tuner.benchmark_support import load_dataset, parse_gold_requirements  # noq
 from tuner.build_report import write_outputs  # noqa: E402
 from tuner.candidate_selector import classify_overfit, select_best  # noqa: E402
 from tuner.dataset_audit import DatasetAuditFailed, audit_dataset  # noqa: E402
+from tuner.diagnostic_midterm_retriever import DiagnosticMidTermRetriever  # noqa: E402
 from tuner.encoding_contract import EncodingContract, SentenceTransformerEncodingAdapter  # noqa: E402
 from tuner.evaluate_candidate import (  # noqa: E402
     _eligible_requirements,
@@ -73,6 +74,11 @@ from tuner.prompt_artifacts import (  # noqa: E402
 )
 from tuner.split_sessions import create_or_load_split  # noqa: E402
 from tuner.staged_search import candidate_config_hash, run_staged_search  # noqa: E402
+from tuner.source_prompt_variants import PromptOverrideLLM  # noqa: E402
+from mem0.configs.base import MemoryConfig, MidTermMemoryConfig  # noqa: E402
+from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT  # noqa: E402
+from mem0.memory.main import Memory  # noqa: E402
+from mem0.memory.midterm_retriever import MidTermRetriever  # noqa: E402
 
 
 def make_turn(session: str, index: int, gold: tuple[Requirement, ...] = ()) -> Turn:
@@ -440,6 +446,12 @@ def test_production_adapter_manifest_and_runtime_isolation(tmp_path: Path) -> No
                     },
                     "effective_memory_config": {
                         "vector_store": {"config": {"bm25_language": "zh"}},
+                        "agentic_retrieval": {
+                            "max_iterations": 2,
+                            "max_tool_calls": 1,
+                            "max_queries": 3,
+                            "max_total_results": 6,
+                        },
                     },
                     "checkpoints_path": str(checkpoints),
                     "failed_turns": 0,
@@ -454,9 +466,12 @@ def test_production_adapter_manifest_and_runtime_isolation(tmp_path: Path) -> No
     assert config["backend"] == "production_midterm"
     assert config["retrieval_method"] == "dense"
     assert config["bm25_language"] == "zh"
+    assert config["max_total_results"] == 5
     assert provenance["source"] == "real AsyncMemory Add/MidTerm pipeline"
     assert provenance["llm_calls"] == 3
     assert provenance["embedding_calls"] == 30
+    assert provenance["production_agentic_max_total_results"] == 6
+    assert provenance["tuner_agentic_context_cap"] == 5
     ProductionMidtermAdapter.supported(config)
     with pytest.raises(ValueError, match="regenerated production artifacts"):
         ProductionMidtermAdapter.supported({**config, "page_representation": "summary"})
@@ -609,6 +624,129 @@ def test_production_adapter_calls_real_midterm_retriever(tmp_path: Path) -> None
     )
     assert hybrid_ranking[0]["source_turn_id"] == "S001-Q001"
     assert hybrid_ranking[0]["source"] == "mid_term_page"
+
+
+def test_diagnostic_retriever_matches_production_and_keeps_trace_isolated() -> None:
+    scope = {"user_id": "u1", "run_id": "r1"}
+    session = SimpleNamespace(
+        id="s1",
+        score=0.9,
+        payload={
+            **scope,
+            "summary": "session",
+            "page_ids": ["p1", "p2", "p3"],
+            "last_visit_turn_index": 1,
+            "N_visit": 1,
+            "L_interaction": 0,
+        },
+    )
+    pages = [
+        SimpleNamespace(
+            id=f"p{index}",
+            score=score,
+            payload={
+                **scope,
+                "session_id": "s1",
+                "summary": f"page {index}",
+                "turn_index": index,
+                "source_job_id": f"job-{index}",
+            },
+        )
+        for index, score in ((1, 0.9), (2, 0.8), (3, 0.7))
+    ]
+
+    class Store:
+        def __init__(self) -> None:
+            self.global_depths: list[int] = []
+
+        def search_sessions(self, query: str, filters: dict[str, Any], top_k: int):
+            return [session][:top_k]
+
+        def search_pages(self, query: str, filters: dict[str, Any], top_k: int):
+            if "session_id" not in filters:
+                self.global_depths.append(top_k)
+            return pages[:top_k]
+
+        def current_turn_index(self, filters: dict[str, Any]) -> int:
+            return 4
+
+        def get_session(self, session_id: str):
+            return session
+
+    config = MidTermMemoryConfig(top_k_sessions=1, top_k_pages=3, max_total_pages=2)
+    production_store = Store()
+    diagnostic_store = Store()
+    production = MidTermRetriever(production_store, config)
+    diagnostic = DiagnosticMidTermRetriever(diagnostic_store, config)
+
+    production_results = production.search("query", scope)
+    diagnostic_results = diagnostic.search("query", scope)
+
+    assert production_results == diagnostic_results
+    assert not hasattr(production, "last_search_diagnostics")
+    assert len(diagnostic.last_search_diagnostics["deduplicated_candidate_pool"]) == 3
+    assert len(diagnostic.last_search_diagnostics["final_visible_pages"]) == 2
+    # The default remains the production's historical 4 * max_total_pages.
+    assert production_store.global_depths == diagnostic_store.global_depths == [8]
+
+
+def test_production_parameterization_defaults_match_historical_constants() -> None:
+    config = MemoryConfig()
+    assert config.midterm.midterm_candidate_pool_multiplier == 4
+    assert config.longterm_candidate_pool_multiplier == 4
+    assert config.entity_similarity_threshold == 0.5
+
+
+def test_production_default_longterm_overfetch_matches_historical_formula() -> None:
+    requested_depths: list[int] = []
+    memory = Memory.__new__(Memory)
+    memory.config = MemoryConfig()
+    memory.embedding_model = SimpleNamespace(embed=lambda query, mode: [1.0, 0.0])
+    memory.vector_store = SimpleNamespace(
+        search=lambda *, query, vectors, top_k, filters: requested_depths.append(top_k) or [],
+        keyword_search=lambda *, query, top_k, filters: requested_depths.append(top_k) or [],
+    )
+    memory._run_entity_extraction = lambda extractor, query: []
+
+    assert memory._search_vector_store("query", {}, limit=20) == []
+    assert requested_depths == [80, 80]
+
+
+def test_production_default_entity_threshold_matches_historical_half() -> None:
+    memory = Memory.__new__(Memory)
+    memory.config = MemoryConfig()
+    memory.embedding_model = SimpleNamespace(embed_batch=lambda texts, mode: [[1.0] for _ in texts])
+    memory._entity_store = SimpleNamespace(
+        search=lambda **kwargs: [
+            SimpleNamespace(score=0.49, payload={"linked_memory_ids": ["below"]}),
+            SimpleNamespace(score=0.50, payload={"linked_memory_ids": ["at-threshold"]}),
+        ]
+    )
+
+    boosts = memory._compute_entity_boosts([("company", "Acme")], {"user_id": "u1"})
+
+    assert "below" not in boosts
+    assert boosts["at-threshold"] == pytest.approx(0.25)
+
+
+def test_prompt_override_is_instance_scoped_and_does_not_mutate_production_globals() -> None:
+    import mem0.memory.midterm_updater as updater_module
+
+    class Delegate:
+        def __init__(self) -> None:
+            self.messages: list[dict[str, Any]] = []
+
+        def generate_response(self, *, messages: list[dict[str, Any]], **kwargs: Any) -> str:
+            self.messages = messages
+            return "{}"
+
+    production_prompt = updater_module.MIDTERM_PAGE_SUMMARY_PROMPT
+    delegate = Delegate()
+    wrapper = PromptOverrideLLM(delegate, page_summary_prompt="tuner-only prompt")
+    wrapper.generate_response(messages=[{"role": "system", "content": MIDTERM_PAGE_SUMMARY_PROMPT}])
+
+    assert delegate.messages[0]["content"] == "tuner-only prompt"
+    assert updater_module.MIDTERM_PAGE_SUMMARY_PROMPT == production_prompt
 
 
 def test_production_adapter_exports_full_candidate_threshold_and_cap_trace(tmp_path: Path) -> None:

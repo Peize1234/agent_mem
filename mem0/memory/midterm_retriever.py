@@ -1,4 +1,3 @@
-import copy
 import logging
 from typing import Any, Dict, List
 
@@ -12,9 +11,6 @@ class MidTermRetriever:
     def __init__(self, midterm_memory, config):
         self.midterm_memory = midterm_memory
         self.config = config
-        # Diagnostic-only snapshot consumed by the tuner adapter.  The public
-        # ``search`` return value remains the thresholded, context-capped list.
-        self.last_search_diagnostics: Dict[str, Any] = {}
 
     @staticmethod
     def _scope_filters(filters: Dict[str, Any]) -> Dict[str, Any]:
@@ -176,28 +172,17 @@ class MidTermRetriever:
         payloads: Dict[str, Dict[str, Any]],
         current_turn_index: int,
     ) -> tuple[Dict[str, float], Dict[str, float]]:
-        # Older checkpoints may not contain evolution fields.  Treat them as
-        # an untouched Session instead of making adapter replay impossible.
-        normalized = {
-            session_id: {
-                **payload,
-                "last_visit_turn_index": payload.get("last_visit_turn_index") or 0,
-                "N_visit": payload.get("N_visit") or 0,
-                "L_interaction": payload.get("L_interaction") or 0,
-            }
-            for session_id, payload in payloads.items()
-        }
         recencies = {
             session_id: compute_recency(
                 int(payload["last_visit_turn_index"]),
                 current_turn_index,
                 self.config.heat_recency_tau_turns,
             )
-            for session_id, payload in normalized.items()
+            for session_id, payload in payloads.items()
         }
         heats = {
             session_id: compute_session_heat(payload, self.config, current_turn_index)
-            for session_id, payload in normalized.items()
+            for session_id, payload in payloads.items()
         }
         return recencies, heats
 
@@ -217,7 +202,6 @@ class MidTermRetriever:
         and the candidate target is always derived from ``max_total_pages``.
         """
         del record_visits, candidate_pool_size
-        self.last_search_diagnostics = {}
         scope_filters = self._scope_filters(filters)
         if not scope_filters:
             return []
@@ -270,22 +254,13 @@ class MidTermRetriever:
             page_candidates.extend(matching_pages[:top_k_pages])
 
         unique_candidates = self._dedupe_pages(page_candidates)
-        routed_candidate_ids = {str(page.id) for page in unique_candidates}
-        global_supplement_ids: set[str] = set()
-        # Global supplementation is intentionally independent from the final
-        # context budget.  The multiplier is configurable for experiments but
-        # bounded by MidTermMemoryConfig (default preserves production=4).
         multiplier = int(getattr(self.config, "midterm_candidate_pool_multiplier", 4))
         target_candidate_count = multiplier * max_total_pages
         if len(unique_candidates) < target_candidate_count:
-            global_candidates = self._global_page_candidates(query, scope_filters, target_candidate_count)
-            global_supplement_ids = {
-                str(page.id) for page in global_candidates if str(page.id) not in routed_candidate_ids
-            }
             unique_candidates = self._dedupe_pages(
                 [
                     *unique_candidates,
-                    *global_candidates,
+                    *self._global_page_candidates(query, scope_filters, target_candidate_count),
                 ]
             )
         if exclude_source_job_id is not None:
@@ -332,63 +307,22 @@ class MidTermRetriever:
                 heat_factor=modulation,
             )
             final_score = raw_score * retention
-            formatted = self._format_page(
-                page,
-                final_score,
-                session_score=session_scores.get(session_id, 0.0),
-                raw_rag_score=raw_score,
-                page_forgetting_factor=retention,
-                heat_factor=modulation,
-                effective_half_life_turns=float(self.config.retention_half_life_turns) * modulation,
+            ranked_pages.append(
+                self._format_page(
+                    page,
+                    final_score,
+                    session_score=session_scores.get(session_id, 0.0),
+                    raw_rag_score=raw_score,
+                    page_forgetting_factor=retention,
+                    heat_factor=modulation,
+                    effective_half_life_turns=float(self.config.retention_half_life_turns) * modulation,
+                )
             )
-            formatted.update(
-                {
-                    "routed_candidate": str(page.id) in routed_candidate_ids,
-                    "global_supplement": str(page.id) in global_supplement_ids,
-                    "selected_session_count": len(sessions),
-                    "session_routed_page_count": len(routed_candidate_ids),
-                    "global_supplement_page_count": len(global_supplement_ids),
-                    "dedup_candidate_count": len(unique_candidates),
-                    "candidate_pool_count": len(unique_candidates),
-                }
-            )
-            ranked_pages.append(formatted)
 
         ranked_pages.sort(key=lambda item: float(item.get("final_score") or 0.0), reverse=True)
-        for rank, page in enumerate(ranked_pages, start=1):
-            page["rank_before_threshold"] = rank
         threshold = float(self.config.midterm_rag_threshold)
-        for page in ranked_pages:
-            page["threshold_passed"] = float(page.get("raw_rag_score") or 0.0) >= threshold
-            page["threshold_filtered"] = not page["threshold_passed"]
-        post_threshold_pages = [page for page in ranked_pages if page["threshold_passed"]]
-        for rank, page in enumerate(post_threshold_pages, start=1):
-            page["final_rank"] = rank
-            page["final_visible"] = rank <= max_total_pages
-        # Keep a deep copy so later return-shaping changes cannot erase the
-        # complete pre-threshold trace.
-        self.last_search_diagnostics = {
-            "selected_sessions": copy.deepcopy(results),
-            "routed_page_pool": copy.deepcopy(
-                [page for page in ranked_pages if page.get("routed_candidate")]
-            ),
-            "global_supplement_pool": copy.deepcopy(
-                [page for page in ranked_pages if page.get("global_supplement")]
-            ),
-            "deduplicated_candidate_pool": copy.deepcopy(ranked_pages),
-            "pre_threshold_ranking": copy.deepcopy(ranked_pages),
-            "threshold": threshold,
-            "max_total_pages": max_total_pages,
-            "candidate_pool_count": len(ranked_pages),
-            "post_threshold_count": len(post_threshold_pages),
-        }
-        selected_pages = []
-        for page in post_threshold_pages[:max_total_pages]:
-            # Keep the public result contract unchanged; diagnostic-only
-            # fields live in ``last_search_diagnostics``.
-            public_page = copy.deepcopy(page)
-            public_page.pop("threshold_passed", None)
-            public_page.pop("final_visible", None)
-            selected_pages.append(public_page)
+        selected_pages = [page for page in ranked_pages if float(page.get("raw_rag_score") or 0.0) >= threshold][
+            :max_total_pages
+        ]
         results.extend(selected_pages)
         return results

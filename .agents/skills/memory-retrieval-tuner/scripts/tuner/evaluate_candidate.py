@@ -411,7 +411,7 @@ def _rank_session(
             run_dir=run_dir,
             candidate_hash=candidate_id,
             session_id=session_id,
-            ranking_depth=raw_depth,
+            ranking_depth=ranking_depth,
         )
         if candidate.config.get("backend") == PRODUCTION_BACKEND
         else None
@@ -497,6 +497,7 @@ def _evaluate_session(
             for item in midterm_rows
             if str(item.get("source") or "").lower()
             not in {"mid_term_session", "long_term", "cross_session_longterm", "cross_session_long_term"}
+            and item.get("in_candidate_pool", True) is not False
             and (item.get("page_id") or item.get("id"))
         }
         context_budget = min(5, max(1, int(max_total_pages)))
