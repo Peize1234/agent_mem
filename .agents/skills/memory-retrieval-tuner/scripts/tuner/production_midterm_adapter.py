@@ -41,7 +41,7 @@ from .retrieval_primitives import (
 )
 from .source_prompt_variants import ContextAwareMidTermUpdater, visible_context_by_dialogue
 
-ADAPTER_SCHEMA = 3
+ADAPTER_SCHEMA = 4
 PRODUCTION_BACKEND = "production_midterm"
 SUPPORTED_RETRIEVAL_METHODS = {"dense", "dense_bm25_fusion"}
 logger = logging.getLogger(__name__)
@@ -291,6 +291,50 @@ def _longterm_candidate_pool(
     }
 
 
+def _session_heat_states(
+    memory: Any,
+    *,
+    user_id: str,
+    session_id: str,
+    current_turn_index: int,
+) -> list[dict[str, Any]]:
+    """Snapshot production-computed state after Search/recall mutations.
+
+    The tuner records production fields and calls the production retriever's
+    evolution helper; it does not duplicate the Heat formula.
+    """
+    rows = _scroll_points(memory.midterm_memory.sessions_store)
+    payloads = {
+        str(row["id"]): dict(row.get("payload") or {})
+        for row in rows
+        if str((row.get("payload") or {}).get("user_id") or "") == user_id
+        and str((row.get("payload") or {}).get("run_id") or "") == session_id
+    }
+    if not payloads:
+        return []
+    recencies, heats = memory.midterm_retriever._session_evolution(payloads, int(current_turn_index))
+    minimum_recalls = int(memory.config.midterm.promotion_min_recall_count)
+    minimum_heat = float(memory.config.midterm.promotion_heat_threshold)
+    states = []
+    for memory_session_id, payload in payloads.items():
+        heat = float(heats.get(memory_session_id, payload.get("H_segment") or 0.0))
+        recalls = int(payload.get("valid_recall_count") or 0)
+        states.append(
+            {
+                "session_id": memory_session_id,
+                "H_segment": heat,
+                "N_visit": int(payload.get("N_visit") or 0),
+                "L_interaction": float(payload.get("L_interaction") or 0.0),
+                "R_recency": float(recencies.get(memory_session_id, payload.get("R_recency") or 0.0)),
+                "valid_recall_count": recalls,
+                "current_turn_index": int(current_turn_index),
+                "last_visit_turn_index": payload.get("last_visit_turn_index"),
+                "promotion_eligible": recalls >= minimum_recalls and heat >= minimum_heat,
+            }
+        )
+    return states
+
+
 def _checkpoint(
     memory: Any,
     *,
@@ -358,6 +402,9 @@ def _checkpoint(
         )
     except Exception:
         logger.debug("Long-term candidate pool unavailable for %s", query_id, exc_info=True)
+    current_turn_index = int(
+        memory.midterm_memory.current_turn_index({"user_id": user_id, "run_id": session_id})
+    )
     return {
         "query_id": query_id,
         "query": query,
@@ -365,7 +412,13 @@ def _checkpoint(
         "query_vector": list(query_vector),
         # Search is performed before Add for this turn.  Persist the exact
         # production clock so replay cannot substitute page_sequence.
-        "current_turn_index": int(memory.midterm_memory.current_turn_index({"user_id": user_id, "run_id": session_id})),
+        "current_turn_index": current_turn_index,
+        "heat_states": _session_heat_states(
+            memory,
+            user_id=user_id,
+            session_id=session_id,
+            current_turn_index=current_turn_index,
+        ),
         "pages": pages,
         "sessions": sessions,
         "source_turn_ids_by_job": {
@@ -630,6 +683,23 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
                         valid_recalled_page_ids,
                         current_turn_index=int(checkpoint["current_turn_index"]),
                     )
+                checkpoint["post_recall_heat_states"] = await asyncio.to_thread(
+                    _session_heat_states,
+                    memory,
+                    user_id=user_id,
+                    session_id=session.session_id,
+                    current_turn_index=int(checkpoint["current_turn_index"]),
+                )
+                checkpoint["promotion_events"] = [
+                    {
+                        "memory_id": state["session_id"],
+                        "H_segment": state["H_segment"],
+                        "valid_recall_count": state["valid_recall_count"],
+                        "current_turn_index": state["current_turn_index"],
+                    }
+                    for state in checkpoint["post_recall_heat_states"]
+                    if state["promotion_eligible"]
+                ]
             add_result = await memory.add(
                 [
                     {"role": "user", "content": turn.question, "name": f"{turn.turn_id}:user"},
@@ -679,6 +749,9 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
                     "long_retrieved_turn_ids": list(dict.fromkeys(long_retrieved_turn_ids)),
                     "all_retrieved_turn_ids": list(dict.fromkeys(all_retrieved_turn_ids)),
                     "valid_recalled_page_ids": valid_recalled_page_ids,
+                    "heat_states": list(checkpoint.get("post_recall_heat_states") or checkpoint.get("heat_states") or []),
+                    "promotion_events": list(checkpoint.get("promotion_events") or []),
+                    "current_turn_index": int(checkpoint["current_turn_index"]),
                     "stateful_replay": bool(spec.get("stateful_replay")),
                 }
             )

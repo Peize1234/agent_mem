@@ -197,6 +197,6 @@ def heat_modulation_candidates() -> list[dict[str, float]]:
 def promotion_threshold_candidates(heat_values: list[float] | tuple[float, ...]) -> list[float]:
     values = sorted(float(value) for value in heat_values if math.isfinite(float(value)) and float(value) >= 0)
     if not values:
-        return [0.0]
+        return []
     n = len(values)
     return sorted(set(round(values[int((n - 1) * q)], 6) for q in (0.50, 0.75, 0.90)))

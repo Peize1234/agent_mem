@@ -350,7 +350,7 @@ The orchestrator does not construct Branch-specific candidates. Every registered
 - candidate generator and execution adapter;
 - provenance contract.
 
-Built-in Branches are RetrievalControl, QueryRepresentation, PageRepresentation, HybridRetrieval, Reranking, Embedding, FieldAwareMultiVector, MidtermSourceConfig, MidtermEvolution, Promotion, SessionLongtermRetrieval, QueryRewritePrompt, MidtermPageSummaryPrompt, MidtermSessionMergePrompt and SessionLongtermExtractionPrompt. Add a new adapter to the registry when a diagnosis requires an unsupported technique; do not add another conditional candidate block to the orchestrator.
+Built-in Branches are RetrievalControl, QueryRewritePrompt, PageRepresentation, HybridRetrieval, Reranking, Embedding, FieldAwareMultiVector, MidtermSourceConfig, MidtermEvolution, Promotion, SessionLongtermRetrieval, MidtermPageSummaryPrompt, MidtermSessionMergePrompt and SessionLongtermExtractionPrompt. The legacy QueryRepresentation adapter remains only for compatibility and is excluded from normal coverage, so the two prompt paths are not searched twice. Add a new adapter to the registry when a diagnosis requires an unsupported technique; do not add another conditional candidate block to the orchestrator.
 
 ## 10. Stage D — expensive LLM search
 
@@ -368,7 +368,7 @@ For a new dataset, `budget=deep` runs the isolated production Add → eviction �
 - evidence-focused Page Summary;
 - one diagnosis-controlled Page Summary.
 
-Production Add/Summary remains the unchanged reference. Context is limited to runtime-visible previous dialogue and never replaces persisted raw Page dialogue. Historical variants are priors, not guaranteed improvements, and workbook answers are never substituted for Page Summary.
+Production Add/Summary remains the unchanged reference. Context is limited to runtime-visible previous dialogue and never replaces persisted raw Page dialogue. Prompt variants are generated only from current-run Tune aggregate failures; workbook answers are never substituted for Page Summary.
 
 Prompt candidates are lazy production-source specifications. Materialize only the configured screening Sessions first; complete all Tune Sessions only for promoted candidates, and generate held-out Session artifacts only after Tune search has stopped. Persist each Session independently so a resumed run never repeats completed Add, summary, or embedding calls.
 

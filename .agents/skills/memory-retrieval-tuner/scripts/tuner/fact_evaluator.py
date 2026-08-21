@@ -16,6 +16,13 @@ _DATE = re.compile(r"(?:\d{4}年(?:\d{1,2}月(?:\d{1,2}日)?)?|\d{4}/\d{1,2}(?:/
 _AMOUNT = re.compile(r"[-+]?\d+(?:[,.]\d+)*(?:\.\d+)?\s*(?:元|万元|亿元|美元|USD|RMB|¥|￥|万|亿)")
 _UNIT = re.compile(r"(?:%|百分比|百分点|元|万元|亿元|美元|USD|RMB|吨|公斤|千克|公里|小时|天|人|件|次|个)")
 _TOKEN = re.compile(r"[\w\u4e00-\u9fff]+", re.UNICODE)
+_ENTITY_SUFFIX = re.compile(
+    r"(?:公司|有限公司|集团|银行|证券|基金|股份|科技|智能|装备|控股|指数|股票|产品|型号|ETF)$",
+    re.IGNORECASE,
+)
+_ENTITY_LABEL = re.compile(r"(?:公司名|公司|人名|姓名|产品名|产品|指数名|指数|股票|证券|基金|型号|代码|ETF)", re.IGNORECASE)
+_ENTITY_CODE = re.compile(r"\b(?:[A-Z]{1,6}\s*[-/]?\s*\d{0,6}|\d{3,6})\b")
+_ALIAS = re.compile(r"(?:别名|alias)\s*[:：]\s*([^,，;；)）]+)", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -76,6 +83,34 @@ def controlled_semantic_judge(gold: str, visible: str) -> bool:
     return overlap >= 0.6
 
 
+def _looks_like_entity(value: str) -> bool:
+    """Recognise entity-shaped Gold conservatively.
+
+    This is deliberately not a general NER model.  It only activates for
+    explicit entity labels/suffixes or exchange-style codes.  Bare names are
+    still accepted by exact matching, but never by token-overlap matching.
+    """
+    text = str(value or "").strip()
+    normalized = _norm(text)
+    if not normalized:
+        return False
+    return bool(
+        _ENTITY_SUFFIX.search(text)
+        or _ENTITY_LABEL.search(text)
+        or _ENTITY_CODE.search(text)
+        or _ALIAS.search(text)
+    )
+
+
+def _controlled_entity_match(gold: str, visible: str) -> bool:
+    expected = {_norm(gold)}
+    # Only aliases explicitly supplied by the benchmark are accepted.  Do not
+    # manufacture broad abbreviations (which cause company/person false hits).
+    expected.update(_norm(alias) for alias in _ALIAS.findall(str(gold)) if _norm(alias))
+    visible_norm = _norm(visible)
+    return any(alias and alias in visible_norm for alias in expected)
+
+
 def fact_member_hit(
     member: str,
     visible_text: str,
@@ -95,6 +130,12 @@ def fact_member_hit(
         residual = re.sub(r"[^\w\u4e00-\u9fff]+", " ", residual)
         if not residual.strip():
             return True
+        # A deterministic fact may carry an entity (for example, ``华辰公司
+        # 收入100万元``).  Keep the entity check conservative as well.
+        if _looks_like_entity(residual) and not _controlled_entity_match(residual, visible_text):
+            return False
+    elif _looks_like_entity(member):
+        return _controlled_entity_match(member, visible_text)
     judge = semantic_judge or controlled_semantic_judge
     return bool(judge(member, visible_text))
 

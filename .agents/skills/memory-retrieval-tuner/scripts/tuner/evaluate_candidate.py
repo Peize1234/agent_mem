@@ -137,7 +137,8 @@ def _fact_rows_for_visible(
     requirements = list(parse_required_context(turn.required_context))
     if not requirements:
         return [], []
-    candidate_text = "\n".join(_row_text(row) for row in candidate_rows)
+    pre_threshold_rows = [row for row in candidate_rows if row.get("in_candidate_pool", True) is not False]
+    candidate_text = "\n".join(_row_text(row) for row in pre_threshold_rows)
     short_text = "\n".join(_row_text(row) for row in shortterm_rows)
     # ``visible_rows`` has already been clipped to the actual configured
     # context budgets by the caller.  Never substitute evaluation K for the
@@ -150,18 +151,23 @@ def _fact_rows_for_visible(
 
         rank = None
         matched_row: Mapping[str, Any] | None = None
-        for row_index, row in enumerate(candidate_rows, start=1):
+        for row_index, row in enumerate(pre_threshold_rows, start=1):
             if hit(_row_text(row)):
-                rank = row_index
+                rank = int(row.get("rank_before_threshold") or row_index)
                 matched_row = row
                 break
+        routed_hit = any(
+            hit(_row_text(row))
+            and bool(row.get("in_routed_pool", row.get("routed_candidate", not row.get("global_supplement"))))
+            for row in candidate_rows
+        )
         final_hit = hit(final_text)
         candidate_hit = hit(candidate_text)
         if final_hit:
             failure_class = None
         elif not candidate_hit and not candidate_rows:
             failure_class = "Source Generation Loss"
-        elif not candidate_hit and not midterm_rows:
+        elif not candidate_hit and not routed_hit:
             failure_class = "Session Routing Loss"
         elif not candidate_hit:
             failure_class = "Candidate Coverage Loss"
@@ -169,9 +175,7 @@ def _fact_rows_for_visible(
             failure_class = "Threshold Loss"
         elif matched_row and not any(matched_row.get(key) for key in ("raw_dialogue", "memory", "summary", "content")):
             failure_class = "Representation Loss"
-        elif rank is not None and rank > len([*midterm_rows, *session_longterm_rows]):
-            failure_class = "Context Budget Loss"
-        elif rank is not None:
+        elif matched_row and matched_row.get("final_rank") is not None:
             failure_class = "Context Budget Loss"
         else:
             failure_class = "Ranking Loss"
@@ -195,7 +199,7 @@ def _fact_rows_for_visible(
                 "reciprocal_rank": 1.0 / rank if rank else 0.0,
                 "failure_class": failure_class,
                 "diagnostics": {
-                    "routed_pool": any(hit(_row_text(row)) for row in midterm_rows),
+                    "routed_pool": routed_hit,
                     "global_supplement": any(
                         hit(_row_text(row)) and bool(row.get("global_supplement")) for row in midterm_rows
                     ),
@@ -207,7 +211,7 @@ def _fact_rows_for_visible(
                     "final_score": matched_row.get("final_score") if matched_row else None,
                     "threshold_filtered": bool(matched_row.get("threshold_filtered")) if matched_row else None,
                     "rank_before_threshold": rank,
-                    "final_rank": rank if final_hit else None,
+                    "final_rank": matched_row.get("final_rank") if matched_row else None,
                 },
             }
         )

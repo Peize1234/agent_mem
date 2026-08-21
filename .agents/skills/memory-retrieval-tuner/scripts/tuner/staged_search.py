@@ -658,7 +658,7 @@ def run_staged_search(
                     "no valid Candidate met min_improvement_pp "
                     f"({branch_improvement_pp:+.3f} < {min_improvement_pp:+.3f})",
                 )
-            if branch.spec.name == "QueryRepresentation" and (
+            if branch.spec.name in {"QueryRepresentation", "QueryRewritePrompt"} and (
                 best_branch is None
                 or branch_improvement_pp < min_improvement_pp
                 or not any(result.name == best_branch.name for result in frontier)

@@ -17,12 +17,11 @@ description: 自动审查记忆 Benchmark，基于生产一致的 MidTerm 检索
 6. 在 held-out Sessions 上验证最佳候选；
 7. 返回稳定、可泛化的推荐配置，而不是只选择样本内得分最高的配置。
 
-**不要**把任何历史实验结果写成普适最优配置。历史结果只能作为搜索先验。
+Research 决策只允许使用当前 run 的 Tune 实验事实，以及从 Baseline 到当前 Stage 的完整当前-run轨迹；跨 run winner、旧数据集指标和历史经验不得作为搜索先验。
 
 运行前先阅读：
 
 - `references/search_strategy.md`
-- `references/experiment_lessons.md`
 - `search_space.yaml`
 
 ## 输入参数
@@ -126,11 +125,11 @@ R@K = top K 内满足的 Gold requirement 数量
 
 只有当用户明确要求落地所选配置时，才允许修改生产代码。
 
-## 自包含与历史复用原则
+## 自包含与 artifact 复用原则
 
-核心运行不能 import `exp/benchmark/`。通用数据/Gold 解析、production runtime wrapper、检索原语、Branch、模型发现和派生 artifact 构建均位于 `scripts/tuner/`。`exp/benchmark/` 只作为寻找历史方法的 legacy 来源，`exp/results/` 只作为 provenance 可验证的 frozen artifact 来源。
+核心运行不能 import `exp/benchmark/`。通用数据/Gold 解析、production runtime wrapper、检索原语、Branch、模型发现和派生 artifact 构建均位于 `scripts/tuner/`。`exp/results/` 只能作为通过完整 provenance 校验的 frozen source artifact 来源，不能向 Research LLM 提供旧 run 指标、winner 或经验。
 
-新增能力前先搜索历史实现，将可泛化的最小算法或 artifact contract 抽入 Skill；不要整份复制单数据集脚本，也不要把历史 winner 固化为默认。frozen artifact 必须通过 dataset、prompt/model、representation、production config 和内容 hash 校验。
+新增能力只复用可验证的 artifact contract；不要整份复制单数据集脚本，也不要把旧 winner 固化为默认。frozen artifact 必须通过 dataset、prompt/model、representation、production config 和内容 hash 校验。
 
 主要模块：
 
@@ -325,14 +324,13 @@ split_manifest.json
 每个 Branch 必须声明名称、诊断 regime、cost level、required artifacts、candidate generation、execution adapter、provenance contract 和资源需求。当前 Registry 包含：
 
 - `RetrievalControl`；
-- `QueryRepresentation`；
+- `QueryRewritePrompt`（当前 Query Prompt 搜索的唯一可达 Branch；旧 `QueryRepresentation` 仅保留兼容 adapter，不进入默认 coverage）；
 - `PageRepresentation`；
 - `HybridRetrieval`；
 - `Reranking`；
 - `Embedding`；
 - `FieldAwareMultiVector`；
 - `SessionLongtermRetrieval`；
-- `QueryRewritePrompt`；
 - `MidtermPageSummaryPrompt`、`MidtermSessionMergePrompt`、`SessionLongtermExtractionPrompt`；
 - `MidtermSourceConfig`；
 - `MidtermEvolution`；
@@ -348,13 +346,13 @@ Coverage 分为 `required`、`selectable` 和 `expensive_gated`。`RetrievalCont
 
 Research Prompt 只能包含 Tune Sessions 的聚合实验史、Candidate config diff/指标、frontier、failure distribution、diagnosis、deterministic plan、Branch 状态与硬约束。不得传入 held-out Validation、Gold dependency、答案或 future turns。每个 attempt 必须先向 `research_trace.jsonl` 写 REQUEST，再写 RESPONSE；非法响应、exception、retry、cache hit 和 deterministic fallback 均完整记录，敏感配置必须 redact。Decision cache identity 至少覆盖 dataset、Tune scope、anchor/evidence/legal-action hash、Branch registry/config 状态、Prompt、模型配置和 schema。
 
-`QueryRepresentation` 最多运行三轮，每轮以当前最佳 Query Prompt 为 parent 生成最多三个受控方向，并始终保留 production/original 结果作为全局参照。Rewrite history 必须由每份 production manifest 验证的 `memory_config.midterm.short_term_capacity / 2` 推导，只包含当前 Query 之前仍在 production ShortTerm 的 QA；缺失、非正偶数或 manifest/config 不一致时失败，不能使用默认窗口。artifact identity 必须记录 message/QA window、history policy 和 production config hash。失败模式只来自 Tune requirement rows；Validation 指标、Gold、未来轮次和已离开 ShortTerm 的历史不得进入 Prompt。任一轮低于 `min_improvement_pp`、全部变体无提升、original 仍优或 frontier 不再保留该方向时提前停止。
+`QueryRewritePrompt` 最多运行三轮，每轮以当前最佳 Query Prompt 为 parent 生成最多三个受控方向，并始终保留 production/original 结果作为全局参照。旧 `QueryRepresentation` 类只作为兼容 adapter，默认 `branch_coverage` 不会同时调两套重复的 Prompt 逻辑。Rewrite history 必须由每份 production manifest 验证的 `memory_config.midterm.short_term_capacity / 2` 推导，只包含当前 Query 之前仍在 production ShortTerm 的 QA；缺失、非正偶数或 manifest/config 不一致时失败，不能使用默认窗口。artifact identity 必须记录 message/QA window、history policy 和 production config hash。失败模式只来自 Tune requirement rows；Validation 指标、Gold、未来轮次和已离开 ShortTerm 的历史不得进入 Prompt。任一轮低于 `min_improvement_pp`、全部变体无提升、original 仍优或 frontier 不再保留该方向时提前停止。
 
 高成本 Embedding/Reranker Candidate 先在 Tune Session 子集 screening，明显低于当前 frontier anchor 者不进入完整 Tune。
 
 Budget 约束实验层级：`quick` 至多 medium、禁止下载/LLM generation；`standard` 至多 high、模型仅使用本地 cache；`deep` 才允许 expensive Branch、联网模型发现/下载和有明确 provenance 的新生成。各 profile 还分别约束 stage、Branch、Candidate 和 validation frontier 数量。
 
-如果诊断需要的 Branch 未注册，不要直接长期跳过：先用 `rg` 搜索 `exp/benchmark` 的历史实现；抽取通用算法/artifact contract 到 Skill adapter，补最小单测，注册后从当前 run 的 frozen stage 恢复。只有缺少模型、API、资源或必要 provenance 时才记录 `UNAVAILABLE`。
+如果诊断需要的 Branch 未注册，不要直接长期跳过：补齐当前 production adapter 的最小 artifact contract、单测和注册，再从当前 run 的 frozen stage 恢复。只有缺少模型、API、资源或必要 provenance 时才记录 `UNAVAILABLE`。
 
 ### 7. 模型自动发现
 
@@ -490,4 +488,4 @@ Candidate 满足以下任一条件时可以晋级：
 - [ ] 最佳配置由 held-out Validation 选择，而不是仅根据 Tune score。
 - [ ] Search 已因为一个可记录的 reason 停止。
 - [ ] `best_config.json` 可复现。
-- [ ] `final_report.md` 明确区分实证结果与历史先验。
+- [ ] `final_report.md` 明确区分当前-run实证结果、生产默认与未验证项。

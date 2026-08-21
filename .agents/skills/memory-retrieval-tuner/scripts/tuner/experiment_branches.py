@@ -8,7 +8,7 @@ from typing import Any, Iterable, Mapping, Protocol
 
 from .artifact_registry import ArtifactRegistry
 from .derived_artifacts import DerivedArtifactBuilder
-from .io_utils import load_json, sha256_file, stable_hash
+from .io_utils import load_json, load_jsonl, sha256_file, stable_hash
 from .model_discovery import ModelDiscovery
 from .models import Candidate, CandidateResult, Dataset
 from .prompt_artifacts import QueryPromptArtifactGenerator, controlled_query_prompt_variants
@@ -1071,7 +1071,34 @@ class PromotionBranch(BaseBranch):
     def generate(self, context: BranchContext) -> BranchOutcome:
         from .parameter_schema import promotion_threshold_candidates
 
-        heat_values = [float(row.get("heat") or row.get("H_segment") or 0.0) for row in context.anchor_result.session_rows]
+        heat_values: list[float] = []
+        state_rows: list[dict[str, Any]] = []
+        for raw_manifest in context.anchor.config.get("manifest_paths") or []:
+            manifest_path = Path(str(raw_manifest))
+            if not manifest_path.is_file():
+                continue
+            manifest = load_json(manifest_path)
+            if not bool(manifest.get("stateful_replay")):
+                continue
+            checkpoint_path = Path(str(manifest.get("checkpoints_path") or ""))
+            if not checkpoint_path.is_file():
+                continue
+            for checkpoint in load_jsonl(checkpoint_path):
+                for row in checkpoint.get("post_recall_heat_states") or checkpoint.get("heat_states") or []:
+                    try:
+                        heat = float(row["H_segment"])
+                    except (KeyError, TypeError, ValueError):
+                        continue
+                    if math.isfinite(heat):
+                        heat_values.append(heat)
+                        state_rows.append(dict(row))
+        if not heat_values:
+            return BranchOutcome(
+                self.spec.name,
+                "UNAVAILABLE_NO_HEAT_DISTRIBUTION",
+                reason="Stateful Replay produced no production H_segment samples",
+                provenance={"heat_sample_count": 0},
+            )
         thresholds = promotion_threshold_candidates(heat_values)
         baseline_count = int(context.anchor.config.get("promotion_min_recall_count", 3))
         baseline_threshold = float(context.anchor.config.get("promotion_heat_threshold", 5.0))
@@ -1116,7 +1143,17 @@ class PromotionBranch(BaseBranch):
                     **changes,
                 )
             )
-        return BranchOutcome(self.spec.name, "READY", candidates=candidates[: max(1, int(context.execution_settings.get("max_candidates_per_stage") or 8))])
+        return BranchOutcome(
+            self.spec.name,
+            "READY" if candidates else "UNAVAILABLE",
+            candidates=candidates[: max(1, int(context.execution_settings.get("max_candidates_per_stage") or 8))],
+            provenance={
+                "heat_sample_count": len(heat_values),
+                "heat_thresholds": thresholds,
+                "heat_state_fields": sorted({key for row in state_rows for key in row}),
+                "source": "production_stateful_replay",
+            },
+        )
 
 
 class MidtermSourceConfigBranch(BaseBranch):
@@ -1537,22 +1574,29 @@ class BranchRegistry:
         rules: list[BranchCoverageRule] = []
         if isinstance(relevant, Mapping):
             for name, raw_rule in relevant.items():
-                if name not in self._branches:
+                resolved_name = str(name)
+                # QueryRewritePrompt replaced the old prompt-search role of
+                # QueryRepresentation.  The fallback keeps custom/legacy test
+                # registries usable without making both paths executable in a
+                # normal registry.
+                if resolved_name not in self._branches and resolved_name == "QueryRewritePrompt":
+                    resolved_name = "QueryRepresentation"
+                if resolved_name not in self._branches:
                     continue
                 values = raw_rule if isinstance(raw_rule, Mapping) else {}
                 rules.append(
                     BranchCoverageRule(
-                        branch_name=str(name),
-                        priority=int(values.get("priority") or self._branches[str(name)].spec.priority),
+                        branch_name=resolved_name,
+                        priority=int(values.get("priority") or self._branches[resolved_name].spec.priority),
                         minimum_attempts=max(0, int(values.get("minimum_attempts", 1))),
                         coverage_class=str(
                             values.get("coverage_class")
                             or values.get("policy")
                             or (
                                 "required"
-                                if self._branches[str(name)].spec.initial_stage
+                                if self._branches[resolved_name].spec.initial_stage
                                 else "expensive_gated"
-                                if self._branches[str(name)].spec.cost_level == "expensive"
+                                if self._branches[resolved_name].spec.cost_level == "expensive"
                                 else "selectable"
                             )
                         ),
@@ -1674,7 +1718,7 @@ class BranchRegistry:
             minimum_unmet = 0 if attempts < rule.minimum_attempts else 1
             remaining.append(
                 (
-                    (COST_RANK[branch.spec.cost_level], minimum_unmet, rule.priority, name),
+                    (minimum_unmet, COST_RANK[branch.spec.cost_level], rule.priority, name),
                     name,
                 )
             )

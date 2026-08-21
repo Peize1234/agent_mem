@@ -232,6 +232,8 @@ search:
       enabled: true
       max_rounds: 2
     QueryRepresentation:
+      # Legacy compatibility alias; QueryRewritePrompt is canonical in the
+      # default branch_coverage and owns all normal Query Prompt candidates.
       enabled: true
       max_rounds: 3
     HybridRetrieval:
@@ -283,9 +285,10 @@ search:
         RetrievalControl: {priority: 10, minimum_attempts: 1, coverage_class: required}
         HybridRetrieval: {priority: 20, minimum_attempts: 1, coverage_class: required}
         Embedding: {priority: 30, minimum_attempts: 1, coverage_class: required}
-        QueryRepresentation: {priority: 40, minimum_attempts: 1, coverage_class: selectable}
+        QueryRewritePrompt: {priority: 40, minimum_attempts: 1, coverage_class: required}
         PageRepresentation: {priority: 50, minimum_attempts: 1, coverage_class: selectable}
         FieldAwareMultiVector: {priority: 60, minimum_attempts: 1, coverage_class: selectable}
+        MidtermSourceConfig: {priority: 65, minimum_attempts: 1, coverage_class: expensive_gated}
         MidtermPageSummaryPrompt: {priority: 70, minimum_attempts: 1, coverage_class: expensive_gated}
         MidtermSessionMergePrompt: {priority: 71, minimum_attempts: 1, coverage_class: expensive_gated}
         SessionLongtermExtractionPrompt: {priority: 72, minimum_attempts: 1, coverage_class: expensive_gated}
@@ -296,12 +299,16 @@ search:
         HybridRetrieval: {priority: 20, minimum_attempts: 1, coverage_class: required}
         Reranking: {priority: 30, minimum_attempts: 1, coverage_class: required}
         FieldAwareMultiVector: {priority: 40, minimum_attempts: 1, coverage_class: selectable}
-        QueryRepresentation: {priority: 50, minimum_attempts: 1, coverage_class: selectable}
+        QueryRewritePrompt: {priority: 50, minimum_attempts: 1, coverage_class: required}
+        MidtermEvolution: {priority: 55, minimum_attempts: 1, coverage_class: selectable}
         SessionLongtermRetrieval: {priority: 60, minimum_attempts: 1, coverage_class: selectable}
     session_instability:
       relevant:
         RetrievalControl: {priority: 10, minimum_attempts: 1, coverage_class: required}
-        PageRepresentation: {priority: 20, minimum_attempts: 1, coverage_class: selectable}
+        MidtermEvolution: {priority: 20, minimum_attempts: 1, coverage_class: required}
+        Promotion: {priority: 21, minimum_attempts: 1, coverage_class: required}
+        PageRepresentation: {priority: 25, minimum_attempts: 1, coverage_class: selectable}
+        MidtermSourceConfig: {priority: 28, minimum_attempts: 1, coverage_class: expensive_gated}
         MidtermPageSummaryPrompt: {priority: 30, minimum_attempts: 1, coverage_class: expensive_gated}
         MidtermSessionMergePrompt: {priority: 31, minimum_attempts: 1, coverage_class: expensive_gated}
         SessionLongtermRetrieval: {priority: 40, minimum_attempts: 1, coverage_class: selectable}
@@ -309,8 +316,11 @@ search:
       relevant:
         RetrievalControl: {priority: 10, minimum_attempts: 1, coverage_class: required}
         HybridRetrieval: {priority: 20, minimum_attempts: 1, coverage_class: required}
-        QueryRepresentation: {priority: 30, minimum_attempts: 1, coverage_class: selectable}
+        QueryRewritePrompt: {priority: 30, minimum_attempts: 1, coverage_class: required}
+        MidtermEvolution: {priority: 35, minimum_attempts: 1, coverage_class: required}
+        Promotion: {priority: 36, minimum_attempts: 1, coverage_class: required}
         PageRepresentation: {priority: 40, minimum_attempts: 1, coverage_class: selectable}
+        MidtermSourceConfig: {priority: 45, minimum_attempts: 1, coverage_class: expensive_gated}
         SessionLongtermRetrieval: {priority: 50, minimum_attempts: 1, coverage_class: selectable}
 
   stages:

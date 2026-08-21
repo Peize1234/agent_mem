@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import json
 import sys
 from pathlib import Path
 
@@ -9,10 +10,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import pytest
 import yaml
 
-from tuner.evaluate_candidate import _eligible_requirements, _evaluate_session
+from tuner.artifact_registry import ArtifactRegistry
+from tuner.evaluate_candidate import _eligible_requirements, _evaluate_session, _fact_rows_for_visible
 from tuner.fact_evaluator import deterministic_fact_match, fact_member_hit, parse_required_context
-from tuner.models import Dataset, Requirement, Turn
-from tuner.experiment_branches import MidtermEvolutionBranch
+from tuner.models import Candidate, CandidateResult, Dataset, Requirement, Turn
+from tuner.experiment_branches import (
+    BranchContext,
+    BranchRegistry,
+    MidtermEvolutionBranch,
+    MidtermSourceConfigBranch,
+    PromotionBranch,
+)
+from tuner.io_utils import sha256_file
 from tuner.parameter_schema import (
     dynamic_turn_distance_candidates,
     parameter_class,
@@ -21,7 +30,12 @@ from tuner.parameter_schema import (
 )
 from tuner.production_midterm_adapter import ProductionMidtermAdapter, _valid_recalled_page_ids
 from tuner.stateful_replay import WithinSessionStatefulReplay
-from tuner.temporal_replay import CrossSessionTemporalReplay, UNVALIDATED_NO_CROSS_SESSION_GOLD
+from tuner.temporal_replay import (
+    CrossSessionTemporalReplay,
+    UNSUPPORTED_TEMPORAL_GOLD_SCHEMA,
+    UNVALIDATED_NO_CROSS_SESSION_GOLD,
+    run_cross_session_temporal_replay,
+)
 
 
 def _dataset(required_context: str, *, index: int = 1) -> Dataset:
@@ -60,6 +74,12 @@ def test_fact_parser_and_deterministic_types() -> None:
     assert [item.members for item in parse_required_context("A；(B OR C)")] == [("A",), ("B", "C")]
 
 
+def test_entity_matching_rejects_shared_generic_tokens() -> None:
+    assert not fact_member_hit("华辰智能装备有限公司", "授信对象为华辰智能设备有限公司")
+    assert not fact_member_hit("中证新能源指数", "报告讨论中证消费指数")
+    assert fact_member_hit("阿里巴巴（别名：阿里）", "证券名称：阿里")
+
+
 def test_core_branches_have_required_minimum_screening() -> None:
     space = yaml.safe_load((Path(__file__).resolve().parents[2] / "search_space.yaml").read_text())
     rules = space["search"]["branch_coverage"]
@@ -74,6 +94,55 @@ def test_core_branches_have_required_minimum_screening() -> None:
             rule = rules[regime]["relevant"][branch]
             assert rule["minimum_attempts"] == 1
             assert rule["coverage_class"] == "required"
+
+
+def test_skill_document_matches_current_run_only_research_boundary() -> None:
+    text = (Path(__file__).resolve().parents[2] / "SKILL.md").read_text(encoding="utf-8")
+    assert "跨 run winner" in text
+    assert "不得作为搜索先验" in text
+    assert "references/experiment_lessons.md" not in text
+
+
+def test_new_branches_are_reachable_through_real_coverage_policy() -> None:
+    space = yaml.safe_load((Path(__file__).resolve().parents[2] / "search_space.yaml").read_text())
+    registry = BranchRegistry()
+    policy = space["search"]["branch_coverage"]
+
+    def next_branch(regime: str, attempts: dict[str, int]) -> str:
+        selected = registry.select(
+            regime=regime,
+            max_cost_level="expensive",
+            attempt_counts=attempts,
+            exhausted=set(),
+            initial_stage=False,
+            limit=1,
+            branch_settings=space["search"]["branch_registry"],
+            coverage_policy=policy,
+            remaining_expensive_candidates=100,
+        )
+        assert selected
+        return selected[0].spec.name
+
+    assert next_branch(
+        "session_instability", {"RetrievalControl": 1, "SessionLongtermRetrieval": 1}
+    ) == "MidtermEvolution"
+    assert next_branch(
+        "session_instability",
+        {"RetrievalControl": 1, "SessionLongtermRetrieval": 1, "MidtermEvolution": 1},
+    ) == "Promotion"
+    assert next_branch(
+        "candidate_coverage_bottleneck",
+        {
+            "RetrievalControl": 1,
+            "HybridRetrieval": 1,
+            "Embedding": 1,
+            "SessionLongtermRetrieval": 1,
+        },
+    ) == "QueryRewritePrompt"
+    candidate_relevant = policy["candidate_coverage_bottleneck"]["relevant"]
+    assert candidate_relevant["MidtermSourceConfig"]["minimum_attempts"] == 1
+    assert candidate_relevant["MidtermSourceConfig"]["coverage_class"] == "expensive_gated"
+    assert "QueryRepresentation" not in candidate_relevant
 
 
 def test_final_context_uses_page_budget_not_candidate_depth() -> None:
@@ -152,6 +221,144 @@ def test_stateful_replay_search_before_add_and_turn_index() -> None:
     assert [step.turn_index_before_search for step in result.steps] == [0, 1]
 
 
+def test_stateful_replay_records_real_heat_distribution_fields() -> None:
+    clock = {"value": 0}
+
+    def add(_turn: str) -> None:
+        clock["value"] += 1
+
+    replay = WithinSessionStatefulReplay(
+        search=lambda _turn, _index: [{"id": "page"}],
+        add=add,
+        current_turn_index=lambda: clock["value"],
+        state_snapshot=lambda index: [
+            {
+                "session_id": "segment",
+                "H_segment": 2.5 + index,
+                "N_visit": 2,
+                "L_interaction": 1.0,
+                "R_recency": 0.8,
+                "valid_recall_count": 3,
+                "current_turn_index": index,
+                "promotion_eligible": True,
+            }
+        ],
+    )
+    result = replay.replay(["Q1", "Q2"])
+    assert [step.heat_states[0]["H_segment"] for step in result.steps] == [2.5, 3.5]
+    assert all(step.promotion_events for step in result.steps)
+
+
+def _promotion_context(tmp_path: Path, heat_values: list[float]) -> BranchContext:
+    config_path = tmp_path / "memory_config.json"
+    config_path.write_text(json.dumps({"midterm": {"short_term_capacity": 6}}), encoding="utf-8")
+    checkpoints_path = tmp_path / "checkpoints.jsonl"
+    checkpoints_path.write_text(
+        "".join(
+            json.dumps(
+                {
+                    "query_id": f"Q{index}",
+                    "post_recall_heat_states": [
+                        {
+                            "session_id": "segment",
+                            "H_segment": heat,
+                            "N_visit": index,
+                            "L_interaction": 1.0,
+                            "R_recency": 0.5,
+                            "valid_recall_count": 3,
+                            "current_turn_index": index,
+                            "promotion_eligible": True,
+                        }
+                    ],
+                }
+            )
+            + "\n"
+            for index, heat in enumerate(heat_values, start=1)
+        ),
+        encoding="utf-8",
+    )
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "stateful_replay": True,
+                "checkpoints_path": str(checkpoints_path),
+                "memory_config_path": str(config_path),
+                "llm_mode": "mock",
+                "production_config": {"top_k_sessions": 5},
+            }
+        ),
+        encoding="utf-8",
+    )
+    baseline = Candidate(
+        "stateful",
+        "tune",
+        {
+            "backend": "production_midterm",
+            "manifest_paths": [str(manifest_path)],
+            "manifest_sha256": {str(manifest_path.resolve()): sha256_file(manifest_path)},
+            "promotion_min_recall_count": 3,
+            "promotion_heat_threshold": 5.0,
+        },
+    )
+    result = CandidateResult(
+        name=baseline.name,
+        candidate_hash="hash",
+        stage=baseline.stage,
+        config=baseline.config,
+        metrics={"recall_at_k": 0.5},
+        requirement_rows=[],
+        session_rows=[],
+        runtime_seconds=0,
+        work_seconds=0,
+        cache_hits=0,
+        cache_misses=0,
+    )
+    return BranchContext(
+        dataset=_dataset("目标事实"),
+        baseline=baseline,
+        anchor=baseline,
+        anchor_result=result,
+        diagnostic={"regime": "session_instability"},
+        search_space={},
+        budget="deep",
+        k=5,
+        ranking_depth=20,
+        tune_sessions=("S001",),
+        registry=ArtifactRegistry(tmp_path / "cache", tmp_path / "legacy"),
+        run_dir=tmp_path / "run",
+        model_discovery=None,
+        stage_index=2,
+        execution_settings={"max_candidates_per_stage": 20, "remaining_expensive_candidates": 20},
+    )
+
+
+def test_promotion_uses_stateful_heat_quantiles_and_count_screening(tmp_path: Path) -> None:
+    context = _promotion_context(tmp_path, [float(value) for value in range(1, 11)])
+    outcome = PromotionBranch().generate(context)
+    assert outcome.status == "READY"
+    assert outcome.provenance["heat_thresholds"] == [5.0, 7.0, 9.0]
+    labels = {candidate.name for candidate in outcome.candidates}
+    assert any("recalls=2" in label for label in labels)
+    assert any("heat=7.000" in label for label in labels)
+
+
+def test_promotion_without_heat_does_not_create_zero_threshold(tmp_path: Path) -> None:
+    outcome = PromotionBranch().generate(_promotion_context(tmp_path, []))
+    assert outcome.status == "UNAVAILABLE_NO_HEAT_DISTRIBUTION"
+    assert outcome.candidates == []
+
+
+def test_midterm_source_config_deep_generates_real_source_specs(tmp_path: Path) -> None:
+    context = _promotion_context(tmp_path, [2.0])
+    outcome = MidtermSourceConfigBranch().generate(context)
+    assert outcome.status == "READY"
+    changed = {key for candidate in outcome.candidates for key in candidate.config.get("source_config_overrides", {}).get("midterm", {})}
+    assert {"short_term_capacity", "session_similarity_threshold", "top_k_sessions"} <= changed
+    assert all(candidate.config.get("source_generation_spec") for candidate in outcome.candidates)
+    assert all(candidate.provenance.get("requires_source_regeneration") for candidate in outcome.candidates)
+
+
 def test_stateful_replay_rejects_add_without_turn_progress() -> None:
     replay = WithinSessionStatefulReplay(search=lambda turn, index: [], add=lambda turn: None, current_turn_index=lambda: 0)
     with pytest.raises(RuntimeError, match="did not advance"):
@@ -184,6 +391,79 @@ def test_cross_session_temporal_without_gold_is_not_a_winner() -> None:
     assert any(item["event"] == "decay" for item in result.transitions)
     events = [item["event"] for item in result.transitions if item["session_id"] == "B"]
     assert events == ["decay", "valid_recall", "reinforcement"]
+
+
+def test_orchestrator_executes_temporal_replay_without_gold(tmp_path: Path) -> None:
+    baseline = Candidate("baseline", "baseline", {"backend": "production_midterm", "manifest_paths": []})
+    result = run_cross_session_temporal_replay(
+        dataset=_dataset("目标事实"),
+        audit={"cross_session_gold_available": False},
+        baseline=baseline,
+        memory_config={
+            "cross_session_retention_half_life_hours": 720.0,
+            "cross_session_retention_floor": 0.2,
+            "cross_session_reinforcement_gain": 0.25,
+        },
+        run_dir=tmp_path,
+    )
+    assert result["executed"] is True
+    assert result["status"] == UNVALIDATED_NO_CROSS_SESSION_GOLD
+    assert result["winner_selection_enabled"] is False
+    assert result["provenance"]["structural_probe"] is True
+    assert {row["event"] for row in result["transitions"]} >= {
+        "promotion",
+        "decay",
+        "valid_recall",
+        "reinforcement",
+    }
+    assert (tmp_path / "temporal_replay.json").exists()
+
+
+def test_cross_session_marker_without_temporal_schema_is_not_validated(tmp_path: Path) -> None:
+    dataset = _dataset("目标事实")
+    turns = list(dataset.sessions["S001"])
+    turns[1] = Turn(
+        **{
+            **turns[1].__dict__,
+            "dependency_type": "cross_session",
+        }
+    )
+    dataset = Dataset(dataset.path, dataset.sha256, {"S001": tuple(turns)})
+    result = run_cross_session_temporal_replay(
+        dataset=dataset,
+        audit={"cross_session_gold_available": True},
+        baseline=Candidate("baseline", "baseline", {"backend": "production_midterm", "manifest_paths": []}),
+        memory_config={},
+        run_dir=tmp_path,
+    )
+    assert result["status"] == UNSUPPORTED_TEMPORAL_GOLD_SCHEMA
+    assert result["winner_selection_enabled"] is False
+
+
+@pytest.mark.parametrize(
+    ("candidate_rows", "expected"),
+    [
+        ([{"memory": "无关内容", "routed_candidate": True}], "Session Routing Loss"),
+        (
+            [{"memory": "目标事实", "in_routed_pool": True, "in_candidate_pool": False}],
+            "Candidate Coverage Loss",
+        ),
+        ([{"memory": "目标事实", "threshold_filtered": True}], "Threshold Loss"),
+        ([{"memory": "目标事实", "rank_before_threshold": 9}], "Ranking Loss"),
+        ([{"memory": "目标事实", "rank_before_threshold": 2, "final_rank": 2}], "Context Budget Loss"),
+    ],
+)
+def test_failure_classes_are_distinct(candidate_rows: list[dict[str, object]], expected: str) -> None:
+    turn = _dataset("目标事实").sessions["S001"][1]
+    rows, _ = _fact_rows_for_visible(
+        turn,
+        visible_rows=[{"memory": "无关可见内容"}],
+        candidate_rows=candidate_rows,
+        shortterm_rows=[],
+        k=5,
+        midterm_rows=candidate_rows,
+    )
+    assert rows[0]["failure_class"] == expected
 
 
 def test_session_longterm_replay_honors_all_query_time_controls() -> None:

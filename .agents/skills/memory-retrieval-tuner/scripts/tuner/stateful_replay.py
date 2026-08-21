@@ -12,6 +12,8 @@ class ReplayStep:
     visible: list[dict[str, Any]]
     valid_page_ids: list[str]
     turn_index_after_add: int
+    heat_states: list[dict[str, Any]] = field(default_factory=list)
+    promotion_events: list[dict[str, Any]] = field(default_factory=list)
     search_before_add: bool = True
 
 
@@ -40,12 +42,14 @@ class WithinSessionStatefulReplay:
         current_turn_index: Callable[[], int],
         valid_recall: Callable[[Any, list[dict[str, Any]]], Iterable[str]] | None = None,
         record_recall: Callable[[list[str], int], Any] | None = None,
+        state_snapshot: Callable[[int], Iterable[dict[str, Any]]] | None = None,
     ) -> None:
         self.search = search
         self.add = add
         self.current_turn_index = current_turn_index
         self.valid_recall = valid_recall or (lambda _turn, visible: [str(item.get("id")) for item in visible if item.get("id")])
         self.record_recall = record_recall or (lambda _ids, _turn_index: None)
+        self.state_snapshot = state_snapshot or (lambda _turn_index: [])
 
     def replay(self, turns: Iterable[Any]) -> StatefulReplayResult:
         result = StatefulReplayResult()
@@ -57,6 +61,16 @@ class WithinSessionStatefulReplay:
             visible = list(self.search(turn, before) or [])
             valid_ids = list(dict.fromkeys(str(value) for value in self.valid_recall(turn, visible) if value))
             self.record_recall(valid_ids, before)
+            heat_states = [dict(item) for item in self.state_snapshot(before)]
+            promotion_events = [
+                {
+                    "memory_id": item.get("session_id") or item.get("memory_id"),
+                    "H_segment": item.get("H_segment"),
+                    "valid_recall_count": item.get("valid_recall_count"),
+                }
+                for item in heat_states
+                if bool(item.get("promotion_eligible"))
+            ]
             self.add(turn)
             after = int(self.current_turn_index())
             if after <= before:
@@ -68,6 +82,8 @@ class WithinSessionStatefulReplay:
                     visible=visible,
                     valid_page_ids=valid_ids,
                     turn_index_after_add=after,
+                    heat_states=heat_states,
+                    promotion_events=promotion_events,
                 )
             )
         return result

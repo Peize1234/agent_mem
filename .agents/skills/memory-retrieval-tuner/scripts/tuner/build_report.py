@@ -253,6 +253,7 @@ def write_outputs(
             )
     if not research_records:
         lines.append("- No Research LLM decision was required (Stage 1 is deterministic).")
+    temporal = dict(run_metadata.get("cross_session_temporal_replay") or {})
     lines.extend(
         (
             "",
@@ -269,7 +270,11 @@ def write_outputs(
             "",
             f"- Cross-session Gold available: `{run_metadata.get('cross_session_gold_available', False)}`",
             f"- Cross-session Temporal Replay: `{run_metadata.get('cross_session_temporal_status', 'UNVALIDATED_NO_CROSS_SESSION_GOLD')}`",
-            "- Cross-session threshold, retention, floor and reinforcement parameters remain production defaults and do not participate in winner selection without temporal Gold.",
+            f"- Temporal Replay executed / winner selection enabled: "
+            f"`{temporal.get('executed', False)}` / `{temporal.get('winner_selection_enabled', False)}`",
+            f"- Temporal structural/evaluation metrics: `{temporal.get('metrics', {})}`",
+            f"- Temporal provenance: `{temporal.get('provenance', {})}`",
+            "- Cross-session threshold, retention, floor and reinforcement parameters remain production defaults unless a supported temporal Gold schema is really replayed and evaluated; an audit marker alone is never validation.",
             "- Agentic `max_queries` / `max_total_results` remain production defaults unless a production Agentic trace is evaluated; ignored `candidate_pool_size` is never reported as tuned.",
             f"- Stateful replay: `{run_metadata.get('stateful_replay_status', 'not recorded')}`",
             f"- Stateful replay Candidates: `{run_metadata.get('stateful_replay_candidates', [])}`",

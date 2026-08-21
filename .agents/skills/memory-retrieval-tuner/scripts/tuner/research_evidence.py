@@ -328,6 +328,8 @@ def build_research_evidence(
             "data_boundary": {
                 "scope": "tune_sessions_only",
                 "tune_session_ids": sorted(str(item) for item in tune_sessions),
+                "current_run_only": True,
+                "cross_run_history_allowed": False,
             },
             "metric_contract": {"k": k, "primary": f"R@{k}", "deeper": [f"R@{2 * k}", f"R@{4 * k}"]},
             "decision_boundary": {"stage_index": stage_index, "trigger": "next_stage_branch_selection"},
@@ -355,7 +357,7 @@ def build_research_evidence(
                 "revisitable": coverage.get("revisitable_branches") or [],
                 "blocked": coverage.get("blocked_branches") or [],
                 "unexplored": coverage.get("unexplored_branches") or [],
-                "prior_deprioritized_events": list(deprioritized_history),
+                "current_run_deprioritized_events": list(deprioritized_history),
             },
             "deterministic_plan": list(deterministic_plan),
             "budget_and_hard_constraints": _research_budget_view(budget_state),

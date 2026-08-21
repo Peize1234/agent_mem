@@ -388,6 +388,10 @@ def test_research_evidence_excludes_validation_gold_answers_and_future_data(tmp_
     assert "gold" not in serialized.lower()
     assert "answer" not in serialized.lower()
     assert built.payload["data_boundary"]["tune_session_ids"] == ["S001"]
+    assert built.payload["data_boundary"]["current_run_only"] is True
+    assert built.payload["data_boundary"]["cross_run_history_allowed"] is False
+    assert "experiment_lessons" not in serialized
+    assert "previous_run" not in serialized
 
 
 class SearchBranch:

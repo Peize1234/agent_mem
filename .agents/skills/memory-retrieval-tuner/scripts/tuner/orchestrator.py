@@ -32,6 +32,7 @@ from .research_decision import ResearchDecisionEngine
 from .research_runtime import ResearchLLMRuntime
 from .split_sessions import create_or_load_split
 from .staged_search import run_staged_search
+from .temporal_replay import run_cross_session_temporal_replay
 
 
 @dataclass(frozen=True)
@@ -641,6 +642,16 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
     tune_by_name = {result.name: result for result in tune_results}
     validation_by_name = {result.name: result for result in validation_results}
     baseline_validation = validation_by_name["baseline"]
+    # Temporal Replay is an independent phase. Execute it before the selection
+    # boundary so status/provenance are available there; without Gold it remains
+    # explicitly excluded and the ordinary Session winner is unchanged.
+    temporal_replay = run_cross_session_temporal_replay(
+        dataset=dataset,
+        audit=audit,
+        baseline=midterm_baseline,
+        memory_config=memory_config_values,
+        run_dir=run_dir,
+    )
     best, overfit, selection = select_best(
         tune_by_name,
         validation_by_name,
@@ -791,9 +802,9 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         "shortterm_qa_turns": shortterm_window,
         "shortterm_window_validation": shortterm_window_validation,
         "cross_session_gold_available": bool(audit.get("cross_session_gold_available", False)),
-        "cross_session_temporal_status": (
-            "VALIDATED" if audit.get("cross_session_gold_available") else "UNVALIDATED_NO_CROSS_SESSION_GOLD"
-        ),
+        "cross_session_temporal_status": temporal_replay["status"],
+        "cross_session_temporal_replay": temporal_replay,
+        "cross_session_winner_selection_enabled": temporal_replay["winner_selection_enabled"],
         "stateful_replay_status": stateful_status,
         "stateful_replay_candidates": [result.name for result in stateful_results],
         "run_dir": str(run_dir),
