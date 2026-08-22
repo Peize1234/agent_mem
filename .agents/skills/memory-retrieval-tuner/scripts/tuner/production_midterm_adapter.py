@@ -33,8 +33,15 @@ from .benchmark_support import (
     wait_for_migration_jobs,
 )
 from .diagnostic_midterm_retriever import DiagnosticMidTermRetriever
+from .encoding_contract import EncodingContract, SentenceTransformerEncodingAdapter
 from .fact_evaluator import fact_member_hit, parse_required_context
-from .io_utils import atomic_write_json, load_jsonl, sha256_file, stable_hash, write_jsonl
+from .io_utils import (
+    atomic_write_json,
+    load_jsonl,
+    sha256_file,
+    stable_hash,
+    write_jsonl,
+)
 from .production_runtime import create_production_memory
 from .retrieval_primitives import (
     HYBRID_PRESET_WEIGHTS,
@@ -61,7 +68,10 @@ def production_prompt_hashes(
     fine_grained_longterm_extraction_prompt: str | None = None,
     session_longterm_extraction_prompt: str | None = None,
 ) -> dict[str, str]:
-    from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT, MIDTERM_SESSION_MERGE_PROMPT
+    from mem0.configs.midterm_prompts import (
+        MIDTERM_PAGE_SUMMARY_PROMPT,
+        MIDTERM_SESSION_MERGE_PROMPT,
+    )
     from mem0.configs.prompts import ADDITIVE_EXTRACTION_PROMPT
 
     return {
@@ -728,6 +738,40 @@ class CountingEmbedding:
         return self.delegate.embed_batch(texts, *args, **kwargs)
 
 
+class EncodingContractEmbedding:
+    """Apply the model-owned encoding contract inside an isolated source runtime."""
+
+    def __init__(self, delegate: Any, contract: Mapping[str, Any]):
+        model = getattr(delegate, "model", None)
+        if model is None:
+            raise ValueError("Candidate encoding contracts require a local SentenceTransformer model")
+        self.delegate = delegate
+        self.adapter = SentenceTransformerEncodingAdapter(model, EncodingContract(**dict(contract)))
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.delegate, name)
+
+    @staticmethod
+    def _action(memory_action: str | None) -> str:
+        return "search" if memory_action == "search" else "add"
+
+    def embed(self, text: str, memory_action: str | None = None) -> list[float]:
+        return self.adapter.encode([text], action=self._action(memory_action))[0]
+
+    def embed_batch(self, texts: Sequence[str], memory_action: str | None = "add") -> list[list[float]]:
+        return self.adapter.encode(texts, action=self._action(memory_action))
+
+
+def _deep_merge_config(base: Mapping[str, Any], updates: Mapping[str, Any]) -> dict[str, Any]:
+    result = deepcopy(dict(base))
+    for key, value in updates.items():
+        if isinstance(value, Mapping) and isinstance(result.get(key), Mapping):
+            result[key] = _deep_merge_config(result[key], value)
+        else:
+            result[key] = deepcopy(value)
+    return result
+
+
 async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
     """Run the actual AsyncMemory Add -> MidTerm pipeline for one isolated Session."""
     dataset_path = Path(str(spec["dataset_path"])).resolve()
@@ -759,12 +803,18 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
     # query-time candidates never reach this path.  Merge only declared config
     # objects and let Pydantic enforce the production schema/ranges.
     overrides = spec.get("config_overrides") or {}
-    if isinstance(overrides, Mapping):
-        for section, values in overrides.items():
-            if isinstance(values, Mapping) and isinstance(config.get(section), dict):
-                config[section].update(dict(values))
-            elif section in config:
-                config[section] = values
+    if isinstance(overrides, Mapping) and overrides:
+        runtime_vector_config = dict((config.get("vector_store") or {}).get("config") or {})
+        isolated_vector_config = {
+            key: runtime_vector_config[key]
+            for key in ("path", "collection_name")
+            if key in runtime_vector_config
+        }
+        isolated_history_db_path = config.get("history_db_path")
+        config = _deep_merge_config(config, overrides)
+        config.setdefault("vector_store", {}).setdefault("config", {}).update(isolated_vector_config)
+        if isolated_history_db_path is not None:
+            config["history_db_path"] = isolated_history_db_path
     # Persist the effective production config beside the trace.  Artifact
     # discovery uses it to validate complete-memory reuse without trusting
     # mutable runtime paths or a stale manifest.
@@ -791,7 +841,13 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
         counted = CountingLLM(memory.llm)
     else:
         counted = CountingLLM(PromptOverrideLLM(memory.llm, **prompt_kwargs))
-    counted_embedding = CountingEmbedding(memory.embedding_model)
+    encoding_contract = dict(spec.get("embedding_encoding_contract") or {})
+    source_embedding = (
+        EncodingContractEmbedding(memory.embedding_model, encoding_contract)
+        if encoding_contract
+        else memory.embedding_model
+    )
+    counted_embedding = CountingEmbedding(source_embedding)
     memory.llm = counted
     memory.embedding_model = counted_embedding
     if getattr(memory, "_midterm_updater", None) is not None:
@@ -957,6 +1013,9 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
         "llm_calls": counted.calls,
         "embedding_calls": counted_embedding.calls,
         "embedding_model": deepcopy(config.get("embedder") or {}),
+        "embedding_model_id": spec.get("embedding_model_id"),
+        "embedding_model_revision": spec.get("embedding_model_revision"),
+        "embedding_encoding_contract": encoding_contract,
         "git_commit": safe_git_commit(repo_root),
     }
     atomic_write_json(output_dir / "production_midterm_manifest.json", manifest)
@@ -985,6 +1044,9 @@ def generate_production_sources(
     generation_stats: dict[str, Any] | None = None,
     config_overrides: Mapping[str, Any] | None = None,
     stateful_replay: bool = False,
+    embedding_encoding_contract: Mapping[str, Any] | None = None,
+    embedding_model_id: str | None = None,
+    embedding_model_revision: str | None = None,
 ) -> list[Path]:
     """Generate missing production artifacts in isolated subprocesses."""
     from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -1000,6 +1062,7 @@ def generate_production_sources(
     )
     expected_source_identity = dict(source_identity or {})
     config_overrides_hash = stable_hash(dict(config_overrides or {}))
+    embedding_contract_hash = stable_hash(dict(embedding_encoding_contract or {}))
     generated_paths: list[Path] = []
     generated_lock = threading.Lock()
 
@@ -1022,6 +1085,9 @@ def generate_production_sources(
                 and str(value.get("page_context_contract") or "") == PRODUCTION_PAGE_CONTEXT_CONTRACT
                 and dict(value.get("source_identity") or {}) == expected_source_identity
                 and stable_hash(value.get("config_overrides") or {}) == config_overrides_hash
+                and stable_hash(value.get("embedding_encoding_contract") or {}) == embedding_contract_hash
+                and value.get("embedding_model_id") == embedding_model_id
+                and value.get("embedding_model_revision") == embedding_model_revision
                 and bool(value.get("stateful_replay")) is bool(stateful_replay)
                 and str(value.get("llm_mode") or "real") == llm_mode
                 and Path(str(value.get("checkpoints_path") or "")).exists()
@@ -1053,6 +1119,9 @@ def generate_production_sources(
             "source_identity": expected_source_identity,
             "config_overrides": dict(config_overrides or {}),
             "stateful_replay": bool(stateful_replay),
+            "embedding_encoding_contract": dict(embedding_encoding_contract or {}),
+            "embedding_model_id": embedding_model_id,
+            "embedding_model_revision": embedding_model_revision,
         }
         spec_path = result_dir / "source_spec.json"
         atomic_write_json(spec_path, spec)

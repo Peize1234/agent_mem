@@ -8,12 +8,20 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from .agentic_retrieval_artifacts import (
+    agentic_supplement_rows,
+    load_production_agentic_trace,
+)
 from .artifact_registry import ArtifactRegistry
+from .fact_evaluator import FactRequirement, fact_member_hit, parse_required_context
 from .io_utils import atomic_write_json, load_jsonl, stable_hash
 from .models import Candidate, CandidateResult, Dataset, Requirement, Turn
-from .production_midterm_adapter import PRODUCTION_BACKEND, ProductionMidtermAdapter, load_checkpoints
-from .fact_evaluator import FactRequirement, fact_member_hit, parse_required_context
 from .parameter_schema import validate_candidate_config
+from .production_midterm_adapter import (
+    PRODUCTION_BACKEND,
+    ProductionMidtermAdapter,
+    load_checkpoints,
+)
 
 
 def candidate_hash(dataset_sha256: str, candidate: Candidate) -> str:
@@ -78,16 +86,27 @@ def _ranking_layers(rankings: Mapping[str, Any], query_id: str) -> dict[str, lis
     if isinstance(raw, Mapping):
         layers = {}
         for key, value in raw.items():
-            if key in {"shortterm", "sessions", "midterm", "session_longterm", "cross_session_longterm", "all_memory", "rows"}:
+            if key in {
+                "shortterm",
+                "sessions",
+                "midterm",
+                "agentic",
+                "session_longterm",
+                "cross_session_longterm",
+                "all_memory",
+                "rows",
+            }:
                 layers[key] = [dict(item) for item in (value or [])]
         if layers:
             return layers
     rows = [dict(item) for item in (raw or [])]
-    sessions, midterm, longterm, cross = [], [], [], []
+    sessions, midterm, agentic, longterm, cross = [], [], [], [], []
     for row in rows:
         source = str(row.get("layer") or row.get("memory_layer") or row.get("source") or "").lower()
         if "cross_session" in source:
             cross.append(row)
+        elif source == "production_agentic_supplement":
+            agentic.append(row)
         elif source == "mid_term_session":
             sessions.append(row)
         elif "long" in source:
@@ -100,6 +119,7 @@ def _ranking_layers(rankings: Mapping[str, Any], query_id: str) -> dict[str, lis
                 "shortterm": rows_short,
                 "sessions": sessions,
                 "midterm": midterm,
+                "agentic": agentic,
                 "session_longterm": longterm,
                 "cross_session_longterm": cross,
             }
@@ -108,6 +128,7 @@ def _ranking_layers(rankings: Mapping[str, Any], query_id: str) -> dict[str, lis
     return {
         "sessions": sessions,
         "midterm": midterm,
+        "agentic": agentic,
         "session_longterm": longterm,
         "cross_session_longterm": cross,
     }
@@ -146,14 +167,20 @@ def _fact_rows_for_visible(
     *,
     k: int,
     midterm_rows: Sequence[Mapping[str, Any]] = (),
+    agentic_rows: Sequence[Mapping[str, Any]] = (),
     session_longterm_rows: Sequence[Mapping[str, Any]] = (),
 ) -> tuple[list[dict[str, Any]], list[FactRequirement]]:
     requirements = list(parse_required_context(turn.required_context))
     if not requirements:
         return [], []
-    pre_threshold_rows = [
+    retrieval_candidate_rows = [
         row
         for row in candidate_rows
+        if str(row.get("source") or "").lower() != "production_agentic_supplement"
+    ]
+    pre_threshold_rows = [
+        row
+        for row in retrieval_candidate_rows
         if row.get("in_candidate_pool", True) is not False
         and str(row.get("source") or "").lower()
         not in {"long_term", "cross_session_long_term", "shortterm", "mid_term_session"}
@@ -181,7 +208,7 @@ def _fact_rows_for_visible(
         routed_hit = any(
             hit(_row_text(row))
             and bool(row.get("in_routed_pool", row.get("routed_candidate", not row.get("global_supplement"))))
-            for row in candidate_rows
+            for row in retrieval_candidate_rows
             if str(row.get("source") or "").lower() not in {"mid_term_session", "long_term", "cross_session_long_term"}
         )
         final_hit = hit(final_text)
@@ -190,7 +217,7 @@ def _fact_rows_for_visible(
         post_threshold_hit = hit(post_threshold_text)
         if final_hit:
             failure_class = None
-        elif not candidate_hit and not candidate_rows:
+        elif not candidate_hit and not retrieval_candidate_rows:
             failure_class = "Source Generation Loss"
         elif not candidate_hit and not routed_hit:
             failure_class = "Session Routing Loss"
@@ -220,14 +247,17 @@ def _fact_rows_for_visible(
                 "is_or": requirement.is_or,
                 "best_rank": rank,
                 "hit_at_k": final_hit,
-                "hit_at_2k": hit("\n".join(_row_text(row) for row in candidate_rows[: 2 * max(k, 1)])),
-                "hit_at_4k": hit("\n".join(_row_text(row) for row in candidate_rows[: 4 * max(k, 1)])),
+                "hit_at_2k": final_hit
+                or hit("\n".join(_row_text(row) for row in retrieval_candidate_rows[: 2 * max(k, 1)])),
+                "hit_at_4k": final_hit
+                or hit("\n".join(_row_text(row) for row in retrieval_candidate_rows[: 4 * max(k, 1)])),
                 "candidate_pool_hit": candidate_hit,
                 "post_threshold_hit": post_threshold_hit,
                 "final_context_hit": final_hit,
                 "midterm_final_context_hit": midterm_final_hit,
                 "shortterm_hit": hit(short_text),
                 "midterm_hit": hit("\n".join(_row_text(row) for row in midterm_rows)),
+                "agentic_hit": hit("\n".join(_row_text(row) for row in agentic_rows)),
                 "session_longterm_hit": hit("\n".join(_row_text(row) for row in session_longterm_rows[:30])),
                 "reciprocal_rank": 1.0 / rank if rank else 0.0,
                 "failure_class": failure_class,
@@ -379,6 +409,7 @@ def _rank_session(
     ranking_depth: int,
     registry: ArtifactRegistry,
     frozen: Mapping[str, Sequence[Mapping[str, Any]]] | None,
+    agentic: Mapping[str, Sequence[Mapping[str, Any]]] | None,
     checkpoints: Mapping[str, Mapping[str, Any]] | None,
     run_dir: Path,
     candidate_id: str,
@@ -435,6 +466,10 @@ def _rank_session(
             raise ValueError(
                 f"Candidate {candidate.name} does not use a supported production/frozen backend: {backend!r}"
             )
+        if candidate.config.get("agentic_trace_enabled") is True:
+            if turn.query_id not in (agentic or {}):
+                raise ValueError(f"Production Agentic trace is incomplete for Query {turn.query_id}")
+            ranking = [*ranking, *(dict(row) for row in (agentic or {})[turn.query_id])]
         grouped[turn.query_id] = _apply_retrieval_controls(ranking, candidate.config, ranking_depth)
         flat.extend({"query_id": turn.query_id, **row} for row in ranking)
     registry.store_ranking(identity, flat, raw_depth)
@@ -450,6 +485,7 @@ def _evaluate_session(
     target: str,
     shortterm_window: int,
     max_total_pages: int = 5,
+    agentic_max_total_results: int = 5,
     longterm_top_k: int = 30,
 ) -> dict[str, Any]:
     session_turns = dataset.sessions[session_id]
@@ -459,7 +495,7 @@ def _evaluate_session(
     context_mode = any(str(turn.required_context or "").strip() for turn in session_turns)
     returned_page_counts: list[int] = []
     precision_values: list[float] = []
-    contribution_counts = {"midterm": 0, "session_longterm": 0, "shortterm": 0}
+    contribution_counts = {"midterm": 0, "agentic": 0, "session_longterm": 0, "shortterm": 0}
     for turn in session_turns:
         shortterm_ids = [
             item.query_id for item in session_turns[max(0, turn.turn_index - shortterm_window) : turn.turn_index]
@@ -488,10 +524,11 @@ def _evaluate_session(
         layers = _ranking_layers(rankings, turn.query_id)
         session_rows = layers.get("sessions", [])
         midterm_rows = layers.get("midterm", [])
+        agentic_rows = layers.get("agentic", [])
         longterm_rows = layers.get("session_longterm", [])
         # Cross-session memory has a separate Temporal Replay/Gold contract.
         # It is never counted in an ordinary run_id-scoped Session benchmark.
-        candidate_rows = [*session_rows, *midterm_rows, *longterm_rows]
+        candidate_rows = [*session_rows, *midterm_rows, *agentic_rows, *longterm_rows]
         candidate_page_ids = {
             str(item.get("page_id") or item.get("id") or "")
             for item in midterm_rows
@@ -506,9 +543,11 @@ def _evaluate_session(
         if isinstance(rankings.get("__meta__"), Mapping):
             context_budget = min(5, max(1, int(rankings["__meta__"].get("max_total_pages", context_budget))))
         visible_midterm = _visible_midterm_rows(midterm_rows, context_budget)
+        remaining_agentic_budget = max(0, 5 - len(visible_midterm))
+        visible_agentic = agentic_rows[: min(5, max(1, int(agentic_max_total_results)), remaining_agentic_budget)]
         visible_longterm = longterm_rows[: min(30, max(1, int(longterm_top_k)))]
-        visible_rows = [*short_rows, *session_rows, *visible_midterm, *visible_longterm]
-        returned_page_counts.append(len(visible_midterm) + len(visible_longterm))
+        visible_rows = [*short_rows, *session_rows, *visible_midterm, *visible_agentic, *visible_longterm]
+        returned_page_counts.append(len(visible_midterm) + len(visible_agentic) + len(visible_longterm))
         if context_mode and str(turn.required_context or "").strip():
             context_rows, context_requirements = _fact_rows_for_visible(
                 turn,
@@ -517,6 +556,7 @@ def _evaluate_session(
                 short_rows,
                 k=k,
                 midterm_rows=[*session_rows, *visible_midterm],
+                agentic_rows=visible_agentic,
                 session_longterm_rows=visible_longterm,
             )
             for row in context_rows:
@@ -530,6 +570,7 @@ def _evaluate_session(
                         "dedup_candidate_count": len(candidate_page_ids),
                         "candidate_pool_count": len(candidate_page_ids),
                         "returned_page_count": len(visible_midterm),
+                        "returned_agentic_count": len(visible_agentic),
                     }
                 )
             # Context requirements, rather than source IDs, are the fixed Gold
@@ -538,8 +579,9 @@ def _evaluate_session(
             for row in context_rows:
                 contribution_counts["shortterm"] += int(bool(row["shortterm_hit"]))
                 contribution_counts["midterm"] += int(bool(row["midterm_hit"]))
+                contribution_counts["agentic"] += int(bool(row["agentic_hit"]))
                 contribution_counts["session_longterm"] += int(bool(row["session_longterm_hit"]))
-            returned_memory_rows = [*session_rows, *visible_midterm, *visible_longterm]
+            returned_memory_rows = [*session_rows, *visible_midterm, *visible_agentic, *visible_longterm]
             relevant_pages = sum(
                 any(
                     any(fact_member_hit(member, _row_text(page)) for member in requirement.members)
@@ -604,6 +646,7 @@ def _evaluate_session(
         "mean_returned_pages": statistics.fmean(returned_page_counts) if returned_page_counts else 0.0,
         "shortterm_contribution": contribution_counts["shortterm"] / total if total else 0.0,
         "midterm_contribution": contribution_counts["midterm"] / total if total else 0.0,
+        "agentic_contribution": contribution_counts["agentic"] / total if total else 0.0,
         "session_longterm_contribution": contribution_counts["session_longterm"] / total if total else 0.0,
         "short_mid_session_longterm_union": sum(bool(row.get("final_context_hit", row.get("hit_at_k"))) for row in requirement_rows) / total if total else 0.0,
         "required_context_evaluation": context_mode,
@@ -665,6 +708,7 @@ def _aggregate(
         "returned_page_count",
         "shortterm_contribution",
         "midterm_contribution",
+        "agentic_contribution",
         "session_longterm_contribution",
         "short_mid_session_longterm_union",
     ):
@@ -776,6 +820,22 @@ def evaluate_candidate(
         # production/source candidates always take the strict path.
         if candidate.config.get("backend") != "frozen_ranking":
             validate_candidate_config(candidate.config)
+        if candidate.config.get("agentic_trace_enabled") is True:
+            trace = load_production_agentic_trace(
+                candidate.config,
+                dataset_sha256=dataset.sha256,
+                query_ids_by_session={
+                    session_id: [turn.query_id for turn in turns]
+                    for session_id, turns in dataset.sessions.items()
+                },
+            )
+            agentic = agentic_supplement_rows(
+                trace,
+                max_queries=int(candidate.config["max_queries"]),
+                max_total_results=int(candidate.config["max_total_results"]),
+            )
+        else:
+            agentic = None
     except ValueError as exc:
         return CandidateResult(
             name=candidate.name,
@@ -837,6 +897,7 @@ def evaluate_candidate(
             ranking_depth=ranking_depth,
             registry=registry,
             frozen=frozen,
+            agentic=agentic,
             checkpoints=checkpoints,
             run_dir=run_dir,
             candidate_id=candidate_id,
@@ -849,6 +910,7 @@ def evaluate_candidate(
             target=target,
             shortterm_window=shortterm_window,
             max_total_pages=min(5, max(1, int(candidate.config.get("max_total_pages", 5)))),
+            agentic_max_total_results=min(5, max(1, int(candidate.config.get("max_total_results", 5)))),
             longterm_top_k=min(30, max(1, int(candidate.config.get("longterm_top_k", 30)))),
         )
         if int(result["metrics"]["evaluated_query_count"]) != expected_queries:

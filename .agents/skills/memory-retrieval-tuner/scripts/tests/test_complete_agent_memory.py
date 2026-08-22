@@ -1,19 +1,20 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 import json
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import pytest
 import yaml
-
 from tuner.artifact_registry import ArtifactRegistry
-from tuner.evaluate_candidate import _eligible_requirements, _evaluate_session, _fact_rows_for_visible
-from tuner.fact_evaluator import deterministic_fact_match, fact_member_hit, parse_required_context
-from tuner.models import Candidate, CandidateResult, Dataset, Requirement, Turn
+from tuner.evaluate_candidate import (
+    _eligible_requirements,
+    _evaluate_session,
+    _fact_rows_for_visible,
+)
 from tuner.experiment_branches import (
     BranchContext,
     BranchRegistry,
@@ -21,7 +22,13 @@ from tuner.experiment_branches import (
     MidtermSourceConfigBranch,
     PromotionBranch,
 )
+from tuner.fact_evaluator import (
+    deterministic_fact_match,
+    fact_member_hit,
+    parse_required_context,
+)
 from tuner.io_utils import sha256_file
+from tuner.models import Candidate, CandidateResult, Dataset, Requirement, Turn
 from tuner.parameter_schema import (
     dynamic_turn_distance_candidates,
     parameter_class,
@@ -36,11 +43,11 @@ from tuner.production_midterm_adapter import (
 )
 from tuner.stateful_replay import WithinSessionStatefulReplay
 from tuner.temporal_replay import (
-    CrossSessionTemporalReplay,
     CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD,
     STRUCTURAL_ONLY_NOT_EVALUATED,
     UNSUPPORTED_TEMPORAL_GOLD_SCHEMA,
     UNVALIDATED_NO_CROSS_SESSION_GOLD,
+    CrossSessionTemporalReplay,
     run_cross_session_temporal_replay,
 )
 
@@ -158,6 +165,16 @@ def test_new_branches_are_reachable_through_real_coverage_policy() -> None:
         {
             "RetrievalControl": 1,
             "HybridRetrieval": 1,
+            "Embedding": 1,
+            "FineGrainedLongtermRetrieval": 1,
+        },
+    ) == "AgenticRetrieval"
+    assert next_branch(
+        "candidate_coverage_bottleneck",
+        {
+            "RetrievalControl": 1,
+            "HybridRetrieval": 1,
+            "AgenticRetrieval": 1,
             "Embedding": 1,
             "FineGrainedLongtermRetrieval": 1,
         },

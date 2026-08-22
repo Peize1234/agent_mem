@@ -454,6 +454,51 @@ class ArtifactRegistry:
             complexity=0,
         )
 
+    def discover_production_agentic_trace(
+        self,
+        *,
+        dataset_sha256: str,
+        query_ids_by_session: Mapping[str, Sequence[str]],
+        source_run: Path | None = None,
+    ) -> dict[str, Any] | None:
+        """Find a complete exact-parameter production Agentic fallback trace.
+
+        Ordinary recall traces are deliberately not considered. A usable
+        artifact must use the dedicated production Agentic schema and contain
+        a complete execution for each variant that it advertises.
+        """
+
+        from .agentic_retrieval_artifacts import load_production_agentic_trace
+
+        roots = [self.results_root]
+        if source_run is not None:
+            roots.insert(0, source_run if source_run.is_dir() else source_run.parent)
+        candidates: set[Path] = set()
+        for root in roots:
+            candidates.update(path.resolve() for path in root.glob("**/production_agentic_trace*.jsonl"))
+            for metadata_path in root.glob("**/run_metadata.json"):
+                try:
+                    metadata = load_json(metadata_path)
+                except (OSError, json.JSONDecodeError):
+                    continue
+                if not _contains_value(metadata, dataset_sha256):
+                    continue
+                for value in _string_values(metadata):
+                    path = Path(value).expanduser()
+                    if path.name.startswith("production_agentic_trace") and path.suffix == ".jsonl" and path.exists():
+                        candidates.add(path.resolve())
+        for path in sorted(candidates):
+            try:
+                trace = load_production_agentic_trace(
+                    {"production_agentic_trace": str(path)},
+                    dataset_sha256=dataset_sha256,
+                    query_ids_by_session=query_ids_by_session,
+                )
+            except (OSError, ValueError, json.JSONDecodeError):
+                continue
+            return trace.serializable()
+        return None
+
     def discover_production_midterm(
         self,
         *,
@@ -465,7 +510,10 @@ class ArtifactRegistry:
         source_run: Path | None = None,
     ) -> Candidate | None:
         """Find complete replayable checkpoints created from the production MidTerm pipeline."""
-        from .production_midterm_adapter import ADAPTER_SCHEMA, production_candidate_from_manifests
+        from .production_midterm_adapter import (
+            ADAPTER_SCHEMA,
+            production_candidate_from_manifests,
+        )
 
         roots = [self.results_root]
         if source_run is not None:

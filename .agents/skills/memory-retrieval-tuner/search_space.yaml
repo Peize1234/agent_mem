@@ -234,6 +234,9 @@ search:
     RetrievalControl:
       enabled: true
       max_rounds: 2
+    AgenticRetrieval:
+      enabled: true
+      max_rounds: 1
     QueryRepresentation:
       # Legacy compatibility alias; QueryRewritePrompt is canonical in the
       # default branch_coverage and owns all normal Query Prompt candidates.
@@ -289,6 +292,7 @@ search:
       relevant:
         RetrievalControl: {priority: 10, minimum_attempts: 1, coverage_class: required}
         HybridRetrieval: {priority: 20, minimum_attempts: 1, coverage_class: required}
+        AgenticRetrieval: {priority: 25, minimum_attempts: 1, coverage_class: selectable}
         Embedding: {priority: 30, minimum_attempts: 1, coverage_class: required}
         QueryRewritePrompt: {priority: 40, minimum_attempts: 1, coverage_class: required}
         PageRepresentation: {priority: 50, minimum_attempts: 1, coverage_class: selectable}
@@ -320,6 +324,7 @@ search:
       relevant:
         RetrievalControl: {priority: 10, minimum_attempts: 1, coverage_class: required}
         HybridRetrieval: {priority: 20, minimum_attempts: 1, coverage_class: required}
+        AgenticRetrieval: {priority: 25, minimum_attempts: 1, coverage_class: selectable}
         QueryRewritePrompt: {priority: 30, minimum_attempts: 1, coverage_class: required}
         MidtermEvolution: {priority: 35, minimum_attempts: 1, coverage_class: required}
         PageRepresentation: {priority: 40, minimum_attempts: 1, coverage_class: selectable}

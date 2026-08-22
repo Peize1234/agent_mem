@@ -19,13 +19,21 @@ sys.path.insert(0, str(REPO_ROOT))
 
 import tuner.orchestrator as orchestrator  # noqa: E402
 import tuner.production_midterm_adapter as production_adapter  # noqa: E402
+from tuner.agentic_retrieval_artifacts import (  # noqa: E402
+    PRODUCTION_AGENTIC_EXECUTION_CONTRACT,
+    PRODUCTION_AGENTIC_TRACE_SCHEMA,
+)
 from tuner.artifact_registry import ArtifactRegistry  # noqa: E402
 from tuner.benchmark_support import load_dataset, parse_gold_requirements  # noqa: E402
 from tuner.build_report import write_outputs  # noqa: E402
 from tuner.candidate_selector import classify_overfit, select_best  # noqa: E402
 from tuner.dataset_audit import DatasetAuditFailed, audit_dataset  # noqa: E402
+from tuner.derived_artifacts import DerivedArtifactBuilder  # noqa: E402
 from tuner.diagnostic_midterm_retriever import DiagnosticMidTermRetriever  # noqa: E402
-from tuner.encoding_contract import EncodingContract, SentenceTransformerEncodingAdapter  # noqa: E402
+from tuner.encoding_contract import (  # noqa: E402
+    EncodingContract,
+    SentenceTransformerEncodingAdapter,
+)
 from tuner.evaluate_candidate import (  # noqa: E402
     _eligible_requirements,
     _evaluate_session,
@@ -34,17 +42,22 @@ from tuner.evaluate_candidate import (  # noqa: E402
 )
 from tuner.experiment_branches import (  # noqa: E402
     ALL_REGIMES,
+    AgenticRetrievalBranch,
     BranchContext,
     BranchOutcome,
     BranchRegistry,
     BranchSpec,
+    EmbeddingBranch,
     FineGrainedLongtermExtractionPromptBranch,
-    SourcePromptBranch,
     QueryRepresentationBranch,
     RerankingBranch,
+    RetrievalControlBranch,
+    SourcePromptBranch,
     _derived_dimensions,
 )
-from tuner.generated_source_artifacts import prepare_generated_source_candidate  # noqa: E402
+from tuner.generated_source_artifacts import (  # noqa: E402
+    prepare_generated_source_candidate,
+)
 from tuner.io_utils import sha256_file  # noqa: E402
 from tuner.model_discovery import (  # noqa: E402
     ModelCandidate,
@@ -54,20 +67,27 @@ from tuner.model_discovery import (  # noqa: E402
     _candidate_score_value,
     _metadata_evidence,
 )
-from tuner.models import Candidate, CandidateResult, Dataset, Requirement, Turn  # noqa: E402
+from tuner.models import (  # noqa: E402
+    Candidate,
+    CandidateResult,
+    Dataset,
+    Requirement,
+    Turn,
+)
 from tuner.orchestrator import (  # noqa: E402
     TunerConfig,
     _artifact_cache_root,
     _evaluate_loso_many,
     _resolve_shortterm_window,
 )
+from tuner.parameter_schema import parameter_class  # noqa: E402
 from tuner.production_midterm_adapter import (  # noqa: E402
     ADAPTER_SCHEMA,
     ProductionMidtermAdapter,
     generate_production_sources,
     isolated_runtime_layout,
-    production_prompt_hashes,
     production_candidate_from_manifests,
+    production_prompt_hashes,
 )
 from tuner.prompt_artifacts import (  # noqa: E402
     PRODUCTION_QUERY_PROMPT_HASH,
@@ -76,25 +96,25 @@ from tuner.prompt_artifacts import (  # noqa: E402
     QueryPromptVariant,
     controlled_query_prompt_variants,
 )
-from tuner.split_sessions import create_or_load_split  # noqa: E402
-from tuner.staged_search import candidate_config_hash, run_staged_search  # noqa: E402
-from tuner.parameter_schema import parameter_class  # noqa: E402
 from tuner.source_prompt_variants import (  # noqa: E402
     PromptOverrideLLM,
     controlled_fine_grained_longterm_prompt_variants,
     controlled_page_prompt_variants,
 )
+from tuner.split_sessions import create_or_load_split  # noqa: E402
+from tuner.staged_search import candidate_config_hash, run_staged_search  # noqa: E402
+
 from mem0.configs.base import MemoryConfig, MidTermMemoryConfig  # noqa: E402
 from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT  # noqa: E402
 from mem0.configs.query_prompts import QUERY_REFERENCE_RESOLUTION_PROMPT  # noqa: E402
 from mem0.memory import main as memory_main  # noqa: E402
 from mem0.memory.main import Memory  # noqa: E402
-from mem0.memory.midterm_updater import PRODUCTION_PAGE_CONTEXT_CONTRACT  # noqa: E402
 from mem0.memory.midterm_retriever import MidTermRetriever  # noqa: E402
+from mem0.memory.midterm_updater import PRODUCTION_PAGE_CONTEXT_CONTRACT  # noqa: E402
 from mem0.memory.query_resolver import (  # noqa: E402
     QueryResolver as ProductionQueryResolver,
-    build_query_resolution_messages,
 )
+from mem0.memory.query_resolver import build_query_resolution_messages  # noqa: E402
 from mem0.memory.storage import SQLiteManager  # noqa: E402
 
 
@@ -1556,6 +1576,7 @@ def test_branch_registry_exposes_required_experiment_contracts() -> None:
     descriptions = {item["name"]: item for item in registry.describe()}
     assert {
         "RetrievalControl",
+        "AgenticRetrieval",
         "QueryRepresentation",
         "PageRepresentation",
         "HybridRetrieval",
@@ -1574,6 +1595,245 @@ def test_branch_registry_exposes_required_experiment_contracts() -> None:
         assert item["execution_adapter"]
         assert item["provenance_contract"]
         assert isinstance(item["resource_requirements"], dict)
+
+
+def _write_production_agentic_trace(
+    path: Path,
+    dataset: Dataset,
+    variants: list[tuple[int, int]],
+) -> None:
+    rows = []
+    for max_queries, max_total_results in variants:
+        for session_id, turns in dataset.sessions.items():
+            for turn in turns:
+                rows.append(
+                    {
+                        "schema": PRODUCTION_AGENTIC_TRACE_SCHEMA,
+                        "dataset_sha256": dataset.sha256,
+                        "session_id": session_id,
+                        "query_id": turn.query_id,
+                        "production_agentic_execution": True,
+                        "execution_contract": PRODUCTION_AGENTIC_EXECUTION_CONTRACT,
+                        "max_iterations": 2,
+                        "max_tool_calls": 1,
+                        "max_queries": max_queries,
+                        "max_total_results": max_total_results,
+                        "error": None,
+                        "agentic_result": {
+                            "status": "supplemented",
+                            "supplement": (
+                                f"华辰公司授信额度100万元；Agentic {max_queries}/{max_total_results} {turn.query_id}"
+                            ),
+                            "iterations": 2,
+                            "tool_call_count": 1,
+                            "tool_trace": [
+                                {
+                                    "iteration": 1,
+                                    "name": "search_memory",
+                                    "arguments": {"queries": [turn.question][:max_queries]},
+                                    "result_summary": {"ok": True, "item_count": max_total_results},
+                                }
+                            ],
+                        },
+                    }
+                )
+    path.write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows), encoding="utf-8")
+
+
+def test_agentic_branch_generates_real_parameter_candidates_and_keeps_fixed_limits(tmp_path: Path) -> None:
+    import yaml
+
+    dataset = make_dataset(tmp_path, 1)
+    baseline, _ = _production_branch_inputs(tmp_path, dataset)
+    baseline.config.update({"max_queries": 3, "max_total_results": 5})
+    trace_path = tmp_path / "production_agentic_trace.jsonl"
+    variants = [(value, 5) for value in (1, 2, 3)] + [(3, value) for value in (1, 2, 3, 4)]
+    _write_production_agentic_trace(trace_path, dataset, variants)
+    baseline.config.update(
+        {
+            "production_agentic_trace_paths": [str(trace_path)],
+            "production_agentic_trace_sha256": {str(trace_path.resolve()): sha256_file(trace_path)},
+        }
+    )
+    space = yaml.safe_load((SCRIPTS.parent / "search_space.yaml").read_text(encoding="utf-8"))
+    context = _branch_context(tmp_path, dataset, baseline, search_space=space)
+    branch = BranchRegistry().get("AgenticRetrieval")
+    outcome = BranchRegistry([branch]).generate(branch, context)
+
+    assert outcome.status == "READY"
+    assert {candidate.config["max_queries"] for candidate in outcome.candidates} >= {1, 2}
+    assert {candidate.config["max_total_results"] for candidate in outcome.candidates} >= {1, 2, 3, 4}
+    assert all(candidate.config["agentic_trace_enabled"] is True for candidate in outcome.candidates)
+    assert all(candidate.config["agentic_fixed_max_iterations"] == 2 for candidate in outcome.candidates)
+    assert all(candidate.config["agentic_fixed_max_tool_calls"] == 1 for candidate in outcome.candidates)
+    assert all(candidate.config["production_agentic_trace_sha256"] for candidate in outcome.candidates)
+
+
+def test_agentic_branch_is_unavailable_without_production_trace(tmp_path: Path) -> None:
+    import yaml
+
+    dataset = make_dataset(tmp_path, 1)
+    baseline, _ = _production_branch_inputs(tmp_path, dataset)
+    baseline.config.update({"max_queries": 3, "max_total_results": 5})
+    space = yaml.safe_load((SCRIPTS.parent / "search_space.yaml").read_text(encoding="utf-8"))
+    context = _branch_context(tmp_path, dataset, baseline, search_space=space)
+    branch = AgenticRetrievalBranch()
+    outcome = BranchRegistry([branch]).generate(branch, context)
+
+    assert outcome.status == "UNAVAILABLE"
+    assert outcome.candidates == []
+    assert "production_agentic_trace unavailable" in str(outcome.reason)
+
+
+def test_agentic_candidates_enter_staged_tune_search(tmp_path: Path) -> None:
+    import yaml
+
+    dataset = make_dataset(tmp_path, 2)
+    baseline, _ = _production_branch_inputs(tmp_path, dataset)
+    baseline.config.update({"max_queries": 3, "max_total_results": 5})
+    trace_path = tmp_path / "production_agentic_trace.jsonl"
+    variants = [(value, 5) for value in (1, 2, 3)] + [(3, value) for value in (1, 2, 3, 4)]
+    _write_production_agentic_trace(trace_path, dataset, variants)
+    baseline.config.update(
+        {
+            "production_agentic_trace_paths": [str(trace_path)],
+            "production_agentic_trace_sha256": {str(trace_path.resolve()): sha256_file(trace_path)},
+        }
+    )
+    space = yaml.safe_load((SCRIPTS.parent / "search_space.yaml").read_text(encoding="utf-8"))
+    space["search"]["branch_coverage"] = {
+        "candidate_coverage_bottleneck": {
+            "relevant": {
+                "RetrievalControl": {"priority": 10, "minimum_attempts": 1, "coverage_class": "required"},
+                "AgenticRetrieval": {"priority": 20, "minimum_attempts": 1, "coverage_class": "required"},
+            }
+        }
+    }
+    evaluated_scopes: list[tuple[str, list[str]]] = []
+
+    def evaluate(candidates: Any, sessions: Any, scope: str) -> list[CandidateResult]:
+        del sessions
+        evaluated_scopes.append((scope, [candidate.name for candidate in candidates]))
+        values = []
+        for candidate in candidates:
+            measured = result(candidate.name, 0.5)
+            measured.config = candidate.config
+            measured.stage = candidate.stage
+            values.append(measured)
+        return values
+
+    baseline_result = result("baseline", 0.5)
+    baseline_result.config = baseline.config
+    search = run_staged_search(
+        dataset=dataset,
+        baseline=baseline,
+        baseline_result=baseline_result,
+        tune_sessions=tuple(dataset.sessions),
+        registry=BranchRegistry([RetrievalControlBranch(), AgenticRetrievalBranch()]),
+        artifact_registry=ArtifactRegistry(tmp_path / "cache", tmp_path / "results"),
+        model_discovery=None,
+        run_dir=tmp_path / "run",
+        search_space=space,
+        budget="quick",
+        profile={
+            "max_stages": 2,
+            "max_cost_level": "medium",
+            "max_branches_per_stage": 1,
+            "max_candidates_per_stage": 20,
+            "tune_frontier": 20,
+            "max_expensive_candidates": 0,
+        },
+        k=5,
+        ranking_depth=20,
+        evaluate=evaluate,
+        diagnose=lambda _: {"regime": "candidate_coverage_bottleneck"},
+    )
+
+    assert [stage["branches"] for stage in search.stage_history] == [
+        ["RetrievalControl"],
+        ["AgenticRetrieval"],
+    ]
+    assert any(
+        scope == "stage_2_tune" and any(name.startswith("AgenticRetrieval:") for name in names)
+        for scope, names in evaluated_scopes
+    )
+
+
+def test_agentic_evaluator_uses_only_exact_production_supplement_trace(tmp_path: Path) -> None:
+    original = make_dataset(tmp_path, 1)
+    session_id = next(iter(original.sessions))
+    turns = list(original.sessions[session_id])
+    last = turns[-1]
+    turns[-1] = Turn(
+        session_id=last.session_id,
+        session_code=last.session_code,
+        turn_index=last.turn_index,
+        query_id=last.query_id,
+        question=last.question,
+        answer=last.answer,
+        gold_raw=last.gold_raw,
+        requirements=last.requirements,
+        required_context="华辰公司授信额度100万元",
+    )
+    dataset = Dataset(original.path, original.sha256, {session_id: tuple(turns)})
+    ranking_path = tmp_path / "ordinary_midterm_rankings.jsonl"
+    ranking_path.write_text(
+        json.dumps(
+            {
+                "query_id": last.query_id,
+                "source_turn_id": "IRRELEVANT",
+                "rank": 1,
+                "memory": "ordinary MidTerm result without the required fact",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    trace_path = tmp_path / "production_agentic_trace.jsonl"
+    _write_production_agentic_trace(trace_path, dataset, [(1, 5)])
+    candidate = Candidate(
+        "agentic-exact",
+        "tune",
+        {
+            "backend": "frozen_ranking",
+            "ranking_path": str(ranking_path),
+            "max_total_pages": 1,
+            "agentic_trace_enabled": True,
+            "max_queries": 1,
+            "max_total_results": 5,
+            "agentic_fixed_max_iterations": 2,
+            "agentic_fixed_max_tool_calls": 1,
+            "production_agentic_trace_paths": [str(trace_path)],
+            "production_agentic_trace_sha256": {str(trace_path.resolve()): sha256_file(trace_path)},
+        },
+    )
+    common = {
+        "dataset": dataset,
+        "sessions": [session_id],
+        "scope": "agentic_exact",
+        "k": 5,
+        "target": "midterm",
+        "shortterm_window": 3,
+        "ranking_depth": 20,
+        "max_parallel_sessions": 1,
+        "registry": ArtifactRegistry(tmp_path / "cache", tmp_path / "results"),
+        "run_dir": tmp_path / "run",
+    }
+    evaluated = evaluate_candidate(candidate=candidate, **common)
+    assert evaluated.status == "VALID"
+    assert evaluated.metrics["recall_at_k"] == 1.0
+    assert evaluated.metrics["agentic_contribution"] == 1.0
+    assert evaluated.metrics["midterm_contribution"] == 0.0
+    assert evaluated.metrics["candidate_pool_recall"] == 0.0
+
+    missing_trace = Candidate(
+        "agentic-missing",
+        "tune",
+        {key: value for key, value in candidate.config.items() if not key.startswith("production_agentic_trace")},
+    )
+    blocked = evaluate_candidate(candidate=missing_trace, **common)
+    assert blocked.status == "INVALID"
+    assert "production_agentic_trace is missing" in blocked.metrics["invalid_reason"]
 
 
 class _StaticBranch:
@@ -2883,3 +3143,272 @@ def test_model_specific_encoding_contract_is_applied() -> None:
     assert model.calls[0][1]["normalize_embeddings"] is True
     assert model.calls[1][0] == ["passage: 经营现金流改善"]
     assert "prompt_name" not in model.calls[1][1]
+
+
+def test_embedding_branch_replays_real_production_sources_before_evaluation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import tuner.generated_source_artifacts as generated_sources
+
+    dataset = make_dataset(tmp_path, 1)
+    baseline, _ = _production_branch_inputs(tmp_path, dataset)
+    model_path = tmp_path / "models" / "embedding" / "snapshots" / "immutable-revision"
+    model_path.mkdir(parents=True)
+
+    class FakeDiscovery:
+        resources = SimpleNamespace(gpu_count=0)
+
+        def discover(self, **_: Any) -> list[ModelCandidate]:
+            return [
+                ModelCandidate(
+                    "local/source-changing-embedding",
+                    "embedding",
+                    "local_huggingface_cache",
+                    revision="immutable-revision",
+                    local_path=str(model_path),
+                    cache_status="CACHED",
+                )
+            ]
+
+        def ensure_available(self, candidate: ModelCandidate, **_: Any) -> ModelCandidate:
+            candidate.status = "AVAILABLE"
+            return candidate
+
+        def smoke_test(self, candidate: ModelCandidate, **_: Any) -> ModelCandidate:
+            candidate.status = "SMOKE_PASSED"
+            candidate.encoding_contract = {
+                "query_prefix": "query: ",
+                "document_prefix": "passage: ",
+                "normalize_embeddings": True,
+                "source": "test-model-contract",
+            }
+            candidate.resource_usage["embedding_dimension"] = 384
+            return candidate
+
+    context = _branch_context(
+        tmp_path,
+        dataset,
+        baseline,
+        budget="standard",
+        model_discovery=FakeDiscovery(),
+    )
+
+    def unexpected_derived_build(*args: Any, **kwargs: Any) -> None:
+        del args, kwargs
+        raise AssertionError("Embedding source candidates must not rebuild the old Session graph")
+
+    monkeypatch.setattr(DerivedArtifactBuilder, "build", unexpected_derived_build)
+    branch = EmbeddingBranch()
+    outcome = BranchRegistry([branch]).generate(branch, context)
+    assert outcome.status == "READY"
+    assert len(outcome.candidates) == 1
+    candidate = outcome.candidates[0]
+    spec = candidate.config["source_generation_spec"]
+    assert parameter_class("embedding_model_id") == "source-changing"
+    assert candidate.provenance["requires_source_regeneration"] is True
+    assert spec["source_identity"]["real_add_replay"] is True
+    assert spec["embedding_model_revision"] == "immutable-revision"
+    assert spec["embedding_encoding_contract"] == candidate.config["encoding_contract"]
+    assert spec["config_overrides"]["embedder"]["config"]["model"] == str(model_path.resolve())
+    assert spec["config_overrides"]["vector_store"]["config"]["embedding_model_dims"] == 384
+    assert candidate.config.get("derived_artifact_path") is None
+
+    generation_calls: list[dict[str, Any]] = []
+
+    def fake_generate(**kwargs: Any) -> list[Path]:
+        generation_calls.append(kwargs)
+        paths = []
+        for session_id in kwargs["session_ids"]:
+            path = Path(kwargs["source_root"]) / session_id / "production_midterm_manifest.json"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(
+                json.dumps(
+                    {
+                        "session_id": session_id,
+                        "effective_memory_config": {
+                            "embedder": {
+                                "provider": "huggingface",
+                                "config": {"model": str(model_path.resolve()), "embedding_dims": 384},
+                            }
+                        },
+                        "embedding_model_revision": "immutable-revision",
+                        "embedding_encoding_contract": kwargs["embedding_encoding_contract"],
+                        "failed_turns": 0,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            paths.append(path)
+        kwargs["generation_stats"].update(
+            {"generated_sessions": len(paths), "reused_sessions": 0, "llm_calls": 4, "embedding_calls": 12}
+        )
+        return paths
+
+    monkeypatch.setattr(generated_sources, "generate_production_sources", fake_generate)
+
+    def fake_evaluate_candidate(
+        dataset: Dataset,
+        candidate: Candidate,
+        sessions: Any,
+        **_: Any,
+    ) -> CandidateResult:
+        del dataset, sessions
+        assert generation_calls, "source generation must complete before retrieval evaluation"
+        generated_manifest = json.loads(Path(candidate.config["manifest_paths"][0]).read_text(encoding="utf-8"))
+        assert generated_manifest["embedding_model_revision"] == "immutable-revision"
+        measured = result(candidate.name, 0.6)
+        measured.config = candidate.config
+        measured.stage = candidate.stage
+        return measured
+
+    monkeypatch.setattr(orchestrator, "evaluate_candidate", fake_evaluate_candidate)
+    evaluated = orchestrator._evaluate_many(
+        dataset,
+        [candidate],
+        list(dataset.sessions),
+        scope="embedding_tune",
+        config=TunerConfig(dataset=Path(dataset.path)),
+        shortterm_window=3,
+        ranking_depth=20,
+        registry=context.registry,
+        run_dir=context.run_dir,
+        execution={
+            "max_parallel_sessions": 1,
+            "max_parallel_candidates": 1,
+            "max_parallel_llm_calls": 1,
+            "gpu_count": 0,
+            "adaptive_reductions": [],
+        },
+        trace_path=tmp_path / "search_trace.jsonl",
+    )
+
+    assert evaluated[0].status == "VALID"
+    assert len(generation_calls) == 1
+    generated_call = generation_calls[0]
+    assert generated_call["config_overrides"]["embedder"]["config"]["model"] == str(model_path.resolve())
+    assert generated_call["embedding_model_id"] == "local/source-changing-embedding"
+    assert generated_call["embedding_model_revision"] == "immutable-revision"
+    assert generated_call["embedding_encoding_contract"] == candidate.config["encoding_contract"]
+    assert "derived_artifact_path" not in candidate.config
+
+
+def test_production_source_runtime_receives_candidate_embedding_and_keeps_isolation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import asyncio
+
+    dataset_path = tmp_path / "dataset.xlsx"
+    dataset_path.write_bytes(b"dataset")
+    memory_config_path = tmp_path / "memory_config.json"
+    memory_config_path.write_text(
+        json.dumps(
+            {
+                "embedder": {
+                    "provider": "huggingface",
+                    "config": {"model": "baseline/model", "embedding_dims": 512},
+                },
+                "vector_store": {
+                    "provider": "qdrant",
+                    "config": {
+                        "path": "/baseline/qdrant",
+                        "collection_name": "baseline",
+                        "embedding_model_dims": 512,
+                    },
+                },
+                "midterm": {"enabled": True, "short_term_capacity": 6},
+            }
+        ),
+        encoding="utf-8",
+    )
+    model_path = tmp_path / "models" / "snapshots" / "revision-1"
+    model_path.mkdir(parents=True)
+    captured_config: dict[str, Any] = {}
+
+    class FakeSentenceTransformer:
+        def encode(self, texts: list[str], **_: Any) -> list[list[float]]:
+            return [[1.0, 0.0] for _ in texts]
+
+    class FakeEmbedding:
+        model = FakeSentenceTransformer()
+
+    class FakeMemory:
+        def __init__(self) -> None:
+            self.llm = SimpleNamespace()
+            self.embedding_model = FakeEmbedding()
+            self._midterm_updater = None
+            self._midterm_memory = None
+
+        @staticmethod
+        def _short_term_capacity() -> int:
+            return 6
+
+        async def flush_background_tasks(self, **_: Any) -> None:
+            return None
+
+        def close(self) -> None:
+            return None
+
+    def fake_create_memory(config: dict[str, Any], **_: Any) -> FakeMemory:
+        captured_config.update(config)
+        return FakeMemory()
+
+    monkeypatch.setattr(
+        production_adapter,
+        "load_dataset",
+        lambda *args, **kwargs: [SimpleNamespace(session_id="S001_test", turns=[])],
+    )
+    monkeypatch.setattr(production_adapter, "create_production_memory", fake_create_memory)
+    runtime_dir = tmp_path / "isolated-runtime"
+    output_dir = tmp_path / "source-output"
+    contract = {
+        "query_prefix": "query: ",
+        "document_prefix": "passage: ",
+        "normalize_embeddings": True,
+        "source": "test-model-contract",
+    }
+    manifest = asyncio.run(
+        production_adapter.build_production_source(
+            {
+                "dataset_path": str(dataset_path),
+                "session_id": "S001_test",
+                "output_dir": str(output_dir),
+                "runtime_dir": str(runtime_dir),
+                "collection_name": "isolated-candidate",
+                "memory_config_path": str(memory_config_path),
+                "ranking_depth": 20,
+                "llm_mode": "mock",
+                "source_variant": "embedding:model@revision-1",
+                "source_identity": {"model_id": "model", "model_revision": "revision-1"},
+                "embedding_model_id": "model",
+                "embedding_model_revision": "revision-1",
+                "embedding_encoding_contract": contract,
+                "config_overrides": {
+                    "embedder": {
+                        "provider": "huggingface",
+                        "config": {
+                            "model": str(model_path.resolve()),
+                            "embedding_dims": 2,
+                            "model_kwargs": {"local_files_only": True},
+                        },
+                    },
+                    "vector_store": {
+                        "config": {
+                            "path": "/must-not-escape-isolation",
+                            "collection_name": "must-not-escape-isolation",
+                            "embedding_model_dims": 2,
+                        }
+                    },
+                },
+            }
+        )
+    )
+
+    assert captured_config["embedder"]["config"]["model"] == str(model_path.resolve())
+    assert captured_config["embedder"]["config"]["model_kwargs"]["local_files_only"] is True
+    assert captured_config["vector_store"]["config"]["embedding_model_dims"] == 2
+    assert captured_config["vector_store"]["config"]["path"] == str((runtime_dir / "qdrant").resolve())
+    assert captured_config["vector_store"]["config"]["collection_name"] == "isolated-candidate"
+    assert manifest["embedding_model_revision"] == "revision-1"
+    assert manifest["embedding_encoding_contract"] == contract

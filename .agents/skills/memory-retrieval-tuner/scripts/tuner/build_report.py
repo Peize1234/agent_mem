@@ -282,7 +282,8 @@ def write_outputs(
             f"- Temporal structural/evaluation metrics: `{temporal.get('metrics', {})}`",
             f"- Temporal provenance: `{temporal.get('provenance', {})}`",
             "- Cross-session Long-term and Promotion parameter tuning is unsupported in this benchmark: production defaults are unchanged, excluded from winner selection, and not reported as tuned. Structural replay is not evaluated.",
-            "- Agentic `max_queries` / `max_total_results` remain production defaults unless a production Agentic trace is evaluated; ignored `candidate_pool_size` is never reported as tuned.",
+            f"- Production Agentic trace: `{run_metadata.get('production_agentic_trace_status', 'UNAVAILABLE')}`; "
+            "`max_queries` / `max_total_results` are searched only through complete exact-parameter production Agentic traces. Missing traces are reported unavailable, and ignored `candidate_pool_size` is never reported as tuned.",
             "- Production isolation: diagnostic trace, hybrid presets, Prompt overrides, and the tuner Agentic/Mid-term union cap are Skill-only; they do not add state or experimental branches to production classes.",
             f"- Stateful replay: `{run_metadata.get('stateful_replay_status', 'not recorded')}`",
             f"- Stateful replay Candidates: `{run_metadata.get('stateful_replay_candidates', [])}`",

@@ -69,6 +69,11 @@ def prepare_generated_source_candidate(
             generation_stats=stats,
             config_overrides=dict(spec.get("config_overrides") or {}),
             stateful_replay=bool(spec.get("stateful_replay")),
+            embedding_encoding_contract=dict(spec.get("embedding_encoding_contract") or {}),
+            embedding_model_id=(str(spec["embedding_model_id"]) if spec.get("embedding_model_id") else None),
+            embedding_model_revision=(
+                str(spec["embedding_model_revision"]) if spec.get("embedding_model_revision") else None
+            ),
         )
 
     manifests_by_session: dict[str, Path] = {}
@@ -78,7 +83,19 @@ def prepare_generated_source_candidate(
         if session_id:
             manifests_by_session[session_id] = path
     for path in generated:
-        manifests_by_session[str(load_json(path)["session_id"])] = path
+        manifest = load_json(path)
+        if spec.get("embedding_model_id"):
+            effective_embedder = dict((manifest.get("effective_memory_config") or {}).get("embedder") or {})
+            effective_model = str((effective_embedder.get("config") or {}).get("model") or "")
+            if effective_model != str(spec.get("embedding_model_path") or ""):
+                raise ValueError("generated Production source did not use the Candidate embedding snapshot")
+            if manifest.get("embedding_model_revision") != spec.get("embedding_model_revision"):
+                raise ValueError("generated Production source embedding revision does not match the Candidate")
+            if dict(manifest.get("embedding_encoding_contract") or {}) != dict(
+                spec.get("embedding_encoding_contract") or {}
+            ):
+                raise ValueError("generated Production source encoding contract does not match the Candidate")
+        manifests_by_session[str(manifest["session_id"])] = path
     session_order = [str(value) for value in spec["session_order"]]
     manifest_paths = [manifests_by_session[session_id] for session_id in session_order]
     config = {
@@ -86,13 +103,17 @@ def prepare_generated_source_candidate(
         "manifest_paths": [str(path.resolve()) for path in manifest_paths],
         "manifest_sha256": {str(path.resolve()): sha256_file(path) for path in manifest_paths},
     }
+    # Any derivative inherited from the parent was built over the parent's
+    # Page/Session graph. Rebuild it below only when a non-production
+    # representation still requires one after the real source replay.
+    config.pop("derived_artifact_path", None)
+    config.pop("derived_artifact_sha256", None)
     embedding_calls = int(stats.get("embedding_calls") or 0)
     reused_artifacts = [sha256_file(path) for path in generated] if stats.get("reused_sessions") else []
     needs_derived = any(
         (
             config.get("query_representation") not in (None, "original"),
             config.get("page_representation") not in (None, "production"),
-            config.get("embedding_model_id") not in (None, "production"),
             config.get("reranker_method") == "multi_vector_maxsim",
         )
     )

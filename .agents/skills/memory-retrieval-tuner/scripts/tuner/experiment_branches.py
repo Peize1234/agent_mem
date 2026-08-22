@@ -2,22 +2,31 @@ from __future__ import annotations
 
 import hashlib
 import math
+from copy import deepcopy
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Protocol
 
+from .agentic_retrieval_artifacts import (
+    AGENTIC_FIXED_MAX_ITERATIONS,
+    AGENTIC_FIXED_MAX_TOOL_CALLS,
+    load_production_agentic_trace,
+)
 from .artifact_registry import ArtifactRegistry
 from .derived_artifacts import DerivedArtifactBuilder
 from .io_utils import load_json, load_jsonl, sha256_file, stable_hash
 from .model_discovery import ModelDiscovery
 from .models import Candidate, CandidateResult, Dataset
-from .prompt_artifacts import QueryPromptArtifactGenerator, controlled_query_prompt_variants
+from .parameter_schema import validate_candidate_config
+from .prompt_artifacts import (
+    QueryPromptArtifactGenerator,
+    controlled_query_prompt_variants,
+)
 from .source_prompt_variants import (
     controlled_fine_grained_longterm_prompt_variants,
     controlled_page_prompt_variants,
     controlled_session_merge_prompt_variants,
 )
-from .parameter_schema import validate_candidate_config
 
 COST_RANK = {"cheap": 0, "medium": 1, "high": 2, "expensive": 3}
 ALL_REGIMES = frozenset(
@@ -187,6 +196,16 @@ def _tuning_cost_provenance(
     }
 
 
+def _deep_merge_mapping(base: Mapping[str, Any], updates: Mapping[str, Any]) -> dict[str, Any]:
+    result = deepcopy(dict(base))
+    for key, value in updates.items():
+        if isinstance(value, Mapping) and isinstance(result.get(key), Mapping):
+            result[key] = _deep_merge_mapping(result[key], value)
+        else:
+            result[key] = deepcopy(value)
+    return result
+
+
 def _stateful_source_spec(
     context: BranchContext,
     *,
@@ -198,15 +217,17 @@ def _stateful_source_spec(
     if not manifests:
         return None
     manifest = load_json(manifests[0])
+    base_spec = dict(context.anchor.config.get("source_generation_spec") or {})
+    merged_overrides = _deep_merge_mapping(dict(base_spec.get("config_overrides") or {}), overrides)
     identity = {
         "schema": 3,
         "kind": kind,
         "dataset_sha256": context.dataset.sha256,
         "base_manifest": sha256_file(manifests[0]),
-        "overrides": dict(overrides),
+        "parent_source_identity": base_spec.get("source_identity"),
+        "overrides": merged_overrides,
         "stateful_replay": True,
     }
-    base_spec = dict(context.anchor.config.get("source_generation_spec") or {})
     if not base_spec:
         base_spec = {
             "dataset_path": context.dataset.path,
@@ -221,7 +242,7 @@ def _stateful_source_spec(
         }
     spec = {
         **base_spec,
-        "config_overrides": dict(overrides),
+        "config_overrides": merged_overrides,
         "source_identity": identity,
         "source_variant": kind,
         "stateful_replay": True,
@@ -319,6 +340,150 @@ class RetrievalControlBranch(BaseBranch):
                 )
             )
         return BranchOutcome(self.spec.name, "READY", candidates=candidates)
+
+
+class AgenticRetrievalBranch(BaseBranch):
+    spec = BranchSpec(
+        name="AgenticRetrieval",
+        diagnostic_regimes=frozenset({"candidate_coverage_bottleneck", "balanced_or_plateau"}),
+        cost_level="cheap",
+        required_artifacts=("production_midterm_checkpoints", "production_agentic_trace"),
+        execution_adapter="ProductionAgenticTraceAdapter",
+        provenance_contract=(
+            "dataset_sha256",
+            "manifest_sha256",
+            "production_agentic_trace_sha256",
+            "exact_agentic_parameter_variant",
+        ),
+        resource_requirements={"llm": False, "embedding": False, "gpu": False},
+        priority=25,
+    )
+
+    @staticmethod
+    def _query_ids(context: BranchContext) -> dict[str, tuple[str, ...]]:
+        return {
+            session_id: tuple(turn.query_id for turn in turns)
+            for session_id, turns in context.dataset.sessions.items()
+        }
+
+    def _load_trace(self, candidate: Candidate, context: BranchContext):
+        return load_production_agentic_trace(
+            candidate.config,
+            dataset_sha256=context.dataset.sha256,
+            query_ids_by_session=self._query_ids(context),
+        )
+
+    def validate_provenance(self, candidate: Candidate, context: BranchContext) -> tuple[bool, str | None]:
+        valid, reason = super().validate_provenance(candidate, context)
+        if not valid:
+            return valid, reason
+        try:
+            trace = self._load_trace(candidate, context)
+        except (OSError, ValueError) as exc:
+            return False, str(exc)
+        variant = (int(candidate.config["max_queries"]), int(candidate.config["max_total_results"]))
+        if variant not in trace.variants:
+            return False, "production Agentic trace does not contain the Candidate's exact parameter variant"
+        return True, None
+
+    def generate(self, context: BranchContext) -> BranchOutcome:
+        retrieval = (((context.search_space.get("search") or {}).get("stages") or {}).get("cheap") or {}).get(
+            "retrieval"
+        ) or {}
+        settings = retrieval.get("agentic_retrieval")
+        if not isinstance(settings, Mapping):
+            return BranchOutcome(
+                self.spec.name,
+                "UNAVAILABLE",
+                reason="search_space.yaml has no agentic_retrieval search definition",
+            )
+        fixed = settings.get("fixed") or {}
+        if (
+            int(fixed.get("max_iterations") or 0) != AGENTIC_FIXED_MAX_ITERATIONS
+            or int(fixed.get("max_tool_calls") or 0) != AGENTIC_FIXED_MAX_TOOL_CALLS
+        ):
+            return BranchOutcome(
+                self.spec.name,
+                "UNAVAILABLE",
+                reason="Agentic hard constraints must keep max_iterations=2 and max_tool_calls=1",
+            )
+        try:
+            trace = self._load_trace(context.anchor, context)
+        except (OSError, ValueError) as exc:
+            return BranchOutcome(
+                self.spec.name,
+                "UNAVAILABLE",
+                reason=f"production_agentic_trace unavailable: {exc}",
+                provenance={"required_artifact": "production_agentic_trace"},
+            )
+
+        query_values = sorted({int(value) for value in settings.get("max_queries") or []})
+        result_values = sorted({int(value) for value in settings.get("max_total_results") or []})
+        for value in query_values:
+            validate_candidate_config({"max_queries": value})
+        for value in result_values:
+            validate_candidate_config({"max_total_results": value})
+        baseline_queries = int(context.anchor.config.get("max_queries") or max(query_values, default=3))
+        baseline_results = int(context.anchor.config.get("max_total_results") or max(result_values, default=5))
+        available = set(trace.variants)
+        variants = {
+            *((value, baseline_results) for value in query_values if value != baseline_queries),
+            *((baseline_queries, value) for value in result_values if value != baseline_results),
+        }
+        candidates: list[Candidate] = []
+        for max_queries, max_total_results in sorted(variants):
+            if (max_queries, max_total_results) not in available:
+                continue
+            candidates.append(
+                _candidate(
+                    context,
+                    branch=self.spec.name,
+                    label=f"max_queries={max_queries},max_total_results={max_total_results}",
+                    cost_level=self.spec.cost_level,
+                    complexity=1,
+                    provenance={
+                        "production_agentic_trace_sha256": trace.sha256,
+                        "production_agentic_execution_contract": "Memory.run_agentic_retrieval",
+                        "provenance_validated": True,
+                    },
+                    agentic_trace_enabled=True,
+                    max_queries=max_queries,
+                    max_total_results=max_total_results,
+                    agentic_fixed_max_iterations=AGENTIC_FIXED_MAX_ITERATIONS,
+                    agentic_fixed_max_tool_calls=AGENTIC_FIXED_MAX_TOOL_CALLS,
+                    production_agentic_trace_paths=[str(path) for path in trace.paths],
+                    production_agentic_trace_sha256=trace.sha256,
+                )
+            )
+        missing_axes = []
+        if not any(candidate.config["max_queries"] != baseline_queries for candidate in candidates):
+            missing_axes.append("max_queries")
+        if not any(candidate.config["max_total_results"] != baseline_results for candidate in candidates):
+            missing_axes.append("max_total_results")
+        if missing_axes:
+            return BranchOutcome(
+                self.spec.name,
+                "UNAVAILABLE",
+                reason=(
+                    "production_agentic_trace has no complete exact Candidate variants for axes: "
+                    + ", ".join(missing_axes)
+                ),
+                provenance={
+                    "required_artifact": "production_agentic_trace",
+                    "available_variants": [list(value) for value in trace.variants],
+                },
+            )
+        return BranchOutcome(
+            self.spec.name,
+            "READY",
+            candidates=candidates,
+            provenance={
+                "required_artifact": "production_agentic_trace",
+                "trace_sha256": trace.sha256,
+                "available_variants": [list(value) for value in trace.variants],
+            },
+            reused_artifacts=sorted(trace.sha256.values()),
+        )
 
 
 class QueryRepresentationBranch(BaseBranch):
@@ -660,10 +825,17 @@ class EmbeddingBranch(BaseBranch):
         name="Embedding",
         diagnostic_regimes=frozenset({"candidate_coverage_bottleneck"}),
         cost_level="high",
-        required_artifacts=("production_midterm_checkpoints", "model_weights"),
-        execution_adapter="DerivedEmbeddingCheckpointAdapter",
-        provenance_contract=("dataset_sha256", "model_id", "model_revision", "manifest_sha256"),
-        resource_requirements={"llm": False, "embedding": True, "gpu": "optional", "network": "deep_only"},
+        required_artifacts=("production_source_dataset", "production_runtime", "model_weights"),
+        execution_adapter="ProductionGeneratedSourceAdapter",
+        provenance_contract=(
+            "dataset_sha256",
+            "model_id",
+            "model_revision",
+            "encoding_contract",
+            "source_identity",
+            "manifest_sha256",
+        ),
+        resource_requirements={"llm": True, "embedding": True, "gpu": "optional", "network": "deep_only"},
         priority=10,
     )
 
@@ -689,10 +861,7 @@ class EmbeddingBranch(BaseBranch):
         )
         if not models:
             return BranchOutcome(self.spec.name, "UNAVAILABLE", reason="no resource-compatible local/discovered model")
-        builder = DerivedArtifactBuilder(context.registry)
         candidates: list[Candidate] = []
-        embeddings = 0
-        reused: list[str] = []
         unavailable: list[str] = []
         for model in models:
             model = context.model_discovery.ensure_available(model, allow_download=allow_network)
@@ -704,22 +873,79 @@ class EmbeddingBranch(BaseBranch):
                 unavailable.append(f"{model.model_id}: {model.status}")
                 continue
             try:
-                result = builder.build(
-                    dataset_sha256=context.dataset.sha256,
-                    session_scope=tuple(sorted(context.dataset.sessions)),
-                    baseline=context.anchor,
-                    **_derived_dimensions(
-                        context.anchor,
-                        embedding_model_id=model.model_id,
-                        embedding_revision=model.revision,
-                        embedding_local_path=model.local_path,
-                        encoding_contract=model.encoding_contract,
-                    ),
-                    device="cuda" if context.model_discovery.resources.gpu_count else "cpu",
+                if not model.revision or not model.local_path or not Path(model.local_path).exists():
+                    raise ValueError("embedding source replay requires an immutable local model snapshot")
+                if not model.encoding_contract:
+                    raise ValueError("embedding source replay requires a validated encoding contract")
+                embedding_dimension = int(model.resource_usage.get("embedding_dimension") or 0)
+                if embedding_dimension <= 0:
+                    raise ValueError("embedding smoke test did not record a valid embedding dimension")
+                manifests = [Path(str(value)) for value in context.anchor.config.get("manifest_paths") or []]
+                if not manifests:
+                    raise ValueError("embedding source replay requires production MidTerm manifests")
+                manifest = load_json(manifests[0])
+                effective_config = dict(manifest.get("effective_memory_config") or {})
+                base_embedder = deepcopy(dict(effective_config.get("embedder") or {}))
+                embedder_config = deepcopy(dict(base_embedder.get("config") or {}))
+                embedder_config.update(
+                    {
+                        "model": str(Path(model.local_path).resolve()),
+                        "embedding_dims": embedding_dimension,
+                        "model_kwargs": _deep_merge_mapping(
+                            dict(embedder_config.get("model_kwargs") or {}),
+                            {"local_files_only": True},
+                        ),
+                    }
                 )
-                embeddings += result.embedding_calls
-                if result.reused:
-                    reused.append(result.sha256)
+                embedding_overrides = {
+                    "embedder": {"provider": "huggingface", "config": embedder_config},
+                    "vector_store": {"config": {"embedding_model_dims": embedding_dimension}},
+                }
+                base_spec = dict(context.anchor.config.get("source_generation_spec") or {})
+                base_overrides = dict(base_spec.get("config_overrides") or {})
+                config_overrides = _deep_merge_mapping(base_overrides, embedding_overrides)
+                if not base_spec:
+                    base_spec = {
+                        "dataset_path": context.dataset.path,
+                        "dataset_sha256": context.dataset.sha256,
+                        "session_turn_counts": {
+                            key: len(turns) for key, turns in context.dataset.sessions.items()
+                        },
+                        "memory_config_path": manifest.get("memory_config_path"),
+                        "llm_mode": manifest.get("llm_mode") or "real",
+                        "page_summary_prompt": None,
+                        "page_context_contract": "production_previous_current_following_raw_v1",
+                        "session_order": sorted(context.dataset.sessions),
+                    }
+                identity = {
+                    "schema": 3,
+                    "kind": "embedding_production_source_replay",
+                    "dataset_sha256": context.dataset.sha256,
+                    "base_manifest": sha256_file(manifests[0]),
+                    "model_id": model.model_id,
+                    "model_revision": model.revision,
+                    "model_local_path": str(Path(model.local_path).resolve()),
+                    "embedding_dimension": embedding_dimension,
+                    "encoding_contract": dict(model.encoding_contract),
+                    "config_overrides": config_overrides,
+                    "real_add_replay": True,
+                }
+                source_variant = f"embedding:{model.model_id}@{model.revision}"
+                source_spec = {
+                    **base_spec,
+                    "config_overrides": config_overrides,
+                    "embedding_encoding_contract": dict(model.encoding_contract),
+                    "embedding_model_id": model.model_id,
+                    "embedding_model_revision": model.revision,
+                    "embedding_model_path": str(Path(model.local_path).resolve()),
+                    "embedding_dimension": embedding_dimension,
+                    "source_identity": identity,
+                    "source_variant": source_variant,
+                    "stateful_replay": False,
+                    "source_root": str(
+                        context.registry.cache_root / "production_variants" / stable_hash(identity)
+                    ),
+                }
                 candidates.append(
                     _candidate(
                         context,
@@ -729,16 +955,22 @@ class EmbeddingBranch(BaseBranch):
                         complexity=3,
                         provenance={
                             "model_discovery": model.serializable(),
-                            "derived_artifact_sha256": result.sha256,
+                            "requires_source_regeneration": True,
+                            "source_parameter_class": "source-changing",
+                            "source_identity": identity,
                             "provenance_validated": True,
-                            **_tuning_cost_provenance(context, embedding_calls=result.embedding_calls),
                         },
                         embedding_model_id=model.model_id,
                         embedding_model_revision=model.revision,
-                        embedding_model_path=model.local_path,
+                        embedding_model_path=str(Path(model.local_path).resolve()),
                         encoding_contract=model.encoding_contract,
-                        derived_artifact_path=str(result.path),
-                        derived_artifact_sha256=result.sha256,
+                        embedding_dimension=embedding_dimension,
+                        embedding_source_regenerated=True,
+                        source_generation_spec=source_spec,
+                        source_config_overrides=config_overrides,
+                        source_variant=source_variant,
+                        derived_artifact_path=None,
+                        derived_artifact_sha256=None,
                     )
                 )
             except Exception as exc:
@@ -748,8 +980,6 @@ class EmbeddingBranch(BaseBranch):
             "READY" if candidates else "UNAVAILABLE",
             candidates=candidates,
             reason="; ".join(unavailable) if unavailable else None,
-            embedding_calls=embeddings,
-            reused_artifacts=reused,
         )
 
 
@@ -888,6 +1118,7 @@ class SourcePromptBranch(BaseBranch):
         if not base_manifests:
             return BranchOutcome(self.spec.name, "UNAVAILABLE", reason="production source manifest is missing")
         source_manifest = load_json(base_manifests[0])
+        base_source_spec = dict(context.anchor.config.get("source_generation_spec") or {})
         memory_config_path = Path(str(source_manifest["memory_config_path"]))
         llm_mode = str(source_manifest.get("llm_mode") or "real")
         session_turn_counts = {session_id: len(turns) for session_id, turns in context.dataset.sessions.items()}
@@ -905,6 +1136,7 @@ class SourcePromptBranch(BaseBranch):
                 "page_context_contract": variant["context_contract"],
                 "llm_mode": llm_mode,
                 "artifact_schema": 1,
+                "parent_source_identity": base_source_spec.get("source_identity"),
             }
             source_root = context.registry.cache_root / "production_variants" / stable_hash(identity)
             candidates.append(
@@ -925,6 +1157,7 @@ class SourcePromptBranch(BaseBranch):
                         "provenance_validated": True,
                     },
                     source_generation_spec={
+                        **base_source_spec,
                         "dataset_path": context.dataset.path,
                         "dataset_sha256": context.dataset.sha256,
                         "session_turn_counts": session_turn_counts,
@@ -978,7 +1211,11 @@ class MidtermEvolutionBranch(BaseBranch):
     )
 
     def generate(self, context: BranchContext) -> BranchOutcome:
-        from .parameter_schema import dynamic_turn_distance_candidates, heat_modulation_candidates, heat_preset_candidates
+        from .parameter_schema import (
+            dynamic_turn_distance_candidates,
+            heat_modulation_candidates,
+            heat_preset_candidates,
+        )
 
         distances = []
         positions = {turn.query_id: turn.turn_index for turns in context.dataset.sessions.values() for turn in turns}
@@ -1203,14 +1440,25 @@ class MidtermSourceConfigBranch(BaseBranch):
                 if value == baseline_midterm.get(axis):
                     continue
                 overrides = {"midterm": {axis: value}}
+                merged_overrides = _deep_merge_mapping(
+                    dict(base_spec.get("config_overrides") or {}), overrides
+                )
                 identity = {
                     "schema": 3,
                     "kind": "production_midterm_source_config",
                     "dataset_sha256": context.dataset.sha256,
                     "base_manifest": sha256_file(manifests[0]),
-                    "overrides": overrides,
+                    "parent_source_identity": base_spec.get("source_identity"),
+                    "overrides": merged_overrides,
                 }
-                spec = {**base_spec, "config_overrides": overrides, "source_identity": identity, "source_root": str(context.registry.cache_root / "production_variants" / stable_hash(identity))}
+                spec = {
+                    **base_spec,
+                    "config_overrides": merged_overrides,
+                    "source_identity": identity,
+                    "source_root": str(
+                        context.registry.cache_root / "production_variants" / stable_hash(identity)
+                    ),
+                }
                 candidates.append(
                     _candidate(
                         context,
@@ -1239,16 +1487,20 @@ class MidtermSourceConfigBranch(BaseBranch):
                     "keyword_overlap_weight": keyword_weight,
                 }
             }
+            merged_overrides = _deep_merge_mapping(
+                dict(base_spec.get("config_overrides") or {}), overrides
+            )
             identity = {
                 "schema": 3,
                 "kind": "production_midterm_source_weight_preset",
                 "dataset_sha256": context.dataset.sha256,
                 "base_manifest": sha256_file(manifests[0]),
-                "overrides": overrides,
+                "parent_source_identity": base_spec.get("source_identity"),
+                "overrides": merged_overrides,
             }
             spec = {
                 **base_spec,
-                "config_overrides": overrides,
+                "config_overrides": merged_overrides,
                 "source_identity": identity,
                 "source_root": str(context.registry.cache_root / "production_variants" / stable_hash(identity)),
             }
@@ -1400,6 +1652,7 @@ def _split_source_prompt_outcome(
     if not manifests:
         return BranchOutcome(branch_spec.name, "UNAVAILABLE", reason="production source manifest is missing")
     manifest = load_json(manifests[0])
+    base_source_spec = dict(context.anchor.config.get("source_generation_spec") or {})
     memory_config_path = Path(str(manifest["memory_config_path"]))
     session_turn_counts = {session_id: len(turns) for session_id, turns in context.dataset.sessions.items()}
     tune_scope = set(context.tune_sessions)
@@ -1421,6 +1674,7 @@ def _split_source_prompt_outcome(
             "memory_config_sha256": sha256_file(memory_config_path),
             "production_prompt_hashes": manifest.get("prompt_hashes") or {},
             "prompt_hash": prompt_hash,
+            "parent_source_identity": base_source_spec.get("source_identity"),
             "invalidates": {
                 "session_merge_prompt": ["midterm_sessions", "promotion", "cross_session_longterm"],
                 "fine_grained_longterm_extraction_prompt": ["fine_grained_longterm", "all_memory_context"],
@@ -1429,6 +1683,7 @@ def _split_source_prompt_outcome(
         }
         source_root = context.registry.cache_root / "production_variants" / stable_hash(identity)
         source_spec = {
+            **base_source_spec,
             "dataset_path": context.dataset.path,
             "dataset_sha256": context.dataset.sha256,
             "session_turn_counts": session_turn_counts,
@@ -1817,6 +2072,7 @@ class BranchRegistry:
 def default_branches() -> list[ExperimentBranch]:
     return [
         RetrievalControlBranch(),
+        AgenticRetrievalBranch(),
         HybridRetrievalBranch(),
         QueryRepresentationBranch(),
         RerankingBranch(),

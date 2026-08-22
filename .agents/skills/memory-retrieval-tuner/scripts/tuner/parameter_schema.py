@@ -140,6 +140,8 @@ def validate_candidate_config(config: Mapping[str, Any], *, allow_unknown: bool 
     integer("promotion_min_recall_count", 1)
     integer("max_queries", 1, 3)
     integer("max_total_results", 1, 5)
+    integer("agentic_fixed_max_iterations", 2, 2)
+    integer("agentic_fixed_max_tool_calls", 1, 1)
     integer("candidate_depth", 1, 100)
     integer("rerank_depth", 1, 100)
     for name in (

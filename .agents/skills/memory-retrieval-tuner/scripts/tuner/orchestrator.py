@@ -17,7 +17,11 @@ from .artifact_registry import ArtifactRegistry
 from .build_report import write_outputs
 from .candidate_selector import select_best
 from .dataset_audit import audit_dataset
-from .evaluate_candidate import candidate_hash, combine_candidate_results, evaluate_candidate
+from .evaluate_candidate import (
+    candidate_hash,
+    combine_candidate_results,
+    evaluate_candidate,
+)
 from .experiment_branches import BranchRegistry
 from .generated_source_artifacts import prepare_generated_source_candidate
 from .io_utils import append_jsonl, load_json, stable_hash, write_jsonl
@@ -504,6 +508,27 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
     if midterm_baseline is None or midterm_baseline.config.get("backend") != "production_midterm":
         raise RuntimeError("Unable to establish a replayable production MidTerm baseline")
 
+    production_agentic_trace = registry.discover_production_agentic_trace(
+        dataset_sha256=dataset.sha256,
+        query_ids_by_session={
+            session_id: [turn.query_id for turn in turns]
+            for session_id, turns in dataset.sessions.items()
+        },
+        source_run=config.source_run,
+    )
+    if production_agentic_trace is not None:
+        midterm_baseline.config.update(
+            {
+                "production_agentic_trace_paths": production_agentic_trace["paths"],
+                "production_agentic_trace_sha256": production_agentic_trace["sha256"],
+                "production_agentic_trace_variants": production_agentic_trace["variants"],
+                "production_agentic_trace_status": "AVAILABLE",
+            }
+        )
+        midterm_baseline.provenance["production_agentic_trace"] = production_agentic_trace
+    else:
+        midterm_baseline.config["production_agentic_trace_status"] = "UNAVAILABLE"
+
     # Source generation is intentionally completed before searching.  Re-scan
     # the newly generated exact traces so the baseline can also be evaluated as
     # Short + Mid + Session-Longterm, when the trace carries all layers.
@@ -839,6 +864,12 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         "cross_session_winner_selection_enabled": temporal_replay["winner_selection_enabled"],
         "stateful_replay_status": stateful_status,
         "stateful_replay_candidates": [result.name for result in stateful_results],
+        "production_agentic_trace_status": midterm_baseline.config.get(
+            "production_agentic_trace_status", "UNAVAILABLE"
+        ),
+        "agentic_retrieval_candidates": [
+            result.name for result in tune_results if result.config.get("agentic_trace_enabled") is True
+        ],
         "run_dir": str(run_dir),
         "execution": execution,
         "runtime_seconds": cumulative_runtime,

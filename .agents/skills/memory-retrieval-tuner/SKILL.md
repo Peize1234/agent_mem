@@ -333,6 +333,7 @@ split_manifest.json
 每个 Branch 必须声明名称、诊断 regime、cost level、required artifacts、candidate generation、execution adapter、provenance contract 和资源需求。当前 Registry 包含：
 
 - `RetrievalControl`；
+- `AgenticRetrieval`（仅消费完整、精确参数匹配的 `production_agentic_trace`；缺失时明确 `UNAVAILABLE`）；
 - `QueryRewritePrompt`（当前 Query Prompt 搜索的唯一可达 Branch；旧 `QueryRepresentation` 仅保留兼容 adapter，不进入默认 coverage）；
 - `PageRepresentation`；
 - `HybridRetrieval`；
