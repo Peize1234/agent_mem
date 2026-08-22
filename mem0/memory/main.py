@@ -2977,9 +2977,9 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             expiration_date (Any, optional): Date in YYYY-MM-DD format. Expired memories are hidden
                 from search and get_all unless show_expired is True.
             infer (bool, optional): Controls Fine-grained LongTerm extraction for each complete QA.
-                If True (default), an LLM extracts facts from that QA. If False, its non-system
-                messages are written as raw LongTerm memories. Production background mode performs
-                this independently of ShortTerm eviction.
+                If True (default), an LLM extracts facts from each complete QA. If False, the
+                complete QA's non-system messages are stored directly. This behavior is independent
+                of ShortTerm eviction.
             memory_type (str, optional): Specifies the type of memory. Currently, only
                 `MemoryType.PROCEDURAL.value` ("procedural_memory") is explicitly handled for
                 creating procedural memories (typically requires 'agent_id'). Otherwise, memories
@@ -3063,7 +3063,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         else:
             messages = parse_vision_messages(messages)
 
-        # Short-term persistence and migration reservation are synchronous; extraction is not.
+        # Persist ShortTerm before either direct extraction or durable background job submission.
         session_scope = _build_session_scope(effective_filters)
         if not self._background_config().enabled:
             if idempotency_key is not None:
@@ -3073,6 +3073,8 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                 session_scope,
             )
             vector_store_result = []
+            if evicted_messages:
+                self._process_midterm_evictions(evicted_messages, effective_filters)
             for qa_messages, qa_metadata in _completed_qa_longterm_inputs(completed_qa, processed_metadata):
                 vector_store_result.extend(
                     self._process_evicted_long_term_memories(
@@ -3083,8 +3085,6 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                         prompt=prompt,
                     )
                 )
-            if evicted_messages:
-                self._process_midterm_evictions(evicted_messages, effective_filters)
             self._update_profile_after_add(normalized_user_id, messages)
             scale_threshold_notice = detect_scale_threshold_from_add_result(self, vector_store_result)
             if temporal_usage_notice:
@@ -5611,8 +5611,10 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             timestamp (Any, optional): Platform-only temporal parameter. Not supported in OSS.
             expiration_date (Any, optional): Date in YYYY-MM-DD format. Expired memories are hidden
                 from search and get_all unless show_expired is True.
-            infer (bool, optional): Whether to infer long-term facts from messages evicted from the
-                short-term window. If False, evicted messages are written directly. Defaults to True.
+            infer (bool, optional): Controls Fine-grained LongTerm extraction for each complete QA.
+                If True (default), an LLM extracts facts from each complete QA. If False, the
+                complete QA's non-system messages are stored directly. This behavior is independent
+                of ShortTerm eviction.
             memory_type (str, optional): Type of memory to create. Defaults to None.
                                          Pass "procedural_memory" to create procedural memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
@@ -5693,7 +5695,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         else:
             messages = await asyncio.to_thread(parse_vision_messages, messages)
 
-        # Persist short-term state before returning; extraction remains in durable workers.
+        # Persist ShortTerm before either direct extraction or durable background job submission.
         session_scope = _build_session_scope(effective_filters)
         if not self._background_config().enabled:
             if idempotency_key is not None:
@@ -5703,6 +5705,8 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                 session_scope,
             )
             vector_store_result = []
+            if evicted_messages:
+                await asyncio.to_thread(self._process_midterm_evictions, evicted_messages, effective_filters)
             for qa_messages, qa_metadata in _completed_qa_longterm_inputs(completed_qa, processed_metadata):
                 vector_store_result.extend(
                     await self._process_evicted_long_term_memories(
@@ -5713,8 +5717,6 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                         prompt=prompt,
                     )
                 )
-            if evicted_messages:
-                await asyncio.to_thread(self._process_midterm_evictions, evicted_messages, effective_filters)
             await self._update_profile_after_add(normalized_user_id, messages)
             scale_threshold_notice = await asyncio.to_thread(
                 detect_scale_threshold_from_add_result, self, vector_store_result

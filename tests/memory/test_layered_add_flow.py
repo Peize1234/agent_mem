@@ -365,6 +365,69 @@ def test_concurrent_sync_adds_create_ordered_jobs_without_sqlite_errors():
         db.close()
 
 
+def test_background_disabled_sync_longterm_failure_cannot_skip_midterm_eviction():
+    db = SQLiteManager(":memory:")
+    try:
+        memory = _sync_memory(db, capacity=2, background_enabled=False)
+        memory.add(_qa(1), user_id="u1", run_id="r1")
+        memory._process_midterm_evictions.reset_mock()
+        memory._process_evicted_long_term_memories.reset_mock()
+        events = []
+
+        def process_midterm(messages, filters):
+            del filters
+            events.append(("midterm", _contents(messages)))
+
+        def fail_longterm(messages, metadata, filters, **kwargs):
+            del metadata, filters, kwargs
+            events.append(("longterm", _contents(messages)))
+            raise RuntimeError("longterm failed")
+
+        memory._process_midterm_evictions.side_effect = process_midterm
+        memory._process_evicted_long_term_memories.side_effect = fail_longterm
+
+        with pytest.raises(RuntimeError, match="longterm failed"):
+            memory.add(_qa(2), user_id="u1", run_id="r1")
+
+        assert events == [("midterm", ["u1", "a1"]), ("longterm", ["u2", "a2"])]
+        memory._process_midterm_evictions.assert_called_once()
+        memory._process_evicted_long_term_memories.assert_called_once()
+    finally:
+        db.close()
+
+
+@pytest.mark.asyncio
+async def test_background_disabled_async_longterm_failure_cannot_skip_midterm_eviction():
+    db = SQLiteManager(":memory:")
+    try:
+        memory = _async_memory(db, capacity=2, background_enabled=False)
+        await memory.add(_qa(1), user_id="u1", run_id="r1")
+        memory._process_midterm_evictions.reset_mock()
+        memory._process_evicted_long_term_memories.reset_mock()
+        events = []
+
+        def process_midterm(messages, filters):
+            del filters
+            events.append(("midterm", _contents(messages)))
+
+        async def fail_longterm(messages, metadata, filters, **kwargs):
+            del metadata, filters, kwargs
+            events.append(("longterm", _contents(messages)))
+            raise RuntimeError("longterm failed")
+
+        memory._process_midterm_evictions.side_effect = process_midterm
+        memory._process_evicted_long_term_memories.side_effect = fail_longterm
+
+        with pytest.raises(RuntimeError, match="longterm failed"):
+            await memory.add(_qa(2), user_id="u1", run_id="r1")
+
+        assert events == [("midterm", ["u1", "a1"]), ("longterm", ["u2", "a2"])]
+        memory._process_midterm_evictions.assert_called_once()
+        memory._process_evicted_long_term_memories.assert_awaited_once()
+    finally:
+        db.close()
+
+
 def test_background_disabled_extracts_complete_qa_before_shortterm_overflow():
     db = SQLiteManager(":memory:")
     try:
