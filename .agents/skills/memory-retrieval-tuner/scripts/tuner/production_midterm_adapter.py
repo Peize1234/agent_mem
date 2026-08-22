@@ -503,7 +503,9 @@ def _checkpoint(
             session_id=session_id,
         )
     )
-    retrieval_query = asyncio.run(QueryResolver(memory.llm).resolve_async(query, base_context.get("short_term") or []))
+    retrieval_query = asyncio.run(
+        QueryResolver(memory.llm).resolve_async(query, base_context.get("short_term_messages") or [])
+    )
     query_vector = memory.embedding_model.embed(retrieval_query, "search")
     pages = _scroll_points(memory.midterm_memory.pages_store)
     sessions = _scroll_points(memory.midterm_memory.sessions_store)
@@ -861,7 +863,7 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
                     "dataset_turn_id": turn.turn_id,
                     "dataset_turn_index": turn.turn_index,
                 },
-                infer=False,
+                infer=True,
             )
             migration_job_id = (add_result.get("background") or {}).get("migration_job_id")
             evicted = lineage.register_add(session.session_id, turn.turn_id, migration_job_id)

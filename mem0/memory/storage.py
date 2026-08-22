@@ -879,43 +879,7 @@ class SQLiteManager:
             try:
                 self.connection.execute("BEGIN IMMEDIATE")
                 self._insert_messages_in_transaction(messages, session_scope, source_operation_key=None)
-                max_messages = max(int(max_messages), 0)
-
-                rows = self.connection.execute(
-                    """
-                    SELECT id, role, content, name, created_at, turn_index
-                    FROM messages
-                    WHERE session_scope = ? AND status = 'active'
-                    ORDER BY DATETIME(created_at) ASC, rowid ASC
-                """,
-                    (session_scope,),
-                ).fetchall()
-
-                evict_count = max(len(rows) - max_messages, 0)
-                evicted_rows = rows[:evict_count]
-                evicted_ids = [row[0] for row in evicted_rows]
-                if evicted_ids:
-                    placeholders = ",".join("?" for _ in evicted_ids)
-                    self.connection.execute(
-                        f"""
-                        DELETE FROM messages
-                        WHERE session_scope = ? AND id IN ({placeholders})
-                    """,
-                        (session_scope, *evicted_ids),
-                    )
-
-                evicted_messages = [
-                    {
-                        "id": r[0],
-                        "role": r[1],
-                        "content": r[2],
-                        "name": r[3],
-                        "created_at": r[4],
-                        "turn_index": r[5],
-                        "session_scope": session_scope,
-                    }
-                    for r in evicted_rows
-                ]
+                evicted_messages = self._evict_active_messages_in_transaction(session_scope, max_messages)
 
                 if not return_evicted:
                     evicted_messages = None
@@ -926,6 +890,78 @@ class SQLiteManager:
                 self.connection.execute("ROLLBACK")
                 logger.error(f"Failed to save messages: {e}")
                 raise
+
+    def save_messages_and_get_completed_qa(
+        self,
+        messages: List[Dict[str, Any]],
+        session_scope: str,
+        max_messages: int = 10,
+    ) -> tuple[List[Dict[str, Any]], List[tuple[int, List[Dict[str, Any]]]]]:
+        """Persist messages and return newly completed QA turns plus active overflow.
+
+        This is the direct-execution counterpart to durable LongTerm job creation:
+        both paths use the same turn allocator and complete-QA selector.
+        """
+        if not messages:
+            return [], []
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN IMMEDIATE")
+                touched_turn_indices = self._insert_messages_in_transaction(
+                    messages,
+                    session_scope,
+                    source_operation_key=None,
+                )
+                completed_qa = self._complete_qa_messages_in_transaction(session_scope, touched_turn_indices)
+                evicted_messages = self._evict_active_messages_in_transaction(session_scope, max_messages)
+                self.connection.execute("COMMIT")
+                return evicted_messages, completed_qa
+            except Exception as e:
+                self.connection.execute("ROLLBACK")
+                logger.error("Failed to save messages and collect completed QA for %s: %s", session_scope, e)
+                raise
+
+    def _evict_active_messages_in_transaction(
+        self,
+        session_scope: str,
+        max_messages: int,
+    ) -> List[Dict[str, Any]]:
+        max_messages = max(int(max_messages), 0)
+        rows = self.connection.execute(
+            """
+            SELECT id, role, content, name, created_at, turn_index
+            FROM messages
+            WHERE session_scope = ? AND status = 'active'
+            ORDER BY DATETIME(created_at) ASC, rowid ASC
+            """,
+            (session_scope,),
+        ).fetchall()
+
+        evict_count = max(len(rows) - max_messages, 0)
+        evicted_rows = rows[:evict_count]
+        evicted_ids = [row[0] for row in evicted_rows]
+        if evicted_ids:
+            placeholders = ",".join("?" for _ in evicted_ids)
+            self.connection.execute(
+                f"""
+                DELETE FROM messages
+                WHERE session_scope = ? AND id IN ({placeholders})
+                """,
+                (session_scope, *evicted_ids),
+            )
+
+        return [
+            {
+                "id": row[0],
+                "role": row[1],
+                "content": row[2],
+                "name": row[3],
+                "created_at": row[4],
+                "turn_index": row[5],
+                "session_scope": session_scope,
+            }
+            for row in evicted_rows
+        ]
 
     def get_messages(self, session_scope: str, limit: int = 10) -> List[Dict[str, Any]]:
         with self._lock:

@@ -660,6 +660,14 @@ def _build_session_scope(filters):
     return "&".join(parts)
 
 
+def _completed_qa_longterm_inputs(completed_qa, metadata):
+    """Build the shared per-turn LongTerm inputs used by direct extraction."""
+    return [
+        (messages, {**deepcopy(metadata), "source_turn_index": int(turn_index)})
+        for turn_index, messages in completed_qa
+    ]
+
+
 def _memory_add_request_hash(
     *,
     messages: Any,
@@ -2681,6 +2689,15 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         )
         return self._expand_evicted_messages_for_qa_pairs(evicted_messages, session_scope)
 
+    def _save_short_term_messages_with_completed_qa(self, messages, session_scope):
+        evicted_messages, completed_qa = self.db.save_messages_and_get_completed_qa(
+            messages,
+            session_scope,
+            max_messages=self._short_term_capacity(),
+        )
+        expanded = self._expand_evicted_messages_for_qa_pairs(evicted_messages, session_scope)
+        return expanded, completed_qa
+
     def _process_midterm_evictions(
         self,
         evicted_messages,
@@ -3051,17 +3068,23 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         if not self._background_config().enabled:
             if idempotency_key is not None:
                 raise ValueError("idempotency_key requires background task persistence")
-            evicted_messages = self._save_short_term_messages(messages, session_scope)
+            evicted_messages, completed_qa = self._save_short_term_messages_with_completed_qa(
+                messages,
+                session_scope,
+            )
             vector_store_result = []
+            for qa_messages, qa_metadata in _completed_qa_longterm_inputs(completed_qa, processed_metadata):
+                vector_store_result.extend(
+                    self._process_evicted_long_term_memories(
+                        qa_messages,
+                        qa_metadata,
+                        effective_filters,
+                        infer=infer,
+                        prompt=prompt,
+                    )
+                )
             if evicted_messages:
                 self._process_midterm_evictions(evicted_messages, effective_filters)
-                vector_store_result = self._process_evicted_long_term_memories(
-                    evicted_messages,
-                    processed_metadata,
-                    effective_filters,
-                    infer=infer,
-                    prompt=prompt,
-                )
             self._update_profile_after_add(normalized_user_id, messages)
             scale_threshold_notice = detect_scale_threshold_from_add_result(self, vector_store_result)
             if temporal_usage_notice:
@@ -5266,6 +5289,16 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         )
         return await self._expand_evicted_messages_for_qa_pairs(evicted_messages, session_scope)
 
+    async def _save_short_term_messages_with_completed_qa(self, messages, session_scope):
+        evicted_messages, completed_qa = await asyncio.to_thread(
+            self.db.save_messages_and_get_completed_qa,
+            messages,
+            session_scope,
+            self._short_term_capacity(),
+        )
+        expanded = await self._expand_evicted_messages_for_qa_pairs(evicted_messages, session_scope)
+        return expanded, completed_qa
+
     def _process_midterm_evictions(
         self,
         evicted_messages,
@@ -5665,17 +5698,23 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         if not self._background_config().enabled:
             if idempotency_key is not None:
                 raise ValueError("idempotency_key requires background task persistence")
-            evicted_messages = await self._save_short_term_messages(messages, session_scope)
+            evicted_messages, completed_qa = await self._save_short_term_messages_with_completed_qa(
+                messages,
+                session_scope,
+            )
             vector_store_result = []
+            for qa_messages, qa_metadata in _completed_qa_longterm_inputs(completed_qa, processed_metadata):
+                vector_store_result.extend(
+                    await self._process_evicted_long_term_memories(
+                        qa_messages,
+                        qa_metadata,
+                        effective_filters,
+                        infer=infer,
+                        prompt=prompt,
+                    )
+                )
             if evicted_messages:
                 await asyncio.to_thread(self._process_midterm_evictions, evicted_messages, effective_filters)
-                vector_store_result = await self._process_evicted_long_term_memories(
-                    evicted_messages,
-                    processed_metadata,
-                    effective_filters,
-                    infer=infer,
-                    prompt=prompt,
-                )
             await self._update_profile_after_add(normalized_user_id, messages)
             scale_threshold_notice = await asyncio.to_thread(
                 detect_scale_threshold_from_add_result, self, vector_store_result

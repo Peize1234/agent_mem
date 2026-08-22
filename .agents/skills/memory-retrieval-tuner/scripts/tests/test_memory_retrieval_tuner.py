@@ -38,6 +38,7 @@ from tuner.experiment_branches import (  # noqa: E402
     BranchOutcome,
     BranchRegistry,
     BranchSpec,
+    FineGrainedLongtermExtractionPromptBranch,
     SourcePromptBranch,
     QueryRepresentationBranch,
     RerankingBranch,
@@ -65,6 +66,7 @@ from tuner.production_midterm_adapter import (  # noqa: E402
     ProductionMidtermAdapter,
     generate_production_sources,
     isolated_runtime_layout,
+    production_prompt_hashes,
     production_candidate_from_manifests,
 )
 from tuner.prompt_artifacts import (  # noqa: E402
@@ -77,13 +79,23 @@ from tuner.prompt_artifacts import (  # noqa: E402
 from tuner.split_sessions import create_or_load_split  # noqa: E402
 from tuner.staged_search import candidate_config_hash, run_staged_search  # noqa: E402
 from tuner.parameter_schema import parameter_class  # noqa: E402
-from tuner.source_prompt_variants import PromptOverrideLLM, controlled_page_prompt_variants  # noqa: E402
+from tuner.source_prompt_variants import (  # noqa: E402
+    PromptOverrideLLM,
+    controlled_fine_grained_longterm_prompt_variants,
+    controlled_page_prompt_variants,
+)
 from mem0.configs.base import MemoryConfig, MidTermMemoryConfig  # noqa: E402
 from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT  # noqa: E402
 from mem0.configs.query_prompts import QUERY_REFERENCE_RESOLUTION_PROMPT  # noqa: E402
+from mem0.memory import main as memory_main  # noqa: E402
 from mem0.memory.main import Memory  # noqa: E402
 from mem0.memory.midterm_updater import PRODUCTION_PAGE_CONTEXT_CONTRACT  # noqa: E402
 from mem0.memory.midterm_retriever import MidTermRetriever  # noqa: E402
+from mem0.memory.query_resolver import (  # noqa: E402
+    QueryResolver as ProductionQueryResolver,
+    build_query_resolution_messages,
+)
+from mem0.memory.storage import SQLiteManager  # noqa: E402
 
 
 def make_turn(session: str, index: int, gold: tuple[Requirement, ...] = ()) -> Turn:
@@ -752,6 +764,196 @@ def test_prompt_override_is_instance_scoped_and_does_not_mutate_production_globa
 
     assert delegate.messages[0]["content"] == "tuner-only prompt"
     assert updater_module.MIDTERM_PAGE_SUMMARY_PROMPT == production_prompt
+
+
+def _checkpoint_with_history(
+    monkeypatch: pytest.MonkeyPatch,
+    history: list[dict[str, Any]],
+) -> tuple[dict[str, Any], Any]:
+    class ResolverLLM:
+        def __init__(self) -> None:
+            self.requests: list[list[dict[str, str]]] = []
+
+        async def generate_response_async(self, *, messages: list[dict[str, str]], **kwargs: Any) -> str:
+            del kwargs
+            self.requests.append(messages)
+            return json.dumps({"resolved_query": "Acme 的第二季度利润是多少？"}, ensure_ascii=False)
+
+    class DiagnosticRetriever:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            del args, kwargs
+            self.last_search_diagnostics = {"contract": "production"}
+
+        def search(self, query: str, filters: dict[str, str], *, record_visits: bool) -> list[dict[str, Any]]:
+            assert query in {"它的第二季度利润是多少？", "Acme 的第二季度利润是多少？"}
+            assert filters == {"user_id": "u1", "run_id": "s1"}
+            assert record_visits is False
+            return []
+
+    llm = ResolverLLM()
+    midterm_memory = SimpleNamespace(
+        pages_store=object(),
+        sessions_store=object(),
+        current_turn_index=lambda filters: 1,
+    )
+
+    class CheckpointMemory:
+        def __init__(self) -> None:
+            self.llm = llm
+            self.embedding_model = SimpleNamespace(embed=lambda query, mode: [float(len(query)), 1.0])
+            self.midterm_memory = midterm_memory
+            self.config = SimpleNamespace(midterm=SimpleNamespace(), longterm_top_k=30)
+
+        async def _retrieve_base_context(self, query: str, **kwargs: Any) -> dict[str, Any]:
+            assert kwargs == {"user_id": "u1", "session_id": "s1"}
+            return {
+                "query": query,
+                "session_id": "s1",
+                "short_term_messages": history,
+                "retrieved_memories": [],
+            }
+
+        def search(self, *args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+            del args, kwargs
+            return []
+
+    monkeypatch.setattr(production_adapter, "DiagnosticMidTermRetriever", DiagnosticRetriever)
+    monkeypatch.setattr(production_adapter, "_scroll_points", lambda store: [])
+    monkeypatch.setattr(production_adapter, "_longterm_candidate_pool", lambda *args, **kwargs: {})
+    monkeypatch.setattr(production_adapter, "_session_heat_states", lambda *args, **kwargs: [])
+
+    checkpoint = production_adapter._checkpoint(
+        CheckpointMemory(),
+        query_id="Q2",
+        query="它的第二季度利润是多少？",
+        session_id="s1",
+        user_id="u1",
+        lineage=production_adapter.LineageTracker(3),
+        ranking_depth=20,
+    )
+    return checkpoint, llm
+
+
+def test_tuner_checkpoint_passes_short_term_messages_to_production_query_resolver(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    history = [
+        {"role": "user", "content": "Acme 的第一季度利润是多少？", "turn_index": 1},
+        {"role": "assistant", "content": "第一季度利润为 10。", "turn_index": 1},
+    ]
+
+    checkpoint, llm = _checkpoint_with_history(monkeypatch, history)
+
+    assert checkpoint["retrieval_query"] == "Acme 的第二季度利润是多少？"
+    assert len(llm.requests) == 1
+    assert llm.requests[0] == build_query_resolution_messages("它的第二季度利润是多少？", history)
+    assert production_adapter.QueryResolver is ProductionQueryResolver
+
+
+def test_tuner_checkpoint_without_visible_history_keeps_original_query(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checkpoint, llm = _checkpoint_with_history(monkeypatch, [])
+
+    assert checkpoint["retrieval_query"] == "它的第二季度利润是多少？"
+    assert llm.requests == []
+
+
+@pytest.mark.asyncio
+async def test_production_source_replay_requests_real_per_qa_inference(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dataset_path = tmp_path / "dataset.xlsx"
+    dataset_path.write_bytes(b"isolated-test-dataset")
+    memory_config_path = tmp_path / "memory.json"
+    memory_config_path.write_text("{}", encoding="utf-8")
+    turn = SimpleNamespace(turn_id="S001-Q001", question="Q1", answer="A1", turn_index=1, requirements=())
+    session = SimpleNamespace(session_id="S001", turns=(turn,))
+    add_calls: list[dict[str, Any]] = []
+
+    class FakeLLM:
+        def generate_response(self, *args: Any, **kwargs: Any) -> str:
+            del args, kwargs
+            return '{"memory": []}'
+
+    class FakeEmbedding:
+        def embed(self, *args: Any, **kwargs: Any) -> list[float]:
+            del args, kwargs
+            return [1.0]
+
+    class FakeMemory:
+        def __init__(self) -> None:
+            self.llm = FakeLLM()
+            self.embedding_model = FakeEmbedding()
+            self._midterm_updater = None
+            self._midterm_memory = None
+            self.flushes = 0
+            self.closed = False
+
+        def _short_term_capacity(self) -> int:
+            return 6
+
+        async def flush_background_tasks(self, *, timeout: float) -> bool:
+            assert timeout == 30.0
+            self.flushes += 1
+            return True
+
+        async def add(self, messages: list[dict[str, Any]], **kwargs: Any) -> dict[str, Any]:
+            add_calls.append({"messages": messages, **kwargs})
+            return {"results": [], "background": {"migration_job_id": None, "profile_job_id": None}}
+
+        def close(self) -> bool:
+            self.closed = True
+            return True
+
+    fake_memory = FakeMemory()
+    monkeypatch.setattr(production_adapter, "load_dataset", lambda *args, **kwargs: [session])
+    monkeypatch.setattr(production_adapter, "load_json", lambda path: {})
+    monkeypatch.setattr(
+        production_adapter,
+        "prepare_runtime_config",
+        lambda *args, **kwargs: {
+            "background": {},
+            "midterm": {"short_term_capacity": 6},
+            "embedder": {},
+            "vector_store": {},
+        },
+    )
+    monkeypatch.setattr(production_adapter, "create_production_memory", lambda *args, **kwargs: fake_memory)
+    monkeypatch.setattr(
+        production_adapter,
+        "_checkpoint",
+        lambda *args, **kwargs: {
+            "query_id": "S001-Q001",
+            "query": "Q1",
+            "retrieval_query": "Q1",
+            "current_turn_index": 0,
+            "baseline_ranking": [],
+            "layered_results": [],
+            "heat_states": [],
+        },
+    )
+
+    await production_adapter.build_production_source(
+        {
+            "dataset_path": str(dataset_path),
+            "session_id": "S001",
+            "output_dir": str(tmp_path / "output"),
+            "runtime_dir": str(tmp_path / "runtime"),
+            "memory_config_path": str(memory_config_path),
+            "collection_name": "test-collection",
+            "ranking_depth": 20,
+            "job_timeout_seconds": 30,
+            "llm_mode": "mock",
+        }
+    )
+
+    assert len(add_calls) == 1
+    assert add_calls[0]["infer"] is True
+    assert [message["content"] for message in add_calls[0]["messages"]] == ["Q1", "A1"]
+    assert fake_memory.flushes == 2
+    assert fake_memory.closed is True
 
 
 def test_production_query_baseline_is_the_p0_prompt_hash(tmp_path: Path) -> None:
@@ -1919,6 +2121,111 @@ def _branch_context(
         generation_round=generation_round,
         execution_settings={"max_parallel_sessions": 2, "max_parallel_llm_calls": 2},
     )
+
+
+def test_fine_grained_longterm_prompt_candidates_change_real_extraction_and_source_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dataset = make_dataset(tmp_path, 1)
+    baseline, _ = _production_branch_inputs(tmp_path, dataset)
+    outcome = FineGrainedLongtermExtractionPromptBranch().generate(
+        _branch_context(tmp_path, dataset, baseline, budget="deep")
+    )
+    expected_variants = controlled_fine_grained_longterm_prompt_variants()
+
+    assert outcome.status == "READY"
+    assert len(outcome.candidates) == len(expected_variants) == 2
+    first, second = outcome.candidates
+    prompt_a = first.config["fine_grained_longterm_extraction_prompt"]
+    prompt_b = second.config["fine_grained_longterm_extraction_prompt"]
+    identity_a = first.config["source_generation_spec"]["source_identity"]
+    identity_b = second.config["source_generation_spec"]["source_identity"]
+    assert first.config["fine_grained_longterm_extraction_prompt_hash"] != second.config[
+        "fine_grained_longterm_extraction_prompt_hash"
+    ]
+    assert identity_a != identity_b
+    assert production_prompt_hashes(fine_grained_longterm_extraction_prompt=prompt_a) != production_prompt_hashes(
+        fine_grained_longterm_extraction_prompt=prompt_b
+    )
+
+    monkeypatch.setattr(memory_main, "capture_event", lambda *args, **kwargs: None)
+
+    class PromptAwareLLM:
+        def __init__(self, expected_prompt: str, output: str) -> None:
+            self.expected_prompt = expected_prompt
+            self.output = output
+            self.system_prompts: list[str] = []
+
+        def generate_response(self, *, messages: list[dict[str, Any]], **kwargs: Any) -> str:
+            del kwargs
+            system_prompt = str(messages[0]["content"])
+            self.system_prompts.append(system_prompt)
+            assert system_prompt == self.expected_prompt
+            return json.dumps({"memory": [{"text": self.output}]}, ensure_ascii=False)
+
+    class Embedding:
+        def embed(self, text: str, mode: str) -> list[float]:
+            del text, mode
+            return [1.0, 0.0]
+
+        def embed_batch(self, texts: list[str], mode: str) -> list[list[float]]:
+            del mode
+            return [[1.0, 0.0] for _ in texts]
+
+    class VectorStore:
+        def __init__(self) -> None:
+            self.payloads: list[dict[str, Any]] = []
+
+        def search(self, **kwargs: Any) -> list[Any]:
+            del kwargs
+            return []
+
+        def get(self, **kwargs: Any) -> None:
+            del kwargs
+            return None
+
+        def insert(self, *, vectors: list[Any], ids: list[str], payloads: list[dict[str, Any]]) -> None:
+            assert len(vectors) == len(ids) == len(payloads)
+            self.payloads.extend(payloads)
+
+    def extract(prompt: str, output: str) -> tuple[list[dict[str, Any]], PromptAwareLLM, VectorStore]:
+        db = SQLiteManager(":memory:")
+        memory = Memory.__new__(Memory)
+        delegate = PromptAwareLLM(prompt, output)
+        store = VectorStore()
+        memory.config = SimpleNamespace(midterm=SimpleNamespace(enabled=False, short_term_capacity=20))
+        memory.db = db
+        memory.llm = PromptOverrideLLM(delegate, fine_grained_longterm_extraction_prompt=prompt)
+        memory.embedding_model = Embedding()
+        memory.vector_store = store
+        memory.custom_instructions = None
+        memory._bm25_language = "en"
+        memory._run_entity_extraction = lambda function, texts: [[] for _ in texts]
+        memory.api_version = "v1.1"
+        try:
+            result = Memory._process_evicted_long_term_memories(
+                memory,
+                [{"role": "user", "content": "raw-Q"}, {"role": "assistant", "content": "raw-A"}],
+                {"user_id": "u1", "run_id": "s1", "source_turn_index": 1},
+                {"user_id": "u1", "run_id": "s1"},
+                infer=True,
+            )
+            return result, delegate, store
+        finally:
+            db.close()
+
+    output_a, delegate_a, store_a = extract(prompt_a, "memory-A")
+    output_b, delegate_b, store_b = extract(prompt_b, "memory-B")
+
+    assert output_a != output_b
+    assert [item["memory"] for item in output_a] == ["memory-A"]
+    assert [item["memory"] for item in output_b] == ["memory-B"]
+    assert delegate_a.system_prompts == [prompt_a]
+    assert delegate_b.system_prompts == [prompt_b]
+    assert [payload["data"] for payload in store_a.payloads] == ["memory-A"]
+    assert [payload["data"] for payload in store_b.payloads] == ["memory-B"]
+    assert all(payload["data"] not in {"raw-Q", "raw-A"} for payload in [*store_a.payloads, *store_b.payloads])
 
 
 def test_new_dataset_generates_three_query_variants_and_resumes(
