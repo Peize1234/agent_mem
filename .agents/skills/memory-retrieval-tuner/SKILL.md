@@ -39,7 +39,7 @@ Research 决策只允许使用当前 run 的 Tune 实验事实，以及从 Basel
 - `seed`：数据划分/搜索随机种子，默认从 `search_space.yaml` 读取。
 - `resume`：已有调参运行目录，用于恢复运行。
 - `output_dir`：输出根目录，默认：`exp/results/auto_tuning`。
-- `memory_config`：可选的 Production Memory 部分配置。显式传入时通过 `MemoryConfig(**config)` 补齐未声明字段；未传入时直接使用 `MemoryConfig()` 的当前 Production 默认值。
+- `memory_config`：可选的 Repository Production Memory 部分覆盖。显式传入时先与 `load_production_memory_config()` 合并，再通过 `MemoryConfig` 补齐未声明字段；未传入时直接使用仓库级 Production 配置。resume 始终复用该 run 已冻结的 `resolved_memory_config.json`。
 - `llm_mode`：`real | mock`，默认：`real`；`mock` 仅用于基础设施测试和 smoke test。
 - `overrides`：显式指定的搜索空间覆盖项。
 
@@ -151,7 +151,7 @@ R@K = top K 内满足的 Gold requirement 数量
 - `benchmark_support.py` / `production_runtime.py`：自包含 benchmark schema 与生产 runtime wrapper；
 - `production_midterm_adapter.py`：生产 checkpoint 生成和隔离 replay。
 
-Skill 不维护独立的完整 Memory 默认配置。每次运行都从当前 Production `MemoryConfig` 解析 effective config，并写入运行目录供隔离 source/runtime 复用；显式配置只覆盖其中声明的字段。`search_space.yaml` 只定义可调参数、搜索范围和 hard constraints，不承担 baseline 默认值。
+Skill 不维护独立的完整 Memory 默认配置。新 run 从仓库唯一入口 `mem0.configs.production.load_production_memory_config()` 取得部署 provider/model overrides，再由 `MemoryConfig` 解析 effective config；显式配置只覆盖其中声明的字段。effective config 会冻结到运行目录，resume 禁止重新读取今天的 Production 默认。`search_space.yaml` 只定义可调参数、搜索范围和 hard constraints，不承担 baseline 默认值。
 
 ## 工作流程
 

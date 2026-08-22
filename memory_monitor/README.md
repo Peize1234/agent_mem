@@ -38,9 +38,9 @@ The production `BackgroundWorkerManager` remains unchanged.
 
 ## Start the lab
 
-The launcher uses the included DeepSeek + local HuggingFace configuration from
-`demo_config.json` and prompts for `DEEPSEEK_API_KEY` when it is not already in
-the environment. It matches the financial trace test defaults:
+The launcher uses the repository Production configuration from
+`mem0.configs.production.load_production_memory_config` and prompts for
+`DEEPSEEK_API_KEY` when it is not already in the environment. It uses:
 `deepseek-v4-flash` and `BAAI/bge-small-zh-v1.5` (512 dimensions).
 It runs in the `MemoryOS` Conda environment, activating it through `conda run`
 when necessary. By default the launcher uses the versioned sandbox root
@@ -67,10 +67,11 @@ export MEMORY_MONITOR_PORT=8502
 ```
 
 If `MEMORY_MONITOR_MEMORY_CONFIG` points to a missing file, the launcher warns
-and falls back to the included configuration.
+and falls back to the repository Production configuration. A supplied JSON
+file is treated as a partial override of that configuration.
 
-Agentic memory retrieval is opt-in and remains disabled in `demo_config.json`.
-Set `agentic_retrieval.enabled` to `true` to load only short-term context and
+Agentic memory retrieval follows the repository Production configuration.
+Set `agentic_retrieval.enabled` in an explicit override to load only short-term context and
 the user profile before generation, then let the answer model make at most one
 mid-term memory tool call containing one to three complementary queries. The
 queries run concurrently and return complete mid-term pages, capped by

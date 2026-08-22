@@ -33,7 +33,7 @@ Production Baseline
  -> Held-out Validation
 ```
 
-`required_context` is fixed Gold; ShortTerm capacity never changes its denominator. Source-changing, within-session-stateful and cross-session-temporal parameters are separate from retrieval-only controls. Fine-grained LongTerm is produced per complete QA and is cross-session retrievable with Production's dual-route/session-weight contract. Because the current benchmark has no reliable cross-session Gold, `longterm_other_session_weight` and Promotion remain fixed Production defaults; structural replay is `STRUCTURAL_ONLY_NOT_EVALUATED` with status `CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD`, excluded from winner selection. Baseline Memory values also come only from Production `MemoryConfig`: an optional partial user config is Pydantic-resolved against those defaults, while `search_space.yaml` supplies ranges and hard constraints rather than a second baseline.
+`required_context` is fixed Gold; ShortTerm capacity never changes its denominator. Source-changing, within-session-stateful and cross-session-temporal parameters are separate from retrieval-only controls. Fine-grained LongTerm is produced per complete QA and is cross-session retrievable with Production's dual-route/session-weight contract. Because the current benchmark has no reliable cross-session Gold, `longterm_other_session_weight` and Promotion remain fixed Production defaults; structural replay is `STRUCTURAL_ONLY_NOT_EVALUATED` with status `CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD`, excluded from winner selection. Baseline Memory values come from the repository `load_production_memory_config()` deployment overrides plus `MemoryConfig` schema/defaults. An optional user config is a partial override; `search_space.yaml` supplies ranges and hard constraints rather than a second baseline.
 
 Research decisions use only the current run's Tune evidence and current-run experiment trajectory; previous-run winners, metrics or lessons are never search priors.
 
@@ -493,6 +493,8 @@ For each stage and final stop, record the diagnostic regime plus relevant, attem
 ## 15. Resume and cache
 
 A tuning run should be resumable.
+
+At fresh-run creation, freeze the Pydantic-resolved repository Production configuration as `resolved_memory_config.json` and record its SHA-256. Resume must load that exact file instead of resolving current repository defaults again. An explicit resume-time config is legal only when its resolved value exactly matches the frozen file; a legacy run without a recoverable frozen config fails closed.
 
 Cache keys should include at least:
 

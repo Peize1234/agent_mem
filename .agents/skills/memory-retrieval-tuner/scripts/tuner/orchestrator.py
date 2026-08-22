@@ -13,7 +13,7 @@ from typing import Any, Mapping, Sequence
 
 import yaml
 
-from mem0.configs.base import MemoryConfig
+from mem0.configs.production import load_production_memory_config
 
 from .agentic_retrieval_artifacts import build_agentic_parent_retrieval_identity
 from .artifact_registry import ArtifactRegistry
@@ -31,6 +31,7 @@ from .io_utils import (
     append_jsonl,
     atomic_write_json,
     load_json,
+    sha256_file,
     stable_hash,
     write_jsonl,
 )
@@ -401,27 +402,87 @@ def _resolve_shortterm_window(
 
 
 def _resolve_memory_config(memory_config_path: Path | None) -> tuple[dict[str, Any], str]:
-    """Resolve a partial user config against the current production defaults."""
+    """Resolve a partial user config against repository Production config."""
     if memory_config_path is None:
         raw_config: dict[str, Any] = {}
-        source = "production_defaults"
+        source = "repository_production_config"
     else:
         loaded = load_json(memory_config_path)
         if not isinstance(loaded, Mapping):
             raise ValueError("memory_config must contain a JSON object")
         raw_config = copy.deepcopy(dict(loaded))
-        source = "explicit"
+        source = "repository_production_config_with_explicit_override"
 
     # This block controls tuner-only request/observability policy and is not a
-    # MemoryConfig default. Preserve it separately while Pydantic resolves the
-    # effective production Memory configuration.
+    # MemoryConfig field. Preserve it outside the repository Production merge.
     benchmark_runtime = raw_config.pop("benchmark_runtime", None)
-    resolved = MemoryConfig(**raw_config).model_dump(mode="json", warnings=False)
+    resolved = load_production_memory_config(
+        raw_config,
+        resolve_environment=False,
+    ).model_dump(mode="json", warnings=False)
     if benchmark_runtime is not None:
         if not isinstance(benchmark_runtime, Mapping):
             raise ValueError("memory_config.benchmark_runtime must be a JSON object")
         resolved["benchmark_runtime"] = copy.deepcopy(dict(benchmark_runtime))
     return resolved, source
+
+
+def _load_frozen_memory_config(path: Path) -> dict[str, Any]:
+    loaded = load_json(path)
+    if not isinstance(loaded, Mapping):
+        raise ValueError(f"Frozen memory configuration must contain a JSON object: {path}")
+    return copy.deepcopy(dict(loaded))
+
+
+def _resolve_run_memory_config(
+    config: TunerConfig,
+    run_dir: Path,
+    previous_metadata: Mapping[str, Any],
+) -> tuple[dict[str, Any], str, Path, str]:
+    frozen_path = run_dir / "resolved_memory_config.json"
+    if not config.resume:
+        resolved, source = _resolve_memory_config(config.memory_config)
+        atomic_write_json(frozen_path, resolved)
+        return resolved, source, frozen_path, sha256_file(frozen_path)
+
+    if not frozen_path.exists():
+        recorded_path = previous_metadata.get("resolved_memory_config_path")
+        recorded_sha256 = previous_metadata.get("resolved_memory_config_sha256")
+        recovery_path = Path(str(recorded_path)).expanduser() if recorded_path else None
+        if recovery_path is not None and not recovery_path.is_absolute():
+            recovery_path = run_dir / recovery_path
+        if (
+            recovery_path is not None
+            and recovery_path.exists()
+            and recorded_sha256
+            and sha256_file(recovery_path) == str(recorded_sha256)
+        ):
+            _load_frozen_memory_config(recovery_path)
+            shutil.copyfile(recovery_path, frozen_path)
+        else:
+            raise ValueError(
+                "Cannot resume this legacy tuning run because resolved_memory_config.json is missing "
+                "and no verified frozen configuration can be recovered. Start a new tuning run with "
+                "the original memory_config instead."
+            )
+
+    frozen = _load_frozen_memory_config(frozen_path)
+    frozen_sha256 = sha256_file(frozen_path)
+    recorded_sha256 = previous_metadata.get("resolved_memory_config_sha256")
+    if recorded_sha256 and str(recorded_sha256) != frozen_sha256:
+        raise ValueError("Frozen resolved_memory_config.json does not match run_metadata.json")
+
+    if config.memory_config is not None:
+        supplied, _source = _resolve_memory_config(config.memory_config)
+        if supplied != frozen:
+            raise ValueError(
+                "Resume memory_config conflicts with the frozen configuration of this run. "
+                "Start a new tuning run instead."
+            )
+        source = "frozen_run_config_verified_explicit"
+    else:
+        source = "frozen_run_config"
+    return frozen, source, frozen_path, frozen_sha256
 
 
 def _artifact_cache_root(config: TunerConfig, run_dir: Path) -> Path:
@@ -459,16 +520,18 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         loaded_metadata = load_json(run_dir / "run_metadata.json")
         if isinstance(loaded_metadata, dict):
             previous_metadata = loaded_metadata
+    (
+        memory_config_values,
+        memory_config_source,
+        resolved_memory_config_path,
+        resolved_memory_config_sha256,
+    ) = _resolve_run_memory_config(config, run_dir, previous_metadata)
     trace_path = run_dir / "search_trace.jsonl"
     if not trace_path.exists():
         trace_path.touch()
     research_trace_path = run_dir / "research_trace.jsonl"
     if not research_trace_path.exists():
         research_trace_path.touch()
-
-    memory_config_values, memory_config_source = _resolve_memory_config(config.memory_config)
-    resolved_memory_config_path = run_dir / "resolved_memory_config.json"
-    atomic_write_json(resolved_memory_config_path, memory_config_values)
     shortterm_window, shortterm_window_validation = _resolve_shortterm_window(space, memory_config_values)
     dataset, audit = audit_dataset(
         config.dataset,
@@ -976,6 +1039,7 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         "memory_config_source": memory_config_source,
         "memory_config_input_path": str(config.memory_config.resolve()) if config.memory_config else None,
         "resolved_memory_config_path": str(resolved_memory_config_path),
+        "resolved_memory_config_sha256": resolved_memory_config_sha256,
         "baseline_backend": midterm_baseline.config.get("backend"),
         "baseline_provenance": midterm_baseline.provenance,
         "midterm_baseline_backend": midterm_baseline.config.get("backend"),

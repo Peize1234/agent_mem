@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-# ruff: noqa: E402
-
 import atexit
 import json
 import logging
 import os
 import sys
 from pathlib import Path
+
+# ruff: noqa: E402
 
 os.environ.setdefault("MEM0_TELEMETRY", "false")
 
@@ -16,6 +16,7 @@ if str(_REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPOSITORY_ROOT))
 
 from mem0.configs.base import MemoryConfig
+from mem0.configs.production import load_production_memory_config
 from memory_monitor.components import styles
 from memory_monitor.config import DemoLabConfig
 from memory_monitor.services.simulation_service import SimulationService
@@ -26,8 +27,11 @@ logger = logging.getLogger(__name__)
 
 def _load_memory_config(path: Path | None) -> MemoryConfig:
     if path is None:
-        return MemoryConfig()
-    return MemoryConfig.model_validate(json.loads(path.read_text(encoding="utf-8")))
+        return load_production_memory_config()
+    overrides = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(overrides, dict):
+        raise ValueError("Memory config override must contain a JSON object")
+    return load_production_memory_config(overrides)
 
 
 def main() -> None:

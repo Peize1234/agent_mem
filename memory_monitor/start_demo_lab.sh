@@ -84,23 +84,18 @@ fi
 mkdir -p "${simulation_root}"
 export MEMORY_MONITOR_SIMULATION_ROOT="${simulation_root}"
 
-default_memory_config="${script_dir}/demo_config.json"
 using_default_config=false
 if [[ -z "${MEMORY_MONITOR_MEMORY_CONFIG:-}" ]]; then
     using_default_config=true
-    MEMORY_MONITOR_MEMORY_CONFIG="${default_memory_config}"
 elif [[ ! -f "${MEMORY_MONITOR_MEMORY_CONFIG}" ]]; then
     echo "警告：找不到自定义配置文件：${MEMORY_MONITOR_MEMORY_CONFIG}" >&2
-    echo "将改用默认配置：${default_memory_config}" >&2
+    echo "将改用仓库 Production 配置。" >&2
     using_default_config=true
-    MEMORY_MONITOR_MEMORY_CONFIG="${default_memory_config}"
+    unset MEMORY_MONITOR_MEMORY_CONFIG
 fi
-
-if [[ ! -f "${MEMORY_MONITOR_MEMORY_CONFIG}" ]]; then
-    echo "错误：找不到默认配置文件：${MEMORY_MONITOR_MEMORY_CONFIG}" >&2
-    exit 1
+if [[ -n "${MEMORY_MONITOR_MEMORY_CONFIG:-}" ]]; then
+    export MEMORY_MONITOR_MEMORY_CONFIG
 fi
-export MEMORY_MONITOR_MEMORY_CONFIG
 
 if [[ "${using_default_config}" == true && -z "${DEEPSEEK_API_KEY:-}" ]]; then
     if [[ -t 0 ]]; then
@@ -126,7 +121,7 @@ echo "正在启动 Agent Memory Demo Lab..."
 echo "访问地址：http://${server_address}:${server_port}"
 echo "Conda 环境：${conda_environment}"
 echo "沙盒目录：${MEMORY_MONITOR_SIMULATION_ROOT}"
-echo "配置文件：${MEMORY_MONITOR_MEMORY_CONFIG}"
+echo "配置来源：${MEMORY_MONITOR_MEMORY_CONFIG:-mem0.configs.production.load_production_memory_config}"
 echo "按 Ctrl+C 停止服务。"
 
 exec "${python_command[@]}" -m streamlit run memory_monitor/app.py "$@"

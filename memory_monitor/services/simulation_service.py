@@ -9,9 +9,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
-from mem0.configs.base import MemoryConfig
-from mem0.vector_stores.configs import VectorStoreConfig
 from qdrant_client import QdrantClient
+
+from mem0.configs.base import MemoryConfig
+from mem0.configs.production import load_production_memory_config
+from mem0.vector_stores.configs import VectorStoreConfig
 from memory_monitor.runtime import DemoBackgroundCoordinator, DemoMemory
 from memory_monitor.services.demo_pipeline_service import DemoPipelineService
 from memory_monitor.services.demo_repository import DemoRepository
@@ -46,7 +48,7 @@ class SimulationService:
         step_lease_seconds: int = 900,
     ):
         self.root = Path(root).expanduser().resolve()
-        self.base_config = base_config or MemoryConfig()
+        self.base_config = base_config or load_production_memory_config()
         self.memory_factory = memory_factory
         self.foreground_workers = max(int(foreground_workers), 1)
         self.branch_workers = max(int(branch_workers), 1)

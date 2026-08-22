@@ -82,6 +82,7 @@ from tuner.orchestrator import (  # noqa: E402
     _artifact_cache_root,
     _evaluate_loso_many,
     _resolve_memory_config,
+    _resolve_run_memory_config,
     _resolve_shortterm_window,
 )
 from tuner.parameter_schema import parameter_class  # noqa: E402
@@ -114,6 +115,7 @@ from mem0.configs.base import (  # noqa: E402
     MidTermMemoryConfig,
 )
 from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT  # noqa: E402
+from mem0.configs.production import load_production_memory_config  # noqa: E402
 from mem0.configs.query_prompts import QUERY_REFERENCE_RESOLUTION_PROMPT  # noqa: E402
 from mem0.memory import main as memory_main  # noqa: E402
 from mem0.memory.main import Memory  # noqa: E402
@@ -252,12 +254,17 @@ def test_shortterm_window_is_derived_and_mismatch_is_detected() -> None:
 
 def test_default_memory_config_is_resolved_from_current_production_defaults(tmp_path: Path) -> None:
     resolved, source = _resolve_memory_config(None)
-    production = MemoryConfig().model_dump(mode="json", warnings=False)
+    production = load_production_memory_config(resolve_environment=False).model_dump(mode="json", warnings=False)
 
-    assert source == "production_defaults"
+    assert source == "repository_production_config"
     assert TunerConfig(dataset=tmp_path / "dataset.xlsx").memory_config is None
     assert not (SCRIPTS.parent / "memory_config.json").exists()
     assert resolved == production
+    assert resolved["llm"]["provider"] == "deepseek"
+    assert resolved["llm"]["config"]["model"] == "deepseek-v4-flash"
+    assert resolved["embedder"]["provider"] == "huggingface"
+    assert resolved["embedder"]["config"]["model"] == "BAAI/bge-small-zh-v1.5"
+    assert resolved["embedder"]["config"]["embedding_dims"] == 512
     assert resolved["agentic_retrieval"]["max_tool_result_chars"] == 30000
     assert (
         resolved["agentic_retrieval"]["max_tool_result_chars"]
@@ -271,7 +278,6 @@ def test_partial_explicit_memory_config_overrides_only_declared_values(tmp_path:
         json.dumps(
             {
                 "midterm": {"top_k_pages": 9},
-                "agentic_retrieval": {"max_tool_result_chars": 12345},
                 "benchmark_runtime": {"llm_observability": True},
             }
         ),
@@ -280,14 +286,92 @@ def test_partial_explicit_memory_config_overrides_only_declared_values(tmp_path:
 
     resolved, source = _resolve_memory_config(config_path)
 
-    assert source == "explicit"
+    assert source == "repository_production_config_with_explicit_override"
     assert resolved["midterm"]["top_k_pages"] == 9
-    assert resolved["agentic_retrieval"]["max_tool_result_chars"] == 12345
+    assert resolved["llm"]["provider"] == "deepseek"
+    assert resolved["llm"]["config"]["model"] == "deepseek-v4-flash"
+    assert resolved["embedder"]["provider"] == "huggingface"
+    assert resolved["embedder"]["config"]["model"] == "BAAI/bge-small-zh-v1.5"
+    assert resolved["embedder"]["config"]["embedding_dims"] == 512
+    assert resolved["agentic_retrieval"]["max_tool_result_chars"] == 30000
     assert resolved["midterm"]["top_k_sessions"] == MidTermMemoryConfig().top_k_sessions
     assert resolved["agentic_retrieval"]["max_iterations"] == AgenticRetrievalConfig().max_iterations
     assert resolved["agentic_retrieval"]["max_tool_calls"] == AgenticRetrievalConfig().max_tool_calls
-    assert resolved["llm"] == MemoryConfig().model_dump(mode="json", warnings=False)["llm"]
     assert resolved["benchmark_runtime"] == {"llm_observability": True}
+
+
+def test_resume_uses_frozen_config_after_repository_production_changes(tmp_path: Path, monkeypatch) -> None:
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    config_a = load_production_memory_config(
+        {"midterm": {"top_k_pages": 7}},
+        resolve_environment=False,
+    )
+    config_b = load_production_memory_config(
+        {"midterm": {"top_k_pages": 11}},
+        resolve_environment=False,
+    )
+    monkeypatch.setattr(orchestrator, "load_production_memory_config", lambda *args, **kwargs: config_a)
+
+    frozen, _source, frozen_path, frozen_sha256 = _resolve_run_memory_config(
+        TunerConfig(dataset=tmp_path / "dataset.xlsx"),
+        run_dir,
+        {},
+    )
+    monkeypatch.setattr(orchestrator, "load_production_memory_config", lambda *args, **kwargs: config_b)
+
+    resumed, source, resumed_path, resumed_sha256 = _resolve_run_memory_config(
+        TunerConfig(dataset=tmp_path / "dataset.xlsx", resume=run_dir),
+        run_dir,
+        {"resolved_memory_config_sha256": frozen_sha256},
+    )
+
+    assert resumed == frozen
+    assert resumed["midterm"]["top_k_pages"] == 7
+    assert source == "frozen_run_config"
+    assert resumed_path == frozen_path
+    assert resumed_sha256 == frozen_sha256 == sha256_file(frozen_path)
+
+
+def test_resume_accepts_matching_explicit_config_and_rejects_conflict(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    matching_path = tmp_path / "matching.json"
+    matching_path.write_text(json.dumps({"midterm": {"top_k_pages": 8}}), encoding="utf-8")
+    conflict_path = tmp_path / "conflict.json"
+    conflict_path.write_text(json.dumps({"midterm": {"top_k_pages": 9}}), encoding="utf-8")
+
+    frozen, _source, _path, frozen_sha256 = _resolve_run_memory_config(
+        TunerConfig(dataset=tmp_path / "dataset.xlsx", memory_config=matching_path),
+        run_dir,
+        {},
+    )
+    resumed, source, _path, _sha256 = _resolve_run_memory_config(
+        TunerConfig(dataset=tmp_path / "dataset.xlsx", resume=run_dir, memory_config=matching_path),
+        run_dir,
+        {"resolved_memory_config_sha256": frozen_sha256},
+    )
+
+    assert resumed == frozen
+    assert source == "frozen_run_config_verified_explicit"
+    with pytest.raises(ValueError, match="Resume memory_config conflicts with the frozen configuration"):
+        _resolve_run_memory_config(
+            TunerConfig(dataset=tmp_path / "dataset.xlsx", resume=run_dir, memory_config=conflict_path),
+            run_dir,
+            {"resolved_memory_config_sha256": frozen_sha256},
+        )
+
+
+def test_resume_legacy_run_without_frozen_config_fails_closed(tmp_path: Path) -> None:
+    run_dir = tmp_path / "legacy-run"
+    run_dir.mkdir()
+
+    with pytest.raises(ValueError, match="legacy tuning run.*resolved_memory_config.json is missing"):
+        _resolve_run_memory_config(
+            TunerConfig(dataset=tmp_path / "dataset.xlsx", resume=run_dir),
+            run_dir,
+            {},
+        )
 
 
 def test_resume_derives_cache_from_run_directory(tmp_path: Path) -> None:
@@ -1427,6 +1511,9 @@ def test_trace_does_not_replace_midterm_checkpoints_and_regression_is_separate(
     assert metadata["embedding_calls"] == 11
     assert metadata["execution"]["source_worker_parallelism"] == 2
     assert metadata["shortterm_qa_turns"] == 3
+    assert metadata["resolved_memory_config_sha256"] == sha256_file(
+        Path(metadata["resolved_memory_config_path"])
+    )
     assert best["candidate"].startswith("RetrievalControl:top_k_pages=10")
     assert best["config"]["top_k_pages"] == 10
     assert best["validation_metrics"]["recall_at_k"] == pytest.approx(0.70)

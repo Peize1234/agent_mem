@@ -1,8 +1,7 @@
-import os
 from pathlib import Path
 
 from mem0 import Memory
-
+from mem0.configs.production import load_production_memory_config
 
 DATA_DIR = Path("./quick_run_data")
 DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -10,48 +9,29 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 USER_ID = "demo_user"
 SESSION_ID = "demo_session"
 
-config = {
-    "llm": {
-        "provider": "deepseek",
-        "config": {
-            "model": "deepseek-v4-flash",
-            "api_key": os.environ["DEEPSEEK_API_KEY"],
+config = load_production_memory_config(
+    {
+        "vector_store": {
+            "config": {
+                "collection_name": "quick_run",
+                "path": str(DATA_DIR / "qdrant"),
+            },
         },
-    },
-    "embedder": {
-        "provider": "huggingface",
-        "config": {
-            "model": "BAAI/bge-small-zh-v1.5",
-        },
-    },
-    "vector_store": {
-        "provider": "qdrant",
-        "config": {
-            "collection_name": "quick_run",
-            "path": str(DATA_DIR / "qdrant"),
-            "embedding_model_dims": 512,
-        },
-    },
-    "history_db_path": str(DATA_DIR / "history.db"),
-    "midterm": {
-        "enabled": True,
-    },
-    "profile": {
-        "enabled": True,
-        "extraction_mode": "explicit_and_inferred",
-        "llm_max_tokens": 4096,
-        "llm_request_options": {
-            "extra_body": {
-                "thinking": {
-                    "type": "enabled",
+        "history_db_path": str(DATA_DIR / "history.db"),
+        "profile": {
+            "llm_request_options": {
+                "extra_body": {
+                    "thinking": {
+                        "type": "enabled",
+                    },
                 },
             },
         },
-    },
-}
+    }
+)
 
 
-memory = Memory.from_config(config)
+memory = Memory(config)
 
 try:
     query = "我税后月收入约2万元，每月固定支出8000元，应该如何规划储蓄？"
