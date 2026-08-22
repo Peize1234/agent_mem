@@ -81,6 +81,7 @@ from tuner.orchestrator import (  # noqa: E402
     TunerConfig,
     _artifact_cache_root,
     _evaluate_loso_many,
+    _resolve_memory_config,
     _resolve_shortterm_window,
 )
 from tuner.parameter_schema import parameter_class  # noqa: E402
@@ -247,6 +248,46 @@ def test_shortterm_window_is_derived_and_mismatch_is_detected() -> None:
             {"dataset": {"shortterm_qa_turns": 3}},
             {"midterm": {"short_term_capacity": 5}},
         )
+
+
+def test_default_memory_config_is_resolved_from_current_production_defaults(tmp_path: Path) -> None:
+    resolved, source = _resolve_memory_config(None)
+    production = MemoryConfig().model_dump(mode="json", warnings=False)
+
+    assert source == "production_defaults"
+    assert TunerConfig(dataset=tmp_path / "dataset.xlsx").memory_config is None
+    assert not (SCRIPTS.parent / "memory_config.json").exists()
+    assert resolved == production
+    assert resolved["agentic_retrieval"]["max_tool_result_chars"] == 30000
+    assert (
+        resolved["agentic_retrieval"]["max_tool_result_chars"]
+        == AgenticRetrievalConfig().max_tool_result_chars
+    )
+
+
+def test_partial_explicit_memory_config_overrides_only_declared_values(tmp_path: Path) -> None:
+    config_path = tmp_path / "partial-memory-config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "midterm": {"top_k_pages": 9},
+                "agentic_retrieval": {"max_tool_result_chars": 12345},
+                "benchmark_runtime": {"llm_observability": True},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    resolved, source = _resolve_memory_config(config_path)
+
+    assert source == "explicit"
+    assert resolved["midterm"]["top_k_pages"] == 9
+    assert resolved["agentic_retrieval"]["max_tool_result_chars"] == 12345
+    assert resolved["midterm"]["top_k_sessions"] == MidTermMemoryConfig().top_k_sessions
+    assert resolved["agentic_retrieval"]["max_iterations"] == AgenticRetrievalConfig().max_iterations
+    assert resolved["agentic_retrieval"]["max_tool_calls"] == AgenticRetrievalConfig().max_tool_calls
+    assert resolved["llm"] == MemoryConfig().model_dump(mode="json", warnings=False)["llm"]
+    assert resolved["benchmark_runtime"] == {"llm_observability": True}
 
 
 def test_resume_derives_cache_from_run_directory(tmp_path: Path) -> None:
@@ -2050,6 +2091,57 @@ def test_agentic_discovery_aggregates_exact_variants_from_multiple_files(tmp_pat
     assert set(discovered["sha256"]) == {str(first.resolve()), str(second.resolve())}
     assert discovered["parent_retrieval_identity"] == expected
     assert discovered["fixed"]["max_tool_result_chars"] == 30000
+
+
+def test_agentic_discovery_filters_fixed_chars_before_multi_file_aggregation(tmp_path: Path) -> None:
+    dataset = make_dataset(tmp_path, 1)
+    parent_config = {
+        "max_total_pages": 4,
+        "retrieval_method": "dense",
+        **_synthetic_agentic_source(),
+    }
+    results_root = tmp_path / "results"
+    results_root.mkdir()
+    old = results_root / "production_agentic_trace_1_5_10000.jsonl"
+    current_first = results_root / "production_agentic_trace_1_5_30000.jsonl"
+    current_second = results_root / "production_agentic_trace_3_1_30000.jsonl"
+    _write_production_agentic_trace(
+        old,
+        dataset,
+        [(1, 5)],
+        parent_config=parent_config,
+        max_tool_result_chars=10000,
+        supplement_label="old-chars",
+    )
+    _write_production_agentic_trace(
+        current_first,
+        dataset,
+        [(1, 5)],
+        parent_config=parent_config,
+        max_tool_result_chars=30000,
+    )
+    _write_production_agentic_trace(
+        current_second,
+        dataset,
+        [(3, 1)],
+        parent_config=parent_config,
+        max_tool_result_chars=30000,
+    )
+
+    discovered = ArtifactRegistry(tmp_path / "cache", results_root).discover_production_agentic_trace(
+        dataset_sha256=dataset.sha256,
+        query_ids_by_session=_agentic_query_ids(dataset),
+        expected_parent_retrieval_identity=build_agentic_parent_retrieval_identity(parent_config),
+        expected_max_tool_result_chars=30000,
+    )
+
+    assert discovered is not None
+    assert discovered["variants"] == [
+        {"max_queries": 1, "max_total_results": 5},
+        {"max_queries": 3, "max_total_results": 1},
+    ]
+    assert set(discovered["paths"]) == {str(current_first.resolve()), str(current_second.resolve())}
+    assert str(old.resolve()) not in discovered["sha256"]
 
 
 def test_agentic_multi_file_trace_rejects_mixed_parent_identities(tmp_path: Path) -> None:

@@ -13,6 +13,8 @@ from typing import Any, Mapping, Sequence
 
 import yaml
 
+from mem0.configs.base import MemoryConfig
+
 from .agentic_retrieval_artifacts import build_agentic_parent_retrieval_identity
 from .artifact_registry import ArtifactRegistry
 from .build_report import write_outputs
@@ -25,7 +27,13 @@ from .evaluate_candidate import (
 )
 from .experiment_branches import BranchRegistry
 from .generated_source_artifacts import prepare_generated_source_candidate
-from .io_utils import append_jsonl, load_json, stable_hash, write_jsonl
+from .io_utils import (
+    append_jsonl,
+    atomic_write_json,
+    load_json,
+    stable_hash,
+    write_jsonl,
+)
 from .model_discovery import ModelDiscovery, ResourceEnvelope
 from .models import Candidate, CandidateResult, Dataset
 from .production_midterm_adapter import (
@@ -51,7 +59,7 @@ class TunerConfig:
     output_root: Path = Path("exp/results/auto_tuning")
     resume: Path | None = None
     source_run: Path | None = None
-    memory_config: Path = Path(".agents/skills/memory-retrieval-tuner/memory_config.json")
+    memory_config: Path | None = None
     llm_mode: str = "real"
     max_parallel_sessions: int | None = None
     max_parallel_candidates: int | None = None
@@ -392,6 +400,30 @@ def _resolve_shortterm_window(
     }
 
 
+def _resolve_memory_config(memory_config_path: Path | None) -> tuple[dict[str, Any], str]:
+    """Resolve a partial user config against the current production defaults."""
+    if memory_config_path is None:
+        raw_config: dict[str, Any] = {}
+        source = "production_defaults"
+    else:
+        loaded = load_json(memory_config_path)
+        if not isinstance(loaded, Mapping):
+            raise ValueError("memory_config must contain a JSON object")
+        raw_config = copy.deepcopy(dict(loaded))
+        source = "explicit"
+
+    # This block controls tuner-only request/observability policy and is not a
+    # MemoryConfig default. Preserve it separately while Pydantic resolves the
+    # effective production Memory configuration.
+    benchmark_runtime = raw_config.pop("benchmark_runtime", None)
+    resolved = MemoryConfig(**raw_config).model_dump(mode="json", warnings=False)
+    if benchmark_runtime is not None:
+        if not isinstance(benchmark_runtime, Mapping):
+            raise ValueError("memory_config.benchmark_runtime must be a JSON object")
+        resolved["benchmark_runtime"] = copy.deepcopy(dict(benchmark_runtime))
+    return resolved, source
+
+
 def _artifact_cache_root(config: TunerConfig, run_dir: Path) -> Path:
     # The resume directory is the durable run identity. Derive its sibling
     # cache so callers need not repeat a custom output_dir on every resume.
@@ -434,7 +466,9 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
     if not research_trace_path.exists():
         research_trace_path.touch()
 
-    memory_config_values = load_json(config.memory_config)
+    memory_config_values, memory_config_source = _resolve_memory_config(config.memory_config)
+    resolved_memory_config_path = run_dir / "resolved_memory_config.json"
+    atomic_write_json(resolved_memory_config_path, memory_config_values)
     shortterm_window, shortterm_window_validation = _resolve_shortterm_window(space, memory_config_values)
     dataset, audit = audit_dataset(
         config.dataset,
@@ -458,7 +492,7 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         dataset_sha256=dataset.sha256,
         session_turn_counts=session_turn_counts,
         ranking_depth=ranking_depth,
-        memory_config_path=config.memory_config,
+        memory_config_path=resolved_memory_config_path,
         llm_mode=config.llm_mode,
         source_run=config.source_run,
     )
@@ -466,7 +500,7 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         dataset_path=Path(dataset.path),
         dataset_sha256=dataset.sha256,
         session_query_counts=session_turn_counts,
-        memory_config_path=config.memory_config,
+        memory_config_path=resolved_memory_config_path,
     )
     if full_memory_regression_baseline is not None:
         full_memory_regression_baseline = Candidate(
@@ -488,7 +522,7 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
             dataset_sha256=dataset.sha256,
             session_ids=sorted(dataset.sessions),
             session_turn_counts=session_turn_counts,
-            memory_config_path=config.memory_config,
+            memory_config_path=resolved_memory_config_path,
             run_dir=run_dir,
             ranking_depth=ranking_depth,
             llm_mode=config.llm_mode,
@@ -557,7 +591,7 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
             dataset_path=Path(dataset.path),
             dataset_sha256=dataset.sha256,
             session_query_counts=session_turn_counts,
-            memory_config_path=config.memory_config,
+            memory_config_path=resolved_memory_config_path,
             extra_trace_paths=generated_trace_paths,
         )
         if full_memory_regression_baseline is not None:
@@ -939,6 +973,9 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         "stop_reason": stop_reason,
         "resume_supported": True,
         "source_run": str(config.source_run) if config.source_run else None,
+        "memory_config_source": memory_config_source,
+        "memory_config_input_path": str(config.memory_config.resolve()) if config.memory_config else None,
+        "resolved_memory_config_path": str(resolved_memory_config_path),
         "baseline_backend": midterm_baseline.config.get("backend"),
         "baseline_provenance": midterm_baseline.provenance,
         "midterm_baseline_backend": midterm_baseline.config.get("backend"),

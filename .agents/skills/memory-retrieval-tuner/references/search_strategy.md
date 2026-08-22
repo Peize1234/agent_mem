@@ -33,7 +33,7 @@ Production Baseline
  -> Held-out Validation
 ```
 
-`required_context` is fixed Gold; ShortTerm capacity never changes its denominator. Source-changing, within-session-stateful and cross-session-temporal parameters are separate from retrieval-only controls. Fine-grained LongTerm is produced per complete QA and is cross-session retrievable with Production's dual-route/session-weight contract. Because the current benchmark has no reliable cross-session Gold, `longterm_other_session_weight` and Promotion remain fixed Production defaults; structural replay is `STRUCTURAL_ONLY_NOT_EVALUATED` with status `CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD`, excluded from winner selection.
+`required_context` is fixed Gold; ShortTerm capacity never changes its denominator. Source-changing, within-session-stateful and cross-session-temporal parameters are separate from retrieval-only controls. Fine-grained LongTerm is produced per complete QA and is cross-session retrievable with Production's dual-route/session-weight contract. Because the current benchmark has no reliable cross-session Gold, `longterm_other_session_weight` and Promotion remain fixed Production defaults; structural replay is `STRUCTURAL_ONLY_NOT_EVALUATED` with status `CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD`, excluded from winner selection. Baseline Memory values also come only from Production `MemoryConfig`: an optional partial user config is Pydantic-resolved against those defaults, while `search_space.yaml` supplies ranges and hard constraints rather than a second baseline.
 
 Research decisions use only the current run's Tune evidence and current-run experiment trajectory; previous-run winners, metrics or lessons are never search priors.
 

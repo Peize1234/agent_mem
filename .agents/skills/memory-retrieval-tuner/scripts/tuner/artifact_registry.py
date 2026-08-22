@@ -499,21 +499,37 @@ class ArtifactRegistry:
         matching: list[Path] = []
         expected_parent = dict(expected_parent_retrieval_identity)
         parent_mismatch_found = False
+        fixed_mismatch_found = False
         for path in sorted(candidates):
             try:
                 rows = load_jsonl(path)
             except (OSError, json.JSONDecodeError):
                 continue
             dataset_rows = [row for row in rows if row.get("dataset_sha256") == dataset_sha256]
-            if any(
-                isinstance(row.get("parent_retrieval_identity"), Mapping)
+            parent_rows = [
+                row
+                for row in dataset_rows
+                if isinstance(row.get("parent_retrieval_identity"), Mapping)
                 and dict(row["parent_retrieval_identity"]) == expected_parent
+            ]
+            fixed_rows = [
+                row
+                for row in parent_rows
+                if int(row.get("max_tool_result_chars") or 0) == int(expected_max_tool_result_chars)
+            ]
+            if fixed_rows and len(fixed_rows) == len(parent_rows):
+                matching.append(path)
+            elif parent_rows:
+                fixed_mismatch_found = True
+            elif any(
+                isinstance(row.get("parent_retrieval_identity"), Mapping)
+                and dict(row["parent_retrieval_identity"]) != expected_parent
                 for row in dataset_rows
             ):
-                matching.append(path)
-            elif dataset_rows:
                 parent_mismatch_found = True
         if not matching:
+            if fixed_mismatch_found:
+                raise ValueError("production Agentic trace max_tool_result_chars mismatch")
             if parent_mismatch_found:
                 raise ValueError("production Agentic trace parent retrieval identity mismatch")
             return None

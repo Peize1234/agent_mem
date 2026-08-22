@@ -111,8 +111,8 @@ def parse_args(argv: list[str] | None = None) -> TunerConfig:
     source_run = Path(str(values["source_run"])) if values.get("source_run") else None
     if source_run and not source_run.is_absolute():
         source_run = REPO_ROOT / source_run
-    memory_config = Path(str(values.get("memory_config") or (SKILL_ROOT / "memory_config.json")))
-    if not memory_config.is_absolute():
+    memory_config = Path(str(values["memory_config"])) if values.get("memory_config") else None
+    if memory_config is not None and not memory_config.is_absolute():
         memory_config = REPO_ROOT / memory_config
     return TunerConfig(
         dataset=dataset,
