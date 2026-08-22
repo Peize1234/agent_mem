@@ -64,6 +64,7 @@ def score_and_rank(
     threshold: float,
     top_k: int,
     explain: bool = False,
+    session_weights: Optional[Dict[str, float]] = None,
 ) -> List[Dict[str, Any]]:
     """Score candidates additively and return top-k results.
 
@@ -116,7 +117,9 @@ def score_and_rank(
         entity_boost = entity_boosts.get(mem_id_str, 0.0)
 
         raw_combined = semantic_score + bm25_score + entity_boost
-        combined = min(raw_combined / max_possible, 1.0)
+        hybrid_score = min(raw_combined / max_possible, 1.0)
+        session_weight = float((session_weights or {}).get(mem_id_str, 1.0))
+        combined = hybrid_score * session_weight
 
         scored_result = {
             "id": mem_id_str,
@@ -130,6 +133,8 @@ def score_and_rank(
                 "entity_boost": entity_boost,
                 "raw_score": raw_combined,
                 "max_possible_score": max_possible,
+                "hybrid_score": hybrid_score,
+                "session_weight": session_weight,
                 "final_score": combined,
                 "threshold": threshold,
             }

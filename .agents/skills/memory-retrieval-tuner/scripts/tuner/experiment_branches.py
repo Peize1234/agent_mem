@@ -13,8 +13,8 @@ from .model_discovery import ModelDiscovery
 from .models import Candidate, CandidateResult, Dataset
 from .prompt_artifacts import QueryPromptArtifactGenerator, controlled_query_prompt_variants
 from .source_prompt_variants import (
+    controlled_fine_grained_longterm_prompt_variants,
     controlled_page_prompt_variants,
-    controlled_session_longterm_prompt_variants,
     controlled_session_merge_prompt_variants,
 )
 from .parameter_schema import validate_candidate_config
@@ -215,7 +215,7 @@ def _stateful_source_spec(
             "memory_config_path": manifest.get("memory_config_path"),
             "llm_mode": manifest.get("llm_mode") or "real",
             "page_summary_prompt": None,
-            "context_mode": "none",
+            "page_context_contract": "production_previous_current_following_raw_v1",
             "source_variant": kind,
             "session_order": sorted(context.dataset.sessions),
         }
@@ -902,7 +902,7 @@ class SourcePromptBranch(BaseBranch):
                 "memory_config_sha256": sha256_file(memory_config_path),
                 "production_prompt_hashes": source_manifest.get("prompt_hashes") or {},
                 "page_summary_prompt_hash": prompt_hash,
-                "context_mode": variant["context_mode"],
+                "page_context_contract": variant["context_contract"],
                 "llm_mode": llm_mode,
                 "artifact_schema": 1,
             }
@@ -920,7 +920,7 @@ class SourcePromptBranch(BaseBranch):
                         "prompt_text": prompt,
                         "prompt_variant": label,
                         "prompt_kind": variant["kind"],
-                        "context_mode": variant["context_mode"],
+                        "page_context_contract": variant["context_contract"],
                         "generation_deferred_until_screening": True,
                         "provenance_validated": True,
                     },
@@ -931,7 +931,7 @@ class SourcePromptBranch(BaseBranch):
                         "memory_config_path": str(memory_config_path.resolve()),
                         "llm_mode": llm_mode,
                         "page_summary_prompt": prompt,
-                        "context_mode": str(variant["context_mode"]),
+                        "page_context_contract": str(variant["context_contract"]),
                         "source_variant": label,
                         "source_identity": identity,
                         "source_root": str(source_root.resolve()),
@@ -954,7 +954,7 @@ class SourcePromptBranch(BaseBranch):
                         "name": label,
                         "prompt_hash": hashlib.sha256(str(value["prompt"]).encode()).hexdigest(),
                         "prompt_text": value["prompt"],
-                        "context_mode": value["context_mode"],
+                        "page_context_contract": value["context_contract"],
                         "kind": value["kind"],
                     }
                     for label, value in variants.items()
@@ -1186,7 +1186,7 @@ class MidtermSourceConfigBranch(BaseBranch):
                 "memory_config_path": manifest.get("memory_config_path"),
                 "llm_mode": manifest.get("llm_mode") or "real",
                 "page_summary_prompt": None,
-                "context_mode": "none",
+                "page_context_contract": "production_previous_current_following_raw_v1",
                 "source_variant": "source-config",
                 "source_root": str(context.registry.cache_root / "production_variants"),
                 "session_order": sorted(context.dataset.sessions),
@@ -1269,9 +1269,9 @@ class MidtermSourceConfigBranch(BaseBranch):
         return BranchOutcome(self.spec.name, "READY" if candidates else "UNAVAILABLE", candidates=candidates[: max(1, int(context.execution_settings.get("remaining_expensive_candidates") or 8))])
 
 
-class SessionLongtermRetrievalBranch(BaseBranch):
+class FineGrainedLongtermRetrievalBranch(BaseBranch):
     spec = BranchSpec(
-        name="SessionLongtermRetrieval",
+        name="FineGrainedLongtermRetrieval",
         diagnostic_regimes=ALL_REGIMES,
         cost_level="medium",
         required_artifacts=("production_full_memory_trace",),
@@ -1282,7 +1282,8 @@ class SessionLongtermRetrievalBranch(BaseBranch):
     )
 
     def generate(self, context: BranchContext) -> BranchOutcome:
-        settings = (((context.search_space.get("search") or {}).get("stages") or {}).get("secondary") or {}).get("session_longterm") or {}
+        secondary = ((context.search_space.get("search") or {}).get("stages") or {}).get("secondary") or {}
+        settings = secondary.get("fine_grained_longterm") or secondary.get("session_longterm") or {}
         groups: list[list[Candidate]] = []
         top_k_candidates = []
         for top_k in settings.get("longterm_top_k") or [5, 10, 15, 20, 25, 30]:
@@ -1422,6 +1423,7 @@ def _split_source_prompt_outcome(
             "prompt_hash": prompt_hash,
             "invalidates": {
                 "session_merge_prompt": ["midterm_sessions", "promotion", "cross_session_longterm"],
+                "fine_grained_longterm_extraction_prompt": ["fine_grained_longterm", "all_memory_context"],
                 "session_longterm_extraction_prompt": ["session_longterm", "all_memory_context"],
             }.get(prompt_field, ["midterm_pages", "midterm_sessions", "downstream_memory"]),
         }
@@ -1434,8 +1436,9 @@ def _split_source_prompt_outcome(
             "llm_mode": str(manifest.get("llm_mode") or "real"),
             "page_summary_prompt": None,
             "session_merge_prompt": None,
+            "fine_grained_longterm_extraction_prompt": None,
             "session_longterm_extraction_prompt": None,
-            "context_mode": "none",
+            "page_context_contract": "production_previous_current_following_raw_v1",
             "source_variant": label,
             "source_identity": identity,
             "source_root": str(source_root.resolve()),
@@ -1469,7 +1472,7 @@ def _split_source_prompt_outcome(
         candidates=candidates,
         provenance={
             "prompt_kind": prompt_field,
-            "parent": "production/original",
+            "parent": "production/P0-reference-resolution",
             "analysis_session_ids": list(context.tune_sessions),
         },
     )
@@ -1509,14 +1512,14 @@ class MidtermSessionMergePromptBranch(SourcePromptBranch):
         )
 
 
-class SessionLongtermExtractionPromptBranch(SourcePromptBranch):
+class FineGrainedLongtermExtractionPromptBranch(SourcePromptBranch):
     spec = BranchSpec(
-        name="SessionLongtermExtractionPrompt",
+        name="FineGrainedLongtermExtractionPrompt",
         diagnostic_regimes=frozenset({"candidate_coverage_bottleneck", "balanced_or_plateau"}),
         cost_level="expensive",
-        required_artifacts=("production_longterm_outputs", "session_longterm_prompt"),
+        required_artifacts=("production_longterm_outputs", "fine_grained_longterm_prompt"),
         execution_adapter="ProductionGeneratedSourceAdapter",
-        provenance_contract=("dataset_sha256", "session_longterm_prompt_hash", "manifest_sha256"),
+        provenance_contract=("dataset_sha256", "fine_grained_longterm_prompt_hash", "manifest_sha256"),
         resource_requirements={"llm": True, "embedding": True, "network": True},
         priority=33,
     )
@@ -1525,9 +1528,15 @@ class SessionLongtermExtractionPromptBranch(SourcePromptBranch):
         return _split_source_prompt_outcome(
             context,
             branch_spec=self.spec,
-            prompt_field="session_longterm_extraction_prompt",
-            variants=controlled_session_longterm_prompt_variants(),
+            prompt_field="fine_grained_longterm_extraction_prompt",
+            variants=controlled_fine_grained_longterm_prompt_variants(),
         )
+
+
+# Historical imports remain valid, but the default registry and new artifacts
+# use the Fine-grained contract names above.
+SessionLongtermRetrievalBranch = FineGrainedLongtermRetrievalBranch
+SessionLongtermExtractionPromptBranch = FineGrainedLongtermExtractionPromptBranch
 
 
 class BranchRegistry:
@@ -1817,9 +1826,9 @@ def default_branches() -> list[ExperimentBranch]:
         MidtermEvolutionBranch(),
         PromotionBranch(),
         MidtermSourceConfigBranch(),
-        SessionLongtermRetrievalBranch(),
+        FineGrainedLongtermRetrievalBranch(),
         QueryRewritePromptBranch(),
         MidtermPageSummaryPromptBranch(),
         MidtermSessionMergePromptBranch(),
-        SessionLongtermExtractionPromptBranch(),
+        FineGrainedLongtermExtractionPromptBranch(),
     ]

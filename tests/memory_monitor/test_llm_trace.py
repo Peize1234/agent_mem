@@ -85,7 +85,9 @@ class _TracingAgenticMemory(DemoMemory):
         user_id,
         session_id,
         record_midterm_visits,
+        exclude_midterm_page_ids=None,
     ):
+        del exclude_midterm_page_ids
         return TracedToolExecutor(_ToolExecutor())
 
     @staticmethod

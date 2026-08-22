@@ -131,7 +131,7 @@ def test_new_branches_are_reachable_through_real_coverage_policy() -> None:
         return selected[0].spec.name
 
     assert next_branch(
-        "session_instability", {"RetrievalControl": 1, "SessionLongtermRetrieval": 1}
+        "session_instability", {"RetrievalControl": 1, "FineGrainedLongtermRetrieval": 1}
     ) == "MidtermEvolution"
     ranking_selected = registry.select(
         regime="ranking_bottleneck",
@@ -147,7 +147,7 @@ def test_new_branches_are_reachable_through_real_coverage_policy() -> None:
     assert any(branch.spec.name == "MidtermEvolution" for branch in ranking_selected)
     assert next_branch(
         "session_instability",
-        {"RetrievalControl": 1, "SessionLongtermRetrieval": 1, "MidtermEvolution": 1},
+        {"RetrievalControl": 1, "FineGrainedLongtermRetrieval": 1, "MidtermEvolution": 1},
     ) == "PageRepresentation"
     assert "Promotion" not in policy["session_instability"]["relevant"]
     assert "Promotion" not in policy["balanced_or_plateau"]["relevant"]
@@ -159,7 +159,7 @@ def test_new_branches_are_reachable_through_real_coverage_policy() -> None:
             "RetrievalControl": 1,
             "HybridRetrieval": 1,
             "Embedding": 1,
-            "SessionLongtermRetrieval": 1,
+            "FineGrainedLongtermRetrieval": 1,
         },
     ) == "QueryRewritePrompt"
     candidate_relevant = policy["candidate_coverage_bottleneck"]["relevant"]

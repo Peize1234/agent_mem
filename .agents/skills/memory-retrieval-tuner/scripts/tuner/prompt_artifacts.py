@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import re
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -9,7 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from mem0.memory.utils import extract_json, remove_code_blocks
+from mem0.configs.query_prompts import QUERY_REFERENCE_RESOLUTION_PROMPT
+from mem0.memory.query_resolver import build_query_resolution_messages, parse_resolved_query
 
 from .artifact_registry import ArtifactRegistry
 from .benchmark_support import load_json, redact_secrets
@@ -17,8 +17,9 @@ from .io_utils import sha256_file, stable_hash
 from .models import Candidate, CandidateResult, Dataset, Turn
 from .production_runtime import create_tuner_policy_llm
 
-PROMPT_ARTIFACT_SCHEMA = 3
-PRODUCTION_QUERY_PROMPT_IDENTITY = "production-original-query-no-rewrite-v1"
+PROMPT_ARTIFACT_SCHEMA = 4
+PRODUCTION_QUERY_PROMPT_HASH = hashlib.sha256(QUERY_REFERENCE_RESOLUTION_PROMPT.encode()).hexdigest()
+PRODUCTION_QUERY_PROMPT_IDENTITY = f"production-p0-reference-resolution-v1:{PRODUCTION_QUERY_PROMPT_HASH}"
 PRODUCTION_SHORTTERM_HISTORY_POLICY = "production_visible_prior_qa_turns_v1"
 
 
@@ -69,6 +70,7 @@ class ProductionShortTermContract:
     shortterm_qa_turns: int
     history_policy: str
     production_config_hash: str
+    production_memory_contract: str
 
 
 _ROUND_DIRECTIONS = {
@@ -108,7 +110,10 @@ def _prompt_text(parent_prompt: str | None, direction: str, failure_profile: Map
         "上一轮最佳 Prompt 如下，其约束继续生效；本轮只强化后面一个方向：\n"
         f"<parent_prompt>\n{parent_prompt}\n</parent_prompt>"
         if parent_prompt
-        else "这是从 production/original Query 出发的第一轮受控改写。"
+        else (
+            "这是从 Production P0 Query Resolution Prompt 出发的第一轮受控改写。"
+            f"\n<production_p0_prompt>\n{QUERY_REFERENCE_RESOLUTION_PROMPT}\n</production_p0_prompt>"
+        )
     )
     profile = ", ".join(f"{key}={value}" for key, value in sorted(failure_profile.items())) or "none"
     return (
@@ -156,8 +161,8 @@ def controlled_query_prompt_variants(
 ) -> list[QueryPromptVariant]:
     if generation_round not in _ROUND_DIRECTIONS:
         return []
-    parent_text = str(anchor.config.get("query_prompt_text") or "") or None
-    parent_hash = str(anchor.config.get("query_prompt_hash") or "") or stable_hash(PRODUCTION_QUERY_PROMPT_IDENTITY)
+    parent_text = str(anchor.config.get("query_prompt_text") or "") or QUERY_REFERENCE_RESOLUTION_PROMPT
+    parent_hash = str(anchor.config.get("query_prompt_hash") or "") or PRODUCTION_QUERY_PROMPT_HASH
     profile = _failure_profile(dataset, anchor_result, tune_sessions)
     variants = []
     for direction in _ROUND_DIRECTIONS[generation_round][: max(0, min(3, variants_per_round))]:
@@ -174,28 +179,6 @@ def controlled_query_prompt_variants(
     return variants
 
 
-def _parse_resolved_query(value: Any, original: str) -> str:
-    parsed: Mapping[str, Any] = {}
-    if isinstance(value, Mapping):
-        parsed = value
-    elif isinstance(value, str):
-        try:
-            parsed_value = json.loads(remove_code_blocks(value), strict=False)
-        except (ValueError, json.JSONDecodeError):
-            try:
-                parsed_value = json.loads(extract_json(value), strict=False)
-            except (ValueError, json.JSONDecodeError):
-                parsed_value = {}
-        if isinstance(parsed_value, Mapping):
-            parsed = parsed_value
-    resolved = str(parsed.get("resolved_query") or "").strip()
-    if not resolved:
-        raise ValueError("query rewrite response has no resolved_query")
-    if len(resolved) > max(2000, len(original) * 8):
-        raise ValueError("query rewrite exceeded the conservative length guard")
-    return resolved
-
-
 class QueryPromptArtifactGenerator:
     """Generate exact-dataset query artifacts with per-query resumability."""
 
@@ -208,7 +191,7 @@ class QueryPromptArtifactGenerator:
         manifests = [Path(str(value)) for value in candidate.config.get("manifest_paths") or []]
         if not manifests:
             raise ValueError("Query generation requires production MidTerm manifests")
-        contracts: list[tuple[Path, dict[str, Any], str, int, int]] = []
+        contracts: list[tuple[Path, dict[str, Any], str, int, int, str]] = []
         for manifest_path in manifests:
             manifest = load_json(manifest_path)
             raw_config_path = manifest.get("memory_config_path")
@@ -254,13 +237,23 @@ class QueryPromptArtifactGenerator:
                     continue
                 if int(midterm["short_term_capacity"]) != capacity_messages:
                     raise ValueError(f"production manifest effective ShortTerm config mismatch: {manifest_path}")
-            contracts.append((config_path, memory_config, config_sha, capacity_messages, qa_turns))
+            contracts.append(
+                (
+                    config_path,
+                    memory_config,
+                    config_sha,
+                    capacity_messages,
+                    qa_turns,
+                    str(manifest.get("production_memory_contract") or "legacy-production-contract"),
+                )
+            )
 
         config_hashes = {item[2] for item in contracts}
         capacities = {(item[3], item[4]) for item in contracts}
-        if len(config_hashes) != 1 or len(capacities) != 1:
+        memory_contracts = {item[5] for item in contracts}
+        if len(config_hashes) != 1 or len(capacities) != 1 or len(memory_contracts) != 1:
             raise ValueError("production MidTerm manifests disagree on memory config or ShortTerm window")
-        config_path, memory_config, config_sha, capacity_messages, qa_turns = contracts[0]
+        config_path, memory_config, config_sha, capacity_messages, qa_turns, memory_contract = contracts[0]
         production_config_hash = stable_hash(
             {
                 "memory_config_sha256": config_sha,
@@ -274,6 +267,7 @@ class QueryPromptArtifactGenerator:
             shortterm_qa_turns=qa_turns,
             history_policy=PRODUCTION_SHORTTERM_HISTORY_POLICY,
             production_config_hash=production_config_hash,
+            production_memory_contract=memory_contract,
         )
 
     def _create_llm(self, config: Mapping[str, Any], llm_mode: str) -> Any:
@@ -308,6 +302,7 @@ class QueryPromptArtifactGenerator:
             "shortterm_qa_turns": shortterm.shortterm_qa_turns,
             "history_policy": shortterm.history_policy,
             "production_config_hash": shortterm.production_config_hash,
+            "production_memory_contract": shortterm.production_memory_contract,
             "analysis_session_scope": sorted(tune_sessions),
             "query_representation": "bounded_reference_resolution",
         }
@@ -340,11 +335,20 @@ class QueryPromptArtifactGenerator:
         history_by_query: dict[str, list[dict[str, str]]] = {}
         turns_by_id: dict[str, Turn] = {}
         for turns in dataset.sessions.values():
-            history: list[dict[str, str]] = []
+            history: list[list[dict[str, str]]] = []
             for turn in turns:
                 turns_by_id[turn.query_id] = turn
-                history_by_query[turn.query_id] = list(history[-shortterm.shortterm_qa_turns :])
-                history.append({"user": turn.question, "assistant": turn.answer})
+                history_by_query[turn.query_id] = [
+                    message
+                    for qa_messages in history[-shortterm.shortterm_qa_turns :]
+                    for message in qa_messages
+                ]
+                history.append(
+                    [
+                        {"role": "user", "content": turn.question},
+                        {"role": "assistant", "content": turn.answer},
+                    ]
+                )
 
         def produce() -> dict[str, Any]:
             calls = 0
@@ -360,19 +364,11 @@ class QueryPromptArtifactGenerator:
                 }
 
                 def call() -> dict[str, Any]:
-                    messages = [
-                        {"role": "system", "content": variant.prompt_text},
-                        {
-                            "role": "user",
-                            "content": json.dumps(
-                                {
-                                    "current_query": turn.question,
-                                    "recent_history": history_by_query[turn.query_id],
-                                },
-                                ensure_ascii=False,
-                            ),
-                        },
-                    ]
+                    messages = build_query_resolution_messages(
+                        turn.question,
+                        history_by_query[turn.query_id],
+                        prompt=variant.prompt_text,
+                    )
                     attempts = 0
                     errors: list[str] = []
                     for _ in range(3):
@@ -382,7 +378,7 @@ class QueryPromptArtifactGenerator:
                                 messages=messages,
                                 response_format={"type": "json_object"},
                             )
-                            resolved = _parse_resolved_query(response, turn.question)
+                            resolved = parse_resolved_query(response, turn.question)
                             return {
                                 "resolved_query": resolved,
                                 "llm_calls": attempts,
@@ -438,6 +434,7 @@ class QueryPromptArtifactGenerator:
                 "shortterm_qa_turns": shortterm.shortterm_qa_turns,
                 "history_policy": shortterm.history_policy,
                 "production_config_hash": shortterm.production_config_hash,
+                "production_memory_contract": shortterm.production_memory_contract,
                 "analysis_session_ids": sorted(tune_sessions),
                 "generated_session_ids": sorted(dataset.sessions),
                 "llm_calls": calls,

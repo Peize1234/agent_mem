@@ -18,6 +18,8 @@ from mem0.utils.timestamps import (
 
 logger = logging.getLogger(__name__)
 
+PRODUCTION_PAGE_CONTEXT_CONTRACT = "production_previous_current_following_raw_v1"
+
 
 def _format_page_dialogue(user_input: Any, assistant_response: Any) -> str:
     """Format one page identically for the summary model and persisted raw dialogue."""
@@ -28,11 +30,33 @@ def _format_page_dialogue(user_input: Any, assistant_response: Any) -> str:
     return f"{user_line}\n\n{assistant_line}"
 
 
+def build_midterm_page_summary_input(
+    previous_raw_dialogues: List[str],
+    user_input: Any,
+    assistant_response: Any,
+    following_raw_dialogues: List[str],
+) -> str:
+    """Build the fixed Production previous/current/following Page context contract."""
+    previous = [str(value).strip() for value in previous_raw_dialogues if str(value).strip()]
+    following = [str(value).strip() for value in following_raw_dialogues if str(value).strip()]
+    sections = ["上文：", "\n\n".join(previous) if previous else "（无）"]
+    sections.extend(
+        [
+            "当前待总结对话：",
+            _format_page_dialogue(user_input, assistant_response),
+            "下文：",
+            "\n\n".join(following) if following else "（无）",
+        ]
+    )
+    return "\n\n".join(sections)
+
+
 class MidTermUpdater:
-    def __init__(self, midterm_memory, llm, config):
+    def __init__(self, midterm_memory, llm, config, *, following_qa_provider=None):
         self.midterm_memory = midterm_memory
         self.llm = llm
         self.config = config
+        self.following_qa_provider = following_qa_provider
 
     @staticmethod
     def _scope_filters(filters: Dict[str, Any]) -> Dict[str, Any]:
@@ -88,14 +112,22 @@ class MidTermUpdater:
         user_input: str,
         assistant_response: str,
         *,
+        previous_raw_dialogues: Optional[List[str]] = None,
+        following_raw_dialogues: Optional[List[str]] = None,
         allow_fallback: bool = True,
     ) -> tuple[str, List[str]]:
         raw_dialogue = _format_page_dialogue(user_input, assistant_response)
+        summary_input = build_midterm_page_summary_input(
+            previous_raw_dialogues or [],
+            user_input,
+            assistant_response,
+            following_raw_dialogues or [],
+        )
         try:
             response = self.llm.generate_response(
                 messages=[
                     {"role": "system", "content": MIDTERM_PAGE_SUMMARY_PROMPT},
-                    {"role": "user", "content": raw_dialogue},
+                    {"role": "user", "content": summary_input},
                 ],
                 response_format={"type": "json_object"},
             )
@@ -130,14 +162,22 @@ class MidTermUpdater:
         user_input: str,
         assistant_response: str,
         *,
+        previous_raw_dialogues: Optional[List[str]] = None,
+        following_raw_dialogues: Optional[List[str]] = None,
         allow_fallback: bool = True,
     ) -> tuple[str, List[str]]:
         raw_dialogue = _format_page_dialogue(user_input, assistant_response)
+        summary_input = build_midterm_page_summary_input(
+            previous_raw_dialogues or [],
+            user_input,
+            assistant_response,
+            following_raw_dialogues or [],
+        )
         try:
             response = await self._generate_response_async(
                 messages=[
                     {"role": "system", "content": MIDTERM_PAGE_SUMMARY_PROMPT},
-                    {"role": "user", "content": raw_dialogue},
+                    {"role": "user", "content": summary_input},
                 ],
                 response_format={"type": "json_object"},
             )
@@ -236,6 +276,47 @@ class MidTermUpdater:
 
         rows.sort(key=page_order)
         return str(rows[-1].id)
+
+    def _page_context_qa_window(self) -> int:
+        return max(int(getattr(self.config, "short_term_capacity", 0)) // 2, 0)
+
+    def _previous_raw_dialogues(self, previous_page_id: Optional[str]) -> List[str]:
+        """Walk the persisted Page chain instead of using semantic adjacency."""
+        remaining = self._page_context_qa_window()
+        page_id = previous_page_id
+        newest_first = []
+        seen = set()
+        while page_id and remaining > 0 and page_id not in seen:
+            seen.add(page_id)
+            page = self.midterm_memory.get_page(page_id)
+            if page is None:
+                break
+            payload = dict(getattr(page, "payload", None) or {})
+            raw_dialogue = str(payload.get("raw_dialogue") or "").strip()
+            if raw_dialogue:
+                newest_first.append(raw_dialogue)
+                remaining -= 1
+            page_id = payload.get("pre_page")
+        newest_first.reverse()
+        return newest_first
+
+    def _following_raw_dialogues(
+        self,
+        scope_filters: Dict[str, Any],
+        source_turn_index: int,
+    ) -> List[str]:
+        if self.following_qa_provider is None or self._page_context_qa_window() <= 0:
+            return []
+        messages = self.following_qa_provider(
+            scope_filters,
+            source_turn_index,
+            self._page_context_qa_window(),
+        )
+        return [
+            _format_page_dialogue(pair.get("user_input", ""), pair.get("assistant_response", ""))
+            for pair in self._messages_to_qa_pairs(messages)
+            if pair.get("user_input") and pair.get("assistant_response")
+        ]
 
     def _session_id_for_page(
         self,
@@ -800,9 +881,13 @@ class MidTermUpdater:
                     summary = qa_pair.get("user_input", "").strip() or raw_dialogue[:240]
                     keywords = self._fallback_keywords(raw_dialogue)
                 else:
+                    previous_raw_dialogues = self._previous_raw_dialogues(previous_page_id)
+                    following_raw_dialogues = self._following_raw_dialogues(scope_filters, turn_index)
                     summary, keywords = self._summarize_page(
                         qa_pair.get("user_input", ""),
                         qa_pair.get("assistant_response", ""),
+                        previous_raw_dialogues=previous_raw_dialogues,
+                        following_raw_dialogues=following_raw_dialogues,
                         allow_fallback=source_job_id is None,
                     )
                 created_at = normalize_iso_timestamp_to_beijing(qa_pair.get("created_at")) or now
@@ -974,9 +1059,15 @@ class MidTermUpdater:
                     summary = qa_pair.get("user_input", "").strip() or raw_dialogue[:240]
                     keywords = self._fallback_keywords(raw_dialogue)
                 else:
+                    previous_raw_dialogues, following_raw_dialogues = await asyncio.gather(
+                        asyncio.to_thread(self._previous_raw_dialogues, previous_page_id),
+                        asyncio.to_thread(self._following_raw_dialogues, scope_filters, turn_index),
+                    )
                     summary, keywords = await self._summarize_page_async(
                         qa_pair.get("user_input", ""),
                         qa_pair.get("assistant_response", ""),
+                        previous_raw_dialogues=previous_raw_dialogues,
+                        following_raw_dialogues=following_raw_dialogues,
                         allow_fallback=source_job_id is None,
                     )
                 created_at = normalize_iso_timestamp_to_beijing(qa_pair.get("created_at")) or now

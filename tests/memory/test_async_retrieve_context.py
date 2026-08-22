@@ -23,6 +23,7 @@ def _build_async_memory(*, search_result=None, profile_result=None, messages=Non
     )
     memory._short_term_capacity = MagicMock(return_value=short_term_capacity)
     memory.llm = MagicMock()
+    memory.llm.generate_response_async = AsyncMock(return_value='{"resolved_query": "question"}')
     memory._profile_updater = None
     return memory
 
@@ -36,6 +37,8 @@ def _build_sync_memory(*, search_result, profile_result, messages, short_term_ca
         get_messages=MagicMock(side_effect=AssertionError("retrieve_context must use get_last_messages")),
     )
     memory._short_term_capacity = MagicMock(return_value=short_term_capacity)
+    memory.llm = MagicMock()
+    memory.llm.generate_response.return_value = '{"resolved_query": "question"}'
     return memory
 
 
@@ -109,7 +112,7 @@ async def test_async_retrieve_context_matches_sync_structure_and_uses_existing_a
     async_memory.db.get_messages.assert_not_called()
     async_memory._short_term_capacity.assert_called_once_with()
     assert async_memory._profile_updater is None
-    assert async_memory.llm.mock_calls == []
+    async_memory.llm.generate_response_async.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -333,6 +336,7 @@ async def test_async_retrieve_context_uses_latest_configured_session_window(monk
         memory.search = AsyncMock(return_value={"results": []})
         memory.get_profile = AsyncMock(return_value={"user_id": "user-1", "profile": {}})
         memory.llm = MagicMock()
+        memory.llm.generate_response_async = AsyncMock(return_value='{"resolved_query": "question"}')
         memory._profile_updater = None
 
         real_to_thread = asyncio.to_thread
@@ -376,6 +380,6 @@ async def test_async_retrieve_context_uses_latest_configured_session_window(monk
         ]
         db.get_messages.assert_not_called()
         assert memory._profile_updater is None
-        assert memory.llm.mock_calls == []
+        assert memory.llm.generate_response_async.await_count == 3
     finally:
         db.close()

@@ -38,7 +38,7 @@ RESEARCH_CONFIG_KEYS = frozenset(
         "field_weights",
         "page_summary_prompt_hash",
         "source_variant",
-        "context_mode",
+        "page_context_contract",
         "ablation_from_baseline",
         "midterm_rag_threshold",
         "midterm_candidate_pool_multiplier",

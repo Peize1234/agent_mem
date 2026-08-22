@@ -125,7 +125,10 @@ def test_midterm_summary_request_and_persisted_dialogue_share_real_blank_line_se
         )
         summary_call = next(call for call in llm.calls if call["messages"][0]["content"] == MIDTERM_PAGE_SUMMARY_PROMPT)
 
-        assert summary_call["messages"][1]["content"] == expected
+        summary_input = summary_call["messages"][1]["content"]
+        assert "上文：\n\n（无）" in summary_input
+        assert f"当前待总结对话：\n\n{expected}" in summary_input
+        assert "下文：\n\n（无）" in summary_input
         assert pages[0]["raw_dialogue"] == expected
         assert pages[0]["page_sequence"] == 1
         assert pages[0]["turn_index"] == 1
@@ -1168,7 +1171,12 @@ def test_memory_add_infer_true_updates_long_and_midterm(tmp_path, fake_memory_en
     assert {row.payload["source_job_id"] for row in pages}.issubset(set(migration_job_ids))
     assert all(set(row.payload.get("source_job_ids") or []) <= set(migration_job_ids) for row in sessions)
     longterm_rows = memory.vector_store.list(filters=filters, top_k=10)
-    assert {row.payload["source_job_id"] for row in longterm_rows}.issubset(set(migration_job_ids))
+    longterm_job_ids = {
+        job["job_id"] for job in memory.db.list_longterm_extraction_jobs(session_scope="user_id=u1")
+    }
+    assert longterm_job_ids
+    assert {row.payload["source_job_id"] for row in longterm_rows}.issubset(longterm_job_ids)
+    assert all(row.payload.get("source_job_type") == "longterm_extraction" for row in longterm_rows)
     for row in [*pages, *sessions]:
         assert row.payload["created_at"].endswith("+08:00")
         assert row.payload["updated_at"].endswith("+08:00")
@@ -1590,7 +1598,7 @@ def test_threshold_filtered_midterm_page_is_not_reinforced(tmp_path, fake_memory
     memory.close()
 
 
-def test_existing_longterm_configured_rag_threshold_preserves_run_scope(tmp_path, fake_memory_env):
+def test_existing_longterm_configured_rag_threshold_applies_cross_session_weight(tmp_path, fake_memory_env):
     config = _memory_config(tmp_path, enabled=False, collection_name="longterm_threshold")
     config.background.enabled = False
     config.longterm_rag_threshold = 0.8
@@ -1622,8 +1630,10 @@ def test_existing_longterm_configured_rag_threshold_preserves_run_scope(tmp_path
         threshold=0.0,
     )["results"]
 
-    assert [item["id"] for item in results] == ["relevant"]
-    assert all(item.get("run_id") == "run-1" for item in results)
+    assert [item["id"] for item in results] == ["relevant", "other-run"]
+    assert results[0]["run_id"] == "run-1"
+    assert results[1]["run_id"] == "run-2"
+    assert results[0]["score"] > results[1]["score"]
     memory.close()
 
 

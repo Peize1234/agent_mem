@@ -18,6 +18,7 @@ SOURCE_CHANGING = frozenset(
         "top_k_sessions",
         "page_summary_prompt",
         "session_merge_prompt",
+        "fine_grained_longterm_extraction_prompt",
         "session_longterm_extraction_prompt",
         "embedding_model_id",
         "embedding_model_revision",
@@ -64,6 +65,7 @@ RETRIEVAL_ONLY = frozenset(
         "query_rewrite_prompt",
     }
 )
+PRODUCTION_FIXED = frozenset({"longterm_other_session_weight"})
 
 HEAT_PRESETS: dict[str, tuple[float, float, float]] = {
     "recall-heavy": (1.0, 0.25, 0.5),
@@ -86,6 +88,8 @@ def parameter_class(name: str) -> str:
         return "within-session-stateful"
     if name in CROSS_SESSION_TEMPORAL_STATEFUL:
         return "cross-session-temporal-stateful"
+    if name in PRODUCTION_FIXED:
+        return "production-fixed"
     return "query-time" if name in RETRIEVAL_ONLY else "unknown"
 
 
@@ -97,7 +101,10 @@ def validate_candidate_config(config: Mapping[str, Any], *, allow_unknown: bool 
     """
     value = dict(config)
     if not allow_unknown:
-        unknown = sorted(set(value) - (SOURCE_CHANGING | WITHIN_SESSION_STATEFUL | CROSS_SESSION_TEMPORAL_STATEFUL | RETRIEVAL_ONLY))
+        unknown = sorted(
+            set(value)
+            - (SOURCE_CHANGING | WITHIN_SESSION_STATEFUL | CROSS_SESSION_TEMPORAL_STATEFUL | RETRIEVAL_ONLY | PRODUCTION_FIXED)
+        )
         if unknown:
             raise ValueError(f"unknown tuner parameters: {', '.join(unknown)}")
 
@@ -139,6 +146,7 @@ def validate_candidate_config(config: Mapping[str, Any], *, allow_unknown: bool 
         "session_similarity_threshold", "midterm_rag_threshold", "longterm_rag_threshold",
         "cross_session_longterm_rag_threshold", "retention_floor", "cross_session_retention_floor",
         "entity_similarity_threshold", "dense_weight", "embedding_similarity_weight", "keyword_overlap_weight",
+        "longterm_other_session_weight",
     ):
         unit(name)
     for name in ("retention_half_life_turns", "heat_recency_tau_turns", "cross_session_retention_half_life_hours"):

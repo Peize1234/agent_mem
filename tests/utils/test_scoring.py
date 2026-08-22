@@ -146,6 +146,8 @@ class TestScoreAndRank:
             "entity_boost": 0.3,
             "raw_score": pytest.approx(1.7),
             "max_possible_score": 2.5,
+            "hybrid_score": pytest.approx(0.68),
+            "session_weight": 1.0,
             "final_score": pytest.approx(0.68),
             "threshold": 0.1,
         }

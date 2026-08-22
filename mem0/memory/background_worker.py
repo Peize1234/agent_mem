@@ -22,6 +22,10 @@ AsyncProfileHandler = Callable[[Dict[str, Any]], Awaitable[Optional[bool]]]
 AsyncPromotionHandler = Callable[[Dict[str, Any]], Awaitable[Optional[str]]]
 AsyncCommitOutputsHandler = Callable[[Dict[str, Any], str, str, bool], Awaitable[None]]
 AsyncDiscardOutputsHandler = Callable[[Dict[str, Any], str, str], Awaitable[Optional[str]]]
+LongtermExtractionHandler = Callable[[Dict[str, Any]], None]
+AsyncLongtermExtractionHandler = Callable[[Dict[str, Any]], Awaitable[None]]
+LongtermExtractionCommitHandler = Callable[[Dict[str, Any], str], None]
+LongtermExtractionDiscardHandler = Callable[[Dict[str, Any], str], Optional[str]]
 
 
 class LeaseHeartbeat:
@@ -87,6 +91,10 @@ class BackgroundWorkerManager:
         discard_migration_outputs: Optional[DiscardOutputsHandler] = None,
         discard_migration_outputs_async: Optional[AsyncDiscardOutputsHandler] = None,
         startup_cleanup: Optional[StartupCleanupHandler] = None,
+        process_longterm_extraction: Optional[LongtermExtractionHandler] = None,
+        process_longterm_extraction_async: Optional[AsyncLongtermExtractionHandler] = None,
+        commit_longterm_extraction_outputs: Optional[LongtermExtractionCommitHandler] = None,
+        discard_longterm_extraction_outputs: Optional[LongtermExtractionDiscardHandler] = None,
     ):
         self.db = db
         self.config = config or BackgroundTaskConfig()
@@ -103,11 +111,16 @@ class BackgroundWorkerManager:
         self.discard_migration_outputs = discard_migration_outputs or (lambda job, stage, token: None)
         self.discard_migration_outputs_async = discard_migration_outputs_async
         self.startup_cleanup = startup_cleanup
+        self.process_longterm_extraction = process_longterm_extraction
+        self.process_longterm_extraction_async = process_longterm_extraction_async
+        self.commit_longterm_extraction_outputs = commit_longterm_extraction_outputs or (lambda job, token: None)
+        self.discard_longterm_extraction_outputs = discard_longterm_extraction_outputs or (lambda job, token: None)
         self._stop_event = threading.Event()
         self._midterm_wakeup = threading.Event()
         self._longterm_wakeup = threading.Event()
         self._profile_wakeup = threading.Event()
         self._promotion_wakeup = threading.Event()
+        self._longterm_extraction_wakeup = threading.Event()
         self._threads: List[threading.Thread] = []
         self._watchdog_thread: Optional[threading.Thread] = None
         self._heartbeats: set[LeaseHeartbeat] = set()
@@ -117,6 +130,7 @@ class BackgroundWorkerManager:
             "longterm": [],
             "profile": [],
             "promotion": [],
+            "longterm_extraction": [],
         }
         self._async_wakeups_lock = threading.Lock()
         self._started = False
@@ -174,6 +188,21 @@ class BackgroundWorkerManager:
                     daemon=True,
                 )
             )
+        if self.process_longterm_extraction is not None:
+            for index in range(1, int(self.config.longterm_worker_count) + 1):
+                threads.append(
+                    threading.Thread(
+                        target=self._longterm_extraction_loop,
+                        args=(int(self.config.longterm_worker_concurrency),),
+                        name=self._worker_name(
+                            "mem0-fine-grained-longterm-worker",
+                            "mem0-fine-grained-longterm-worker",
+                            index,
+                            int(self.config.longterm_worker_count),
+                        ),
+                        daemon=True,
+                    )
+                )
         for index in range(1, int(self.config.profile_worker_count) + 1):
             threads.append(
                 threading.Thread(
@@ -219,6 +248,10 @@ class BackgroundWorkerManager:
                 recovered.get("longterm", 0),
             )
             logger.info("recovered stale profile jobs profile=%s", recovered.get("profile", 0))
+            logger.info(
+                "recovered stale fine-grained longterm jobs longterm_extraction=%s",
+                recovered.get("longterm_extraction", 0),
+            )
             logger.info("recovered stale promotion jobs promotion=%s", recovered.get("promotion", 0))
             if self.startup_cleanup is not None:
                 try:
@@ -338,6 +371,8 @@ class BackgroundWorkerManager:
         if self.enabled:
             self._longterm_wakeup.set()
             self._notify_async_workers("longterm")
+            self._longterm_extraction_wakeup.set()
+            self._notify_async_workers("longterm_extraction")
 
     def wake_migration(self) -> None:
         """Compatibility wake-up for both independent migration stages."""
@@ -456,6 +491,125 @@ class BackgroundWorkerManager:
                 exc,
             )
             await self._persist_unexpected_stage_failure_async(job, stage, handler, async_handler, exc)
+
+    def _longterm_extraction_loop(self, concurrency: int) -> None:
+        asyncio.run(self._longterm_extraction_event_loop(concurrency))
+
+    async def _longterm_extraction_event_loop(self, concurrency: int) -> None:
+        wake_event = asyncio.Event()
+        in_flight: set[asyncio.Task] = set()
+        self._register_async_wakeup("longterm_extraction", wake_event)
+        try:
+            while not self._stop_event.is_set():
+                if getattr(self.db, "connection", None) is None:
+                    break
+                wake_event.clear()
+                self._longterm_extraction_wakeup.clear()
+                claimed_any = False
+                while len(in_flight) < concurrency and not self._stop_event.is_set():
+                    try:
+                        job = self.db.claim_next_longterm_extraction_job(self.config.lease_timeout_seconds)
+                    except Exception:
+                        logger.exception("Failed to claim a fine-grained LongTerm extraction job")
+                        break
+                    if not isinstance(job, dict):
+                        break
+                    claimed_any = True
+                    in_flight.add(
+                        asyncio.create_task(
+                            self._run_longterm_extraction_job_async(job),
+                            name=f"mem0-fine-grained-longterm-job-{job['job_id']}",
+                        )
+                    )
+                if self._stop_event.is_set():
+                    break
+                if len(in_flight) >= concurrency:
+                    await self._reap_completed(in_flight, timeout=None)
+                elif in_flight:
+                    await self._wait_for_progress(in_flight, wake_event)
+                elif not claimed_any:
+                    await self._wait_for_wakeup(wake_event)
+        finally:
+            self._unregister_async_wakeup("longterm_extraction", wake_event)
+            if in_flight:
+                await asyncio.gather(*in_flight, return_exceptions=True)
+
+    async def _longterm_extraction_heartbeat_async(
+        self,
+        job: Dict[str, Any],
+        finished: asyncio.Event,
+    ) -> None:
+        while True:
+            try:
+                await asyncio.wait_for(finished.wait(), timeout=float(self.config.heartbeat_interval_seconds))
+                return
+            except asyncio.TimeoutError:
+                try:
+                    current = await asyncio.to_thread(
+                        self.db.heartbeat_longterm_extraction_job,
+                        job["job_id"],
+                        job["lease_token"],
+                        self.config.lease_timeout_seconds,
+                    )
+                    if not current:
+                        return
+                except Exception:
+                    logger.exception("Failed to extend fine-grained LongTerm extraction lease")
+                    return
+
+    async def _run_longterm_extraction_job_async(self, job: Dict[str, Any]) -> None:
+        finished = asyncio.Event()
+        heartbeat = asyncio.create_task(
+            self._longterm_extraction_heartbeat_async(job, finished),
+            name=f"mem0-fine-grained-longterm-heartbeat-{job['job_id']}",
+        )
+        lease_token = job["lease_token"]
+        try:
+            try:
+                if self.process_longterm_extraction_async is not None:
+                    result = self.process_longterm_extraction_async(job)
+                elif self.process_longterm_extraction is not None:
+                    result = await asyncio.to_thread(self.process_longterm_extraction, job)
+                else:
+                    raise RuntimeError("fine-grained LongTerm extraction handler is unavailable")
+                if inspect.isawaitable(result):
+                    await result
+                if not self.db.longterm_extraction_job_lease_is_current(job["job_id"], lease_token):
+                    await asyncio.to_thread(self.discard_longterm_extraction_outputs, job, lease_token)
+                    return
+                await asyncio.to_thread(self.commit_longterm_extraction_outputs, job, lease_token)
+                if not self.db.complete_longterm_extraction_job(job["job_id"], lease_token):
+                    await asyncio.to_thread(self.discard_longterm_extraction_outputs, job, lease_token)
+            except Exception as exc:
+                try:
+                    await asyncio.to_thread(self.discard_longterm_extraction_outputs, job, lease_token)
+                except Exception:
+                    logger.exception(
+                        "Failed to discard fine-grained LongTerm staging outputs job_id=%s",
+                        job.get("job_id"),
+                    )
+                attempt = int(job.get("attempts", 0)) + 1
+                retryable = getattr(exc, "retryable", None)
+                if retryable is None:
+                    retryable = not isinstance(exc, (TypeError, ValueError))
+                action = self.db.record_longterm_extraction_failure(
+                    job["job_id"],
+                    lease_token,
+                    f"{type(exc).__name__}: {exc}",
+                    max_retries=int(self.config.max_retries) if retryable else 0,
+                    retry_delay_seconds=self._retry_delay(attempt),
+                )
+                logger.warning(
+                    "Fine-grained LongTerm extraction failed job_id=%s turn_index=%s attempt=%s action=%s error=%s",
+                    job.get("job_id"),
+                    job.get("turn_index"),
+                    attempt,
+                    action,
+                    exc,
+                )
+        finally:
+            finished.set()
+            await heartbeat
 
     def _profile_loop(self, concurrency: int) -> None:
         asyncio.run(self._profile_event_loop(concurrency))
@@ -1333,6 +1487,7 @@ class BackgroundWorkerManager:
             self._longterm_wakeup.set()
             self._profile_wakeup.set()
             self._promotion_wakeup.set()
+            self._longterm_extraction_wakeup.set()
             threads = list(self._threads)
             watchdog_thread = self._watchdog_thread
 

@@ -20,6 +20,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from mem0.memory.midterm_updater import PRODUCTION_PAGE_CONTEXT_CONTRACT
+from mem0.memory.query_resolver import QueryResolver
+
 from .benchmark_support import (
     LineageTracker,
     load_dataset,
@@ -42,10 +45,11 @@ from .retrieval_primitives import (
     page_representation,
     tuner_score_and_rank,
 )
-from .source_prompt_variants import ContextAwareMidTermUpdater, PromptOverrideLLM, visible_context_by_dialogue
+from .source_prompt_variants import PromptOverrideLLM
 
-ADAPTER_SCHEMA = 6  # isolates complete diagnostic trace from production runtime state
+ADAPTER_SCHEMA = 7  # isolates the per-QA LongTerm and fixed Page-context production contract
 PRODUCTION_BACKEND = "production_midterm"
+PRODUCTION_MEMORY_CONTRACT = "agent_memory_p0_query_fixed_page_context_per_qa_cross_session_longterm_v2"
 SUPPORTED_RETRIEVAL_METHODS = {"dense", "dense_bm25_fusion"}
 logger = logging.getLogger(__name__)
 
@@ -54,6 +58,7 @@ def production_prompt_hashes(
     *,
     page_summary_prompt: str | None = None,
     session_merge_prompt: str | None = None,
+    fine_grained_longterm_extraction_prompt: str | None = None,
     session_longterm_extraction_prompt: str | None = None,
 ) -> dict[str, str]:
     from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT, MIDTERM_SESSION_MERGE_PROMPT
@@ -62,8 +67,12 @@ def production_prompt_hashes(
     return {
         "page_summary": hashlib.sha256((page_summary_prompt or MIDTERM_PAGE_SUMMARY_PROMPT).encode()).hexdigest(),
         "session_merge": hashlib.sha256((session_merge_prompt or MIDTERM_SESSION_MERGE_PROMPT).encode()).hexdigest(),
-        "session_longterm_extraction": hashlib.sha256(
-            (session_longterm_extraction_prompt or ADDITIVE_EXTRACTION_PROMPT).encode()
+        "fine_grained_longterm_extraction": hashlib.sha256(
+            (
+                fine_grained_longterm_extraction_prompt
+                or session_longterm_extraction_prompt
+                or ADDITIVE_EXTRACTION_PROMPT
+            ).encode()
         ).hexdigest(),
     }
 
@@ -359,31 +368,46 @@ def _longterm_candidate_pool(
     from mem0.utils.scoring import get_bm25_params, normalize_bm25
 
     pool_limit = max(30 * 6, 60)
-    semantic_rows = memory.vector_store.search(
-        query=query,
-        vectors=list(query_vector),
-        top_k=pool_limit,
-        filters=dict(filters),
-    )
-    candidates = []
-    for row in semantic_rows:
+    current_filters = dict(filters)
+    all_session_filters = {key: value for key, value in current_filters.items() if key != "run_id"}
+    semantic_routes = [
+        memory.vector_store.search(
+            query=query,
+            vectors=list(query_vector),
+            top_k=pool_limit,
+            filters=route_filters,
+        )
+        for route_filters in (current_filters, all_session_filters)
+    ]
+    current_candidate_ids = {str(row.id) for row in semantic_routes[0]}
+    candidates_by_id: dict[str, dict[str, Any]] = {}
+    for row in [item for route in semantic_routes for item in route]:
         payload = dict(getattr(row, "payload", None) or {})
         if not memory._stage_output_is_visible(payload, "longterm") or _payload_is_expired(payload):
             continue
-        candidates.append(
-            {
-                "id": str(row.id),
-                "score": float(getattr(row, "score", 0.0) or 0.0),
-                "payload": payload,
-            }
-        )
+        candidate = {
+            "id": str(row.id),
+            "score": float(getattr(row, "score", 0.0) or 0.0),
+            "payload": payload,
+        }
+        existing = candidates_by_id.get(candidate["id"])
+        if existing is None or candidate["score"] > existing["score"]:
+            candidates_by_id[candidate["id"]] = candidate
+    candidates = sorted(candidates_by_id.values(), key=lambda item: float(item["score"]), reverse=True)
 
     query_lemmatized = lemmatize_for_bm25(query, language=getattr(memory, "_bm25_language", None))
-    keyword_rows = memory.vector_store.keyword_search(
-        query=query_lemmatized,
-        top_k=pool_limit,
-        filters=dict(filters),
-    )
+    keyword_rows = [
+        item
+        for route_filters in (current_filters, all_session_filters)
+        for item in (
+            memory.vector_store.keyword_search(
+                query=query_lemmatized,
+                top_k=pool_limit,
+                filters=route_filters,
+            )
+            or []
+        )
+    ]
     midpoint, steepness = get_bm25_params(query, lemmatized=query_lemmatized)
     bm25_scores: dict[str, float] = {}
     for row in keyword_rows or []:
@@ -408,9 +432,11 @@ def _longterm_candidate_pool(
         }
 
     return {
-        "schema": 1,
+        "schema": 2,
         "pool_limit": pool_limit,
+        "current_run_id": current_filters.get("run_id"),
         "semantic_candidates": candidates,
+        "current_session_candidate_ids": sorted(current_candidate_ids),
         "bm25_scores": bm25_scores,
         "entity_boosts_by_threshold": entity_boosts,
     }
@@ -470,12 +496,20 @@ def _checkpoint(
     lineage: LineageTracker,
     ranking_depth: int,
 ) -> dict[str, Any]:
-    query_vector = memory.embedding_model.embed(query, "search")
+    base_context = asyncio.run(
+        memory._retrieve_base_context(
+            query,
+            user_id=user_id,
+            session_id=session_id,
+        )
+    )
+    retrieval_query = asyncio.run(QueryResolver(memory.llm).resolve_async(query, base_context.get("short_term") or []))
+    query_vector = memory.embedding_model.embed(retrieval_query, "search")
     pages = _scroll_points(memory.midterm_memory.pages_store)
     sessions = _scroll_points(memory.midterm_memory.sessions_store)
     diagnostic_retriever = DiagnosticMidTermRetriever(memory.midterm_memory, memory.config.midterm)
     results = diagnostic_retriever.search(
-        query,
+        retrieval_query,
         {"user_id": user_id, "run_id": session_id},
         record_visits=False,
     )
@@ -507,8 +541,10 @@ def _checkpoint(
     # enters static Mid-term winner selection.
     layered_results: list[dict[str, Any]] = []
     try:
+        from mem0.memory.main import _filter_shortterm_duplicate_longterm
+
         raw = memory.search(
-            query,
+            retrieval_query,
             top_k=min(int(getattr(memory.config, "longterm_top_k", 30)), 30),
             filters={"user_id": user_id, "run_id": session_id},
             threshold=None,
@@ -516,13 +552,16 @@ def _checkpoint(
         if inspect.isawaitable(raw):
             raw = asyncio.run(raw)
         layered_results = list(raw.get("results") if isinstance(raw, dict) else raw or [])
+        layered_context = {**base_context, "retrieved_memories": layered_results}
+        _filter_shortterm_duplicate_longterm(layered_context)
+        layered_results = list(layered_context["retrieved_memories"])
     except Exception:
         logger.debug("Layered production trace unavailable for %s", query_id, exc_info=True)
     longterm_pool: dict[str, Any] = {}
     try:
         longterm_pool = _longterm_candidate_pool(
             memory,
-            query=query,
+            query=retrieval_query,
             query_vector=query_vector,
             filters={"user_id": user_id, "run_id": session_id},
         )
@@ -534,6 +573,7 @@ def _checkpoint(
     return {
         "query_id": query_id,
         "query": query,
+        "retrieval_query": retrieval_query,
         "filters": {"user_id": user_id, "run_id": session_id},
         "query_vector": list(query_vector),
         # Search is performed before Add for this turn.  Persist the exact
@@ -581,7 +621,14 @@ def _checkpoint(
                 "memory": item.get("memory") or item.get("data") or item.get("raw_dialogue") or "",
                 "summary": item.get("summary"),
                 "raw_dialogue": item.get("raw_dialogue"),
-                "source_turn_id": item.get("source_turn_id"),
+                "source_turn_id": (
+                    item.get("source_turn_id")
+                    or (
+                        item.get("metadata", {}).get("dataset_turn_id")
+                        if isinstance(item.get("metadata"), Mapping)
+                        else None
+                    )
+                ),
                 "score": float(item.get("score") or 0.0),
             }
             for item in layered_results
@@ -724,12 +771,16 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
     config["background"]["longterm_worker_count"] = 1
     page_summary_prompt = str(spec.get("page_summary_prompt") or "") or None
     session_merge_prompt = str(spec.get("session_merge_prompt") or "") or None
-    session_longterm_extraction_prompt = str(spec.get("session_longterm_extraction_prompt") or "") or None
+    fine_grained_longterm_extraction_prompt = str(
+        spec.get("fine_grained_longterm_extraction_prompt")
+        or spec.get("session_longterm_extraction_prompt")
+        or ""
+    ) or None
     memory = create_production_memory(config, llm_mode=str(spec.get("llm_mode") or "real"))
     prompt_kwargs = {
         "page_summary_prompt": page_summary_prompt,
         "session_merge_prompt": session_merge_prompt,
-        "session_longterm_extraction_prompt": session_longterm_extraction_prompt,
+        "fine_grained_longterm_extraction_prompt": fine_grained_longterm_extraction_prompt,
     }
     if hasattr(memory.llm, "_delegate"):
         # Keep TunerPolicyLLM outside the override so it still recognizes the
@@ -746,13 +797,6 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
     if getattr(memory, "_midterm_memory", None) is not None:
         memory._midterm_memory.embedding_model = counted_embedding
     shortterm_window = memory._short_term_capacity() // 2
-    if str(spec.get("context_mode") or "none") == "previous_visible":
-        memory._midterm_updater = ContextAwareMidTermUpdater(
-            memory.midterm_memory,
-            counted,
-            memory.config.midterm,
-            context_by_dialogue=visible_context_by_dialogue(list(session.turns), qa_window=shortterm_window),
-        )
     lineage = LineageTracker(shortterm_window)
     pending: list[str] = []
     checkpoints: list[dict[str, Any]] = []
@@ -762,12 +806,10 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
 
     try:
         for turn in session.turns:
-            await wait_for_migration_jobs(
-                memory,
-                pending,
-                timeout_seconds=job_timeout,
-                poll_interval_seconds=0.2,
-            )
+            # Production now creates Fine-grained LongTerm for every complete
+            # QA.  Freeze each checkpoint only after all preceding source jobs
+            # (LongTerm, MidTerm, Profile) have reached a terminal state.
+            await memory.flush_background_tasks(timeout=job_timeout)
             pending.clear()
             checkpoint = await asyncio.to_thread(
                 _checkpoint,
@@ -878,7 +920,7 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
     prompt_hashes = production_prompt_hashes(
         page_summary_prompt=page_summary_prompt,
         session_merge_prompt=session_merge_prompt,
-        session_longterm_extraction_prompt=session_longterm_extraction_prompt,
+        fine_grained_longterm_extraction_prompt=fine_grained_longterm_extraction_prompt,
     )
     repo_root = Path(__file__).resolve().parents[5]
     manifest = {
@@ -905,7 +947,8 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
         "effective_config_hash": stable_hash(redact_secrets(config)),
         "prompt_hashes": prompt_hashes,
         "source_variant": str(spec.get("source_variant") or "production"),
-        "context_mode": str(spec.get("context_mode") or "none"),
+        "page_context_contract": PRODUCTION_PAGE_CONTEXT_CONTRACT,
+        "production_memory_contract": PRODUCTION_MEMORY_CONTRACT,
         "source_identity": dict(spec.get("source_identity") or {}),
         "stateful_replay": bool(spec.get("stateful_replay")),
         "llm_mode": str(spec.get("llm_mode") or "real"),
@@ -932,8 +975,8 @@ def generate_production_sources(
     max_parallel_llm_calls: int,
     page_summary_prompt: str | None = None,
     session_merge_prompt: str | None = None,
+    fine_grained_longterm_extraction_prompt: str | None = None,
     session_longterm_extraction_prompt: str | None = None,
-    context_mode: str = "none",
     source_variant: str = "production",
     source_identity: Mapping[str, Any] | None = None,
     source_root: Path | None = None,
@@ -950,6 +993,7 @@ def generate_production_sources(
     prompt_hashes = production_prompt_hashes(
         page_summary_prompt=page_summary_prompt,
         session_merge_prompt=session_merge_prompt,
+        fine_grained_longterm_extraction_prompt=fine_grained_longterm_extraction_prompt,
         session_longterm_extraction_prompt=session_longterm_extraction_prompt,
     )
     expected_source_identity = dict(source_identity or {})
@@ -973,7 +1017,7 @@ def generate_production_sources(
                 and value.get("memory_config_sha256") == memory_config_sha256
                 and value.get("prompt_hashes") == prompt_hashes
                 and str(value.get("source_variant") or "production") == source_variant
-                and str(value.get("context_mode") or "none") == context_mode
+                and str(value.get("page_context_contract") or "") == PRODUCTION_PAGE_CONTEXT_CONTRACT
                 and dict(value.get("source_identity") or {}) == expected_source_identity
                 and stable_hash(value.get("config_overrides") or {}) == config_overrides_hash
                 and bool(value.get("stateful_replay")) is bool(stateful_replay)
@@ -999,8 +1043,10 @@ def generate_production_sources(
             "llm_mode": llm_mode,
             "page_summary_prompt": page_summary_prompt,
             "session_merge_prompt": session_merge_prompt,
-            "session_longterm_extraction_prompt": session_longterm_extraction_prompt,
-            "context_mode": context_mode,
+            "fine_grained_longterm_extraction_prompt": (
+                fine_grained_longterm_extraction_prompt or session_longterm_extraction_prompt
+            ),
+            "page_context_contract": PRODUCTION_PAGE_CONTEXT_CONTRACT,
             "source_variant": source_variant,
             "source_identity": expected_source_identity,
             "config_overrides": dict(config_overrides or {}),
@@ -1087,6 +1133,8 @@ def production_candidate_from_manifests(
     *,
     name: str = "baseline",
 ) -> tuple[dict[str, Any], dict[str, Any]]:
+    from mem0.configs.query_prompts import QUERY_REFERENCE_RESOLUTION_PROMPT
+
     manifests = [load_json(path) for path in manifest_paths]
     if not manifests:
         raise ValueError("No production MidTerm manifests")
@@ -1099,6 +1147,7 @@ def production_candidate_from_manifests(
         "longterm_candidate_pool_multiplier",
         "longterm_hybrid_preset",
         "entity_similarity_threshold",
+        "longterm_other_session_weight",
         "cross_session_longterm_rag_threshold",
         "cross_session_retention_half_life_hours",
         "cross_session_retention_floor",
@@ -1116,8 +1165,11 @@ def production_candidate_from_manifests(
         {
             "backend": PRODUCTION_BACKEND,
             "retrieval_contract": "production_midterm_v1",
+            "production_memory_contract": PRODUCTION_MEMORY_CONTRACT,
             "retrieval_method": "dense",
             "query_representation": "original",
+            "query_prompt_text": QUERY_REFERENCE_RESOLUTION_PROMPT,
+            "query_prompt_hash": hashlib.sha256(QUERY_REFERENCE_RESOLUTION_PROMPT.encode()).hexdigest(),
             "page_representation": "production",
             "bm25_language": str(vector_config.get("bm25_language") or "en"),
             "manifest_paths": [str(path.resolve()) for path in manifest_paths],
@@ -1132,6 +1184,7 @@ def production_candidate_from_manifests(
         ],
         "source": "real AsyncMemory Add/MidTerm pipeline",
         "retrieval_contract": "production_midterm_v1",
+        "production_memory_contract": PRODUCTION_MEMORY_CONTRACT,
         "manifests": config["manifest_sha256"],
         "failed_turns": sum(int(item.get("failed_turns") or 0) for item in manifests),
         "llm_calls": sum(int(item.get("llm_calls") or 0) for item in manifests),
@@ -1254,23 +1307,43 @@ class ProductionMidtermAdapter:
         return list(reranked)
 
     @staticmethod
-    def _rank_session_longterm(
+    def _rank_fine_grained_longterm(
         checkpoint: Mapping[str, Any],
         config: Mapping[str, Any],
     ) -> list[dict[str, Any]]:
-        """Replay Session-scoped Long-term with frozen production signals."""
+        """Replay per-QA Long-term with Production cross-session ranking semantics."""
         pool = checkpoint.get("longterm_candidate_pool") or {}
         if not pool:
             return []
         top_k = min(30, max(1, int(config.get("longterm_top_k", 20))))
         multiplier = min(6, max(1, int(config.get("longterm_candidate_pool_multiplier", 4))))
         internal_limit = max(top_k * multiplier, 60)
-        semantic_candidates = [dict(row) for row in (pool.get("semantic_candidates") or [])[:internal_limit]]
+        all_semantic_candidates = [dict(row) for row in (pool.get("semantic_candidates") or [])]
+        current_candidate_ids = {str(value) for value in pool.get("current_session_candidate_ids") or []}
+        current_candidates = [
+            row for row in all_semantic_candidates if str(row.get("id") or "") in current_candidate_ids
+        ][:internal_limit]
+        routed_candidates = [*current_candidates, *all_semantic_candidates[:internal_limit]]
+        semantic_candidates_by_id: dict[str, dict[str, Any]] = {}
+        for row in routed_candidates:
+            memory_id = str(row.get("id") or "")
+            existing = semantic_candidates_by_id.get(memory_id)
+            if memory_id and (existing is None or float(row.get("score") or 0.0) > float(existing.get("score") or 0.0)):
+                semantic_candidates_by_id[memory_id] = row
+        semantic_candidates = list(semantic_candidates_by_id.values())
         threshold = float(config.get("longterm_rag_threshold", 0.1))
         entity_threshold = float(config.get("entity_similarity_threshold", 0.5))
         entity_maps = pool.get("entity_boosts_by_threshold") or {}
         entity_boosts = entity_maps.get(f"{entity_threshold:.1f}") or {}
         preset = str(config.get("longterm_hybrid_preset") or "balanced")
+        current_run_id = pool.get("current_run_id")
+        other_session_weight = float(config.get("longterm_other_session_weight", 0.7))
+        session_weights = {
+            str(row.get("id") or ""): (
+                1.0 if (row.get("payload") or {}).get("run_id") == current_run_id else other_session_weight
+            )
+            for row in semantic_candidates
+        }
         scored = tuner_score_and_rank(
             semantic_results=semantic_candidates,
             bm25_scores={str(key): float(value) for key, value in (pool.get("bm25_scores") or {}).items()},
@@ -1279,6 +1352,7 @@ class ProductionMidtermAdapter:
             top_k=top_k,
             explain=True,
             weights=HYBRID_PRESET_WEIGHTS[preset],
+            session_weights=session_weights,
         )
         rows = []
         for rank, item in enumerate(scored, start=1):
@@ -1301,12 +1375,16 @@ class ProductionMidtermAdapter:
                     "raw_rag_score": details.get("semantic_score"),
                     "bm25_score": details.get("bm25_score"),
                     "entity_boost": details.get("entity_boost"),
+                    "hybrid_score": details.get("hybrid_score"),
+                    "session_weight": details.get("session_weight"),
                     "final_score": details.get("final_score"),
                     "candidate_pool_count": len(semantic_candidates),
                     "final_rank": rank,
                 }
             )
         return rows
+
+    _rank_session_longterm = _rank_fine_grained_longterm
 
     def rank(self, checkpoint: Mapping[str, Any], config: Mapping[str, Any]) -> list[dict[str, Any]]:
         from qdrant_client import QdrantClient
@@ -1317,7 +1395,11 @@ class ProductionMidtermAdapter:
         self.supported(config)
         derived = self._derived_payload(config)
         query_id = str(checkpoint["query_id"])
-        query = str((derived or {}).get("query_texts", {}).get(query_id) or checkpoint["query"])
+        query = str(
+            (derived or {}).get("query_texts", {}).get(query_id)
+            or checkpoint.get("retrieval_query")
+            or checkpoint["query"]
+        )
         query_vector = list((derived or {}).get("query_vectors", {}).get(query_id) or checkpoint["query_vector"])
         dimensions = len(query_vector)
         if not dimensions:
@@ -1445,7 +1527,7 @@ class ProductionMidtermAdapter:
                     row["final_rank"] = row.get("final_rank") or rank
                     max_total_pages = min(5, max(1, int(config.get("max_total_pages", 5))))
                     row["final_visible"] = row.get("final_visible", rank <= max_total_pages)
-            longterm_ranking = self._rank_session_longterm(checkpoint, config)
+            longterm_ranking = self._rank_fine_grained_longterm(checkpoint, config)
             combined = [*ranking, *longterm_ranking]
             return [{**row, "rank": rank} for rank, row in enumerate(combined, start=1)]
         finally:

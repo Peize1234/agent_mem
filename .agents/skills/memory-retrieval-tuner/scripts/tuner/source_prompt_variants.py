@@ -5,7 +5,7 @@ from typing import Any, Mapping
 
 from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT, MIDTERM_SESSION_MERGE_PROMPT
 from mem0.configs.prompts import ADDITIVE_EXTRACTION_PROMPT
-from mem0.memory.midterm_updater import MidTermUpdater
+from mem0.memory.midterm_updater import PRODUCTION_PAGE_CONTEXT_CONTRACT
 
 _SUMMARY_HEADING = "## summary 要求"
 
@@ -15,7 +15,7 @@ CONSERVATIVE_ADD_INSTRUCTIONS = """## 保守写入补充要求
 
 CONTEXT_AWARE_ADD_INSTRUCTIONS = """## 上下文感知写入补充要求
 
-输入会包含当前轮之前当时可见的最近对话。上下文只用于消解当前轮的指代、承接、比较、反证或修订关系；摘要主体仍是当前待总结对话。禁止把上文的独立事实写成当前轮事实，禁止生成多轮综合摘要。"""
+Production 输入固定包含前序 Page raw_dialogue、当前 QA 和按 source turn_index 截取的后续 QA。前后文只用于消解当前轮的指代、承接、比较、反证或修订关系；摘要主体仍是当前待总结 QA。禁止把前后文的独立事实写成当前轮事实，尤其禁止把后续才出现的新事实、数字、任务或结论归因到当前轮，禁止生成多轮综合摘要。"""
 
 EVIDENCE_FOCUSED_SUMMARY_INSTRUCTIONS = """## 检索证据保留要求
 
@@ -42,17 +42,17 @@ def controlled_page_prompt_variants(
     return {
         "conservative_add": {
             "prompt": _insert_instructions(MIDTERM_PAGE_SUMMARY_PROMPT, CONSERVATIVE_ADD_INSTRUCTIONS),
-            "context_mode": "none",
+            "context_contract": PRODUCTION_PAGE_CONTEXT_CONTRACT,
             "kind": "memory_write",
         },
         "context_aware_add": {
             "prompt": _insert_instructions(MIDTERM_PAGE_SUMMARY_PROMPT, CONTEXT_AWARE_ADD_INSTRUCTIONS),
-            "context_mode": "previous_visible",
+            "context_contract": PRODUCTION_PAGE_CONTEXT_CONTRACT,
             "kind": "memory_write",
         },
         "evidence_focused_summary": {
             "prompt": _insert_instructions(MIDTERM_PAGE_SUMMARY_PROMPT, EVIDENCE_FOCUSED_SUMMARY_INSTRUCTIONS),
-            "context_mode": "none",
+            "context_contract": PRODUCTION_PAGE_CONTEXT_CONTRACT,
             "kind": "page_summary",
         },
         "diagnostic_controlled_summary": {
@@ -64,7 +64,7 @@ def controlled_page_prompt_variants(
                     f"Tune requirement 的无内容聚合失败特征：{failure_profile}。"
                 ),
             ),
-            "context_mode": "none",
+            "context_contract": PRODUCTION_PAGE_CONTEXT_CONTRACT,
             "kind": "page_summary",
         },
     }
@@ -86,15 +86,15 @@ def controlled_session_merge_prompt_variants() -> dict[str, str]:
     }
 
 
-def controlled_session_longterm_prompt_variants() -> dict[str, str]:
-    """Refine run-scoped Long-term extraction without changing its contract."""
+def controlled_fine_grained_longterm_prompt_variants() -> dict[str, str]:
+    """Refine per-QA fine-grained Long-term extraction without changing its contract."""
     return {
-        "session_longterm_fact_preserving": (
+        "fine_grained_longterm_fact_preserving": (
             ADDITIVE_EXTRACTION_PROMPT
-            + "\n\n受控 Tune 变体：仅从当前 Session 可见输入提取可长期复用的事实，保留实体、日期、数值、"
+            + "\n\n受控 Tune 变体：仅从当前完整 QA 提取可长期复用的细粒度事实，保留实体、日期、数值、"
             "单位和适用条件；不得复制无关背景或推断未来信息。"
         ),
-        "session_longterm_conservative": (
+        "fine_grained_longterm_conservative": (
             ADDITIVE_EXTRACTION_PROMPT
             + "\n\n受控 Tune 变体：优先精确、可归因且跨后续问题仍有用的信息；存在冲突或证据不足时不写入，"
             "输出格式保持不变。"
@@ -102,25 +102,9 @@ def controlled_session_longterm_prompt_variants() -> dict[str, str]:
     }
 
 
-class ContextAwareMidTermUpdater(MidTermUpdater):
-    """Tuner-only wrapper that augments summary input without changing Page payloads."""
-
-    def __init__(self, *args: Any, context_by_dialogue: Mapping[tuple[str, str], str], **kwargs: Any):
-        super().__init__(*args, **kwargs)
-        self._context_by_dialogue = dict(context_by_dialogue)
-
-    def _summarize_page(
-        self,
-        user_input: str,
-        assistant_response: str,
-        *,
-        allow_fallback: bool = True,
-    ) -> tuple[str, list[str]]:
-        context = self._context_by_dialogue.get((str(user_input), str(assistant_response)), "")
-        if not context:
-            return super()._summarize_page(user_input, assistant_response, allow_fallback=allow_fallback)
-        augmented = f"上文（只用于理解当前轮）：\n{context}\n\n当前待总结对话中的用户：\n{user_input}"
-        return super()._summarize_page(augmented, assistant_response, allow_fallback=allow_fallback)
+def controlled_session_longterm_prompt_variants() -> dict[str, str]:
+    """Compatibility alias for historical registries/artifacts."""
+    return controlled_fine_grained_longterm_prompt_variants()
 
 
 class PromptOverrideLLM:
@@ -132,12 +116,15 @@ class PromptOverrideLLM:
         *,
         page_summary_prompt: str | None = None,
         session_merge_prompt: str | None = None,
+        fine_grained_longterm_extraction_prompt: str | None = None,
         session_longterm_extraction_prompt: str | None = None,
     ):
         self.delegate = delegate
         self._page_summary_prompt = page_summary_prompt
         self._session_merge_prompt = session_merge_prompt
-        self._session_longterm_extraction_prompt = session_longterm_extraction_prompt
+        self._fine_grained_longterm_extraction_prompt = (
+            fine_grained_longterm_extraction_prompt or session_longterm_extraction_prompt
+        )
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self.delegate, name)
@@ -154,8 +141,8 @@ class PromptOverrideLLM:
                 message["content"] = self._page_summary_prompt
             elif self._session_merge_prompt and content == MIDTERM_SESSION_MERGE_PROMPT:
                 message["content"] = self._session_merge_prompt
-            elif self._session_longterm_extraction_prompt and content.startswith(ADDITIVE_EXTRACTION_PROMPT):
-                message["content"] = self._session_longterm_extraction_prompt + content[len(ADDITIVE_EXTRACTION_PROMPT) :]
+            elif self._fine_grained_longterm_extraction_prompt and content.startswith(ADDITIVE_EXTRACTION_PROMPT):
+                message["content"] = self._fine_grained_longterm_extraction_prompt + content[len(ADDITIVE_EXTRACTION_PROMPT) :]
         return updated
 
     def generate_response(self, *args: Any, **kwargs: Any) -> Any:
@@ -184,15 +171,3 @@ class PromptOverrideLLM:
         if method is not None:
             return await method(*args, **kwargs)
         return await self.generate_response_async(*args, **kwargs)
-
-
-def visible_context_by_dialogue(turns: list[Any], *, qa_window: int) -> dict[tuple[str, str], str]:
-    result: dict[tuple[str, str], str] = {}
-    history: list[Any] = []
-    for turn in turns:
-        previous = history[-max(1, qa_window) :]
-        result[(str(turn.question), str(turn.answer))] = "\n\n".join(
-            f"用户：{item.question}\n助手：{item.answer}" for item in previous
-        )
-        history.append(turn)
-    return result

@@ -326,7 +326,7 @@ def write_outputs(
             f"`{(run_metadata.get('midterm_baseline_provenance') or {}).get('prompt_provenance') or 'explicit prompt hashes validated'}`.",
             "- Frozen rankings are eligible only when dataset provenance and the `production_midterm_v1` retrieval contract validate.",
             "- Query/Page/embedding variants are derived from production MidTerm checkpoints and remain explicitly marked as Benchmark candidates, not production behavior.",
-            "- Query Rewrite requires standard/deep budget; Page Summary, Session Merge and Session Long-term Extraction prompt branches require deep budget. Missing API/model resources are recorded as unavailable rather than replaced by surrogate artifacts.",
+            "- Query Rewrite requires standard/deep budget; Page Summary, Session Merge and Fine-grained LongTerm Extraction prompt branches require deep budget. Missing API/model resources are recorded as unavailable rather than replaced by surrogate artifacts.",
         )
     )
     atomic_write_text(run_dir / "final_report.md", "\n".join(lines) + "\n")

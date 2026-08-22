@@ -54,12 +54,15 @@ def prepare_generated_source_candidate(
             session_merge_prompt=(
                 str(spec["session_merge_prompt"]) if spec.get("session_merge_prompt") else None
             ),
-            session_longterm_extraction_prompt=(
-                str(spec["session_longterm_extraction_prompt"])
-                if spec.get("session_longterm_extraction_prompt")
+            fine_grained_longterm_extraction_prompt=(
+                str(
+                    spec.get("fine_grained_longterm_extraction_prompt")
+                    or spec.get("session_longterm_extraction_prompt")
+                )
+                if spec.get("fine_grained_longterm_extraction_prompt")
+                or spec.get("session_longterm_extraction_prompt")
                 else None
             ),
-            context_mode=str(spec["context_mode"]),
             source_variant=str(spec["source_variant"]),
             source_identity=identity,
             source_root=Path(str(spec["source_root"])),

@@ -71,6 +71,7 @@ parameters:
       - top_k_sessions
       - page_summary_prompt
       - session_merge_prompt
+      - fine_grained_longterm_extraction_prompt
       - session_longterm_extraction_prompt
       - embedding_model_id
       - embedding_model_revision
@@ -90,6 +91,8 @@ parameters:
       - cross_session_retention_half_life_hours
       - cross_session_retention_floor
       - cross_session_reinforcement_gain
+    production_fixed_not_searched:
+      - longterm_other_session_weight
   hard_constraints:
     top_k_pages: {min: 1}
     top_k_sessions: {min: 1}
@@ -262,7 +265,7 @@ search:
     MidtermSourceConfig:
       enabled: true
       max_rounds: 1
-    SessionLongtermRetrieval:
+    FineGrainedLongtermRetrieval:
       enabled: true
       max_rounds: 2
     QueryRewritePrompt:
@@ -274,7 +277,7 @@ search:
     MidtermSessionMergePrompt:
       enabled: true
       max_rounds: 1
-    SessionLongtermExtractionPrompt:
+    FineGrainedLongtermExtractionPrompt:
       enabled: true
       max_rounds: 1
 
@@ -293,8 +296,8 @@ search:
         MidtermSourceConfig: {priority: 65, minimum_attempts: 1, coverage_class: expensive_gated}
         MidtermPageSummaryPrompt: {priority: 70, minimum_attempts: 1, coverage_class: expensive_gated}
         MidtermSessionMergePrompt: {priority: 71, minimum_attempts: 1, coverage_class: expensive_gated}
-        SessionLongtermExtractionPrompt: {priority: 72, minimum_attempts: 1, coverage_class: expensive_gated}
-        SessionLongtermRetrieval: {priority: 80, minimum_attempts: 1, coverage_class: selectable}
+        FineGrainedLongtermExtractionPrompt: {priority: 72, minimum_attempts: 1, coverage_class: expensive_gated}
+        FineGrainedLongtermRetrieval: {priority: 80, minimum_attempts: 1, coverage_class: selectable}
     ranking_bottleneck:
       relevant:
         RetrievalControl: {priority: 10, minimum_attempts: 1, coverage_class: required}
@@ -303,7 +306,7 @@ search:
         FieldAwareMultiVector: {priority: 40, minimum_attempts: 1, coverage_class: selectable}
         QueryRewritePrompt: {priority: 50, minimum_attempts: 1, coverage_class: required}
         MidtermEvolution: {priority: 55, minimum_attempts: 1, coverage_class: selectable}
-        SessionLongtermRetrieval: {priority: 60, minimum_attempts: 1, coverage_class: selectable}
+        FineGrainedLongtermRetrieval: {priority: 60, minimum_attempts: 1, coverage_class: selectable}
     session_instability:
       relevant:
         RetrievalControl: {priority: 10, minimum_attempts: 1, coverage_class: required}
@@ -312,7 +315,7 @@ search:
         MidtermSourceConfig: {priority: 28, minimum_attempts: 1, coverage_class: expensive_gated}
         MidtermPageSummaryPrompt: {priority: 30, minimum_attempts: 1, coverage_class: expensive_gated}
         MidtermSessionMergePrompt: {priority: 31, minimum_attempts: 1, coverage_class: expensive_gated}
-        SessionLongtermRetrieval: {priority: 40, minimum_attempts: 1, coverage_class: selectable}
+        FineGrainedLongtermRetrieval: {priority: 40, minimum_attempts: 1, coverage_class: selectable}
     balanced_or_plateau:
       relevant:
         RetrievalControl: {priority: 10, minimum_attempts: 1, coverage_class: required}
@@ -321,7 +324,7 @@ search:
         MidtermEvolution: {priority: 35, minimum_attempts: 1, coverage_class: required}
         PageRepresentation: {priority: 40, minimum_attempts: 1, coverage_class: selectable}
         MidtermSourceConfig: {priority: 45, minimum_attempts: 1, coverage_class: expensive_gated}
-        SessionLongtermRetrieval: {priority: 50, minimum_attempts: 1, coverage_class: selectable}
+        FineGrainedLongtermRetrieval: {priority: 50, minimum_attempts: 1, coverage_class: selectable}
 
   stages:
     cheap:
@@ -451,7 +454,7 @@ search:
         max_models_deep: 3
         candidate_depth: {min: 1, max: 100}
 
-      session_longterm:
+      fine_grained_longterm:
         longterm_top_k: [5, 10, 15, 20, 25, 30]
         longterm_rag_threshold: [0.05, 0.10, 0.15, 0.20, 0.30, 0.40, 0.50]
         longterm_candidate_pool_multiplier: [2, 4, 6]
@@ -468,6 +471,7 @@ search:
         cross_session_retention_half_life_hours: production_default_only
         cross_session_retention_floor: production_default_only
         cross_session_reinforcement_gain: production_default_only
+        longterm_other_session_weight: production_default_only_no_cross_session_gold
 
       advanced_representation:
         methods:

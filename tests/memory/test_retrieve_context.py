@@ -14,6 +14,7 @@ TOP_LEVEL_FIELDS = {
     "user_id",
     "session_id",
     "query",
+    "retrieval_query",
     "profile",
     "short_term_messages",
     "retrieved_memories",
@@ -32,6 +33,9 @@ def _build_memory(*, search_result=None, profile_result=None, messages=None, sho
     )
     memory._short_term_capacity = MagicMock(return_value=short_term_capacity)
     memory.llm = MagicMock()
+    memory.llm.generate_response.side_effect = lambda messages, **_: json.dumps(
+        {"resolved_query": json.loads(messages[-1]["content"])["current_query"]}
+    )
     memory._profile_updater = None
     return memory
 
@@ -74,6 +78,7 @@ def test_retrieve_context_normalizes_scope_and_forwards_search_options():
     assert result["user_id"] == "user-1"
     assert result["session_id"] == "session-1"
     assert result["query"] == "how should I invest?"
+    assert result["retrieval_query"] == "how should I invest?"
     assert result["profile"] == {"risk_level": "balanced"}
     assert result["retrieved_memories"] is memories
     assert result["short_term_messages"] == [
@@ -105,7 +110,39 @@ def test_retrieve_context_normalizes_scope_and_forwards_search_options():
     memory.db.get_messages.assert_not_called()
     memory._short_term_capacity.assert_called_once_with()
     assert memory._profile_updater is None
-    assert memory.llm.mock_calls == []
+    memory.llm.generate_response.assert_called_once()
+
+
+def test_retrieve_context_searches_resolved_query_but_answer_uses_original_query():
+    memory = _build_memory(
+        messages=[
+            {"role": "user", "content": "Compare Alpha and Beta."},
+            {"role": "assistant", "content": "Alpha is less volatile."},
+        ]
+    )
+    memory.llm.generate_response.side_effect = None
+    memory.llm.generate_response.return_value = '{"resolved_query":"What is Alpha’s fee?"}'
+
+    context = memory._retrieve_context(
+        "What is its fee?",
+        user_id="user-1",
+        session_id="session-1",
+    )
+    prompt = build_answer_prompt_messages_from_context(context)
+
+    assert context["query"] == "What is its fee?"
+    assert context["retrieval_query"] == "What is Alpha’s fee?"
+    memory.search.assert_called_once_with(
+        "What is Alpha’s fee?",
+        top_k=20,
+        threshold=None,
+        rerank=False,
+        explain=False,
+        filters={"user_id": "user-1", "run_id": "session-1"},
+    )
+    assert len(prompt) == 1 and prompt[0]["role"] == "system"
+    assert "What is its fee?" in prompt[0]["content"]
+    assert "What is Alpha’s fee?" not in json.dumps(prompt, ensure_ascii=False)
 
 
 def test_build_agent_answer_messages_uses_agent_prompt_and_layered_context(monkeypatch):

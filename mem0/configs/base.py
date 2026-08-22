@@ -228,13 +228,19 @@ class MemoryConfig(BaseModel):
         0.1,
         ge=0,
         le=1,
-        description="Minimum raw RAG score for existing session-scoped long-term memory",
+        description="Minimum raw RAG score for user-scoped fine-grained long-term memory",
     )
     longterm_candidate_pool_multiplier: int = Field(
         4,
         ge=1,
         le=6,
         description="Candidate over-fetch multiplier; the production floor remains 60",
+    )
+    longterm_other_session_weight: float = Field(
+        0.7,
+        ge=0,
+        le=1,
+        description="Ranking weight applied to fine-grained LongTerm memories from other runs",
     )
     entity_similarity_threshold: float = Field(
         0.5,

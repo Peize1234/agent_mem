@@ -63,6 +63,7 @@
   "longterm_rag_threshold": 0.1,
   "longterm_top_k": 20,
   "longterm_candidate_pool_multiplier": 4,
+  "longterm_other_session_weight": 0.7,
   "entity_similarity_threshold": 0.5,
   "longterm_hybrid_preset": "balanced",
   "cross_session_longterm_rag_threshold": 0.1,

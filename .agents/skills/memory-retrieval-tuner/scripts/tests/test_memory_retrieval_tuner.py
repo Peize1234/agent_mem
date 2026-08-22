@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 import threading
@@ -67,6 +68,7 @@ from tuner.production_midterm_adapter import (  # noqa: E402
     production_candidate_from_manifests,
 )
 from tuner.prompt_artifacts import (  # noqa: E402
+    PRODUCTION_QUERY_PROMPT_HASH,
     PRODUCTION_SHORTTERM_HISTORY_POLICY,
     QueryPromptArtifactGenerator,
     QueryPromptVariant,
@@ -74,10 +76,13 @@ from tuner.prompt_artifacts import (  # noqa: E402
 )
 from tuner.split_sessions import create_or_load_split  # noqa: E402
 from tuner.staged_search import candidate_config_hash, run_staged_search  # noqa: E402
-from tuner.source_prompt_variants import PromptOverrideLLM  # noqa: E402
+from tuner.parameter_schema import parameter_class  # noqa: E402
+from tuner.source_prompt_variants import PromptOverrideLLM, controlled_page_prompt_variants  # noqa: E402
 from mem0.configs.base import MemoryConfig, MidTermMemoryConfig  # noqa: E402
 from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT  # noqa: E402
+from mem0.configs.query_prompts import QUERY_REFERENCE_RESOLUTION_PROMPT  # noqa: E402
 from mem0.memory.main import Memory  # noqa: E402
+from mem0.memory.midterm_updater import PRODUCTION_PAGE_CONTEXT_CONTRACT  # noqa: E402
 from mem0.memory.midterm_retriever import MidTermRetriever  # noqa: E402
 
 
@@ -749,6 +754,48 @@ def test_prompt_override_is_instance_scoped_and_does_not_mutate_production_globa
     assert updater_module.MIDTERM_PAGE_SUMMARY_PROMPT == production_prompt
 
 
+def test_production_query_baseline_is_the_p0_prompt_hash(tmp_path: Path) -> None:
+    session_id = "S001_query_baseline"
+    dataset = Dataset(
+        path=str(tmp_path / "dataset.xlsx"),
+        sha256="a" * 64,
+        sessions={session_id: (make_turn(session_id, 0),)},
+    )
+    _, manifest = _production_branch_inputs(tmp_path, dataset)
+    baseline_config, _ = production_candidate_from_manifests([manifest])
+    expected = hashlib.sha256(QUERY_REFERENCE_RESOLUTION_PROMPT.encode()).hexdigest()
+
+    assert PRODUCTION_QUERY_PROMPT_HASH == expected
+    assert baseline_config["query_prompt_hash"] == expected
+    assert baseline_config["query_prompt_text"] == QUERY_REFERENCE_RESOLUTION_PROMPT
+
+
+def test_all_page_prompt_candidates_use_one_production_context_contract() -> None:
+    variants = controlled_page_prompt_variants({"regime": "balanced_or_plateau"})
+
+    assert {variant["context_contract"] for variant in variants.values()} == {
+        PRODUCTION_PAGE_CONTEXT_CONTRACT
+    }
+    assert all("context_mode" not in variant for variant in variants.values())
+
+
+def test_other_session_weight_is_production_fixed_not_a_search_parameter() -> None:
+    import yaml
+
+    space = yaml.safe_load((Path(__file__).resolve().parents[2] / "search_space.yaml").read_text())
+    classes = space["parameters"]["classes"]
+    all_searchable = {
+        value
+        for name, values in classes.items()
+        if name != "production_fixed_not_searched"
+        for value in values
+    }
+
+    assert parameter_class("longterm_other_session_weight") == "production-fixed"
+    assert "longterm_other_session_weight" not in all_searchable
+    assert classes["production_fixed_not_searched"] == ["longterm_other_session_weight"]
+
+
 def test_production_adapter_exports_full_candidate_threshold_and_cap_trace(tmp_path: Path) -> None:
     session_id = "11111111-1111-1111-1111-111111111111"
     scope = {"user_id": "recall::S001_trace", "run_id": "S001_trace"}
@@ -1316,7 +1363,7 @@ def test_branch_registry_exposes_required_experiment_contracts() -> None:
         "QueryRewritePrompt",
         "MidtermPageSummaryPrompt",
         "MidtermSessionMergePrompt",
-        "SessionLongtermExtractionPrompt",
+        "FineGrainedLongtermExtractionPrompt",
     } <= set(descriptions)
     for item in descriptions.values():
         assert item["diagnostic_regimes"]
@@ -1980,10 +2027,15 @@ def test_query_history_uses_exact_production_shortterm_window(
     current = turns[4]
     request = captured[current.question]
     assert set(request) == {"current_query", "recent_history"}
-    assert [row["user"] for row in request["recent_history"]] == [
+    assert [row["content"] for row in request["recent_history"] if row["role"] == "user"] == [
         turns[index - 1].question for index in expected_history
     ]
-    visible_questions = [row["user"] for row in request["recent_history"]]
+    assert [row["content"] for row in request["recent_history"] if row["role"] == "assistant"] == [
+        turns[index - 1].answer for index in expected_history
+    ]
+    visible_questions = [
+        row["content"] for row in request["recent_history"] if row["role"] == "user"
+    ]
     if capacity_messages == 8:
         assert turns[0].question in visible_questions
     else:

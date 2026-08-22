@@ -2464,11 +2464,11 @@ def test_memory_state_live_monitor_lists_all_message_statuses_without_changing_s
         )
         db.connection.execute(
             """
-            INSERT INTO messages (id, session_scope, role, content, status, created_at)
-            VALUES
-                ('pending-message', ?, 'assistant', 'migrating answer', 'pending', '2026-08-05T12:00:01'),
-                ('discarded-message', ?, 'user', 'discarded source', 'discarded', '2026-08-05T12:00:02'),
-                ('other-session-message', ?, 'user', 'other session', 'active', '2026-08-05T12:00:03')
+                INSERT INTO messages (id, session_scope, role, content, status, created_at, turn_index)
+                VALUES
+                    ('pending-message', ?, 'assistant', 'migrating answer', 'pending', '2026-08-05T12:00:01', 1),
+                    ('discarded-message', ?, 'user', 'discarded source', 'discarded', '2026-08-05T12:00:02', 2),
+                    ('other-session-message', ?, 'user', 'other session', 'active', '2026-08-05T12:00:03', 1)
             """,
             (
                 scope,

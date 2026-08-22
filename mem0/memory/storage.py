@@ -38,6 +38,8 @@ PROFILE_ACTIVE_STATUSES = frozenset({"pending", "running", "retry"})
 PROFILE_TERMINAL_STATUSES = frozenset({"succeeded", "discarded"})
 PROMOTION_ACTIVE_STATUSES = frozenset({"pending", "running", "retry"})
 PROMOTION_TERMINAL_STATUSES = frozenset({"succeeded", "discarded"})
+LONGTERM_EXTRACTION_ACTIVE_STATUSES = frozenset({"pending", "running", "retry"})
+LONGTERM_EXTRACTION_TERMINAL_STATUSES = frozenset({"succeeded", "discarded"})
 
 
 class IdempotencyConflictError(ValueError):
@@ -59,6 +61,19 @@ class SQLiteManager:
         self._create_idempotency_table()
         self._create_profile_tables()
         self._sync_predefined_profile_attributes()
+
+    def _table_columns(self, table: str) -> set[str]:
+        return {str(row[1]) for row in self.connection.execute(f"PRAGMA table_info({table})").fetchall()}
+
+    def _add_missing_columns(self, table: str, definitions: Dict[str, str]) -> set[str]:
+        """Add backward-compatible columns before creating indexes that reference them."""
+        existing = self._table_columns(table)
+        for column, definition in definitions.items():
+            if column in existing:
+                continue
+            self.connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+            existing.add(column)
+        return existing
 
     def _migrate_history_table(self) -> None:
         """
@@ -189,6 +204,20 @@ class SQLiteManager:
                     )
                 """
                 )
+                columns_before = self._table_columns("messages")
+                self._add_missing_columns(
+                    "messages",
+                    {
+                        "name": "TEXT",
+                        "turn_index": "INTEGER NOT NULL DEFAULT 0",
+                        "status": "TEXT NOT NULL DEFAULT 'active'",
+                        "migration_job_id": "TEXT",
+                        "source_operation_key": "TEXT",
+                        "source_message_index": "INTEGER",
+                    },
+                )
+                if "turn_index" not in columns_before:
+                    self._backfill_legacy_message_turn_indices()
                 self.connection.execute(
                     """
                     CREATE INDEX IF NOT EXISTS idx_messages_scope_status
@@ -214,6 +243,37 @@ class SQLiteManager:
                 logger.error(f"Failed to create messages table: {e}")
                 raise
 
+    def _backfill_legacy_message_turn_indices(self) -> None:
+        """Assign stable QA turn indices when upgrading pre-turn-index message rows."""
+        scopes = self.connection.execute(
+            "SELECT DISTINCT session_scope FROM messages WHERE session_scope IS NOT NULL"
+        ).fetchall()
+        for (session_scope,) in scopes:
+            rows = self.connection.execute(
+                """
+                SELECT rowid, role FROM messages
+                WHERE session_scope = ?
+                ORDER BY DATETIME(created_at) ASC, rowid ASC
+                """,
+                (session_scope,),
+            ).fetchall()
+            turn_index = 0
+            open_user_turn = False
+            for rowid, role in rows:
+                if role == "user":
+                    turn_index += 1
+                    open_user_turn = True
+                elif role == "assistant":
+                    if not open_user_turn:
+                        turn_index += 1
+                    open_user_turn = False
+                elif turn_index == 0:
+                    turn_index = 1
+                self.connection.execute(
+                    "UPDATE messages SET turn_index = ? WHERE rowid = ?",
+                    (turn_index, rowid),
+                )
+
     def _create_conversation_turns_table(self) -> None:
         with self._lock:
             try:
@@ -225,6 +285,26 @@ class SQLiteManager:
                         current_turn_index INTEGER NOT NULL DEFAULT 0,
                         open_turn_index INTEGER
                     )
+                    """
+                )
+                self.connection.execute(
+                    """
+                    INSERT INTO conversation_turns (session_scope, current_turn_index, open_turn_index)
+                    SELECT session_scope, MAX(turn_index),
+                           CASE
+                               WHEN SUM(CASE WHEN turn_index = max_turn AND role = 'user' THEN 1 ELSE 0 END) > 0
+                                AND SUM(CASE WHEN turn_index = max_turn AND role = 'assistant' THEN 1 ELSE 0 END) = 0
+                               THEN max_turn
+                               ELSE NULL
+                           END
+                    FROM (
+                        SELECT messages.*,
+                               MAX(turn_index) OVER (PARTITION BY session_scope) AS max_turn
+                        FROM messages
+                        WHERE session_scope IS NOT NULL AND turn_index > 0
+                    )
+                    GROUP BY session_scope
+                    ON CONFLICT(session_scope) DO NOTHING
                     """
                 )
                 self.connection.execute("COMMIT")
@@ -299,6 +379,42 @@ class SQLiteManager:
                     )
                     """
                 )
+                migration_columns_before = self._table_columns("memory_migration_jobs")
+                self._add_missing_columns(
+                    "memory_migration_jobs",
+                    {
+                        "midterm_status": "TEXT NOT NULL DEFAULT 'pending'",
+                        "midterm_attempts": "INTEGER NOT NULL DEFAULT 0",
+                        "midterm_next_retry_at": "TEXT",
+                        "midterm_last_error": "TEXT",
+                        "midterm_degraded": "INTEGER NOT NULL DEFAULT 0",
+                        "midterm_started_at": "TEXT",
+                        "midterm_finished_at": "TEXT",
+                        "midterm_lease_token": "TEXT",
+                        "midterm_heartbeat_at": "TEXT",
+                        "midterm_lease_expires_at": "TEXT",
+                        "midterm_recovery_count": "INTEGER NOT NULL DEFAULT 0",
+                        "midterm_force_degraded": "INTEGER NOT NULL DEFAULT 0",
+                        "midterm_cleanup_error": "TEXT",
+                        "longterm_status": "TEXT NOT NULL DEFAULT 'pending'",
+                        "longterm_attempts": "INTEGER NOT NULL DEFAULT 0",
+                        "longterm_next_retry_at": "TEXT",
+                        "longterm_last_error": "TEXT",
+                        "longterm_degraded": "INTEGER NOT NULL DEFAULT 0",
+                        "longterm_started_at": "TEXT",
+                        "longterm_finished_at": "TEXT",
+                        "longterm_lease_token": "TEXT",
+                        "longterm_heartbeat_at": "TEXT",
+                        "longterm_lease_expires_at": "TEXT",
+                        "longterm_recovery_count": "INTEGER NOT NULL DEFAULT 0",
+                        "longterm_force_degraded": "INTEGER NOT NULL DEFAULT 0",
+                        "longterm_cleanup_error": "TEXT",
+                        "finalized_at": "TEXT",
+                        "source_operation_key": "TEXT",
+                    },
+                )
+                if "midterm_status" not in migration_columns_before:
+                    self._migrate_legacy_migration_job_state(migration_columns_before)
                 self.connection.execute(
                     """
                     CREATE INDEX IF NOT EXISTS idx_migration_jobs_midterm_claim
@@ -309,6 +425,49 @@ class SQLiteManager:
                     """
                     CREATE INDEX IF NOT EXISTS idx_migration_jobs_longterm_claim
                     ON memory_migration_jobs(longterm_status, longterm_next_retry_at, created_at)
+                    """
+                )
+                self.connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS longterm_extraction_jobs (
+                        job_id TEXT PRIMARY KEY,
+                        session_scope TEXT NOT NULL,
+                        turn_index INTEGER NOT NULL,
+                        messages_json TEXT NOT NULL,
+                        filters_json TEXT NOT NULL,
+                        metadata_json TEXT NOT NULL,
+                        infer INTEGER NOT NULL DEFAULT 1,
+                        prompt TEXT,
+                        status TEXT NOT NULL DEFAULT 'pending',
+                        attempts INTEGER NOT NULL DEFAULT 0,
+                        next_retry_at TEXT,
+                        last_error TEXT,
+                        started_at TEXT,
+                        finished_at TEXT,
+                        lease_token TEXT,
+                        heartbeat_at TEXT,
+                        lease_expires_at TEXT,
+                        recovery_count INTEGER NOT NULL DEFAULT 0,
+                        sequence_no INTEGER NOT NULL,
+                        source_operation_key TEXT,
+                        created_at TEXT NOT NULL,
+                        updated_at TEXT NOT NULL,
+                        UNIQUE(session_scope, turn_index),
+                        CHECK (status IN ('pending', 'running', 'retry', 'succeeded', 'discarded'))
+                    )
+                    """
+                )
+                self.connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_longterm_extraction_jobs_claim
+                    ON longterm_extraction_jobs(status, next_retry_at, created_at)
+                    """
+                )
+                self.connection.execute(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_longterm_extraction_jobs_source_operation
+                    ON longterm_extraction_jobs(source_operation_key, turn_index)
+                    WHERE source_operation_key IS NOT NULL
                     """
                 )
                 self.connection.execute(
@@ -345,6 +504,17 @@ class SQLiteManager:
                         )
                     )
                     """
+                )
+                self._add_missing_columns(
+                    "profile_update_jobs",
+                    {
+                        "started_at": "TEXT",
+                        "lease_token": "TEXT",
+                        "heartbeat_at": "TEXT",
+                        "lease_expires_at": "TEXT",
+                        "recovery_count": "INTEGER NOT NULL DEFAULT 0",
+                        "source_operation_key": "TEXT",
+                    },
                 )
                 self.connection.execute(
                     """
@@ -401,6 +571,44 @@ class SQLiteManager:
                 self.connection.execute("ROLLBACK")
                 logger.error("Failed to create background job tables: %s", e)
                 raise
+
+    def _migrate_legacy_migration_job_state(self, legacy_columns: set[str]) -> None:
+        """Project the single-state legacy worker schema into the two stage states."""
+        midterm_done = "COALESCE(midterm_done, 0)" if "midterm_done" in legacy_columns else "0"
+        longterm_done = "COALESCE(longterm_done, 0)" if "longterm_done" in legacy_columns else "0"
+        attempts = "COALESCE(attempts, 0)" if "attempts" in legacy_columns else "0"
+        next_retry_at = "next_retry_at" if "next_retry_at" in legacy_columns else "NULL"
+        last_error = "last_error" if "last_error" in legacy_columns else "NULL"
+        degraded = "COALESCE(degraded, 0)" if "degraded" in legacy_columns else "0"
+        self.connection.execute(
+            f"""
+            UPDATE memory_migration_jobs
+            SET midterm_status = CASE
+                    WHEN {midterm_done} = 1 OR status = 'succeeded' THEN 'succeeded'
+                    WHEN status = 'discarded' THEN 'discarded'
+                    WHEN status IN ('running', 'retry') THEN 'retry'
+                    ELSE 'pending'
+                END,
+                longterm_status = CASE
+                    WHEN {longterm_done} = 1 OR status = 'succeeded' THEN 'succeeded'
+                    WHEN status = 'discarded' THEN 'discarded'
+                    WHEN status IN ('running', 'retry') THEN 'retry'
+                    ELSE 'pending'
+                END,
+                midterm_attempts = {attempts},
+                longterm_attempts = {attempts},
+                midterm_next_retry_at = {next_retry_at},
+                longterm_next_retry_at = {next_retry_at},
+                midterm_last_error = {last_error},
+                longterm_last_error = {last_error},
+                midterm_degraded = {degraded},
+                longterm_degraded = {degraded},
+                finalized_at = CASE
+                    WHEN status IN ('succeeded', 'discarded') THEN updated_at
+                    ELSE finalized_at
+                END
+            """
+        )
 
     def _create_idempotency_table(self) -> None:
         with self._lock:
@@ -826,6 +1034,17 @@ class SQLiteManager:
         decoded["messages"] = json.loads(decoded.pop("messages_json"))
         return decoded
 
+    @staticmethod
+    def _decode_longterm_extraction_job(job: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        if job is None:
+            return None
+        decoded = dict(job)
+        decoded["messages"] = json.loads(decoded.pop("messages_json"))
+        decoded["filters"] = json.loads(decoded.pop("filters_json"))
+        decoded["metadata"] = json.loads(decoded.pop("metadata_json"))
+        decoded["infer"] = bool(decoded["infer"])
+        return decoded
+
     def get_idempotency_operation(self, idempotency_key: str) -> Optional[Dict[str, Any]]:
         """Return one persisted operation without changing its state."""
         with self._lock:
@@ -924,9 +1143,19 @@ class SQLiteManager:
                     )
                 owns_operation = True
 
-                self._insert_messages_in_transaction(
+                touched_turn_indices = self._insert_messages_in_transaction(
                     messages,
                     session_scope,
+                    source_operation_key=idempotency_key,
+                )
+
+                self._create_longterm_extraction_jobs_in_transaction(
+                    session_scope,
+                    touched_turn_indices,
+                    filters=filters,
+                    metadata=metadata,
+                    infer=infer,
+                    prompt=prompt,
                     source_operation_key=idempotency_key,
                 )
 
@@ -938,6 +1167,7 @@ class SQLiteManager:
                     infer=infer,
                     prompt=prompt,
                     source_operation_key=idempotency_key,
+                    skip_longterm_stage=True,
                 )
                 profile_job_id = None
                 if profile_user_id:
@@ -995,7 +1225,14 @@ class SQLiteManager:
             "SELECT job_id FROM profile_update_jobs WHERE source_operation_key = ?",
             (idempotency_key,),
         ).fetchone()
-        if message_count == 0 and migration_row is None and profile_row is None:
+        longterm_rows = self.connection.execute(
+            """
+            SELECT job_id FROM longterm_extraction_jobs
+            WHERE source_operation_key = ? ORDER BY sequence_no, rowid
+            """,
+            (idempotency_key,),
+        ).fetchall()
+        if message_count == 0 and migration_row is None and profile_row is None and not longterm_rows:
             return None
         if message_count not in {0, expected_message_count}:
             raise RuntimeError(
@@ -1062,7 +1299,7 @@ class SQLiteManager:
         session_scope: str,
         *,
         source_operation_key: Optional[str],
-    ) -> None:
+    ) -> List[int]:
         state = self.connection.execute(
             """
             SELECT current_turn_index, open_turn_index
@@ -1074,6 +1311,7 @@ class SQLiteManager:
         current_turn_index = int(state[0]) if state else 0
         open_turn_index = int(state[1]) if state and state[1] is not None else None
 
+        touched_turn_indices = set()
         for index, message in enumerate(messages):
             role = message.get("role")
             if role == "user":
@@ -1088,6 +1326,8 @@ class SQLiteManager:
                 open_turn_index = None
             else:
                 turn_index = open_turn_index if open_turn_index is not None else current_turn_index
+            if role in {"user", "assistant"} and turn_index > 0:
+                touched_turn_indices.add(int(turn_index))
 
             created_at = normalize_iso_timestamp_to_beijing(message.get("created_at")) or beijing_now_iso()
             self.connection.execute(
@@ -1120,6 +1360,97 @@ class SQLiteManager:
             """,
             (session_scope, current_turn_index, open_turn_index),
         )
+        return sorted(touched_turn_indices)
+
+    def _complete_qa_messages_in_transaction(
+        self,
+        session_scope: str,
+        turn_indices: List[int],
+    ) -> List[tuple[int, List[Dict[str, Any]]]]:
+        """Return only touched turns that durably contain both User and Assistant."""
+        completed = []
+        for turn_index in sorted({int(value) for value in turn_indices if int(value) > 0}):
+            rows = self.connection.execute(
+                """
+                SELECT role, content, name, created_at, turn_index, status
+                FROM messages
+                WHERE session_scope = ? AND turn_index = ? AND role IN ('user', 'assistant')
+                ORDER BY DATETIME(created_at) ASC, rowid ASC
+                """,
+                (session_scope, turn_index),
+            ).fetchall()
+            roles = {row[0] for row in rows}
+            if not {"user", "assistant"} <= roles:
+                continue
+            messages = [
+                {
+                    "role": row[0],
+                    "content": row[1],
+                    "name": row[2],
+                    "created_at": row[3],
+                    "turn_index": row[4],
+                    "status": row[5],
+                }
+                for row in rows
+            ]
+            completed.append((turn_index, messages))
+        return completed
+
+    def _create_longterm_extraction_jobs_in_transaction(
+        self,
+        session_scope: str,
+        turn_indices: List[int],
+        *,
+        filters: Dict[str, Any],
+        metadata: Dict[str, Any],
+        infer: bool,
+        prompt: Optional[str],
+        source_operation_key: Optional[str],
+    ) -> List[str]:
+        job_ids = []
+        now = beijing_now_iso()
+        for turn_index, messages in self._complete_qa_messages_in_transaction(session_scope, turn_indices):
+            job_id = str(
+                uuid.uuid5(
+                    uuid.NAMESPACE_URL,
+                    f"mem0:longterm-extraction-job:{session_scope}:{turn_index}",
+                )
+            )
+            job_metadata = {**metadata, "source_turn_index": turn_index}
+            self.connection.execute(
+                """
+                INSERT INTO longterm_extraction_jobs (
+                    job_id, session_scope, turn_index, messages_json,
+                    filters_json, metadata_json, infer, prompt, status,
+                    attempts, sequence_no, source_operation_key, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?)
+                ON CONFLICT(session_scope, turn_index) DO NOTHING
+                """,
+                (
+                    job_id,
+                    session_scope,
+                    turn_index,
+                    self._json_dumps(messages),
+                    self._json_dumps(filters),
+                    self._json_dumps(job_metadata),
+                    int(bool(infer)),
+                    prompt,
+                    turn_index,
+                    source_operation_key,
+                    now,
+                    now,
+                ),
+            )
+            row = self.connection.execute(
+                """
+                SELECT job_id FROM longterm_extraction_jobs
+                WHERE session_scope = ? AND turn_index = ?
+                """,
+                (session_scope, turn_index),
+            ).fetchone()
+            if row is not None:
+                job_ids.append(str(row[0]))
+        return job_ids
 
     def current_turn_index(self, session_scope: str) -> int:
         with self._lock:
@@ -1139,6 +1470,7 @@ class SQLiteManager:
         infer: bool,
         prompt: Optional[str],
         source_operation_key: Optional[str],
+        skip_longterm_stage: bool = False,
     ) -> Optional[str]:
         active_rows = self.connection.execute(
             """
@@ -1172,6 +1504,7 @@ class SQLiteManager:
             (session_scope,),
         ).fetchone()[0]
         now = beijing_now_iso()
+        longterm_status = "succeeded" if skip_longterm_stage else "pending"
         self.connection.execute(
             """
             INSERT INTO memory_migration_jobs (
@@ -1183,13 +1516,14 @@ class SQLiteManager:
             ) VALUES (
                 ?, ?, 'pending',
                 'pending', 0, 0,
-                'pending', 0, 0,
+                ?, 0, 0,
                 ?, ?, ?, ?, ?, ?, ?, ?
             )
             """,
             (
                 job_id,
                 session_scope,
+                longterm_status,
                 self._json_dumps(filters),
                 self._json_dumps(metadata),
                 int(bool(infer)),
@@ -1299,7 +1633,9 @@ class SQLiteManager:
         infer: bool,
         prompt: Optional[str],
         profile_user_id: Optional[str],
-    ) -> tuple[Optional[str], Optional[str]]:
+        create_longterm_jobs: bool = False,
+        return_longterm_job_ids: bool = False,
+    ) -> Any:
         """Atomically save short-term messages and enqueue every requested job."""
         if not messages:
             return None, None
@@ -1307,11 +1643,22 @@ class SQLiteManager:
         with self._lock:
             try:
                 self.connection.execute("BEGIN IMMEDIATE")
-                self._insert_messages_in_transaction(
+                touched_turn_indices = self._insert_messages_in_transaction(
                     messages,
                     session_scope,
                     source_operation_key=None,
                 )
+                longterm_job_ids = []
+                if create_longterm_jobs:
+                    longterm_job_ids = self._create_longterm_extraction_jobs_in_transaction(
+                        session_scope,
+                        touched_turn_indices,
+                        filters=filters,
+                        metadata=metadata,
+                        infer=infer,
+                        prompt=prompt,
+                        source_operation_key=None,
+                    )
                 migration_job_id = self._reserve_migration_job_in_transaction(
                     session_scope,
                     max_messages=max_messages,
@@ -1320,6 +1667,7 @@ class SQLiteManager:
                     infer=infer,
                     prompt=prompt,
                     source_operation_key=None,
+                    skip_longterm_stage=create_longterm_jobs,
                 )
                 profile_job_id = None
                 if profile_user_id is not None:
@@ -1329,6 +1677,8 @@ class SQLiteManager:
                         source_operation_key=None,
                     )
                 self.connection.execute("COMMIT")
+                if return_longterm_job_ids:
+                    return migration_job_id, profile_job_id, longterm_job_ids
                 return migration_job_id, profile_job_id
             except Exception:
                 if self.connection.in_transaction:
@@ -1434,6 +1784,273 @@ class SQLiteManager:
             }
             for row in rows
         ]
+
+    def get_following_qa_messages(
+        self,
+        session_scope: str,
+        after_turn_index: int,
+        qa_limit: int,
+    ) -> List[Dict[str, Any]]:
+        """Return the nearest complete following QA turns across all message states."""
+        limit = max(int(qa_limit), 0)
+        if limit == 0:
+            return []
+        with self._lock:
+            rows = self.connection.execute(
+                """
+                SELECT role, content, name, created_at, turn_index, status
+                FROM messages
+                WHERE session_scope = ? AND turn_index > ?
+                  AND role IN ('user', 'assistant')
+                ORDER BY turn_index ASC, DATETIME(created_at) ASC, rowid ASC
+                """,
+                (session_scope, int(after_turn_index)),
+            ).fetchall()
+
+        turns: Dict[int, List[Any]] = {}
+        for row in rows:
+            turns.setdefault(int(row[4]), []).append(row)
+
+        result = []
+        completed_count = 0
+        for turn_index in sorted(turns):
+            turn_rows = turns[turn_index]
+            if not {row[0] for row in turn_rows} >= {"user", "assistant"}:
+                continue
+            result.extend(
+                {
+                    "role": row[0],
+                    "content": row[1],
+                    "name": row[2],
+                    "created_at": row[3],
+                    "turn_index": row[4],
+                    "status": row[5],
+                    "session_scope": session_scope,
+                }
+                for row in turn_rows
+            )
+            completed_count += 1
+            if completed_count >= limit:
+                break
+        return result
+
+    def list_longterm_extraction_jobs(
+        self,
+        *,
+        session_scope: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        where = "WHERE session_scope = ?" if session_scope is not None else ""
+        parameters = (session_scope,) if session_scope is not None else ()
+        with self._lock:
+            cursor = self.connection.execute(
+                f"SELECT * FROM longterm_extraction_jobs {where} ORDER BY sequence_no, rowid",
+                parameters,
+            )
+            rows = [self._row_as_dict(cursor, row) for row in cursor.fetchall()]
+        return [self._decode_longterm_extraction_job(row) for row in rows]
+
+    def claim_next_longterm_extraction_job(
+        self,
+        lease_timeout_seconds: float = 120.0,
+    ) -> Optional[Dict[str, Any]]:
+        return self._claim_longterm_extraction_job(lease_timeout_seconds=lease_timeout_seconds)
+
+    def claim_longterm_extraction_job(
+        self,
+        job_id: str,
+        lease_timeout_seconds: float = 120.0,
+    ) -> Optional[Dict[str, Any]]:
+        if not job_id:
+            raise ValueError("job_id is required")
+        return self._claim_longterm_extraction_job(job_id, lease_timeout_seconds=lease_timeout_seconds)
+
+    def _claim_longterm_extraction_job(
+        self,
+        job_id: Optional[str] = None,
+        *,
+        lease_timeout_seconds: float,
+    ) -> Optional[Dict[str, Any]]:
+        now_value = beijing_now()
+        now = now_value.isoformat()
+        expires_at = (now_value + timedelta(seconds=max(float(lease_timeout_seconds), 0.001))).isoformat()
+        lease_token = str(uuid.uuid4())
+        job_filter = "AND candidate.job_id = ?" if job_id is not None else ""
+        parameters = (now, job_id) if job_id is not None else (now,)
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN IMMEDIATE")
+                cursor = self.connection.execute(
+                    f"""
+                    SELECT candidate.* FROM longterm_extraction_jobs AS candidate
+                    WHERE candidate.status IN ('pending', 'retry')
+                      AND (candidate.next_retry_at IS NULL OR candidate.next_retry_at <= ?)
+                      {job_filter}
+                      AND NOT EXISTS (
+                          SELECT 1 FROM longterm_extraction_jobs AS earlier
+                          WHERE earlier.session_scope = candidate.session_scope
+                            AND earlier.sequence_no < candidate.sequence_no
+                            AND earlier.status NOT IN ('succeeded', 'discarded')
+                      )
+                    ORDER BY candidate.created_at ASC, candidate.rowid ASC
+                    LIMIT 1
+                    """,
+                    parameters,
+                )
+                job = self._row_as_dict(cursor, cursor.fetchone())
+                if job is None:
+                    self.connection.execute("COMMIT")
+                    return None
+                updated = self.connection.execute(
+                    """
+                    UPDATE longterm_extraction_jobs
+                    SET status = 'running', started_at = ?, lease_token = ?,
+                        heartbeat_at = ?, lease_expires_at = ?, updated_at = ?
+                    WHERE job_id = ? AND status IN ('pending', 'retry')
+                      AND (next_retry_at IS NULL OR next_retry_at <= ?)
+                    """,
+                    (now, lease_token, now, expires_at, now, job["job_id"], now),
+                )
+                if updated.rowcount != 1:
+                    self.connection.execute("ROLLBACK")
+                    return None
+                self.connection.execute("COMMIT")
+                job.update(
+                    {
+                        "status": "running",
+                        "started_at": now,
+                        "lease_token": lease_token,
+                        "heartbeat_at": now,
+                        "lease_expires_at": expires_at,
+                        "updated_at": now,
+                    }
+                )
+                return self._decode_longterm_extraction_job(job)
+            except Exception:
+                if self.connection.in_transaction:
+                    self.connection.execute("ROLLBACK")
+                raise
+
+    def longterm_extraction_job_lease_is_current(self, job_id: str, lease_token: str) -> bool:
+        with self._lock:
+            now = beijing_now_iso()
+            row = self.connection.execute(
+                """
+                SELECT 1 FROM longterm_extraction_jobs
+                WHERE job_id = ? AND status = 'running' AND lease_token = ?
+                  AND lease_expires_at IS NOT NULL AND lease_expires_at > ?
+                """,
+                (job_id, lease_token, now),
+            ).fetchone()
+        return row is not None
+
+    def heartbeat_longterm_extraction_job(
+        self,
+        job_id: str,
+        lease_token: str,
+        lease_timeout_seconds: float,
+    ) -> bool:
+        with self._lock:
+            now_value = beijing_now()
+            now = now_value.isoformat()
+            expires_at = (now_value + timedelta(seconds=max(float(lease_timeout_seconds), 0.001))).isoformat()
+            cursor = self.connection.execute(
+                """
+                UPDATE longterm_extraction_jobs
+                SET heartbeat_at = ?, lease_expires_at = ?, updated_at = ?
+                WHERE job_id = ? AND status = 'running' AND lease_token = ?
+                  AND lease_expires_at IS NOT NULL AND lease_expires_at > ?
+                """,
+                (now, expires_at, now, job_id, lease_token, now),
+            )
+            self.connection.commit()
+            return cursor.rowcount == 1
+
+    def complete_longterm_extraction_job(self, job_id: str, lease_token: str) -> bool:
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN IMMEDIATE")
+                now = beijing_now_iso()
+                updated = self.connection.execute(
+                    """
+                    UPDATE longterm_extraction_jobs
+                    SET status = 'succeeded', next_retry_at = NULL, last_error = NULL,
+                        finished_at = ?, lease_token = NULL, heartbeat_at = NULL,
+                        lease_expires_at = NULL, updated_at = ?
+                    WHERE job_id = ? AND status = 'running' AND lease_token = ?
+                      AND lease_expires_at IS NOT NULL AND lease_expires_at > ?
+                    """,
+                    (now, now, job_id, lease_token, now),
+                )
+                self.connection.execute("COMMIT")
+                return updated.rowcount == 1
+            except Exception:
+                if self.connection.in_transaction:
+                    self.connection.execute("ROLLBACK")
+                raise
+
+    def record_longterm_extraction_failure(
+        self,
+        job_id: str,
+        lease_token: str,
+        error: str,
+        *,
+        max_retries: int,
+        retry_delay_seconds: float,
+    ) -> str:
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN IMMEDIATE")
+                now = beijing_now()
+                now_iso = now.isoformat()
+                row = self.connection.execute(
+                    """
+                    SELECT attempts FROM longterm_extraction_jobs
+                    WHERE job_id = ? AND status = 'running' AND lease_token = ?
+                      AND lease_expires_at IS NOT NULL AND lease_expires_at > ?
+                    """,
+                    (job_id, lease_token, now_iso),
+                ).fetchone()
+                if row is None:
+                    self.connection.execute("COMMIT")
+                    return "stale_lease"
+                attempts = int(row[0]) + 1
+                status = "retry" if attempts <= int(max_retries) else "discarded"
+                next_retry_at = (
+                    (now + timedelta(seconds=max(float(retry_delay_seconds), 0))).isoformat()
+                    if status == "retry"
+                    else None
+                )
+                finished_at = now_iso if status == "discarded" else None
+                updated = self.connection.execute(
+                    """
+                    UPDATE longterm_extraction_jobs
+                    SET status = ?, attempts = ?, next_retry_at = ?, last_error = ?,
+                        finished_at = ?, lease_token = NULL, heartbeat_at = NULL,
+                        lease_expires_at = NULL, updated_at = ?
+                    WHERE job_id = ? AND status = 'running' AND lease_token = ?
+                      AND lease_expires_at IS NOT NULL AND lease_expires_at > ?
+                    """,
+                    (
+                        status,
+                        attempts,
+                        next_retry_at,
+                        str(error),
+                        finished_at,
+                        now_iso,
+                        job_id,
+                        lease_token,
+                        now_iso,
+                    ),
+                )
+                if updated.rowcount != 1:
+                    self.connection.execute("ROLLBACK")
+                    return "stale_lease"
+                self.connection.execute("COMMIT")
+                return status
+            except Exception:
+                if self.connection.in_transaction:
+                    self.connection.execute("ROLLBACK")
+                raise
 
     def ensure_promotion_job(
         self,
@@ -1662,12 +2279,46 @@ class SQLiteManager:
                         ),
                     )
                     profile_recovered += int(updated.rowcount == 1)
+                longterm_extraction_rows = self.connection.execute(
+                    """
+                    SELECT job_id, recovery_count FROM longterm_extraction_jobs
+                    WHERE status = 'running' AND lease_expires_at IS NOT NULL
+                      AND lease_expires_at <= ?
+                    """,
+                    (now,),
+                ).fetchall()
+                longterm_extraction_recovered = 0
+                for job_id, previous_count in longterm_extraction_rows:
+                    recovery_count = int(previous_count or 0) + 1
+                    status = "discarded" if recovery_count > max_recoveries else "retry"
+                    updated = self.connection.execute(
+                        """
+                        UPDATE longterm_extraction_jobs
+                        SET status = ?, recovery_count = ?, next_retry_at = ?,
+                            last_error = 'recovered expired lease', finished_at = ?,
+                            lease_token = NULL, heartbeat_at = NULL,
+                            lease_expires_at = NULL, updated_at = ?
+                        WHERE job_id = ? AND status = 'running'
+                          AND lease_expires_at IS NOT NULL AND lease_expires_at <= ?
+                        """,
+                        (
+                            status,
+                            recovery_count,
+                            None if status == "discarded" else now,
+                            now if status == "discarded" else None,
+                            now,
+                            job_id,
+                            now,
+                        ),
+                    )
+                    longterm_extraction_recovered += int(updated.rowcount == 1)
                 promotion_recovered = self._recover_expired_promotion_jobs_locked(now, max_recoveries)
                 self.connection.execute("COMMIT")
                 return {
                     **recovered,
                     "migration": len(affected_job_ids),
                     "profile": profile_recovered,
+                    "longterm_extraction": longterm_extraction_recovered,
                     "promotion": promotion_recovered,
                 }
             except Exception:
@@ -2538,6 +3189,13 @@ class SQLiteManager:
                 LIMIT 1
                 """
             ).fetchone()
+            longterm_extraction = self.connection.execute(
+                """
+                SELECT 1 FROM longterm_extraction_jobs
+                WHERE status IN ('pending', 'running', 'retry')
+                LIMIT 1
+                """
+            ).fetchone()
             promotion = self.connection.execute(
                 """
                 SELECT 1 FROM memory_promotion_jobs
@@ -2545,7 +3203,7 @@ class SQLiteManager:
                 LIMIT 1
                 """
             ).fetchone()
-            return migration is not None or profile is not None or promotion is not None
+            return any(item is not None for item in (migration, profile, longterm_extraction, promotion))
 
     def migration_stage_jobs_pending(self, stage: str) -> bool:
         stage = self._validate_migration_stage(stage)
@@ -2564,9 +3222,10 @@ class SQLiteManager:
             "migration": "memory_migration_jobs",
             "profile": "profile_update_jobs",
             "promotion": "memory_promotion_jobs",
+            "longterm_extraction": "longterm_extraction_jobs",
         }
         if job_type not in tables:
-            raise ValueError("job_type must be 'migration', 'profile', or 'promotion'")
+            raise ValueError("job_type must be 'migration', 'profile', 'promotion', or 'longterm_extraction'")
         table = tables[job_type]
         with self._lock:
             cursor = self.connection.execute(f"SELECT * FROM {table} WHERE job_id = ?", (job_id,))
@@ -2575,6 +3234,8 @@ class SQLiteManager:
             return self._decode_migration_job(job)
         if job_type == "profile":
             return self._decode_profile_job(job)
+        if job_type == "longterm_extraction":
+            return self._decode_longterm_extraction_job(job)
         return job
 
     @staticmethod
@@ -2984,6 +3645,7 @@ class SQLiteManager:
                 self.connection.execute("DROP TABLE IF EXISTS user_profile_values")
                 self.connection.execute("DROP TABLE IF EXISTS profile_attributes")
                 self.connection.execute("DROP TABLE IF EXISTS profile_update_jobs")
+                self.connection.execute("DROP TABLE IF EXISTS longterm_extraction_jobs")
                 self.connection.execute("DROP TABLE IF EXISTS memory_promotion_jobs")
                 self.connection.execute("DROP TABLE IF EXISTS memory_migration_jobs")
                 self.connection.execute("DROP TABLE IF EXISTS memory_idempotency_operations")

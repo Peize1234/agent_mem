@@ -33,7 +33,7 @@ Production Baseline
  -> Held-out Validation
 ```
 
-`required_context` is fixed Gold; ShortTerm capacity never changes its denominator. Source-changing, within-session-stateful and cross-session-temporal parameters are separate from retrieval-only controls. The current benchmark evaluates only Short-term, Mid-term and Session-scoped Long-term. Cross-session Long-term and Promotion tuning are explicitly unsupported: production defaults remain unchanged, and any replay is `STRUCTURAL_ONLY_NOT_EVALUATED` with status `CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD`, excluded from winner selection.
+`required_context` is fixed Gold; ShortTerm capacity never changes its denominator. Source-changing, within-session-stateful and cross-session-temporal parameters are separate from retrieval-only controls. Fine-grained LongTerm is produced per complete QA and is cross-session retrievable with Production's dual-route/session-weight contract. Because the current benchmark has no reliable cross-session Gold, `longterm_other_session_weight` and Promotion remain fixed Production defaults; structural replay is `STRUCTURAL_ONLY_NOT_EVALUATED` with status `CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD`, excluded from winner selection.
 
 Research decisions use only the current run's Tune evidence and current-run experiment trajectory; previous-run winners, metrics or lessons are never search priors.
 
@@ -352,7 +352,7 @@ The orchestrator does not construct Branch-specific candidates. Every registered
 - candidate generator and execution adapter;
 - provenance contract.
 
-Built-in Branches are RetrievalControl, QueryRewritePrompt, PageRepresentation, HybridRetrieval, Reranking, Embedding, FieldAwareMultiVector, MidtermSourceConfig, MidtermEvolution, SessionLongtermRetrieval, MidtermPageSummaryPrompt, MidtermSessionMergePrompt and SessionLongtermExtractionPrompt. Promotion remains registered as future infrastructure but is disabled in the current default coverage because Cross-session Gold is unavailable. The legacy QueryRepresentation adapter remains only for compatibility and is excluded from normal coverage, so the two prompt paths are not searched twice. Add a new adapter to the registry when a diagnosis requires an unsupported technique; do not add another conditional candidate block to the orchestrator.
+Built-in Branches are RetrievalControl, QueryRewritePrompt, PageRepresentation, HybridRetrieval, Reranking, Embedding, FieldAwareMultiVector, MidtermSourceConfig, MidtermEvolution, FineGrainedLongtermRetrieval, MidtermPageSummaryPrompt, MidtermSessionMergePrompt and FineGrainedLongtermExtractionPrompt. Promotion remains registered as future infrastructure but is disabled in the current default coverage because Cross-session Gold is unavailable. The old `SessionLongterm*` class names remain compatibility aliases only. The legacy QueryRepresentation adapter also remains only for compatibility and is excluded from normal coverage, so the two prompt paths are not searched twice. Add a new adapter to the registry when a diagnosis requires an unsupported technique; do not add another conditional candidate block to the orchestrator.
 
 ## 10. Stage D — expensive LLM search
 

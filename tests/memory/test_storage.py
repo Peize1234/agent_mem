@@ -308,6 +308,96 @@ class TestSQLiteManager:
         assert history[0]["is_deleted"] is False
         mgr.close()
 
+    def test_legacy_message_and_background_job_schema_is_upgraded_in_place(self, temp_db_path):
+        legacy_conn = sqlite3.connect(temp_db_path)
+        legacy_conn.executescript(
+            """
+            CREATE TABLE messages (
+                id TEXT PRIMARY KEY, session_scope TEXT, role TEXT, content TEXT,
+                name TEXT, created_at TEXT, status TEXT NOT NULL DEFAULT 'active',
+                migration_job_id TEXT
+            );
+            CREATE TABLE memory_migration_jobs (
+                job_id TEXT PRIMARY KEY, session_scope TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                midterm_done INTEGER NOT NULL DEFAULT 0,
+                longterm_done INTEGER NOT NULL DEFAULT 0,
+                attempts INTEGER NOT NULL DEFAULT 0,
+                next_retry_at TEXT, last_error TEXT,
+                filters_json TEXT NOT NULL, metadata_json TEXT NOT NULL,
+                infer INTEGER NOT NULL DEFAULT 1, prompt TEXT,
+                sequence_no INTEGER NOT NULL, degraded INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+                UNIQUE(session_scope, sequence_no)
+            );
+            CREATE TABLE profile_update_jobs (
+                job_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, messages_json TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending', attempts INTEGER NOT NULL DEFAULT 0,
+                next_retry_at TEXT, last_error TEXT, sequence_no INTEGER NOT NULL,
+                created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+                UNIQUE(user_id, sequence_no)
+            );
+            """
+        )
+        scope = "run_id=r1&user_id=u1"
+        for index, (role, content) in enumerate((("user", "Q1"), ("assistant", "A1"), ("user", "Q2"))):
+            legacy_conn.execute(
+                """
+                INSERT INTO messages (id, session_scope, role, content, created_at, status)
+                VALUES (?, ?, ?, ?, ?, 'active')
+                """,
+                (f"m{index}", scope, role, content, f"2026-01-01T00:00:0{index}+08:00"),
+            )
+        legacy_conn.execute(
+            """
+            INSERT INTO memory_migration_jobs (
+                job_id, session_scope, status, midterm_done, longterm_done,
+                attempts, filters_json, metadata_json, sequence_no, degraded,
+                created_at, updated_at
+            ) VALUES ('legacy-job', ?, 'retry', 1, 0, 2, '{}', '{}', 1, 1, ?, ?)
+            """,
+            (scope, "2026-01-01T00:00:00+08:00", "2026-01-01T00:01:00+08:00"),
+        )
+        legacy_conn.execute(
+            """
+            INSERT INTO profile_update_jobs (
+                job_id, user_id, messages_json, sequence_no, created_at, updated_at
+            ) VALUES ('profile-job', 'u1', '[]', 1, ?, ?)
+            """,
+            ("2026-01-01T00:00:00+08:00", "2026-01-01T00:01:00+08:00"),
+        )
+        legacy_conn.commit()
+        legacy_conn.close()
+
+        mgr = SQLiteManager(temp_db_path)
+        try:
+            message_rows = mgr.connection.execute(
+                "SELECT role, turn_index FROM messages ORDER BY created_at"
+            ).fetchall()
+            assert message_rows == [("user", 1), ("assistant", 1), ("user", 2)]
+            assert mgr.connection.execute(
+                "SELECT current_turn_index, open_turn_index FROM conversation_turns WHERE session_scope = ?",
+                (scope,),
+            ).fetchone() == (2, 2)
+
+            migration = mgr.get_background_job("legacy-job")
+            assert migration["midterm_status"] == "succeeded"
+            assert migration["longterm_status"] == "retry"
+            assert migration["longterm_attempts"] == 2
+            assert migration["longterm_degraded"] is True
+            assert {"midterm_done", "longterm_done"} <= mgr._table_columns("memory_migration_jobs")
+            assert {
+                "lease_token",
+                "heartbeat_at",
+                "lease_expires_at",
+                "recovery_count",
+            } <= mgr._table_columns("profile_update_jobs")
+            assert "longterm_extraction_jobs" in {
+                row[0] for row in mgr.connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+            }
+        finally:
+            mgr.close()
+
     def test_reset_drops_tables(self, temp_db_path):
         """reset() must drop both history and messages tables."""
         mgr = SQLiteManager(temp_db_path)

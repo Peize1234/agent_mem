@@ -4,7 +4,7 @@ import threading
 import time
 from copy import deepcopy
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from pydantic import ValidationError
@@ -400,6 +400,16 @@ def test_tool_accepts_one_to_three_queries(query_count):
 
     assert result == {"ok": True, "items": []}
     assert len(memory.midterm_retriever.calls) == query_count
+
+
+def test_agentic_tool_queries_are_not_rewritten_a_second_time():
+    memory = _FakeMemory({"exact tool query": []})
+
+    with patch("mem0.memory.query_resolver.QueryResolver.resolve", side_effect=AssertionError("double rewrite")):
+        result = _executor(memory).execute("search_memory", {"queries": ["exact tool query"]})
+
+    assert result == {"ok": True, "items": []}
+    assert memory.midterm_retriever.calls[0][0] == "exact tool query"
 
 
 @pytest.mark.parametrize("arguments", [{"queries": []}, {"queries": ["1", "2", "3", "4"]}])

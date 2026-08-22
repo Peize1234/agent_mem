@@ -122,9 +122,11 @@ def test_additive_extraction_prompt_pretty_prints_all_structured_sections_withou
     assert "\\u" not in result
 
 
-def test_additive_extraction_system_prompt_declares_current_short_term_context():
-    assert "“新消息”被移出后" in prompts.ADDITIVE_EXTRACTION_PROMPT
-    assert "当前短期窗口上下文不能作为独立的新记忆来源" in prompts.ADDITIVE_EXTRACTION_PROMPT
+def test_additive_extraction_system_prompt_declares_per_qa_cross_session_contract():
+    assert "一轮完整的用户与助手 QA 形成后" in prompts.ADDITIVE_EXTRACTION_PROMPT
+    assert "可以在同一用户的后续 Session 中检索" in prompts.ADDITIVE_EXTRACTION_PROMPT
+    assert "当前短期窗口上下文可能仍包含这轮来源 QA" in prompts.ADDITIVE_EXTRACTION_PROMPT
+    assert "不能作为另一份新增来源" in prompts.ADDITIVE_EXTRACTION_PROMPT
 
 
 def test_chinese_prompts_preserve_json_fields_and_event_values():

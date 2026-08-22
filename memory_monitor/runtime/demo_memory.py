@@ -148,14 +148,18 @@ class DemoMemory(Memory):
         user_id: str,
         session_id: str,
         record_midterm_visits: bool,
+        exclude_midterm_page_ids: Optional[set[str]] = None,
     ) -> TracedToolExecutor:
         """Decorate the core executor only for this Demo instance's active trace."""
+        executor_kwargs = {
+            "user_id": user_id,
+            "session_id": session_id,
+            "record_midterm_visits": record_midterm_visits,
+        }
+        if exclude_midterm_page_ids is not None:
+            executor_kwargs["exclude_midterm_page_ids"] = exclude_midterm_page_ids
         return TracedToolExecutor(
-            super()._create_agentic_tool_executor(
-                user_id=user_id,
-                session_id=session_id,
-                record_midterm_visits=record_midterm_visits,
-            )
+            super()._create_agentic_tool_executor(**executor_kwargs)
         )
 
     def _validated_frozen_context(self, context: Dict[str, Any]) -> Dict[str, Any]:

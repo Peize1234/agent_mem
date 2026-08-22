@@ -34,7 +34,7 @@ Research 决策只允许使用当前 run 的 Tune 实验事实，以及从 Basel
 
 - `k`：Primary Metric `R@K` 使用的 Recall cutoff，默认：`5`。
 - `budget`：`quick | standard | deep`，默认：`standard`。
-- `target`：`midterm` 或 `all_memory`。完整评价固定使用 `Turn.required_context`，并联合 ShortTerm、MidTerm 与 Session-scoped Long-term。
+- `target`：`midterm` 或 `all_memory`。完整评价固定使用 `Turn.required_context`，并联合 ShortTerm、MidTerm 与 Fine-grained cross-session LongTerm。
 - `sessions`：可选的 Session 子集。
 - `seed`：数据划分/搜索随机种子，默认从 `search_space.yaml` 读取。
 - `resume`：已有调参运行目录，用于恢复运行。
@@ -63,13 +63,13 @@ $memory-retrieval-tuner dataset=exp/my_dataset.xlsx k=3 target=midterm sessions=
 
 评价分母固定来自 `Turn.required_context`（没有该字段的 legacy ID-only workbook 才使用兼容逻辑），不会因 ShortTerm window/capacity 改变。required context 支持 `(A OR B) AND C`：OR group 命中任一成员，AND group 各自必须命中。数字、百分比、日期、金额、实体和单位先做确定性检查，普通文本才进入受控 Semantic Judge；Embedding similarity 不能单独构成 Gold hit。
 
-最终评价覆盖 ShortTerm + MidTerm + Session-scoped Long-term union，并报告 fact/requirement Recall@K、macro session recall、MRR、candidate-pool recall、final-context recall、context precision、mean returned pages、每层 contribution、query completion、session stability、runtime、LLM/embedding calls。诊断 artifact 可记录 routed pool、global supplement、threshold 和 final visible hit，但这些 Gold 细节不会进入 Research LLM。
+最终评价覆盖 ShortTerm + MidTerm + Fine-grained cross-session LongTerm union，并报告 fact/requirement Recall@K、macro session recall、MRR、candidate-pool recall、final-context recall、context precision、mean returned pages、每层 contribution、query completion、session stability、runtime、LLM/embedding calls。历史 artifact 中的 `session_longterm` 字段仅作为兼容名称。诊断 artifact 可记录 routed pool、global supplement、threshold 和 final visible hit，但这些 Gold 细节不会进入 Research LLM。
 
-参数由 `scripts/tuner/parameter_schema.py` 分为 query-time/retrieval-only、source-changing、within-session-stateful、cross-session-temporal-stateful。Source-changing 参数必须重新执行真实 Add/Mid-term source generation；Evolution/Heat 参数必须真实 replay；Promotion/Cross-session 参数当前仅保留 future schema，不能在本 Benchmark 调优；retrieval-only 才允许复用 source artifact。所有 hard constraint 同时由 YAML 与 Python 校验：Mid-term final `max_total_pages` 为 1..5，Session Long-term `longterm_top_k` 为 1..30，Mid-term candidate multiplier 为 1..8，Agentic 固定 `max_iterations=2`、`max_tool_calls=1`，仅 `max_queries=1..3` 与 `max_total_results=1..5` 可调。生产 `MidTermRetriever` 当前忽略 `candidate_pool_size`，因此它不进入 search space。
+参数由 `scripts/tuner/parameter_schema.py` 分为 query-time/retrieval-only、source-changing、within-session-stateful、cross-session-temporal-stateful 和 production-fixed。Source-changing 参数必须重新执行真实 Add/Mid-term source generation；Evolution/Heat 参数必须真实 replay；Promotion/Cross-session 参数当前仅保留 future schema，不能在本 Benchmark 调优；retrieval-only 才允许复用 source artifact。`longterm_other_session_weight` 从 Production 读取固定默认值 0.7，但因当前没有可靠 Cross-session Gold，明确不进入自动搜索空间。所有 hard constraint 同时由 YAML 与 Python 校验：Mid-term final `max_total_pages` 为 1..5，Fine-grained LongTerm `longterm_top_k` 为 1..30，Mid-term candidate multiplier 为 1..8，Agentic 固定 `max_iterations=2`、`max_tool_calls=1`，仅 `max_queries=1..3` 与 `max_total_results=1..5` 可调。生产 `MidTermRetriever` 当前忽略 `candidate_pool_size`，因此它不进入 search space。
 
-`WithinSessionStatefulReplay` 严格执行 `Search(Qn) -> valid recall/Heat update -> Add(Qn, An)`；搜索时不加入当前 turn，遗忘只使用 production `turn_index`，不使用 `page_sequence`。当前普通 Benchmark 只评价 Short-term、Mid-term 与 Session-scoped Long-term；Skill 暂不支持 Cross-session Long-term 或 Promotion 参数调优。没有 Cross-session Gold 时仍可执行 `CrossSessionTemporalReplay` 结构检查，但运行状态必须为 `CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD`，Replay 仅标记 `STRUCTURAL_ONLY_NOT_EVALUATED`，Cross-session/Promotion production defaults unchanged、excluded from winner selection，不能报告 validated/tuned/optimized/selected 参数。
+`WithinSessionStatefulReplay` 严格执行 `Search(Qn) -> valid recall/Heat update -> Add(Qn, An)`；搜索时不加入当前 turn，遗忘只使用 production `turn_index`，不使用 `page_sequence`。Fine-grained LongTerm source 在每个完整 QA 后立即生成，不再依赖 ShortTerm eviction；检索保留 Production 的 user hard filter、current/all-session 双路候选和 Session weight。当前 Benchmark 没有可靠 Cross-session Gold，因此不调优跨 Session 权重或 Promotion 参数。结构检查状态必须为 `CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD`，不能报告这些参数已 validated/tuned/optimized/selected。
 
-Query、Page、Session merge、Session-longterm extraction prompt 是独立 branch。Query Rewrite 每轮最多 3 variants、最多 3 rounds，以 Tune 当前最佳 parent 并始终保留 production/original；prompt/source identity 变化会使 downstream artifact 失效。Research LLM 只能从 Python 生成的 legal action ID 中选择，永远看不到 Validation、Gold answer、required_context 原文或 future turns。
+Query、Page、Session merge、Fine-grained LongTerm extraction prompt 是独立 branch。Query baseline 是 Production P0 reference-resolution Prompt，并直接复用 Production message builder/parser；Query candidate 只改变 query representation。所有 Page Prompt candidate 固定复用 Production `previous raw + current raw + following raw` context contract，不能再搜索是否启用上下文。Query Rewrite 每轮最多 3 variants、最多 3 rounds，以 Tune 当前最佳 parent 并始终保留 Production P0；prompt/source identity 变化会使 downstream artifact 失效。Research LLM 只能从 Python 生成的 legal action ID 中选择，永远看不到 Validation、Gold answer、required_context 原文或 future turns。
 
 ## 可执行入口
 
@@ -106,7 +106,7 @@ R@K = top K 内满足的 Gold requirement 数量
 - `k` 可配置，默认值为 `5`。
 - evaluator、报告、文件名或停止逻辑中禁止硬编码 `R@5`。
 - 其他 cutoff 尽量从 `k` 推导，例如 `R@(2K)`、`R@(4K)`。
-- Gold denominator 固定使用 `Turn.required_context`，与 ShortTerm capacity/window 无关；ShortTerm、MidTerm、Session-scoped Long-term 的可见 union 共同决定 hit。
+- Gold denominator 固定使用 `Turn.required_context`，与 ShortTerm capacity/window 无关；ShortTerm、MidTerm、Fine-grained LongTerm 的可见 union 共同决定 hit。
 - ShortTerm coverage 单独报告。
 - 同时报告端到端 union/completion 指标，避免把局部 MidTerm 提升误认为整体 Memory 提升。
 - Micro requirement-level R@K 与 Macro/session-level 指标必须分开报告。
@@ -117,7 +117,7 @@ R@K = top K 内满足的 Gold requirement 数量
 
 不要每完成一个阶段就停下来询问下一步做什么，应按照下面的搜索策略继续执行。
 
-生产修改只允许将既有算法中的硬编码常量最小配置化：默认值必须等于原常量，默认结果必须通过 parity test 与原行为一致，生产算法不得增加新分支。当前允许保留的配置化包括 Mid-term 全局补充池倍率（历史值 `4`）、Session Long-term over-fetch 倍率（历史值 `4`）和实体匹配阈值（历史值 `0.5`）。
+生产配置仍是公式与默认值的唯一来源。当前允许读取的配置包括 Mid-term 全局补充池倍率、Fine-grained LongTerm over-fetch 倍率、实体匹配阈值，以及固定为 `0.7` 且不自动搜索的 `longterm_other_session_weight`。Benchmark-only 诊断不得回写生产配置或把 Gold 带入生产分支。
 
 除此以外，不要为了运行实验修改 `mem0/`。优先使用：
 
@@ -143,7 +143,7 @@ R@K = top K 内满足的 Gold requirement 数量
 - `research_decision.py` / `research_runtime.py`：Research LLM 决策、严格校验、重试、cache 与完整 trace；
 - `derived_artifacts.py`：Query/Page/Session/field 向量派生与 content-addressed cache；
 - `prompt_artifacts.py`：Query Prompt 受控迭代、逐 Query 原子缓存与恢复；
-- `source_prompt_variants.py`：Add/Page Summary 受控 Prompt、实例级 Prompt override 和 tuner-only context wrapper；
+- `source_prompt_variants.py`：Add/Page Summary 受控 Prompt 与实例级 Prompt override；Page context 由 Production 固定提供；
 - `diagnostic_midterm_retriever.py`：与 production public result 保持 parity 的 Skill-only 完整候选诊断；
 - `generated_source_artifacts.py`：Add/Page Prompt 候选按 screening/Tune/Validation Session 延迟物化；
 - `encoding_contract.py`：模型自己的 Query/Document encoding contract；
@@ -238,11 +238,15 @@ DATASET_QUALITY_WARNING
 
 ```text
 AsyncMemory.add
+-> complete QA creates Fine-grained LongTerm extraction job
+-> background per-QA LongTerm extraction
 -> SQLite ShortTerm QA eviction
+-> previous Page raw + current QA + following QA fixed context
 -> production Page summary prompt
 -> production Page embedding/write
 -> dense+keyword Session assignment and production Session merge
--> unchanged Query embedding
+-> Production P0 ShortTerm query reference resolution
+-> resolved retrieval Query embedding
 -> dense Session routing
 -> dense Page retrieval within routed Sessions
 -> global Page-score dedupe/sort/cap
@@ -335,8 +339,8 @@ split_manifest.json
 - `Reranking`；
 - `Embedding`；
 - `FieldAwareMultiVector`；
-- `SessionLongtermRetrieval`；
-- `MidtermPageSummaryPrompt`、`MidtermSessionMergePrompt`、`SessionLongtermExtractionPrompt`；
+- `FineGrainedLongtermRetrieval`（旧名 `SessionLongtermRetrieval` 仅保留兼容 alias）；
+- `MidtermPageSummaryPrompt`、`MidtermSessionMergePrompt`、`FineGrainedLongtermExtractionPrompt`；
 - `MidtermSourceConfig`；
 - `MidtermEvolution`；
 - `Promotion`（仅保留为 future infrastructure，当前默认 branch coverage 禁用）。
@@ -351,7 +355,7 @@ Coverage 分为 `required`、`selectable` 和 `expensive_gated`。`RetrievalCont
 
 Research Prompt 只能包含 Tune Sessions 的聚合实验史、Candidate config diff/指标、frontier、failure distribution、diagnosis、deterministic plan、Branch 状态与硬约束。不得传入 held-out Validation、Gold dependency、答案或 future turns。每个 attempt 必须先向 `research_trace.jsonl` 写 REQUEST，再写 RESPONSE；非法响应、exception、retry、cache hit 和 deterministic fallback 均完整记录，敏感配置必须 redact。Decision cache identity 至少覆盖 dataset、Tune scope、anchor/evidence/legal-action hash、Branch registry/config 状态、Prompt、模型配置和 schema。
 
-`QueryRewritePrompt` 最多运行三轮，每轮以当前最佳 Query Prompt 为 parent 生成最多三个受控方向，并始终保留 production/original 结果作为全局参照。旧 `QueryRepresentation` 类只作为兼容 adapter，默认 `branch_coverage` 不会同时调两套重复的 Prompt 逻辑。Rewrite history 必须由每份 production manifest 验证的 `memory_config.midterm.short_term_capacity / 2` 推导，只包含当前 Query 之前仍在 production ShortTerm 的 QA；缺失、非正偶数或 manifest/config 不一致时失败，不能使用默认窗口。artifact identity 必须记录 message/QA window、history policy 和 production config hash。失败模式只来自 Tune requirement rows；Validation 指标、Gold、未来轮次和已离开 ShortTerm 的历史不得进入 Prompt。任一轮低于 `min_improvement_pp`、全部变体无提升、original 仍优或 frontier 不再保留该方向时提前停止。
+`QueryRewritePrompt` 最多运行三轮，每轮以当前最佳 Query Prompt 为 parent 生成最多三个受控方向，并始终保留 Production P0 结果作为全局参照。旧 `QueryRepresentation` 类只作为兼容 adapter，默认 `branch_coverage` 不会同时调两套重复的 Prompt 逻辑。Rewrite history 必须由每份 production manifest 验证的 `memory_config.midterm.short_term_capacity / 2` 推导，只包含当前 Query 之前仍在 production ShortTerm 的 QA；缺失、非正偶数或 manifest/config 不一致时失败，不能使用默认窗口。artifact identity 必须记录 P0 Prompt hash、message/QA window、history policy 和 production config hash。失败模式只来自 Tune requirement rows；Validation 指标、Gold、未来轮次和已离开 ShortTerm 的历史不得进入 Prompt。任一轮低于 `min_improvement_pp`、全部变体无提升、P0 仍优或 frontier 不再保留该方向时提前停止。
 
 高成本 Embedding/Reranker Candidate 先在 Tune Session 子集 screening，明显低于当前 frontier anchor 者不进入完整 Tune。
 
@@ -388,7 +392,7 @@ Embedding/Reranker Branch 使用 `model_discovery.py`。`standard` 只扫描并�
 - 不要为了让 ablation 看起来“新鲜”而重新生成已有且有效的 frozen artifact；
 - 两个 prompt variant 如果 provenance 无法区分，则禁止直接比较。
 
-在 `budget=deep` 的 coverage 诊断下，三个 source prompt branch 分别通过隔离的真实 `AsyncMemory.add → MidTermUpdater → Page/Session embedding` 链路生成候选。候选创建时只冻结生成规范；screening 只物化 screening Sessions，只有晋级候选才继续补全 Tune，Validation 在搜索停止后才物化 held-out Sessions。Production Add/Summary 由当前 anchor/baseline 作为参照，不重复生成。每个 branch 的 source representation、artifact hash 和下游失效范围独立记录。
+在 `budget=deep` 的 coverage 诊断下，三个 source prompt branch 分别通过隔离的真实 `AsyncMemory.add → per-QA Fine-grained LongTerm job / MidTermUpdater → Page/Session embedding` 链路生成候选。Page Prompt candidate 全部使用相同的 Production previous/current/following raw contract；只有 Prompt 文本变化。候选创建时只冻结生成规范；screening 只物化 screening Sessions，只有晋级候选才继续补全 Tune，Validation 在搜索停止后才物化 held-out Sessions。Production Add/Summary 由当前 anchor/baseline 作为参照，不重复生成。每个 branch 的 source representation、artifact hash 和下游失效范围独立记录。
 
 ### 9. Validation
 

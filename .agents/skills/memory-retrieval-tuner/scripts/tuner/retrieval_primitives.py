@@ -23,6 +23,7 @@ def tuner_score_and_rank(
     top_k: int,
     weights: Mapping[str, float],
     explain: bool = False,
+    session_weights: Mapping[str, float] | None = None,
 ) -> list[dict[str, Any]]:
     """Tuner-only high-level weighting over frozen production signals."""
     if set(weights) != {"semantic", "bm25", "entity"}:
@@ -44,18 +45,22 @@ def tuner_score_and_rank(
         # signal before applying a tuner-only preset.
         entity_boost = float(entity_boosts.get(memory_id, 0.0))
         normalized_entity = entity_boost / 0.5
-        final_score = min(
+        hybrid_score = min(
             normalized["semantic"] * semantic_score
             + normalized["bm25"] * bm25_score
             + normalized["entity"] * normalized_entity,
             1.0,
         )
+        session_weight = float((session_weights or {}).get(memory_id, 1.0))
+        final_score = hybrid_score * session_weight
         row = {"id": memory_id, "score": final_score, "payload": result.get("payload")}
         if explain:
             row["score_details"] = {
                 "semantic_score": semantic_score,
                 "bm25_score": bm25_score,
                 "entity_boost": entity_boost,
+                "hybrid_score": hybrid_score,
+                "session_weight": session_weight,
                 "final_score": final_score,
                 "threshold": threshold,
                 "weights": normalized,

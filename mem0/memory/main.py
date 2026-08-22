@@ -67,6 +67,7 @@ from mem0.memory.profile_validator import (
     normalize_profile_user_id,
     select_profile_user_messages,
 )
+from mem0.memory.query_resolver import QueryResolver
 from mem0.memory.retrieval_tools import AsyncMemoryToolExecutor, MemoryToolExecutor
 from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import MIGRATION_STAGE_TERMINAL_STATUSES, SQLiteManager
@@ -263,6 +264,29 @@ def _vector_store_list_rows(listed):
     return []
 
 
+def _merge_vector_candidates(*routes):
+    """Merge vector/keyword routes by memory ID while preserving the strongest score."""
+    merged = {}
+    for route in routes:
+        for item in route or []:
+            memory_id = getattr(item, "id", None)
+            if memory_id is None and isinstance(item, dict):
+                memory_id = item.get("id")
+            if memory_id is None:
+                continue
+            key = str(memory_id)
+            score = getattr(item, "score", None)
+            if score is None and isinstance(item, dict):
+                score = item.get("score")
+            existing = merged.get(key)
+            existing_score = getattr(existing, "score", None)
+            if existing_score is None and isinstance(existing, dict):
+                existing_score = existing.get("score")
+            if existing is None or float(score or 0.0) > float(existing_score or 0.0):
+                merged[key] = item
+    return list(merged.values())
+
+
 def _update_vector_store_payload(store, memory_id: str, payload: Dict[str, Any]) -> None:
     update = getattr(store, "update", None)
     if callable(update):
@@ -286,6 +310,15 @@ def _new_entity_payload(entity_text, entity_type, linked_memory_ids, filters):
         **filters,
         "created_at": now,
         "updated_at": now,
+    }
+
+
+def _longterm_entity_filters(filters: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Use user/agent isolation for fine-grained LongTerm entities, never run isolation."""
+    return {
+        key: value
+        for key, value in (filters or {}).items()
+        if key in ("user_id", "agent_id") and value
     }
 
 
@@ -719,6 +752,9 @@ def _assemble_retrieved_context(
         if isinstance(name, str) and name.strip():
             context_message["name"] = name
         messages.append(context_message)
+        turn_index = message.get("turn_index")
+        if turn_index is not None and int(turn_index) > 0:
+            context_message["turn_index"] = int(turn_index)
 
     return {
         "user_id": user_id,
@@ -728,6 +764,38 @@ def _assemble_retrieved_context(
         "short_term_messages": messages,
         "retrieved_memories": retrieved_memories,
     }
+
+
+def _filter_shortterm_duplicate_longterm(context: Dict[str, Any]) -> None:
+    """Hide same-run fine-grained facts while their source QA is still visible."""
+    visible = {
+        int(message["turn_index"])
+        for message in context.get("short_term_messages") or []
+        if message.get("turn_index") is not None
+    }
+    if not visible:
+        return
+    current_run_id = str(context.get("session_id") or "")
+    filtered = []
+    for memory in context.get("retrieved_memories") or []:
+        if not isinstance(memory, dict) or memory.get("source") != "long_term":
+            filtered.append(memory)
+            continue
+        metadata = memory.get("metadata") if isinstance(memory.get("metadata"), dict) else {}
+        run_id = memory.get("run_id") or metadata.get("run_id")
+        source_turn_index = memory.get("source_turn_index") or metadata.get("source_turn_index")
+        try:
+            duplicate = str(run_id or "") == current_run_id and int(source_turn_index) in visible
+        except (TypeError, ValueError):
+            duplicate = False
+        if not duplicate:
+            filtered.append(memory)
+    context["retrieved_memories"] = filtered
+
+
+def _strip_shortterm_internal_fields(context: Dict[str, Any]) -> None:
+    for message in context.get("short_term_messages") or []:
+        message.pop("turn_index", None)
 
 
 def _serialize_prompt_value(value: Any, empty_value: Any) -> str:
@@ -1168,6 +1236,10 @@ class _BackgroundMemoryMixin:
             commit_migration_outputs_async=getattr(self, "_commit_migration_stage_outputs_async", None),
             discard_migration_outputs=self._discard_migration_stage_outputs,
             startup_cleanup=self._cleanup_orphan_staging_outputs,
+            process_longterm_extraction=self._background_process_longterm_extraction,
+            process_longterm_extraction_async=getattr(self, "_background_process_longterm_extraction_async", None),
+            commit_longterm_extraction_outputs=self._commit_longterm_extraction_outputs,
+            discard_longterm_extraction_outputs=self._discard_longterm_extraction_outputs,
         )
 
     def _acquire_process_instance_lock(self) -> None:
@@ -1329,9 +1401,14 @@ class _BackgroundMemoryMixin:
                     or not source_job_id
                 ):
                     continue
-                job = self.db.get_background_job(source_job_id, "migration")
-                if not job or job.get("longterm_status") not in terminal_statuses:
-                    continue
+                if payload.get("source_job_type") == "longterm_extraction":
+                    job = self.db.get_background_job(source_job_id, "longterm_extraction")
+                    if not job or job.get("status") not in {"succeeded", "discarded"}:
+                        continue
+                else:
+                    job = self.db.get_background_job(source_job_id, "migration")
+                    if not job or job.get("longterm_status") not in terminal_statuses:
+                        continue
                 memory_id = str(row.id)
                 payload.update(
                     {
@@ -1372,6 +1449,9 @@ class _BackgroundMemoryMixin:
         if db is None or getattr(db, "connection", None) is None:
             return False
         try:
+            if payload.get("source_job_type") == "longterm_extraction":
+                job = db.get_background_job(source_job_id, "longterm_extraction")
+                return bool(job and job.get("status") == "succeeded")
             job = db.get_background_job(source_job_id, "migration")
         except Exception:
             return False
@@ -1471,6 +1551,47 @@ class _BackgroundMemoryMixin:
         )
         if asyncio.iscoroutine(result):
             asyncio.run(result)
+
+    def _background_process_longterm_extraction(self, job) -> None:
+        def lease_is_current():
+            return self.db.longterm_extraction_job_lease_is_current(job["job_id"], job["lease_token"])
+
+        if not lease_is_current():
+            raise RuntimeError("stale fine-grained LongTerm extraction lease")
+        metadata = {
+            **job["metadata"],
+            "source_job_type": "longterm_extraction",
+            "source_turn_index": int(job["turn_index"]),
+        }
+        if job.get("source_operation_key"):
+            metadata["source_operation_key"] = job["source_operation_key"]
+        result = self._process_evicted_long_term_memories(
+            job["messages"],
+            metadata,
+            job["filters"],
+            infer=job["infer"],
+            prompt=job.get("prompt"),
+            source_job_id=job["job_id"],
+            lease_token=job["lease_token"],
+            lease_is_current=lease_is_current,
+        )
+        if asyncio.iscoroutine(result):
+            asyncio.run(result)
+
+    def _commit_longterm_extraction_outputs(self, job: Dict[str, Any], lease_token: str) -> None:
+        extraction_job = {**job, "job_type": "longterm_extraction"}
+        self._commit_migration_stage_outputs(extraction_job, "longterm", lease_token, False)
+
+    def _discard_longterm_extraction_outputs(
+        self,
+        job: Dict[str, Any],
+        lease_token: str,
+    ) -> Optional[str]:
+        return self._discard_migration_stage_outputs(
+            {**job, "job_type": "longterm_extraction"},
+            "longterm",
+            lease_token,
+        )
 
     def _background_process_promotion(self, job) -> Optional[str]:
         session_id = str(job["source_midterm_session_id"])
@@ -1609,11 +1730,7 @@ class _BackgroundMemoryMixin:
     def _strict_remove_stage_entity_links(self, memory_id: str, filters: Dict[str, Any]) -> None:
         if getattr(self, "_entity_store", None) is None:
             return
-        search_filters = {
-            key: value
-            for key, value in filters.items()
-            if key in ("user_id", "agent_id", "run_id") and value
-        }
+        search_filters = _longterm_entity_filters(filters)
         rows = _vector_store_list_rows(self.entity_store.list(filters=search_filters, top_k=10000))
         for row in rows:
             payload = dict(getattr(row, "payload", None) or {})
@@ -1640,6 +1757,8 @@ class _BackgroundMemoryMixin:
         degraded: bool,
     ) -> None:
         def lease_is_current():
+            if job.get("job_type") == "longterm_extraction":
+                return self.db.longterm_extraction_job_lease_is_current(job["job_id"], lease_token)
             return self.db.migration_stage_lease_is_current(
                 job["job_id"],
                 stage,
@@ -1889,8 +2008,13 @@ class _BackgroundMemoryMixin:
                 background = result["background"]
                 migration_job_id = background["migration_job_id"]
                 profile_job_id = background["profile_job_id"]
+                longterm_job_ids = [
+                    job["job_id"]
+                    for job in self.db.list_longterm_extraction_jobs(session_scope=session_scope)
+                    if job.get("source_operation_key") == idempotency_key
+                ]
             else:
-                migration_job_id, profile_job_id = self.db.save_messages_and_create_background_jobs(
+                migration_job_id, profile_job_id, longterm_job_ids = self.db.save_messages_and_create_background_jobs(
                     messages,
                     session_scope,
                     max_messages=self._short_term_capacity(),
@@ -1899,11 +2023,15 @@ class _BackgroundMemoryMixin:
                     infer=infer,
                     prompt=prompt,
                     profile_user_id=self._profile_job_user_id_after_add(normalized_user_id),
+                    create_longterm_jobs=True,
+                    return_longterm_job_ids=True,
                 )
             if migration_job_id:
                 worker.wake_migration()
             if profile_job_id:
                 worker.wake_profile()
+            if longterm_job_ids:
+                worker.wake_longterm()
             return migration_job_id, profile_job_id
 
     def flush_background_tasks(self, timeout: Optional[float] = None) -> bool:
@@ -2164,7 +2292,18 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         if self._midterm_updater is None:
             with self._component_init_lock:
                 if self._midterm_updater is None:
-                    self._midterm_updater = MidTermUpdater(self.midterm_memory, self.llm, self.config.midterm)
+                    self._midterm_updater = MidTermUpdater(
+                        self.midterm_memory,
+                        self.llm,
+                        self.config.midterm,
+                        following_qa_provider=lambda filters, after_turn_index, qa_limit: (
+                            self.db.get_following_qa_messages(
+                                _build_session_scope(filters),
+                                after_turn_index,
+                                qa_limit,
+                            )
+                        ),
+                    )
         return self._midterm_updater
 
     @property
@@ -2221,8 +2360,18 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             "user_id": context["user_id"],
             "run_id": context["session_id"],
         }
+        resolver_llm = getattr(self, "llm", None)
+        retrieval_query = (
+            QueryResolver(resolver_llm).resolve(
+                context["query"],
+                context.get("short_term_messages"),
+            )
+            if resolver_llm is not None
+            else context["query"]
+        )
+        context["retrieval_query"] = retrieval_query
         search_result = self.search(
-            context["query"],
+            retrieval_query,
             top_k=top_k,
             threshold=threshold,
             rerank=rerank,
@@ -2234,6 +2383,8 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             if isinstance(search_result, dict) and "results" in search_result
             else search_result
         )
+        _filter_shortterm_duplicate_longterm(context)
+        _strip_shortterm_internal_fields(context)
         has_midterm_page = any(
             isinstance(item, dict)
             and item.get("source") in {"mid_term_page", "midterm"}
@@ -2627,7 +2778,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         """Upsert an entity into the entity store, linking it to a memory."""
         try:
             entity_embedding = self.embedding_model.embed(entity_text, "add")
-            search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+            search_filters = _longterm_entity_filters(filters)
             exact_match = self._existing_entities_by_text(search_filters).get(self._normalize_entity_text(entity_text))
 
             existing = []
@@ -2684,7 +2835,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         """
         if self._entity_store is None:
             return
-        search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        search_filters = _longterm_entity_filters(filters)
         try:
             listed = self.entity_store.list(filters=search_filters, top_k=10000)
             rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
@@ -2808,9 +2959,10 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             timestamp (Any, optional): Platform-only temporal parameter. Not supported in OSS.
             expiration_date (Any, optional): Date in YYYY-MM-DD format. Expired memories are hidden
                 from search and get_all unless show_expired is True.
-            infer (bool, optional): Controls how messages evicted from the short-term window migrate
-                to long-term memory. If True (default), an LLM extracts facts from evicted messages.
-                If False, evicted non-system messages are written as raw long-term memories.
+            infer (bool, optional): Controls Fine-grained LongTerm extraction for each complete QA.
+                If True (default), an LLM extracts facts from that QA. If False, its non-system
+                messages are written as raw LongTerm memories. Production background mode performs
+                this independently of ShortTerm eviction.
             memory_type (str, optional): Specifies the type of memory. Currently, only
                 `MemoryType.PROCEDURAL.value` ("procedural_memory") is explicitly handled for
                 creating procedural memories (typically requires 'agent_id'). Otherwise, memories
@@ -3016,7 +3168,8 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                     if source_job_id
                     else None
                 )
-                existing_memory = self.vector_store.get(vector_id=memory_id) if memory_id else None
+                vector_store = getattr(self, "vector_store", None)
+                existing_memory = vector_store.get(vector_id=memory_id) if memory_id and vector_store is not None else None
                 if existing_memory is not None:
                     existing_payload = dict(getattr(existing_memory, "payload", None) or {})
                     existing_payload.update(
@@ -3070,7 +3223,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             exclude_source_job_id=source_job_id,
         )
 
-        # Phase 1: Existing memory retrieval
+        # Phase 1: Existing memory retrieval remains source-run scoped for write deduplication.
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         query_embedding = self.embedding_model.embed(parsed_evicted_messages, "search")
         raw_existing_results = self.vector_store.search(
@@ -3303,6 +3456,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             return [{"id": r[0], "memory": r[1], "event": "ADD"} for r in records]
 
         # Phase 7: Batch entity linking
+        entity_search_filters = _longterm_entity_filters(filters)
         try:
             all_texts = [r[1] for r in records]
             all_entities = self._run_entity_extraction(extract_entities_batch, all_texts)
@@ -3350,7 +3504,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                 if valid:
                     valid_indices, valid_keys = zip(*valid)
                     valid_vectors = [entity_embeddings[i] for i in valid_indices]
-                    exact_matches = self._existing_entities_by_text(search_filters)
+                    exact_matches = self._existing_entities_by_text(entity_search_filters)
 
                     # 7c: Batch search for existing entities
                     valid_texts = [global_entities[k][1] for k in valid_keys]
@@ -3358,7 +3512,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                         queries=valid_texts,
                         vectors_list=valid_vectors,
                         top_k=1,
-                        filters=search_filters,
+                        filters=entity_search_filters,
                     )
 
                     # 7d: Separate into inserts vs updates
@@ -3389,7 +3543,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                             to_insert_vectors.append(valid_vectors[j])
                             to_insert_ids.append(str(uuid.uuid4()))
                             to_insert_payloads.append(
-                                _new_entity_payload(entity_text, entity_type, memory_ids, search_filters)
+                                _new_entity_payload(entity_text, entity_type, memory_ids, entity_search_filters)
                             )
 
                     # 7e: Single batch insert for all new entities
@@ -3876,14 +4030,40 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             getattr(getattr(self, "config", None), "longterm_candidate_pool_multiplier", 4)
         )
         internal_limit = max(limit * candidate_multiplier, 60)
-        semantic_results = self.vector_store.search(
+        current_run_id = (filters or {}).get("run_id")
+        user_id = (filters or {}).get("user_id")
+        all_session_filters = dict(filters or {})
+        if user_id and current_run_id:
+            all_session_filters.pop("run_id", None)
+        semantic_current = self.vector_store.search(
             query=query, vectors=embeddings, top_k=internal_limit, filters=filters
         )
+        semantic_all = (
+            self.vector_store.search(
+                query=query,
+                vectors=embeddings,
+                top_k=internal_limit,
+                filters=all_session_filters,
+            )
+            if all_session_filters != filters
+            else []
+        )
+        semantic_results = _merge_vector_candidates(semantic_current, semantic_all)
 
         # Step 4: Keyword search (if store supports it)
-        keyword_results = self.vector_store.keyword_search(
+        keyword_current = self.vector_store.keyword_search(
             query=query_lemmatized, top_k=internal_limit, filters=filters
         )
+        keyword_all = (
+            self.vector_store.keyword_search(
+                query=query_lemmatized,
+                top_k=internal_limit,
+                filters=all_session_filters,
+            )
+            if all_session_filters != filters
+            else []
+        )
+        keyword_results = _merge_vector_candidates(keyword_current, keyword_all)
 
         # Step 5: Compute BM25 scores from keyword results
         bm25_scores = {}
@@ -3902,6 +4082,10 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
 
         # Step 7: Build candidate set from semantic results
         candidates = []
+        session_weights = {}
+        other_session_weight = float(
+            getattr(getattr(self, "config", None), "longterm_other_session_weight", 0.7)
+        )
         for mem in semantic_results:
             payload = mem.payload if hasattr(mem, 'payload') else {}
             if not self._stage_output_is_visible(payload, "longterm"):
@@ -3914,6 +4098,11 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                 "score": mem.score,
                 "payload": payload,
             })
+            session_weights[mem_id] = (
+                1.0
+                if not current_run_id or str(payload.get("run_id") or "") == str(current_run_id)
+                else other_session_weight
+            )
 
         # Step 8: Score and rank
         scored_results = score_and_rank(
@@ -3923,6 +4112,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             threshold=threshold,
             top_k=limit,
             explain=explain,
+            session_weights=session_weights,
         )
 
         # Step 9: Format results
@@ -3934,6 +4124,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             "role",
             "attributed_to",
             "expiration_date",
+            "source_turn_index",
         ]
         core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
 
@@ -3992,7 +4183,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         if not deduped:
             return {}
 
-        search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        search_filters = _longterm_entity_filters(filters)
         memory_boosts = {}
 
         threshold_value = float(getattr(getattr(self, "config", None), "entity_similarity_threshold", 0.5))
@@ -4523,7 +4714,18 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         if self._midterm_updater is None:
             with self._component_init_lock:
                 if self._midterm_updater is None:
-                    self._midterm_updater = MidTermUpdater(self.midterm_memory, self.llm, self.config.midterm)
+                    self._midterm_updater = MidTermUpdater(
+                        self.midterm_memory,
+                        self.llm,
+                        self.config.midterm,
+                        following_qa_provider=lambda filters, after_turn_index, qa_limit: (
+                            self.db.get_following_qa_messages(
+                                _build_session_scope(filters),
+                                after_turn_index,
+                                qa_limit,
+                            )
+                        ),
+                    )
         return self._midterm_updater
 
     @property
@@ -4601,6 +4803,30 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             prompt=job.get("prompt"),
             source_job_id=job["job_id"],
             lease_token=job["longterm_lease_token"],
+            lease_is_current=lease_is_current,
+        )
+
+    async def _background_process_longterm_extraction_async(self, job) -> None:
+        def lease_is_current():
+            return self.db.longterm_extraction_job_lease_is_current(job["job_id"], job["lease_token"])
+
+        if not lease_is_current():
+            raise RuntimeError("stale fine-grained LongTerm extraction lease")
+        metadata = {
+            **job["metadata"],
+            "source_job_type": "longterm_extraction",
+            "source_turn_index": int(job["turn_index"]),
+        }
+        if job.get("source_operation_key"):
+            metadata["source_operation_key"] = job["source_operation_key"]
+        await self._process_evicted_long_term_memories(
+            job["messages"],
+            metadata,
+            job["filters"],
+            infer=job["infer"],
+            prompt=job.get("prompt"),
+            source_job_id=job["job_id"],
+            lease_token=job["lease_token"],
             lease_is_current=lease_is_current,
         )
 
@@ -4684,27 +4910,37 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             user_id,
             session_id,
         )
-        context, search_result = await asyncio.gather(
-            self._retrieve_base_context(
-                normalized_query,
-                user_id=normalized_user_id,
-                session_id=normalized_session_id,
-                include_profile_metadata=include_profile_metadata,
-            ),
-            self.search(
-                normalized_query,
-                top_k=top_k,
-                threshold=threshold,
-                rerank=rerank,
-                explain=explain,
-                filters={"user_id": normalized_user_id, "run_id": normalized_session_id},
-            ),
+        context = await self._retrieve_base_context(
+            normalized_query,
+            user_id=normalized_user_id,
+            session_id=normalized_session_id,
+            include_profile_metadata=include_profile_metadata,
+        )
+        resolver_llm = getattr(self, "llm", None)
+        retrieval_query = (
+            await QueryResolver(resolver_llm).resolve_async(
+                context["query"],
+                context.get("short_term_messages"),
+            )
+            if resolver_llm is not None
+            else context["query"]
+        )
+        context["retrieval_query"] = retrieval_query
+        search_result = await self.search(
+            retrieval_query,
+            top_k=top_k,
+            threshold=threshold,
+            rerank=rerank,
+            explain=explain,
+            filters={"user_id": normalized_user_id, "run_id": normalized_session_id},
         )
         context["retrieved_memories"] = (
             search_result["results"]
             if isinstance(search_result, dict) and "results" in search_result
             else search_result
         )
+        _filter_shortterm_duplicate_longterm(context)
+        _strip_shortterm_internal_fields(context)
         if any(
             isinstance(item, dict)
             and (
@@ -5154,7 +5390,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         """Async variant of `_upsert_entity` — per-entity search-then-update-or-insert."""
         try:
             entity_embedding = await asyncio.to_thread(self.embedding_model.embed, entity_text, "add")
-            search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+            search_filters = _longterm_entity_filters(filters)
             exact_match = (
                 await asyncio.to_thread(self._existing_entities_by_text, search_filters)
             ).get(self._normalize_entity_text(entity_text))
@@ -5208,7 +5444,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         """
         if self._entity_store is None:
             return
-        search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        search_filters = _longterm_entity_filters(filters)
         try:
             listed = await asyncio.to_thread(self.entity_store.list, filters=search_filters, top_k=10000)
             rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
@@ -5224,7 +5460,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         """Async variant of `Memory._remove_memory_from_entity_store`."""
         if self._entity_store is None:
             return
-        search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        search_filters = _longterm_entity_filters(filters)
         try:
             listed = await asyncio.to_thread(self.entity_store.list, filters=search_filters, top_k=10000)
             rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
@@ -5551,8 +5787,11 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                     if source_job_id
                     else None
                 )
+                vector_store = getattr(self, "vector_store", None)
                 existing_memory = (
-                    await asyncio.to_thread(self.vector_store.get, vector_id=memory_id) if memory_id else None
+                    await asyncio.to_thread(vector_store.get, vector_id=memory_id)
+                    if memory_id and vector_store is not None
+                    else None
                 )
                 if existing_memory is not None:
                     existing_payload = dict(getattr(existing_memory, "payload", None) or {})
@@ -5854,6 +6093,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             return [{"id": r[0], "memory": r[1], "event": "ADD"} for r in records]
 
         # Phase 7: Batch entity linking
+        entity_search_filters = _longterm_entity_filters(effective_filters)
         try:
             all_texts = [r[1] for r in records]
             all_entities = await asyncio.to_thread(
@@ -5902,7 +6142,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                 if valid:
                     valid_indices, valid_keys = zip(*valid)
                     valid_vectors = [entity_embeddings[i] for i in valid_indices]
-                    exact_matches = await asyncio.to_thread(self._existing_entities_by_text, search_filters)
+                    exact_matches = await asyncio.to_thread(self._existing_entities_by_text, entity_search_filters)
 
                     # 7c: Batch search for existing entities
                     valid_texts = [global_entities[k][1] for k in valid_keys]
@@ -5911,7 +6151,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                         queries=valid_texts,
                         vectors_list=valid_vectors,
                         top_k=1,
-                        filters=search_filters,
+                        filters=entity_search_filters,
                     )
 
                     # 7d: Separate into inserts vs updates
@@ -5941,7 +6181,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                             to_insert_vectors.append(valid_vectors[j])
                             to_insert_ids.append(str(uuid.uuid4()))
                             to_insert_payloads.append(
-                                _new_entity_payload(entity_text, entity_type, memory_ids, search_filters)
+                                _new_entity_payload(entity_text, entity_type, memory_ids, entity_search_filters)
                             )
 
                     # 7e: Batch insert new entities
@@ -6445,14 +6685,49 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             getattr(getattr(self, "config", None), "longterm_candidate_pool_multiplier", 4)
         )
         internal_limit = max(limit * candidate_multiplier, 60)
-        semantic_results = await asyncio.to_thread(
-            self.vector_store.search, query=query, vectors=embeddings, top_k=internal_limit, filters=filters
+        current_run_id = (filters or {}).get("run_id")
+        user_id = (filters or {}).get("user_id")
+        all_session_filters = dict(filters or {})
+        if user_id and current_run_id:
+            all_session_filters.pop("run_id", None)
+        semantic_current, semantic_all = await asyncio.gather(
+            asyncio.to_thread(
+                self.vector_store.search,
+                query=query,
+                vectors=embeddings,
+                top_k=internal_limit,
+                filters=filters,
+            ),
+            asyncio.to_thread(
+                self.vector_store.search,
+                query=query,
+                vectors=embeddings,
+                top_k=internal_limit,
+                filters=all_session_filters,
+            )
+            if all_session_filters != filters
+            else asyncio.sleep(0, result=[]),
         )
+        semantic_results = _merge_vector_candidates(semantic_current, semantic_all)
 
         # Step 4: Keyword search (if store supports it)
-        keyword_results = await asyncio.to_thread(
-            self.vector_store.keyword_search, query=query_lemmatized, top_k=internal_limit, filters=filters
+        keyword_current, keyword_all = await asyncio.gather(
+            asyncio.to_thread(
+                self.vector_store.keyword_search,
+                query=query_lemmatized,
+                top_k=internal_limit,
+                filters=filters,
+            ),
+            asyncio.to_thread(
+                self.vector_store.keyword_search,
+                query=query_lemmatized,
+                top_k=internal_limit,
+                filters=all_session_filters,
+            )
+            if all_session_filters != filters
+            else asyncio.sleep(0, result=[]),
         )
+        keyword_results = _merge_vector_candidates(keyword_current, keyword_all)
 
         # Step 5: Compute BM25 scores
         bm25_scores = {}
@@ -6471,6 +6746,10 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
 
         # Step 7: Build candidate set from semantic results
         candidates = []
+        session_weights = {}
+        other_session_weight = float(
+            getattr(getattr(self, "config", None), "longterm_other_session_weight", 0.7)
+        )
         for mem in semantic_results:
             payload = mem.payload if hasattr(mem, 'payload') else {}
             if not self._stage_output_is_visible(payload, "longterm"):
@@ -6483,6 +6762,11 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                 "score": mem.score,
                 "payload": payload,
             })
+            session_weights[mem_id] = (
+                1.0
+                if not current_run_id or str(payload.get("run_id") or "") == str(current_run_id)
+                else other_session_weight
+            )
 
         # Step 8: Score and rank
         scored_results = score_and_rank(
@@ -6492,6 +6776,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             threshold=threshold,
             top_k=limit,
             explain=explain,
+            session_weights=session_weights,
         )
 
         # Step 9: Format results
@@ -6503,6 +6788,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             "role",
             "attributed_to",
             "expiration_date",
+            "source_turn_index",
         ]
         core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
 
@@ -6550,7 +6836,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         if not deduped:
             return {}
 
-        search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        search_filters = _longterm_entity_filters(filters)
         memory_boosts = {}
 
         threshold_value = float(getattr(getattr(self, "config", None), "entity_similarity_threshold", 0.5))
