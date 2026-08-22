@@ -65,7 +65,7 @@ $memory-retrieval-tuner dataset=exp/my_dataset.xlsx k=3 target=midterm sessions=
 
 最终评价覆盖 ShortTerm + MidTerm + Fine-grained cross-session LongTerm union，并报告 fact/requirement Recall@K、macro session recall、MRR、candidate-pool recall、final-context recall、context precision、mean returned pages、每层 contribution、query completion、session stability、runtime、LLM/embedding calls。历史 artifact 中的 `session_longterm` 字段仅作为兼容名称。诊断 artifact 可记录 routed pool、global supplement、threshold 和 final visible hit，但这些 Gold 细节不会进入 Research LLM。
 
-参数由 `scripts/tuner/parameter_schema.py` 分为 query-time/retrieval-only、source-changing、within-session-stateful、cross-session-temporal-stateful 和 production-fixed。Source-changing 参数必须重新执行真实 Add/Mid-term source generation；Evolution/Heat 参数必须真实 replay；Promotion/Cross-session 参数当前仅保留 future schema，不能在本 Benchmark 调优；retrieval-only 才允许复用 source artifact。`longterm_other_session_weight` 从 Production 读取固定默认值 0.7，但因当前没有可靠 Cross-session Gold，明确不进入自动搜索空间。所有 hard constraint 同时由 YAML 与 Python 校验：Mid-term final `max_total_pages` 为 1..5，Fine-grained LongTerm `longterm_top_k` 为 1..30，Mid-term candidate multiplier 为 1..8，Agentic 固定 `max_iterations=2`、`max_tool_calls=1`，仅 `max_queries=1..3` 与 `max_total_results=1..5` 可调。生产 `MidTermRetriever` 当前忽略 `candidate_pool_size`，因此它不进入 search space。
+参数由 `scripts/tuner/parameter_schema.py` 分为 query-time/retrieval-only、source-changing、within-session-stateful、cross-session-temporal-stateful 和 production-fixed。Source-changing 参数必须重新执行真实 Add/Mid-term source generation；Evolution/Heat 参数必须真实 replay；Promotion/Cross-session 参数当前仅保留 future schema，不能在本 Benchmark 调优；retrieval-only 才允许复用 source artifact。`longterm_other_session_weight` 从 Production 读取固定默认值 0.7，但因当前没有可靠 Cross-session Gold，明确不进入自动搜索空间。所有 hard constraint 同时由 YAML 与 Python 校验：Mid-term final `max_total_pages` 为 1..5，Fine-grained LongTerm `longterm_top_k` 为 1..30，Mid-term candidate multiplier 为 1..8，Agentic 固定 `max_iterations=2`、`max_tool_calls=1`；`max_tool_result_chars` 从 effective Production config 读取并作为 trace 固定执行条件校验，不参与调参；仅 `max_queries=1..3` 与 `max_total_results=1..5` 可调。生产 `MidTermRetriever` 当前忽略 `candidate_pool_size`，因此它不进入 search space 或 Agentic provenance。
 
 `WithinSessionStatefulReplay` 严格执行 `Search(Qn) -> valid recall/Heat update -> Add(Qn, An)`；搜索时不加入当前 turn，遗忘只使用 production `turn_index`，不使用 `page_sequence`。Fine-grained LongTerm source 在每个完整 QA 后立即生成，不再依赖 ShortTerm eviction；检索保留 Production 的 user hard filter、current/all-session 双路候选和 Session weight。当前 Benchmark 没有可靠 Cross-session Gold，因此不调优跨 Session 权重或 Promotion 参数。结构检查状态必须为 `CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD`，不能报告这些参数已 validated/tuned/optimized/selected。
 
@@ -125,7 +125,7 @@ R@K = top K 内满足的 Gold requirement 数量
 2. 实验 adapter / 配置覆盖；
 3. 本 Skill `scripts/` 下的新 adapter；`exp/benchmark/` 仅作为 legacy 参考，不得成为核心运行依赖。
 
-完整 candidate/threshold/ranking trace 由 Skill 内 `DiagnosticMidTermRetriever` 生成，生产 `MidTermRetriever` 不得包含 `last_search_diagnostics` 或其他 benchmark 状态。Long-term hybrid presets 使用 Skill 内 `tuner_score_and_rank`；Source Prompt 通过实例级 `PromptOverrideLLM` 注入，不得修改 production module global。Agentic 与普通 Mid-term 合计 `<=5` 是 tuner evaluator 的 context constraint，不得改写生产 `AgenticRetrievalConfig` 或 `MemoryToolExecutor` 的正式默认行为。
+完整 candidate/threshold/ranking trace 由 Skill 内 `DiagnosticMidTermRetriever` 生成，生产 `MidTermRetriever` 不得包含 `last_search_diagnostics` 或其他 benchmark 状态。Long-term hybrid presets 使用 Skill 内 `tuner_score_and_rank`；Source Prompt 通过实例级 `PromptOverrideLLM` 注入，不得修改 production module global。Agentic 与普通 Mid-term 合计 `<=5` 仅是 tuner evaluator 的 context constraint，不得据此改写 Production 的 `max_total_results` 或 `MemoryToolExecutor` 截断语义；Production 固定的 `max_tool_result_chars` 必须原样进入 Candidate 和 Agentic trace provenance。
 
 只有当用户明确要求落地所选配置时，才允许修改上述边界之外的生产代码。
 
@@ -333,7 +333,7 @@ split_manifest.json
 每个 Branch 必须声明名称、诊断 regime、cost level、required artifacts、candidate generation、execution adapter、provenance contract 和资源需求。当前 Registry 包含：
 
 - `RetrievalControl`；
-- `AgenticRetrieval`（仅消费 dataset、当前 Anchor retrieval/source/query/LongTerm parent identity 以及精确参数组合全部匹配的 `production_agentic_trace`；缺失或 parent mismatch 时明确 `UNAVAILABLE`）；
+- `AgenticRetrieval`（仅消费 dataset、当前 Anchor retrieval/source/query/LongTerm semantic parent identity、固定 `max_tool_result_chars` 以及精确参数组合全部匹配的 `production_agentic_trace`；缺失或任一 mismatch 时明确 `UNAVAILABLE`）；
 - `QueryRewritePrompt`（当前 Query Prompt 搜索的唯一可达 Branch；旧 `QueryRepresentation` 仅保留兼容 adapter，不进入默认 coverage）；
 - `PageRepresentation`；
 - `HybridRetrieval`；

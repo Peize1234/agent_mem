@@ -357,6 +357,7 @@ class AgenticRetrievalBranch(BaseBranch):
             "production_agentic_trace_sha256",
             "parent_retrieval_identity_sha256",
             "exact_agentic_parameter_variant",
+            "agentic_fixed_max_tool_result_chars",
         ),
         resource_requirements={"llm": False, "embedding": False, "gpu": False},
         priority=25,
@@ -412,6 +413,17 @@ class AgenticRetrievalBranch(BaseBranch):
                 "UNAVAILABLE",
                 reason="Agentic hard constraints must keep max_iterations=2 and max_tool_calls=1",
             )
+        raw_max_tool_result_chars = context.anchor.config.get("agentic_fixed_max_tool_result_chars")
+        try:
+            max_tool_result_chars = int(raw_max_tool_result_chars)
+        except (TypeError, ValueError):
+            max_tool_result_chars = 0
+        if max_tool_result_chars < 1000:
+            return BranchOutcome(
+                self.spec.name,
+                "UNAVAILABLE",
+                reason="current Anchor is missing valid fixed Agentic max_tool_result_chars provenance",
+            )
         parent_identity = build_agentic_parent_retrieval_identity(context.anchor.config)
         parent_identity_sha256 = agentic_parent_retrieval_identity_sha256(parent_identity)
         trace_error: OSError | ValueError | None = None
@@ -424,6 +436,7 @@ class AgenticRetrievalBranch(BaseBranch):
                     dataset_sha256=context.dataset.sha256,
                     query_ids_by_session=self._query_ids(context),
                     expected_parent_retrieval_identity=parent_identity,
+                    expected_max_tool_result_chars=max_tool_result_chars,
                 )
             except ValueError as discovery_exc:
                 trace_error = discovery_exc
@@ -483,6 +496,7 @@ class AgenticRetrievalBranch(BaseBranch):
                         "production_agentic_execution_contract": "Memory.run_agentic_retrieval",
                         "parent_retrieval_identity": parent_identity,
                         "parent_retrieval_identity_sha256": parent_identity_sha256,
+                        "agentic_fixed_max_tool_result_chars": trace.max_tool_result_chars,
                         "provenance_validated": True,
                     },
                     agentic_trace_enabled=True,
@@ -490,6 +504,7 @@ class AgenticRetrievalBranch(BaseBranch):
                     max_total_results=max_total_results,
                     agentic_fixed_max_iterations=AGENTIC_FIXED_MAX_ITERATIONS,
                     agentic_fixed_max_tool_calls=AGENTIC_FIXED_MAX_TOOL_CALLS,
+                    agentic_fixed_max_tool_result_chars=trace.max_tool_result_chars,
                     production_agentic_trace_paths=[str(path) for path in trace.paths],
                     production_agentic_trace_sha256=trace.sha256,
                     production_agentic_parent_retrieval_identity=parent_identity,
@@ -522,6 +537,7 @@ class AgenticRetrievalBranch(BaseBranch):
                 "required_artifact": "production_agentic_trace",
                 "trace_sha256": trace.sha256,
                 "parent_retrieval_identity_sha256": parent_identity_sha256,
+                "agentic_fixed_max_tool_result_chars": trace.max_tool_result_chars,
                 "available_variants": [list(value) for value in trace.variants],
             },
             reused_artifacts=sorted(trace.sha256.values()),

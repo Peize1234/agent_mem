@@ -182,7 +182,7 @@ class AgenticRetrievalConfig(BaseModel):
         le=20,
         description="最终返回给模型的完整中期记忆 Page 数量",
     )
-    max_tool_result_chars: int = Field(10000, ge=1000)
+    max_tool_result_chars: int = Field(30000, ge=1000)
     force_final_answer: bool = True
 
 

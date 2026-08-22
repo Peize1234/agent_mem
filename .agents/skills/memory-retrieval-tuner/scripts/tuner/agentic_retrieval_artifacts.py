@@ -4,12 +4,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from .io_utils import load_jsonl, sha256_file, stable_hash
+from .io_utils import load_json, load_jsonl, sha256_file, stable_hash
 from .parameter_schema import validate_candidate_config
 
 PRODUCTION_AGENTIC_TRACE_SCHEMA = "production_agentic_trace_v2"
 PRODUCTION_AGENTIC_EXECUTION_CONTRACT = "Memory.run_agentic_retrieval"
-AGENTIC_PARENT_RETRIEVAL_IDENTITY_SCHEMA = "agentic_parent_retrieval_identity_v1"
+AGENTIC_PARENT_RETRIEVAL_IDENTITY_SCHEMA = "agentic_parent_retrieval_identity_v2"
 AGENTIC_FIXED_MAX_ITERATIONS = 2
 AGENTIC_FIXED_MAX_TOOL_CALLS = 1
 _VALID_STATUSES = frozenset({"supplemented", "not_needed", "no_relevant_memory", "degraded"})
@@ -76,17 +76,32 @@ _LONGTERM_FIELDS = (
 _NON_SEMANTIC_SOURCE_KEYS = frozenset(
     {
         "cache_root",
+        "checkpoints_path",
+        "collection_name",
         "dataset_path",
         "history_db_path",
         "manifest_paths",
         "memory_config_path",
         "model_local_path",
+        "on_disk",
         "output_dir",
+        "qdrant_path",
         "run_dir",
         "runtime_dir",
         "source_root",
+        "sqlite_path",
+        "trace_path",
         "trace_paths",
+        "vector_store_path",
     }
+)
+_SEMANTIC_EFFECTIVE_MEMORY_CONFIG_FIELDS = (
+    "llm",
+    "benchmark_runtime",
+    "embedder",
+    "vector_store",
+    "midterm",
+    *_LONGTERM_FIELDS,
 )
 
 
@@ -95,15 +110,20 @@ def _identity_values(config: Mapping[str, Any], fields: Sequence[str]) -> dict[s
 
 
 def _semantic_source_identity(value: Any) -> Any:
-    """Remove machine-local locations from a content/source identity."""
+    """Remove machine-local locations from a semantic source/config value."""
 
     if isinstance(value, Mapping):
         normalized = {}
         for raw_key, item in value.items():
             key = str(raw_key)
-            if key in _NON_SEMANTIC_SOURCE_KEYS or key.endswith(("_cache_path", "_runtime_path")):
+            lowered = key.lower()
+            if (
+                lowered in _NON_SEMANTIC_SOURCE_KEYS
+                or lowered == "path"
+                or lowered.endswith(("_cache_path", "_runtime_path", "_runtime_dir"))
+            ):
                 continue
-            if key == "path" or (key == "model" and isinstance(item, str) and item.startswith("/")):
+            if lowered == "model" and isinstance(item, str) and Path(item).is_absolute():
                 continue
             normalized[key] = _semantic_source_identity(item)
         return normalized
@@ -114,6 +134,67 @@ def _semantic_source_identity(value: Any) -> Any:
     return value
 
 
+def build_semantic_production_manifest_identity(manifest: Mapping[str, Any]) -> dict[str, Any]:
+    """Return the path-independent Production source identity recorded by a manifest.
+
+    Checkpoint/trace digests bind the generated Page/Session and replay content.
+    Configuration is normalized with the same location-stripping rule used for
+    source-generation identities, so isolated runtime locations never become
+    part of the Agentic parent contract.
+    """
+
+    effective_memory_config = manifest.get("effective_memory_config")
+    effective = dict(effective_memory_config) if isinstance(effective_memory_config, Mapping) else {}
+    semantic_effective = {
+        field: _semantic_source_identity(effective.get(field))
+        for field in _SEMANTIC_EFFECTIVE_MEMORY_CONFIG_FIELDS
+        if field in effective
+    }
+    source_identity = _semantic_source_identity(manifest.get("source_identity") or {})
+    embedding_model = _semantic_source_identity(manifest.get("embedding_model") or effective.get("embedder") or {})
+    return {
+        "dataset_sha256": manifest.get("dataset_sha256"),
+        "session_id": manifest.get("session_id"),
+        "checkpoints_sha256": manifest.get("checkpoints_sha256"),
+        "trace_sha256": manifest.get("trace_sha256"),
+        "production_config": _semantic_source_identity(manifest.get("production_config") or {}),
+        "effective_source_config": semantic_effective,
+        "config_overrides": _semantic_source_identity(manifest.get("config_overrides") or {}),
+        "prompt_hashes": _semantic_source_identity(manifest.get("prompt_hashes") or {}),
+        "source_identity": source_identity,
+        "source_identity_sha256": stable_hash(source_identity),
+        "source_variant": manifest.get("source_variant"),
+        "page_context_contract": manifest.get("page_context_contract"),
+        "production_memory_contract": manifest.get("production_memory_contract"),
+        "embedding": {
+            "model": embedding_model,
+            "model_id": manifest.get("embedding_model_id"),
+            "model_revision": manifest.get("embedding_model_revision"),
+            "dimension": ((embedding_model.get("config") or {}).get("embedding_dims"))
+            if isinstance(embedding_model, Mapping)
+            else None,
+            "encoding_contract": _semantic_source_identity(manifest.get("embedding_encoding_contract") or {}),
+        },
+        "stateful_replay": bool(manifest.get("stateful_replay")),
+    }
+
+
+def _semantic_manifest_identities(config: Mapping[str, Any]) -> list[dict[str, Any]]:
+    raw_paths = config.get("manifest_paths") or ()
+    if isinstance(raw_paths, (str, Path)):
+        raw_paths = [raw_paths]
+    if not isinstance(raw_paths, Sequence):
+        return []
+    identities = [
+        build_semantic_production_manifest_identity(load_json(Path(str(raw_path)).expanduser().resolve()))
+        for raw_path in raw_paths
+    ]
+    session_ids = [str(identity.get("session_id") or "") for identity in identities]
+    if len(session_ids) != len(set(session_ids)):
+        raise ValueError("Production manifests contain duplicate Session identities")
+    return sorted(identities, key=lambda identity: str(identity.get("session_id") or ""))
+
+
 def build_agentic_parent_retrieval_identity(config: Mapping[str, Any]) -> dict[str, Any]:
     """Build the stable, semantic identity of context seen by Agentic fallback.
 
@@ -121,11 +202,7 @@ def build_agentic_parent_retrieval_identity(config: Mapping[str, Any]) -> dict[s
     Artifact paths are represented only by immutable content/source identities.
     """
 
-    manifest_hashes = config.get("manifest_sha256") or {}
-    if isinstance(manifest_hashes, Mapping):
-        manifest_content_sha256 = sorted({str(value) for value in manifest_hashes.values() if value})
-    else:
-        manifest_content_sha256 = []
+    semantic_manifests = _semantic_manifest_identities(config)
     source_spec = config.get("source_generation_spec")
     raw_source_identity = source_spec.get("source_identity") if isinstance(source_spec, Mapping) else None
     source_identity = _semantic_source_identity(raw_source_identity) if raw_source_identity is not None else None
@@ -142,7 +219,8 @@ def build_agentic_parent_retrieval_identity(config: Mapping[str, Any]) -> dict[s
         },
         "production_source": {
             **_identity_values(config, _SOURCE_FIELDS),
-            "manifest_content_sha256": manifest_content_sha256,
+            "semantic_manifests": semantic_manifests,
+            "semantic_manifest_identity_sha256": stable_hash(semantic_manifests) if semantic_manifests else None,
             "source_identity": source_identity,
             "source_identity_sha256": stable_hash(source_identity) if source_identity is not None else None,
         },
@@ -160,6 +238,7 @@ class ProductionAgenticTrace:
     sha256: dict[str, str]
     parent_retrieval_identity: dict[str, Any]
     parent_retrieval_identity_sha256: str
+    max_tool_result_chars: int
     variants: tuple[tuple[int, int], ...]
     rows: dict[tuple[int, int], dict[str, dict[str, Any]]]
 
@@ -178,6 +257,7 @@ class ProductionAgenticTrace:
             "fixed": {
                 "max_iterations": AGENTIC_FIXED_MAX_ITERATIONS,
                 "max_tool_calls": AGENTIC_FIXED_MAX_TOOL_CALLS,
+                "max_tool_result_chars": self.max_tool_result_chars,
             },
         }
 
@@ -255,9 +335,15 @@ def load_production_agentic_trace(
         raise ValueError("expected Agentic parent retrieval identity has an unsupported schema")
     expected_source = expected_parent.get("production_source")
     if not isinstance(expected_source, Mapping) or not (
-        expected_source.get("manifest_content_sha256") or expected_source.get("source_identity_sha256")
+        expected_source.get("semantic_manifest_identity_sha256") or expected_source.get("source_identity_sha256")
     ):
         raise ValueError("expected Agentic parent retrieval identity has no immutable Production source artifact")
+    raw_max_tool_result_chars = config.get("agentic_fixed_max_tool_result_chars")
+    if raw_max_tool_result_chars is None:
+        raise ValueError("current Candidate is missing fixed Agentic max_tool_result_chars provenance")
+    expected_max_tool_result_chars = int(raw_max_tool_result_chars)
+    if expected_max_tool_result_chars < 1000:
+        raise ValueError("current Candidate has invalid fixed Agentic max_tool_result_chars")
     expected_parent_sha256 = agentic_parent_retrieval_identity_sha256(expected_parent)
     paths = _trace_paths(config)
     if not paths:
@@ -298,6 +384,8 @@ def load_production_agentic_trace(
                 raise ValueError("production Agentic trace must keep max_iterations=2")
             if int(row.get("max_tool_calls") or 0) != AGENTIC_FIXED_MAX_TOOL_CALLS:
                 raise ValueError("production Agentic trace must keep max_tool_calls=1")
+            if int(row.get("max_tool_result_chars") or 0) != expected_max_tool_result_chars:
+                raise ValueError("production Agentic trace max_tool_result_chars mismatch")
             session_id = str(row.get("session_id") or "")
             query_id = str(row.get("query_id") or row.get("turn_id") or "").upper()
             expected_queries = {str(value).upper() for value in query_ids_by_session.get(session_id, ())}
@@ -331,6 +419,7 @@ def load_production_agentic_trace(
         sha256=hashes,
         parent_retrieval_identity=expected_parent,
         parent_retrieval_identity_sha256=expected_parent_sha256,
+        max_tool_result_chars=expected_max_tool_result_chars,
         variants=complete_variants,
         rows={variant: rows[variant] for variant in complete_variants},
     )

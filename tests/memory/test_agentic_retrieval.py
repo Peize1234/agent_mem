@@ -170,6 +170,7 @@ def test_agentic_config_defaults_and_validates_low_latency_limits():
     assert config.max_queries == 3
     assert config.candidate_pool_size == 20
     assert config.max_total_results == 6
+    assert config.max_tool_result_chars == 30000
     assert "max_chars_per_result" not in AgenticRetrievalConfig.model_fields
     assert "default_threshold" not in AgenticRetrievalConfig.model_fields
     with pytest.raises(ValidationError):
@@ -178,6 +179,8 @@ def test_agentic_config_defaults_and_validates_low_latency_limits():
         AgenticRetrievalConfig(max_tool_calls=2)
     with pytest.raises(ValidationError):
         AgenticRetrievalConfig(max_queries=4)
+    with pytest.raises(ValidationError):
+        AgenticRetrievalConfig(max_tool_result_chars=999)
     assert AgenticRetrievalConfig(max_total_results=20).max_total_results == 20
     with pytest.raises(ValidationError):
         AgenticRetrievalConfig(max_total_results=21)

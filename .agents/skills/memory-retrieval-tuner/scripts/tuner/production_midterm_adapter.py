@@ -815,10 +815,6 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
         config.setdefault("vector_store", {}).setdefault("config", {}).update(isolated_vector_config)
         if isolated_history_db_path is not None:
             config["history_db_path"] = isolated_history_db_path
-    # Persist the effective production config beside the trace.  Artifact
-    # discovery uses it to validate complete-memory reuse without trusting
-    # mutable runtime paths or a stale manifest.
-    atomic_write_json(output_dir / "effective_memory_config.json", redact_secrets(config))
     config.setdefault("background", {})["midterm_worker_count"] = 1
     config["background"]["longterm_worker_count"] = 1
     page_summary_prompt = str(spec.get("page_summary_prompt") or "") or None
@@ -829,6 +825,18 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
         or ""
     ) or None
     memory = create_production_memory(config, llm_mode=str(spec.get("llm_mode") or "real"))
+    config_model = getattr(memory, "config", None)
+    model_dump = getattr(config_model, "model_dump", None)
+    effective_memory_config = model_dump(mode="json") if callable(model_dump) else deepcopy(config)
+    if config.get("benchmark_runtime"):
+        effective_memory_config["benchmark_runtime"] = deepcopy(config["benchmark_runtime"])
+    # Persist the Pydantic-resolved Production config, including defaults such
+    # as the fixed Agentic tool-result budget. Artifact discovery can then
+    # recover the actual execution contract without hard-coding it in Tuner.
+    atomic_write_json(
+        output_dir / "effective_memory_config.json",
+        redact_secrets(effective_memory_config),
+    )
     prompt_kwargs = {
         "page_summary_prompt": page_summary_prompt,
         "session_merge_prompt": session_merge_prompt,
@@ -999,8 +1007,8 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
         "trace_sha256": sha256_file(trace_path),
         "memory_config_path": str(Path(str(spec["memory_config_path"])).resolve()),
         "memory_config_sha256": sha256_file(Path(str(spec["memory_config_path"])).resolve()),
-        "effective_memory_config": redact_secrets(config),
-        "production_config": deepcopy(config.get("midterm") or {}),
+        "effective_memory_config": redact_secrets(effective_memory_config),
+        "production_config": deepcopy(effective_memory_config.get("midterm") or {}),
         "config_overrides": redact_secrets(dict(spec.get("config_overrides") or {})),
         "effective_config_hash": stable_hash(redact_secrets(config)),
         "prompt_hashes": prompt_hashes,
@@ -1012,7 +1020,7 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
         "llm_mode": str(spec.get("llm_mode") or "real"),
         "llm_calls": counted.calls,
         "embedding_calls": counted_embedding.calls,
-        "embedding_model": deepcopy(config.get("embedder") or {}),
+        "embedding_model": deepcopy(effective_memory_config.get("embedder") or {}),
         "embedding_model_id": spec.get("embedding_model_id"),
         "embedding_model_revision": spec.get("embedding_model_revision"),
         "embedding_encoding_contract": encoding_contract,
@@ -1204,6 +1212,7 @@ def production_candidate_from_manifests(
     *,
     name: str = "baseline",
 ) -> tuple[dict[str, Any], dict[str, Any]]:
+    from mem0.configs.base import AgenticRetrievalConfig
     from mem0.configs.query_prompts import QUERY_REFERENCE_RESOLUTION_PROMPT
 
     manifests = [load_json(path) for path in manifest_paths]
@@ -1226,12 +1235,28 @@ def production_candidate_from_manifests(
     ):
         if key in effective_memory_config:
             config[key] = deepcopy(effective_memory_config[key])
-    agentic = effective_memory_config.get("agentic_retrieval") or {}
-    if agentic:
-        config["max_queries"] = int(agentic.get("max_queries", 3))
-        config["max_total_results"] = min(5, int(agentic.get("max_total_results", 6)))
-        config["agentic_fixed_max_iterations"] = int(agentic.get("max_iterations", 2))
-        config["agentic_fixed_max_tool_calls"] = int(agentic.get("max_tool_calls", 1))
+    effective_agentic_configs = [
+        AgenticRetrievalConfig(**((manifest.get("effective_memory_config") or {}).get("agentic_retrieval") or {}))
+        for manifest in manifests
+    ]
+    agentic_execution_contracts = [
+        (
+            item.max_queries,
+            item.max_total_results,
+            item.max_iterations,
+            item.max_tool_calls,
+            item.max_tool_result_chars,
+        )
+        for item in effective_agentic_configs
+    ]
+    if any(item != agentic_execution_contracts[0] for item in agentic_execution_contracts[1:]):
+        raise ValueError("Production manifests disagree on the effective Agentic retrieval configuration")
+    agentic = effective_agentic_configs[0]
+    config["max_queries"] = int(agentic.max_queries)
+    config["max_total_results"] = min(5, int(agentic.max_total_results))
+    config["agentic_fixed_max_iterations"] = int(agentic.max_iterations)
+    config["agentic_fixed_max_tool_calls"] = int(agentic.max_tool_calls)
+    config["agentic_fixed_max_tool_result_chars"] = int(agentic.max_tool_result_chars)
     config.update(
         {
             "backend": PRODUCTION_BACKEND,
@@ -1261,7 +1286,8 @@ def production_candidate_from_manifests(
         "llm_calls": sum(int(item.get("llm_calls") or 0) for item in manifests),
         "embedding_calls": sum(int(item.get("embedding_calls") or 0) for item in manifests),
         "candidate_name": name,
-        "production_agentic_max_total_results": int(agentic.get("max_total_results", 6)) if agentic else None,
+        "production_agentic_max_total_results": int(agentic.max_total_results),
+        "production_agentic_max_tool_result_chars": int(agentic.max_tool_result_chars),
         "tuner_agentic_context_cap": 5,
     }
     return config, provenance

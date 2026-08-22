@@ -519,6 +519,9 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
                 for session_id, turns in dataset.sessions.items()
             },
             expected_parent_retrieval_identity=agentic_parent_identity,
+            expected_max_tool_result_chars=int(
+                midterm_baseline.config["agentic_fixed_max_tool_result_chars"]
+            ),
             source_run=config.source_run,
         )
     except ValueError as exc:

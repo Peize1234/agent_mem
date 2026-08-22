@@ -107,7 +107,11 @@ from tuner.source_prompt_variants import (  # noqa: E402
 from tuner.split_sessions import create_or_load_split  # noqa: E402
 from tuner.staged_search import candidate_config_hash, run_staged_search  # noqa: E402
 
-from mem0.configs.base import MemoryConfig, MidTermMemoryConfig  # noqa: E402
+from mem0.configs.base import (  # noqa: E402
+    AgenticRetrievalConfig,
+    MemoryConfig,
+    MidTermMemoryConfig,
+)
 from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT  # noqa: E402
 from mem0.configs.query_prompts import QUERY_REFERENCE_RESOLUTION_PROMPT  # noqa: E402
 from mem0.memory import main as memory_main  # noqa: E402
@@ -491,6 +495,7 @@ def test_production_adapter_manifest_and_runtime_isolation(tmp_path: Path) -> No
                             "max_tool_calls": 1,
                             "max_queries": 3,
                             "max_total_results": 6,
+                            "max_tool_result_chars": 23456,
                         },
                     },
                     "checkpoints_path": str(checkpoints),
@@ -507,10 +512,12 @@ def test_production_adapter_manifest_and_runtime_isolation(tmp_path: Path) -> No
     assert config["retrieval_method"] == "dense"
     assert config["bm25_language"] == "zh"
     assert config["max_total_results"] == 5
+    assert config["agentic_fixed_max_tool_result_chars"] == 23456
     assert provenance["source"] == "real AsyncMemory Add/MidTerm pipeline"
     assert provenance["llm_calls"] == 3
     assert provenance["embedding_calls"] == 30
     assert provenance["production_agentic_max_total_results"] == 6
+    assert provenance["production_agentic_max_tool_result_chars"] == 23456
     assert provenance["tuner_agentic_context_cap"] == 5
     ProductionMidtermAdapter.supported(config)
     with pytest.raises(ValueError, match="regenerated production artifacts"):
@@ -1018,6 +1025,8 @@ def test_other_session_weight_is_production_fixed_not_a_search_parameter() -> No
 
     assert parameter_class("longterm_other_session_weight") == "production-fixed"
     assert "longterm_other_session_weight" not in all_searchable
+    assert "max_tool_result_chars" not in all_searchable
+    assert AgenticRetrievalConfig().max_tool_result_chars == 30000
     assert classes["production_fixed_not_searched"] == ["longterm_other_session_weight"]
 
 
@@ -1281,6 +1290,7 @@ def test_trace_does_not_replace_midterm_checkpoints_and_regression_is_separate(
                 "top_k_sessions": 5,
                 "top_k_pages": 5,
                 "max_total_pages": 5,
+                "agentic_fixed_max_tool_result_chars": 30000,
                 "manifest_paths": [str(manifest_path.resolve())],
                 "manifest_sha256": {str(manifest_path.resolve()): sha256_file(manifest_path)},
             },
@@ -1608,6 +1618,7 @@ def _write_production_agentic_trace(
     parent_config: dict[str, Any] | None = None,
     parent_identity: dict[str, Any] | None = None,
     supplement_label: str = "Agentic",
+    max_tool_result_chars: int = 30000,
 ) -> None:
     parent = parent_identity or build_agentic_parent_retrieval_identity(parent_config or {})
     parent_sha256 = agentic_parent_retrieval_identity_sha256(parent)
@@ -1627,6 +1638,7 @@ def _write_production_agentic_trace(
                         "parent_retrieval_identity_sha256": parent_sha256,
                         "max_iterations": 2,
                         "max_tool_calls": 1,
+                        "max_tool_result_chars": max_tool_result_chars,
                         "max_queries": max_queries,
                         "max_total_results": max_total_results,
                         "error": None,
@@ -1659,14 +1671,107 @@ def _agentic_query_ids(dataset: Dataset) -> dict[str, list[str]]:
     }
 
 
-def _agentic_trace_config(paths: list[Path]) -> dict[str, Any]:
+def _agentic_trace_config(paths: list[Path], *, max_tool_result_chars: int = 30000) -> dict[str, Any]:
     return {
+        "agentic_fixed_max_tool_result_chars": max_tool_result_chars,
         "production_agentic_trace_paths": [str(path) for path in paths],
         "production_agentic_trace_sha256": {
             str(path.resolve()): sha256_file(path)
             for path in paths
         },
     }
+
+
+def _synthetic_agentic_source(label: str = "source-a") -> dict[str, Any]:
+    return {
+        "source_generation_spec": {
+            "source_identity": {
+                "kind": "synthetic-production-source",
+                "source_content_sha256": label,
+            }
+        }
+    }
+
+
+def _write_semantic_agentic_manifest(
+    path: Path,
+    *,
+    runtime_root: Path,
+    checkpoints_sha256: str = "checkpoints-a",
+    trace_sha256: str = "trace-a",
+    embedding_model_id: str = "embedding-a",
+    embedding_model_revision: str = "revision-a",
+    prompt_hash: str = "prompt-a",
+    source_label: str = "source-a",
+) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    manifest = {
+        "schema": ADAPTER_SCHEMA,
+        "status": "COMPLETE",
+        "backend": "production_midterm",
+        "dataset_path": str(runtime_root / "dataset.xlsx"),
+        "dataset_sha256": "dataset-a",
+        "session_id": "S001",
+        "turn_count": 5,
+        "checkpoint_count": 2,
+        "failed_turns": 0,
+        "ranking_depth": 20,
+        "shortterm_qa_turns": 3,
+        "checkpoints_path": str(runtime_root / "checkpoints.jsonl"),
+        "checkpoints_sha256": checkpoints_sha256,
+        "trace_path": str(runtime_root / "trace.jsonl"),
+        "trace_sha256": trace_sha256,
+        "memory_config_path": str(runtime_root / "memory.json"),
+        "production_config": {
+            "short_term_capacity": 6,
+            "top_k_sessions": 5,
+            "top_k_pages": 5,
+            "max_total_pages": 5,
+        },
+        "effective_memory_config": {
+            "llm": {"provider": "mock", "config": {"model": "source-llm"}},
+            "embedder": {
+                "provider": "huggingface",
+                "config": {"model": embedding_model_id, "embedding_dims": 512},
+            },
+            "vector_store": {
+                "provider": "qdrant",
+                "config": {
+                    "path": str(runtime_root / "qdrant"),
+                    "collection_name": f"temporary-{runtime_root.name}",
+                    "embedding_model_dims": 512,
+                    "bm25_language": "zh",
+                },
+            },
+            "history_db_path": str(runtime_root / "history.db"),
+            "midterm": {
+                "short_term_capacity": 6,
+                "session_similarity_threshold": 0.6,
+                "embedding_similarity_weight": 0.7,
+                "keyword_overlap_weight": 0.3,
+                "top_k_sessions": 5,
+                "top_k_pages": 5,
+                "max_total_pages": 5,
+            },
+        },
+        "config_overrides": {"embedder": {"config": {"model": embedding_model_id}}},
+        "prompt_hashes": {"page_summary": prompt_hash, "session_merge": "merge-a"},
+        "source_identity": {"source_content_sha256": source_label, "runtime_dir": str(runtime_root)},
+        "source_variant": "production",
+        "page_context_contract": PRODUCTION_PAGE_CONTEXT_CONTRACT,
+        "production_memory_contract": "production-memory-v1",
+        "embedding_model": {
+            "provider": "huggingface",
+            "config": {"model": embedding_model_id, "embedding_dims": 512},
+        },
+        "embedding_model_id": embedding_model_id,
+        "embedding_model_revision": embedding_model_revision,
+        "embedding_encoding_contract": {"normalize_embeddings": True, "pooling": "mean"},
+        "stateful_replay": True,
+        "llm_mode": "real",
+    }
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+    return path
 
 
 def test_agentic_trace_accepts_exact_parent_retrieval_identity(tmp_path: Path) -> None:
@@ -1680,6 +1785,7 @@ def test_agentic_trace_accepts_exact_parent_retrieval_identity(tmp_path: Path) -
         "retrieval_method": "dense",
         "query_representation": "original",
         "manifest_sha256": {"/mutable/runtime/manifest.json": "manifest-a"},
+        **_synthetic_agentic_source(),
         "longterm_top_k": 20,
         "longterm_rag_threshold": 0.1,
     }
@@ -1695,6 +1801,8 @@ def test_agentic_trace_accepts_exact_parent_retrieval_identity(tmp_path: Path) -
     )
 
     assert trace.variants == ((3, 5),)
+    assert trace.max_tool_result_chars == 30000
+    assert trace.serializable()["fixed"]["max_tool_result_chars"] == 30000
     assert trace.parent_retrieval_identity == expected
     assert trace.parent_retrieval_identity_sha256 == agentic_parent_retrieval_identity_sha256(expected)
 
@@ -1760,6 +1868,70 @@ def test_agentic_parent_identity_covers_effective_inputs_but_excludes_bookkeepin
     assert build_agentic_parent_retrieval_identity(changed_source) != identity
 
 
+def test_agentic_semantic_manifest_identity_ignores_runtime_paths(tmp_path: Path) -> None:
+    first = _write_semantic_agentic_manifest(
+        tmp_path / "runtime-a" / "production_midterm_manifest.json",
+        runtime_root=tmp_path / "runtime-a",
+    )
+    second = _write_semantic_agentic_manifest(
+        tmp_path / "runtime-b" / "production_midterm_manifest.json",
+        runtime_root=tmp_path / "runtime-b",
+    )
+
+    first_identity = build_agentic_parent_retrieval_identity({"manifest_paths": [str(first)]})
+    second_identity = build_agentic_parent_retrieval_identity({"manifest_paths": [str(second)]})
+
+    assert sha256_file(first) != sha256_file(second)
+    assert first_identity == second_identity
+    serialized = json.dumps(first_identity, ensure_ascii=False)
+    assert str(tmp_path / "runtime-a") not in serialized
+    assert "temporary-runtime-a" not in serialized
+
+
+def test_agentic_semantic_manifest_identity_changes_with_source_content(tmp_path: Path) -> None:
+    base = _write_semantic_agentic_manifest(
+        tmp_path / "base" / "production_midterm_manifest.json",
+        runtime_root=tmp_path / "base",
+    )
+    changed_checkpoints = _write_semantic_agentic_manifest(
+        tmp_path / "changed" / "production_midterm_manifest.json",
+        runtime_root=tmp_path / "changed",
+        checkpoints_sha256="checkpoints-b",
+    )
+
+    assert build_agentic_parent_retrieval_identity(
+        {"manifest_paths": [str(base)]}
+    ) != build_agentic_parent_retrieval_identity({"manifest_paths": [str(changed_checkpoints)]})
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"embedding_model_id": "embedding-b"},
+        {"embedding_model_revision": "revision-b"},
+        {"prompt_hash": "prompt-b"},
+        {"source_label": "source-b"},
+    ],
+)
+def test_agentic_semantic_manifest_identity_changes_with_embedding_prompt_or_source(
+    tmp_path: Path,
+    change: dict[str, str],
+) -> None:
+    base = _write_semantic_agentic_manifest(
+        tmp_path / "base" / "production_midterm_manifest.json",
+        runtime_root=tmp_path / "base",
+    )
+    changed = _write_semantic_agentic_manifest(
+        tmp_path / "changed" / "production_midterm_manifest.json",
+        runtime_root=tmp_path / "changed",
+        **change,
+    )
+
+    assert build_agentic_parent_retrieval_identity(
+        {"manifest_paths": [str(base)]}
+    ) != build_agentic_parent_retrieval_identity({"manifest_paths": [str(changed)]})
+
+
 def test_agentic_trace_rejects_different_retrieval_config_for_same_dataset_and_variant(
     tmp_path: Path,
 ) -> None:
@@ -1772,6 +1944,7 @@ def test_agentic_trace_rejects_different_retrieval_config_for_same_dataset_and_v
         "retrieval_method": "dense",
         "query_representation": "original",
         "manifest_sha256": {"manifest": "manifest-a"},
+        **_synthetic_agentic_source(),
     }
     trace_path = tmp_path / "production_agentic_trace_retrieval_a.jsonl"
     _write_production_agentic_trace(trace_path, dataset, [(3, 5)], parent_config=parent_config)
@@ -1786,10 +1959,40 @@ def test_agentic_trace_rejects_different_retrieval_config_for_same_dataset_and_v
         )
 
 
+def test_agentic_trace_rejects_fixed_max_tool_result_chars_mismatch(tmp_path: Path) -> None:
+    dataset = make_dataset(tmp_path, 1)
+    parent_config = {"max_total_pages": 4, **_synthetic_agentic_source()}
+    trace_path = tmp_path / "production_agentic_trace_chars_10000.jsonl"
+    _write_production_agentic_trace(
+        trace_path,
+        dataset,
+        [(3, 5)],
+        parent_config=parent_config,
+        max_tool_result_chars=10000,
+    )
+
+    with pytest.raises(ValueError, match="max_tool_result_chars mismatch"):
+        load_production_agentic_trace(
+            _agentic_trace_config([trace_path], max_tool_result_chars=30000),
+            dataset_sha256=dataset.sha256,
+            query_ids_by_session=_agentic_query_ids(dataset),
+            expected_parent_retrieval_identity=build_agentic_parent_retrieval_identity(parent_config),
+        )
+
+
 def test_agentic_trace_rejects_different_manifest_identity_with_same_retrieval_config(
     tmp_path: Path,
 ) -> None:
     dataset = make_dataset(tmp_path, 1)
+    source_a = _write_semantic_agentic_manifest(
+        tmp_path / "source-a" / "production_midterm_manifest.json",
+        runtime_root=tmp_path / "source-a",
+    )
+    source_b = _write_semantic_agentic_manifest(
+        tmp_path / "source-b" / "production_midterm_manifest.json",
+        runtime_root=tmp_path / "source-b",
+        checkpoints_sha256="checkpoints-b",
+    )
     parent_config = {
         "top_k_sessions": 3,
         "top_k_pages": 8,
@@ -1797,11 +2000,11 @@ def test_agentic_trace_rejects_different_manifest_identity_with_same_retrieval_c
         "midterm_rag_threshold": 0.1,
         "retrieval_method": "dense",
         "query_representation": "original",
-        "manifest_sha256": {"manifest": "manifest-a"},
+        "manifest_paths": [str(source_a)],
     }
     trace_path = tmp_path / "production_agentic_trace_source_a.jsonl"
     _write_production_agentic_trace(trace_path, dataset, [(3, 5)], parent_config=parent_config)
-    changed = {**parent_config, "manifest_sha256": {"other-runtime": "manifest-b"}}
+    changed = {**parent_config, "manifest_paths": [str(source_b)]}
 
     with pytest.raises(ValueError, match="parent retrieval identity mismatch"):
         load_production_agentic_trace(
@@ -1821,6 +2024,7 @@ def test_agentic_discovery_aggregates_exact_variants_from_multiple_files(tmp_pat
         "retrieval_method": "dense",
         "query_representation": "original",
         "manifest_sha256": {"manifest": "manifest-a"},
+        **_synthetic_agentic_source(),
     }
     results_root = tmp_path / "results"
     results_root.mkdir()
@@ -1834,6 +2038,7 @@ def test_agentic_discovery_aggregates_exact_variants_from_multiple_files(tmp_pat
         dataset_sha256=dataset.sha256,
         query_ids_by_session=_agentic_query_ids(dataset),
         expected_parent_retrieval_identity=expected,
+        expected_max_tool_result_chars=30000,
     )
 
     assert discovered is not None
@@ -1844,12 +2049,13 @@ def test_agentic_discovery_aggregates_exact_variants_from_multiple_files(tmp_pat
     assert set(discovered["paths"]) == {str(first.resolve()), str(second.resolve())}
     assert set(discovered["sha256"]) == {str(first.resolve()), str(second.resolve())}
     assert discovered["parent_retrieval_identity"] == expected
+    assert discovered["fixed"]["max_tool_result_chars"] == 30000
 
 
 def test_agentic_multi_file_trace_rejects_mixed_parent_identities(tmp_path: Path) -> None:
     dataset = make_dataset(tmp_path, 1)
-    parent_a = {"max_total_pages": 4, "manifest_sha256": {"manifest": "manifest-a"}}
-    parent_b = {"max_total_pages": 2, "manifest_sha256": {"manifest": "manifest-a"}}
+    parent_a = {"max_total_pages": 4, **_synthetic_agentic_source()}
+    parent_b = {"max_total_pages": 2, **_synthetic_agentic_source()}
     first = tmp_path / "production_agentic_trace_parent_a.jsonl"
     second = tmp_path / "production_agentic_trace_parent_b.jsonl"
     _write_production_agentic_trace(first, dataset, [(1, 5)], parent_config=parent_a)
@@ -1866,7 +2072,7 @@ def test_agentic_multi_file_trace_rejects_mixed_parent_identities(tmp_path: Path
 
 def test_agentic_multi_file_trace_rejects_conflicting_duplicate_variant_query(tmp_path: Path) -> None:
     dataset = make_dataset(tmp_path, 1)
-    parent_config = {"max_total_pages": 4, "manifest_sha256": {"manifest": "manifest-a"}}
+    parent_config = {"max_total_pages": 4, **_synthetic_agentic_source()}
     first = tmp_path / "production_agentic_trace_duplicate_a.jsonl"
     second = tmp_path / "production_agentic_trace_duplicate_b.jsonl"
     _write_production_agentic_trace(
@@ -1919,6 +2125,10 @@ def test_agentic_branch_generates_real_parameter_candidates_and_keeps_fixed_limi
     assert all(candidate.config["agentic_trace_enabled"] is True for candidate in outcome.candidates)
     assert all(candidate.config["agentic_fixed_max_iterations"] == 2 for candidate in outcome.candidates)
     assert all(candidate.config["agentic_fixed_max_tool_calls"] == 1 for candidate in outcome.candidates)
+    assert all(
+        candidate.config["agentic_fixed_max_tool_result_chars"] == 30000
+        for candidate in outcome.candidates
+    )
     assert all(candidate.config["production_agentic_trace_sha256"] for candidate in outcome.candidates)
 
 
@@ -2119,7 +2329,8 @@ def test_agentic_evaluator_uses_only_exact_production_supplement_trace(tmp_path:
         "max_total_results": 5,
         "agentic_fixed_max_iterations": 2,
         "agentic_fixed_max_tool_calls": 1,
-        "manifest_sha256": {"synthetic-manifest": "synthetic-production-source"},
+        "agentic_fixed_max_tool_result_chars": 30000,
+        **_synthetic_agentic_source("synthetic-production-source"),
     }
     _write_production_agentic_trace(trace_path, dataset, [(1, 5)], parent_config=parent_config)
     candidate = Candidate(
@@ -2174,7 +2385,8 @@ def test_agentic_evaluator_rejects_parent_retrieval_identity_mismatch(tmp_path: 
         "max_total_pages": 4,
         "retrieval_method": "dense",
         "query_representation": "original",
-        "manifest_sha256": {"manifest": "source-a"},
+        "agentic_fixed_max_tool_result_chars": 30000,
+        **_synthetic_agentic_source(),
     }
     trace_path = tmp_path / "production_agentic_trace_evaluator_parent.jsonl"
     _write_production_agentic_trace(trace_path, dataset, [(1, 5)], parent_config=traced_parent)
@@ -2687,7 +2899,16 @@ def _production_branch_inputs(
                         "top_k_pages": 5,
                         "max_total_pages": 5,
                     },
-                    "effective_memory_config": {"vector_store": {"config": {"bm25_language": "en"}}},
+                    "effective_memory_config": {
+                        "vector_store": {"config": {"bm25_language": "en"}},
+                        "agentic_retrieval": {
+                            "max_iterations": 2,
+                            "max_tool_calls": 1,
+                            "max_queries": 3,
+                            "max_total_results": 6,
+                            "max_tool_result_chars": 30000,
+                        },
+                    },
                     "failed_turns": 0,
                     "llm_calls": 0,
                     "embedding_calls": 0,
@@ -2708,6 +2929,11 @@ def _production_branch_inputs(
             "top_k_sessions": 5,
             "top_k_pages": 5,
             "max_total_pages": 5,
+            "max_queries": 3,
+            "max_total_results": 5,
+            "agentic_fixed_max_iterations": 2,
+            "agentic_fixed_max_tool_calls": 1,
+            "agentic_fixed_max_tool_result_chars": 30000,
             "manifest_paths": [str(manifest) for manifest in manifests],
             "manifest_sha256": {str(manifest.resolve()): sha256_file(manifest) for manifest in manifests},
         },

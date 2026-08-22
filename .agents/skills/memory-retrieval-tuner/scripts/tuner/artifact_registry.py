@@ -460,6 +460,7 @@ class ArtifactRegistry:
         dataset_sha256: str,
         query_ids_by_session: Mapping[str, Sequence[str]],
         expected_parent_retrieval_identity: Mapping[str, Any],
+        expected_max_tool_result_chars: int,
         source_run: Path | None = None,
     ) -> dict[str, Any] | None:
         """Find a complete exact-parameter production Agentic fallback trace.
@@ -518,7 +519,10 @@ class ArtifactRegistry:
             return None
         try:
             trace = load_production_agentic_trace(
-                {"production_agentic_trace_paths": [str(path) for path in matching]},
+                {
+                    "production_agentic_trace_paths": [str(path) for path in matching],
+                    "agentic_fixed_max_tool_result_chars": int(expected_max_tool_result_chars),
+                },
                 dataset_sha256=dataset_sha256,
                 query_ids_by_session=query_ids_by_session,
                 expected_parent_retrieval_identity=expected_parent,
