@@ -10,6 +10,8 @@ from typing import Any, Iterable, Mapping, Protocol
 from .agentic_retrieval_artifacts import (
     AGENTIC_FIXED_MAX_ITERATIONS,
     AGENTIC_FIXED_MAX_TOOL_CALLS,
+    agentic_parent_retrieval_identity_sha256,
+    build_agentic_parent_retrieval_identity,
     load_production_agentic_trace,
 )
 from .artifact_registry import ArtifactRegistry
@@ -353,6 +355,7 @@ class AgenticRetrievalBranch(BaseBranch):
             "dataset_sha256",
             "manifest_sha256",
             "production_agentic_trace_sha256",
+            "parent_retrieval_identity_sha256",
             "exact_agentic_parameter_variant",
         ),
         resource_requirements={"llm": False, "embedding": False, "gpu": False},
@@ -367,10 +370,12 @@ class AgenticRetrievalBranch(BaseBranch):
         }
 
     def _load_trace(self, candidate: Candidate, context: BranchContext):
+        expected_parent = build_agentic_parent_retrieval_identity(candidate.config)
         return load_production_agentic_trace(
             candidate.config,
             dataset_sha256=context.dataset.sha256,
             query_ids_by_session=self._query_ids(context),
+            expected_parent_retrieval_identity=expected_parent,
         )
 
     def validate_provenance(self, candidate: Candidate, context: BranchContext) -> tuple[bool, str | None]:
@@ -407,14 +412,46 @@ class AgenticRetrievalBranch(BaseBranch):
                 "UNAVAILABLE",
                 reason="Agentic hard constraints must keep max_iterations=2 and max_tool_calls=1",
             )
+        parent_identity = build_agentic_parent_retrieval_identity(context.anchor.config)
+        parent_identity_sha256 = agentic_parent_retrieval_identity_sha256(parent_identity)
+        trace_error: OSError | ValueError | None = None
         try:
             trace = self._load_trace(context.anchor, context)
         except (OSError, ValueError) as exc:
-            return BranchOutcome(
-                self.spec.name,
-                "UNAVAILABLE",
-                reason=f"production_agentic_trace unavailable: {exc}",
-                provenance={"required_artifact": "production_agentic_trace"},
+            trace_error = exc
+            try:
+                discovered = context.registry.discover_production_agentic_trace(
+                    dataset_sha256=context.dataset.sha256,
+                    query_ids_by_session=self._query_ids(context),
+                    expected_parent_retrieval_identity=parent_identity,
+                )
+            except ValueError as discovery_exc:
+                trace_error = discovery_exc
+                discovered = None
+            if discovered is None:
+                return BranchOutcome(
+                    self.spec.name,
+                    "UNAVAILABLE",
+                    reason=f"production_agentic_trace unavailable: {trace_error}",
+                    provenance={
+                        "required_artifact": "production_agentic_trace",
+                        "expected_parent_retrieval_identity_sha256": parent_identity_sha256,
+                    },
+                )
+            discovered_config = {
+                **context.anchor.config,
+                "production_agentic_trace_paths": discovered["paths"],
+                "production_agentic_trace_sha256": discovered["sha256"],
+            }
+            trace = self._load_trace(
+                Candidate(
+                    name=context.anchor.name,
+                    stage=context.anchor.stage,
+                    config=discovered_config,
+                    provenance=context.anchor.provenance,
+                    complexity=context.anchor.complexity,
+                ),
+                context,
             )
 
         query_values = sorted({int(value) for value in settings.get("max_queries") or []})
@@ -444,6 +481,8 @@ class AgenticRetrievalBranch(BaseBranch):
                     provenance={
                         "production_agentic_trace_sha256": trace.sha256,
                         "production_agentic_execution_contract": "Memory.run_agentic_retrieval",
+                        "parent_retrieval_identity": parent_identity,
+                        "parent_retrieval_identity_sha256": parent_identity_sha256,
                         "provenance_validated": True,
                     },
                     agentic_trace_enabled=True,
@@ -453,6 +492,8 @@ class AgenticRetrievalBranch(BaseBranch):
                     agentic_fixed_max_tool_calls=AGENTIC_FIXED_MAX_TOOL_CALLS,
                     production_agentic_trace_paths=[str(path) for path in trace.paths],
                     production_agentic_trace_sha256=trace.sha256,
+                    production_agentic_parent_retrieval_identity=parent_identity,
+                    production_agentic_parent_retrieval_identity_sha256=parent_identity_sha256,
                 )
             )
         missing_axes = []
@@ -480,6 +521,7 @@ class AgenticRetrievalBranch(BaseBranch):
             provenance={
                 "required_artifact": "production_agentic_trace",
                 "trace_sha256": trace.sha256,
+                "parent_retrieval_identity_sha256": parent_identity_sha256,
                 "available_variants": [list(value) for value in trace.variants],
             },
             reused_artifacts=sorted(trace.sha256.values()),

@@ -22,6 +22,9 @@ import tuner.production_midterm_adapter as production_adapter  # noqa: E402
 from tuner.agentic_retrieval_artifacts import (  # noqa: E402
     PRODUCTION_AGENTIC_EXECUTION_CONTRACT,
     PRODUCTION_AGENTIC_TRACE_SCHEMA,
+    agentic_parent_retrieval_identity_sha256,
+    build_agentic_parent_retrieval_identity,
+    load_production_agentic_trace,
 )
 from tuner.artifact_registry import ArtifactRegistry  # noqa: E402
 from tuner.benchmark_support import load_dataset, parse_gold_requirements  # noqa: E402
@@ -1601,7 +1604,13 @@ def _write_production_agentic_trace(
     path: Path,
     dataset: Dataset,
     variants: list[tuple[int, int]],
+    *,
+    parent_config: dict[str, Any] | None = None,
+    parent_identity: dict[str, Any] | None = None,
+    supplement_label: str = "Agentic",
 ) -> None:
+    parent = parent_identity or build_agentic_parent_retrieval_identity(parent_config or {})
+    parent_sha256 = agentic_parent_retrieval_identity_sha256(parent)
     rows = []
     for max_queries, max_total_results in variants:
         for session_id, turns in dataset.sessions.items():
@@ -1614,6 +1623,8 @@ def _write_production_agentic_trace(
                         "query_id": turn.query_id,
                         "production_agentic_execution": True,
                         "execution_contract": PRODUCTION_AGENTIC_EXECUTION_CONTRACT,
+                        "parent_retrieval_identity": parent,
+                        "parent_retrieval_identity_sha256": parent_sha256,
                         "max_iterations": 2,
                         "max_tool_calls": 1,
                         "max_queries": max_queries,
@@ -1622,7 +1633,8 @@ def _write_production_agentic_trace(
                         "agentic_result": {
                             "status": "supplemented",
                             "supplement": (
-                                f"华辰公司授信额度100万元；Agentic {max_queries}/{max_total_results} {turn.query_id}"
+                                f"华辰公司授信额度100万元；{supplement_label} "
+                                f"{max_queries}/{max_total_results} {turn.query_id}"
                             ),
                             "iterations": 2,
                             "tool_call_count": 1,
@@ -1640,6 +1652,247 @@ def _write_production_agentic_trace(
     path.write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows), encoding="utf-8")
 
 
+def _agentic_query_ids(dataset: Dataset) -> dict[str, list[str]]:
+    return {
+        session_id: [turn.query_id for turn in turns]
+        for session_id, turns in dataset.sessions.items()
+    }
+
+
+def _agentic_trace_config(paths: list[Path]) -> dict[str, Any]:
+    return {
+        "production_agentic_trace_paths": [str(path) for path in paths],
+        "production_agentic_trace_sha256": {
+            str(path.resolve()): sha256_file(path)
+            for path in paths
+        },
+    }
+
+
+def test_agentic_trace_accepts_exact_parent_retrieval_identity(tmp_path: Path) -> None:
+    dataset = make_dataset(tmp_path, 1)
+    parent_config = {
+        "top_k_sessions": 3,
+        "top_k_pages": 8,
+        "max_total_pages": 4,
+        "midterm_candidate_pool_multiplier": 4,
+        "midterm_rag_threshold": 0.1,
+        "retrieval_method": "dense",
+        "query_representation": "original",
+        "manifest_sha256": {"/mutable/runtime/manifest.json": "manifest-a"},
+        "longterm_top_k": 20,
+        "longterm_rag_threshold": 0.1,
+    }
+    expected = build_agentic_parent_retrieval_identity(parent_config)
+    trace_path = tmp_path / "production_agentic_trace_exact.jsonl"
+    _write_production_agentic_trace(trace_path, dataset, [(3, 5)], parent_config=parent_config)
+
+    trace = load_production_agentic_trace(
+        _agentic_trace_config([trace_path]),
+        dataset_sha256=dataset.sha256,
+        query_ids_by_session=_agentic_query_ids(dataset),
+        expected_parent_retrieval_identity=expected,
+    )
+
+    assert trace.variants == ((3, 5),)
+    assert trace.parent_retrieval_identity == expected
+    assert trace.parent_retrieval_identity_sha256 == agentic_parent_retrieval_identity_sha256(expected)
+
+
+def test_agentic_parent_identity_covers_effective_inputs_but_excludes_bookkeeping_paths() -> None:
+    base = {
+        "top_k_sessions": 3,
+        "top_k_pages": 8,
+        "max_total_pages": 4,
+        "midterm_candidate_pool_multiplier": 4,
+        "midterm_rag_threshold": 0.1,
+        "retrieval_method": "dense",
+        "query_representation": "original",
+        "query_artifact_sha256": "query-a",
+        "page_representation": "production",
+        "derived_artifact_sha256": "derived-a",
+        "manifest_sha256": {"/runtime-a/manifest.json": "manifest-a"},
+        "source_generation_spec": {
+            "source_root": "/cache-a/source",
+            "source_identity": {
+                "kind": "production-source",
+                "prompt_hash": "prompt-a",
+                "runtime_dir": "/runtime-a",
+            },
+        },
+        "longterm_top_k": 20,
+        "longterm_rag_threshold": 0.1,
+        "longterm_hybrid_preset": "balanced",
+    }
+    identity = build_agentic_parent_retrieval_identity(base)
+    path_and_bookkeeping_only = {
+        **base,
+        "manifest_sha256": {"/runtime-b/manifest.json": "manifest-a"},
+        "source_generation_spec": {
+            "source_root": "/cache-b/source",
+            "source_identity": {
+                "kind": "production-source",
+                "prompt_hash": "prompt-a",
+                "runtime_dir": "/runtime-b",
+            },
+        },
+        "derived_artifact_path": "/cache-b/derived.json",
+        "experiment_branch": "report-only",
+        "branch_cost_level": "expensive",
+        "parent_candidate_hash": "mutable-parent-name",
+        "applied_branches": ["report-only"],
+    }
+    assert build_agentic_parent_retrieval_identity(path_and_bookkeeping_only) == identity
+    for field, value in (
+        ("top_k_pages", 9),
+        ("query_artifact_sha256", "query-b"),
+        ("page_representation", "summary"),
+        ("longterm_rag_threshold", 0.2),
+    ):
+        assert build_agentic_parent_retrieval_identity({**base, field: value}) != identity
+    changed_source = {
+        **base,
+        "source_generation_spec": {
+            **base["source_generation_spec"],
+            "source_identity": {"kind": "production-source", "prompt_hash": "prompt-b"},
+        },
+    }
+    assert build_agentic_parent_retrieval_identity(changed_source) != identity
+
+
+def test_agentic_trace_rejects_different_retrieval_config_for_same_dataset_and_variant(
+    tmp_path: Path,
+) -> None:
+    dataset = make_dataset(tmp_path, 1)
+    parent_config = {
+        "top_k_sessions": 3,
+        "top_k_pages": 8,
+        "max_total_pages": 4,
+        "midterm_rag_threshold": 0.1,
+        "retrieval_method": "dense",
+        "query_representation": "original",
+        "manifest_sha256": {"manifest": "manifest-a"},
+    }
+    trace_path = tmp_path / "production_agentic_trace_retrieval_a.jsonl"
+    _write_production_agentic_trace(trace_path, dataset, [(3, 5)], parent_config=parent_config)
+    changed = {**parent_config, "max_total_pages": 2, "midterm_rag_threshold": 0.15}
+
+    with pytest.raises(ValueError, match="parent retrieval identity mismatch"):
+        load_production_agentic_trace(
+            _agentic_trace_config([trace_path]),
+            dataset_sha256=dataset.sha256,
+            query_ids_by_session=_agentic_query_ids(dataset),
+            expected_parent_retrieval_identity=build_agentic_parent_retrieval_identity(changed),
+        )
+
+
+def test_agentic_trace_rejects_different_manifest_identity_with_same_retrieval_config(
+    tmp_path: Path,
+) -> None:
+    dataset = make_dataset(tmp_path, 1)
+    parent_config = {
+        "top_k_sessions": 3,
+        "top_k_pages": 8,
+        "max_total_pages": 4,
+        "midterm_rag_threshold": 0.1,
+        "retrieval_method": "dense",
+        "query_representation": "original",
+        "manifest_sha256": {"manifest": "manifest-a"},
+    }
+    trace_path = tmp_path / "production_agentic_trace_source_a.jsonl"
+    _write_production_agentic_trace(trace_path, dataset, [(3, 5)], parent_config=parent_config)
+    changed = {**parent_config, "manifest_sha256": {"other-runtime": "manifest-b"}}
+
+    with pytest.raises(ValueError, match="parent retrieval identity mismatch"):
+        load_production_agentic_trace(
+            _agentic_trace_config([trace_path]),
+            dataset_sha256=dataset.sha256,
+            query_ids_by_session=_agentic_query_ids(dataset),
+            expected_parent_retrieval_identity=build_agentic_parent_retrieval_identity(changed),
+        )
+
+
+def test_agentic_discovery_aggregates_exact_variants_from_multiple_files(tmp_path: Path) -> None:
+    dataset = make_dataset(tmp_path, 1)
+    parent_config = {
+        "top_k_sessions": 3,
+        "top_k_pages": 8,
+        "max_total_pages": 4,
+        "retrieval_method": "dense",
+        "query_representation": "original",
+        "manifest_sha256": {"manifest": "manifest-a"},
+    }
+    results_root = tmp_path / "results"
+    results_root.mkdir()
+    first = results_root / "trace_1_5.jsonl"
+    second = results_root / "trace_3_1.jsonl"
+    _write_production_agentic_trace(first, dataset, [(1, 5)], parent_config=parent_config)
+    _write_production_agentic_trace(second, dataset, [(3, 1)], parent_config=parent_config)
+    expected = build_agentic_parent_retrieval_identity(parent_config)
+
+    discovered = ArtifactRegistry(tmp_path / "cache", results_root).discover_production_agentic_trace(
+        dataset_sha256=dataset.sha256,
+        query_ids_by_session=_agentic_query_ids(dataset),
+        expected_parent_retrieval_identity=expected,
+    )
+
+    assert discovered is not None
+    assert discovered["variants"] == [
+        {"max_queries": 1, "max_total_results": 5},
+        {"max_queries": 3, "max_total_results": 1},
+    ]
+    assert set(discovered["paths"]) == {str(first.resolve()), str(second.resolve())}
+    assert set(discovered["sha256"]) == {str(first.resolve()), str(second.resolve())}
+    assert discovered["parent_retrieval_identity"] == expected
+
+
+def test_agentic_multi_file_trace_rejects_mixed_parent_identities(tmp_path: Path) -> None:
+    dataset = make_dataset(tmp_path, 1)
+    parent_a = {"max_total_pages": 4, "manifest_sha256": {"manifest": "manifest-a"}}
+    parent_b = {"max_total_pages": 2, "manifest_sha256": {"manifest": "manifest-a"}}
+    first = tmp_path / "production_agentic_trace_parent_a.jsonl"
+    second = tmp_path / "production_agentic_trace_parent_b.jsonl"
+    _write_production_agentic_trace(first, dataset, [(1, 5)], parent_config=parent_a)
+    _write_production_agentic_trace(second, dataset, [(3, 1)], parent_config=parent_b)
+
+    with pytest.raises(ValueError, match="parent retrieval identity mismatch"):
+        load_production_agentic_trace(
+            _agentic_trace_config([first, second]),
+            dataset_sha256=dataset.sha256,
+            query_ids_by_session=_agentic_query_ids(dataset),
+            expected_parent_retrieval_identity=build_agentic_parent_retrieval_identity(parent_a),
+        )
+
+
+def test_agentic_multi_file_trace_rejects_conflicting_duplicate_variant_query(tmp_path: Path) -> None:
+    dataset = make_dataset(tmp_path, 1)
+    parent_config = {"max_total_pages": 4, "manifest_sha256": {"manifest": "manifest-a"}}
+    first = tmp_path / "production_agentic_trace_duplicate_a.jsonl"
+    second = tmp_path / "production_agentic_trace_duplicate_b.jsonl"
+    _write_production_agentic_trace(
+        first,
+        dataset,
+        [(1, 5)],
+        parent_config=parent_config,
+        supplement_label="first",
+    )
+    _write_production_agentic_trace(
+        second,
+        dataset,
+        [(1, 5)],
+        parent_config=parent_config,
+        supplement_label="conflicting",
+    )
+
+    with pytest.raises(ValueError, match="duplicate/conflicting"):
+        load_production_agentic_trace(
+            _agentic_trace_config([first, second]),
+            dataset_sha256=dataset.sha256,
+            query_ids_by_session=_agentic_query_ids(dataset),
+            expected_parent_retrieval_identity=build_agentic_parent_retrieval_identity(parent_config),
+        )
+
+
 def test_agentic_branch_generates_real_parameter_candidates_and_keeps_fixed_limits(tmp_path: Path) -> None:
     import yaml
 
@@ -1648,7 +1901,7 @@ def test_agentic_branch_generates_real_parameter_candidates_and_keeps_fixed_limi
     baseline.config.update({"max_queries": 3, "max_total_results": 5})
     trace_path = tmp_path / "production_agentic_trace.jsonl"
     variants = [(value, 5) for value in (1, 2, 3)] + [(3, value) for value in (1, 2, 3, 4)]
-    _write_production_agentic_trace(trace_path, dataset, variants)
+    _write_production_agentic_trace(trace_path, dataset, variants, parent_config=baseline.config)
     baseline.config.update(
         {
             "production_agentic_trace_paths": [str(trace_path)],
@@ -1693,7 +1946,7 @@ def test_agentic_candidates_enter_staged_tune_search(tmp_path: Path) -> None:
     baseline.config.update({"max_queries": 3, "max_total_results": 5})
     trace_path = tmp_path / "production_agentic_trace.jsonl"
     variants = [(value, 5) for value in (1, 2, 3)] + [(3, value) for value in (1, 2, 3, 4)]
-    _write_production_agentic_trace(trace_path, dataset, variants)
+    _write_production_agentic_trace(trace_path, dataset, variants, parent_config=baseline.config)
     baseline.config.update(
         {
             "production_agentic_trace_paths": [str(trace_path)],
@@ -1719,6 +1972,7 @@ def test_agentic_candidates_enter_staged_tune_search(tmp_path: Path) -> None:
             measured = result(candidate.name, 0.5)
             measured.config = candidate.config
             measured.stage = candidate.stage
+            measured.complexity = candidate.complexity
             values.append(measured)
         return values
 
@@ -1759,6 +2013,72 @@ def test_agentic_candidates_enter_staged_tune_search(tmp_path: Path) -> None:
     )
 
 
+def test_staged_agentic_rejects_baseline_trace_after_retrieval_anchor_changes(tmp_path: Path) -> None:
+    import yaml
+
+    dataset = make_dataset(tmp_path, 2)
+    baseline, _ = _production_branch_inputs(tmp_path, dataset)
+    baseline.config.update({"max_queries": 3, "max_total_results": 5})
+    trace_path = tmp_path / "production_agentic_trace_baseline_anchor.jsonl"
+    variants = [(value, 5) for value in (1, 2, 3)] + [(3, value) for value in (1, 2, 3, 4)]
+    _write_production_agentic_trace(trace_path, dataset, variants, parent_config=baseline.config)
+    baseline.config.update(_agentic_trace_config([trace_path]))
+    space = yaml.safe_load((SCRIPTS.parent / "search_space.yaml").read_text(encoding="utf-8"))
+    space["search"]["branch_coverage"] = {
+        "candidate_coverage_bottleneck": {
+            "relevant": {
+                "RetrievalControl": {"priority": 10, "minimum_attempts": 1, "coverage_class": "required"},
+                "AgenticRetrieval": {"priority": 20, "minimum_attempts": 1, "coverage_class": "required"},
+            }
+        }
+    }
+
+    def evaluate(candidates: Any, sessions: Any, scope: str) -> list[CandidateResult]:
+        del sessions, scope
+        values = []
+        for candidate in candidates:
+            recall = 0.8 if candidate.config.get("experiment_branch") == "RetrievalControl" else 0.5
+            measured = result(candidate.name, recall)
+            measured.config = candidate.config
+            measured.stage = candidate.stage
+            measured.complexity = candidate.complexity
+            values.append(measured)
+        return values
+
+    baseline_result = result("baseline", 0.5)
+    baseline_result.config = baseline.config
+    search = run_staged_search(
+        dataset=dataset,
+        baseline=baseline,
+        baseline_result=baseline_result,
+        tune_sessions=tuple(dataset.sessions),
+        registry=BranchRegistry([RetrievalControlBranch(), AgenticRetrievalBranch()]),
+        artifact_registry=ArtifactRegistry(tmp_path / "cache", tmp_path / "results"),
+        model_discovery=None,
+        run_dir=tmp_path / "run",
+        search_space=space,
+        budget="quick",
+        profile={
+            "max_stages": 2,
+            "max_cost_level": "medium",
+            "max_branches_per_stage": 1,
+            "max_candidates_per_stage": 20,
+            "tune_frontier": 5,
+            "max_expensive_candidates": 0,
+        },
+        k=5,
+        ranking_depth=20,
+        evaluate=evaluate,
+        diagnose=lambda _: {"regime": "candidate_coverage_bottleneck"},
+    )
+
+    agentic_event = next(event for event in search.branch_events if event["branch"] == "AgenticRetrieval")
+    assert agentic_event["stage_index"] == 2
+    assert agentic_event["status"] == "UNAVAILABLE"
+    assert "parent retrieval identity mismatch" in str(agentic_event["reason"])
+    assert not any(result.name.startswith("AgenticRetrieval:") for result in search.tune_results)
+
+
 def test_agentic_evaluator_uses_only_exact_production_supplement_trace(tmp_path: Path) -> None:
     original = make_dataset(tmp_path, 1)
     session_id = next(iter(original.sessions))
@@ -1790,19 +2110,23 @@ def test_agentic_evaluator_uses_only_exact_production_supplement_trace(tmp_path:
         encoding="utf-8",
     )
     trace_path = tmp_path / "production_agentic_trace.jsonl"
-    _write_production_agentic_trace(trace_path, dataset, [(1, 5)])
+    parent_config = {
+        "backend": "frozen_ranking",
+        "ranking_path": str(ranking_path),
+        "max_total_pages": 1,
+        "agentic_trace_enabled": True,
+        "max_queries": 1,
+        "max_total_results": 5,
+        "agentic_fixed_max_iterations": 2,
+        "agentic_fixed_max_tool_calls": 1,
+        "manifest_sha256": {"synthetic-manifest": "synthetic-production-source"},
+    }
+    _write_production_agentic_trace(trace_path, dataset, [(1, 5)], parent_config=parent_config)
     candidate = Candidate(
         "agentic-exact",
         "tune",
         {
-            "backend": "frozen_ranking",
-            "ranking_path": str(ranking_path),
-            "max_total_pages": 1,
-            "agentic_trace_enabled": True,
-            "max_queries": 1,
-            "max_total_results": 5,
-            "agentic_fixed_max_iterations": 2,
-            "agentic_fixed_max_tool_calls": 1,
+            **parent_config,
             "production_agentic_trace_paths": [str(trace_path)],
             "production_agentic_trace_sha256": {str(trace_path.resolve()): sha256_file(trace_path)},
         },
@@ -1834,6 +2158,58 @@ def test_agentic_evaluator_uses_only_exact_production_supplement_trace(tmp_path:
     blocked = evaluate_candidate(candidate=missing_trace, **common)
     assert blocked.status == "INVALID"
     assert "production_agentic_trace is missing" in blocked.metrics["invalid_reason"]
+
+
+def test_agentic_evaluator_rejects_parent_retrieval_identity_mismatch(tmp_path: Path) -> None:
+    dataset = make_dataset(tmp_path, 1)
+    session_id = next(iter(dataset.sessions))
+    target = dataset.sessions[session_id][-1]
+    ranking_path = tmp_path / "ordinary_midterm_parent_mismatch.jsonl"
+    ranking_path.write_text(
+        json.dumps({"query_id": target.query_id, "source_turn_id": "IRRELEVANT", "rank": 1}) + "\n",
+        encoding="utf-8",
+    )
+    traced_parent = {
+        "backend": "frozen_ranking",
+        "max_total_pages": 4,
+        "retrieval_method": "dense",
+        "query_representation": "original",
+        "manifest_sha256": {"manifest": "source-a"},
+    }
+    trace_path = tmp_path / "production_agentic_trace_evaluator_parent.jsonl"
+    _write_production_agentic_trace(trace_path, dataset, [(1, 5)], parent_config=traced_parent)
+    candidate = Candidate(
+        "agentic-parent-mismatch",
+        "tune",
+        {
+            **traced_parent,
+            "ranking_path": str(ranking_path),
+            "max_total_pages": 2,
+            "agentic_trace_enabled": True,
+            "max_queries": 1,
+            "max_total_results": 5,
+            "agentic_fixed_max_iterations": 2,
+            "agentic_fixed_max_tool_calls": 1,
+            **_agentic_trace_config([trace_path]),
+        },
+    )
+
+    evaluated = evaluate_candidate(
+        dataset=dataset,
+        candidate=candidate,
+        sessions=[session_id],
+        scope="agentic_parent_mismatch",
+        k=5,
+        target="midterm",
+        shortterm_window=3,
+        ranking_depth=20,
+        max_parallel_sessions=1,
+        registry=ArtifactRegistry(tmp_path / "cache", tmp_path / "results"),
+        run_dir=tmp_path / "run",
+    )
+
+    assert evaluated.status == "INVALID"
+    assert evaluated.metrics["invalid_reason"] == "production Agentic trace parent retrieval identity mismatch"
 
 
 class _StaticBranch:

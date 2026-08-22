@@ -303,7 +303,7 @@ split_manifest.json
 - dense/keyword score weight；
 - 在现有 artifact 支持下的低成本 lexical fusion。
 
-所有实验通过 Branch Registry 注册。首阶段运行 `RetrievalControl`；后续诊断可开启 Query Prompt 迭代、派生 Page representation、dense+Qdrant-BM25、field-aware 或 reranking。新 dataset 不要求预先存在 frozen Query/Page artifact：完全匹配 provenance 时复用，否则自动生成。改变 Page/Query/embedding 的 Branch 必须生成或复用派生 artifact，不能冒充 production baseline。
+所有实验通过 Branch Registry 注册。首阶段运行 `RetrievalControl`；后续诊断可开启 Query Prompt 迭代、派生 Page representation、dense+Qdrant-BM25、field-aware 或 reranking。新 dataset 不要求预先存在 frozen Query/Page artifact：完全匹配 provenance 时复用，否则自动生成。Query/Page representation Branch 必须生成或复用匹配的派生 artifact；Embedding model Branch 必须重新执行真实 Production Add、Page generation 和 Session formation。两者都不能冒充 production baseline。
 
 使用分阶段搜索，不要直接跑完整 Cartesian grid。
 
@@ -333,7 +333,7 @@ split_manifest.json
 每个 Branch 必须声明名称、诊断 regime、cost level、required artifacts、candidate generation、execution adapter、provenance contract 和资源需求。当前 Registry 包含：
 
 - `RetrievalControl`；
-- `AgenticRetrieval`（仅消费完整、精确参数匹配的 `production_agentic_trace`；缺失时明确 `UNAVAILABLE`）；
+- `AgenticRetrieval`（仅消费 dataset、当前 Anchor retrieval/source/query/LongTerm parent identity 以及精确参数组合全部匹配的 `production_agentic_trace`；缺失或 parent mismatch 时明确 `UNAVAILABLE`）；
 - `QueryRewritePrompt`（当前 Query Prompt 搜索的唯一可达 Branch；旧 `QueryRepresentation` 仅保留兼容 adapter，不进入默认 coverage）；
 - `PageRepresentation`；
 - `HybridRetrieval`；

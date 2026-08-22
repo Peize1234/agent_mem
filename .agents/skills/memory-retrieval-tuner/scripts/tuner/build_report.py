@@ -283,7 +283,11 @@ def write_outputs(
             f"- Temporal provenance: `{temporal.get('provenance', {})}`",
             "- Cross-session Long-term and Promotion parameter tuning is unsupported in this benchmark: production defaults are unchanged, excluded from winner selection, and not reported as tuned. Structural replay is not evaluated.",
             f"- Production Agentic trace: `{run_metadata.get('production_agentic_trace_status', 'UNAVAILABLE')}`; "
-            "`max_queries` / `max_total_results` are searched only through complete exact-parameter production Agentic traces. Missing traces are reported unavailable, and ignored `candidate_pool_size` is never reported as tuned.",
+            "`max_queries` / `max_total_results` are searched only through complete production Agentic traces whose dataset, current Anchor retrieval/source/query/LongTerm parent identity, and exact parameter variant all match. Missing or parent-mismatched traces are reported unavailable, and ignored `candidate_pool_size` is never reported as tuned.",
+            f"- Production Agentic parent identity SHA-256: "
+            f"`{run_metadata.get('production_agentic_parent_retrieval_identity_sha256') or 'N/A'}`",
+            f"- Production Agentic unavailable reason: "
+            f"`{run_metadata.get('production_agentic_trace_unavailable_reason') or 'N/A'}`",
             "- Production isolation: diagnostic trace, hybrid presets, Prompt overrides, and the tuner Agentic/Mid-term union cap are Skill-only; they do not add state or experimental branches to production classes.",
             f"- Stateful replay: `{run_metadata.get('stateful_replay_status', 'not recorded')}`",
             f"- Stateful replay Candidates: `{run_metadata.get('stateful_replay_candidates', [])}`",
@@ -326,7 +330,7 @@ def write_outputs(
             f"- MidTerm baseline prompt provenance: "
             f"`{(run_metadata.get('midterm_baseline_provenance') or {}).get('prompt_provenance') or 'explicit prompt hashes validated'}`.",
             "- Frozen rankings are eligible only when dataset provenance and the `production_midterm_v1` retrieval contract validate.",
-            "- Query/Page/embedding variants are derived from production MidTerm checkpoints and remain explicitly marked as Benchmark candidates, not production behavior.",
+            "- Query/Page representation variants may be derived from matching production artifacts. Embedding model changes instead regenerate isolated Production sources through real Add, Page generation, and Session formation before evaluation; all remain explicitly marked as Benchmark candidates, not production behavior.",
             "- Query Rewrite requires standard/deep budget; Page Summary, Session Merge and Fine-grained LongTerm Extraction prompt branches require deep budget. Missing API/model resources are recorded as unavailable rather than replaced by surrogate artifacts.",
         )
     )

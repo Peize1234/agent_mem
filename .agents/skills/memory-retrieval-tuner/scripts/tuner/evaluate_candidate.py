@@ -10,6 +10,7 @@ from typing import Any, Mapping, Sequence
 
 from .agentic_retrieval_artifacts import (
     agentic_supplement_rows,
+    build_agentic_parent_retrieval_identity,
     load_production_agentic_trace,
 )
 from .artifact_registry import ArtifactRegistry
@@ -821,6 +822,7 @@ def evaluate_candidate(
         if candidate.config.get("backend") != "frozen_ranking":
             validate_candidate_config(candidate.config)
         if candidate.config.get("agentic_trace_enabled") is True:
+            expected_parent_identity = build_agentic_parent_retrieval_identity(candidate.config)
             trace = load_production_agentic_trace(
                 candidate.config,
                 dataset_sha256=dataset.sha256,
@@ -828,6 +830,7 @@ def evaluate_candidate(
                     session_id: [turn.query_id for turn in turns]
                     for session_id, turns in dataset.sessions.items()
                 },
+                expected_parent_retrieval_identity=expected_parent_identity,
             )
             agentic = agentic_supplement_rows(
                 trace,

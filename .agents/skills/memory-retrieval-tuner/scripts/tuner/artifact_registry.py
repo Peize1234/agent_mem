@@ -459,13 +459,16 @@ class ArtifactRegistry:
         *,
         dataset_sha256: str,
         query_ids_by_session: Mapping[str, Sequence[str]],
+        expected_parent_retrieval_identity: Mapping[str, Any],
         source_run: Path | None = None,
     ) -> dict[str, Any] | None:
         """Find a complete exact-parameter production Agentic fallback trace.
 
         Ordinary recall traces are deliberately not considered. A usable
-        artifact must use the dedicated production Agentic schema and contain
-        a complete execution for each variant that it advertises.
+        artifact must use the dedicated production Agentic schema, match the
+        expected Anchor parent identity, and contain a complete execution for
+        each variant that it advertises. Matching files are aggregated before
+        exact-variant completeness is checked.
         """
 
         from .agentic_retrieval_artifacts import load_production_agentic_trace
@@ -475,7 +478,12 @@ class ArtifactRegistry:
             roots.insert(0, source_run if source_run.is_dir() else source_run.parent)
         candidates: set[Path] = set()
         for root in roots:
-            candidates.update(path.resolve() for path in root.glob("**/production_agentic_trace*.jsonl"))
+            for pattern in (
+                "**/production_agentic_trace*.jsonl",
+                "**/agentic_trace*.jsonl",
+                "**/trace_[1-3]_[1-5].jsonl",
+            ):
+                candidates.update(path.resolve() for path in root.glob(pattern))
             for metadata_path in root.glob("**/run_metadata.json"):
                 try:
                     metadata = load_json(metadata_path)
@@ -485,19 +493,39 @@ class ArtifactRegistry:
                     continue
                 for value in _string_values(metadata):
                     path = Path(value).expanduser()
-                    if path.name.startswith("production_agentic_trace") and path.suffix == ".jsonl" and path.exists():
+                    if path.suffix == ".jsonl" and path.exists():
                         candidates.add(path.resolve())
+        matching: list[Path] = []
+        expected_parent = dict(expected_parent_retrieval_identity)
+        parent_mismatch_found = False
         for path in sorted(candidates):
             try:
-                trace = load_production_agentic_trace(
-                    {"production_agentic_trace": str(path)},
-                    dataset_sha256=dataset_sha256,
-                    query_ids_by_session=query_ids_by_session,
-                )
-            except (OSError, ValueError, json.JSONDecodeError):
+                rows = load_jsonl(path)
+            except (OSError, json.JSONDecodeError):
                 continue
-            return trace.serializable()
-        return None
+            dataset_rows = [row for row in rows if row.get("dataset_sha256") == dataset_sha256]
+            if any(
+                isinstance(row.get("parent_retrieval_identity"), Mapping)
+                and dict(row["parent_retrieval_identity"]) == expected_parent
+                for row in dataset_rows
+            ):
+                matching.append(path)
+            elif dataset_rows:
+                parent_mismatch_found = True
+        if not matching:
+            if parent_mismatch_found:
+                raise ValueError("production Agentic trace parent retrieval identity mismatch")
+            return None
+        try:
+            trace = load_production_agentic_trace(
+                {"production_agentic_trace_paths": [str(path) for path in matching]},
+                dataset_sha256=dataset_sha256,
+                query_ids_by_session=query_ids_by_session,
+                expected_parent_retrieval_identity=expected_parent,
+            )
+        except (OSError, json.JSONDecodeError):
+            return None
+        return trace.serializable()
 
     def discover_production_midterm(
         self,
