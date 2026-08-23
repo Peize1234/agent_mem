@@ -248,6 +248,8 @@ def test_midterm_config_defaults():
     config = MemoryConfig()
     assert config.midterm.enabled is True
     assert config.midterm.short_term_capacity == 10
+    assert config.midterm.top_k_sessions == 5
+    assert config.midterm.top_k_pages == 5
     assert config.midterm.max_total_pages == 4
     assert config.midterm.midterm_rag_threshold == 0.1
     assert config.longterm_rag_threshold == 0.1
@@ -265,13 +267,14 @@ def test_midterm_config_defaults():
     assert config.midterm.promotion_heat_threshold == 5.0
 
 
-def test_midterm_config_rejects_negative_page_limits():
-    with pytest.raises(ValueError):
-        MidTermMemoryConfig(top_k_sessions=-1)
-    with pytest.raises(ValueError):
-        MidTermMemoryConfig(top_k_pages=-1)
-    with pytest.raises(ValueError):
-        MidTermMemoryConfig(max_total_pages=-1)
+@pytest.mark.parametrize("field_name", ["top_k_sessions", "top_k_pages", "max_total_pages"])
+def test_midterm_config_requires_positive_retrieval_limits(field_name):
+    for invalid_value in (-1, 0):
+        with pytest.raises(ValueError):
+            MidTermMemoryConfig(**{field_name: invalid_value})
+
+    config = MidTermMemoryConfig(**{field_name: 1})
+    assert getattr(config, field_name) == 1
 
 
 def _midterm_row(row_id, score, **payload):
@@ -408,8 +411,8 @@ def test_midterm_retriever_returns_all_pages_when_candidates_below_limit():
     assert [page["id"] for page in pages] == ["p1", "p2"]
 
 
-def test_midterm_production_config_retains_historical_page_budget_range():
-    assert _retriever_config(max_total_pages=0).max_total_pages == 0
+def test_midterm_production_config_accepts_positive_page_budgets_without_upper_cap():
+    assert _retriever_config(max_total_pages=1).max_total_pages == 1
     assert _retriever_config(max_total_pages=6).max_total_pages == 6
 
 

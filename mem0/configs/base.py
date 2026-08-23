@@ -58,9 +58,9 @@ class MidTermMemoryConfig(BaseModel):
     session_similarity_threshold: float = Field(0.8, description="Minimum score for assigning a page to a session")
     embedding_similarity_weight: float = Field(0.7, description="Weight for embedding similarity during topic routing")
     keyword_overlap_weight: float = Field(0.3, description="Weight for keyword overlap during topic routing")
-    top_k_sessions: int = Field(5, ge=0, description="Number of mid-term sessions to retrieve")
-    top_k_pages: int = Field(5, ge=0, description="Number of candidate mid-term pages to retrieve per session")
-    max_total_pages: int = Field(4, ge=0, description="Maximum total mid-term pages to return")
+    top_k_sessions: int = Field(5, ge=1, description="Number of mid-term sessions to retrieve")
+    top_k_pages: int = Field(5, ge=1, description="Number of candidate mid-term pages to retrieve per session")
+    max_total_pages: int = Field(4, ge=1, description="Maximum total mid-term pages to return")
     # The production retriever uses this only for global Page supplementation.
     # Keep the historical multiplier as the default while making experiments explicit.
     midterm_candidate_pool_multiplier: int = Field(4, ge=1, le=8)

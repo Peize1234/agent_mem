@@ -249,7 +249,7 @@ search:
       max_rounds: 2
     Reranking:
       enabled: true
-      max_rounds: 1
+      max_rounds: 2
     Embedding:
       enabled: true
       max_rounds: 1

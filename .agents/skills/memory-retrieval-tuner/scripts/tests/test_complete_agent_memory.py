@@ -419,9 +419,15 @@ def test_max_total_pages_searches_every_legal_final_budget() -> None:
 def test_hard_constraints_and_parameter_classes() -> None:
     space = yaml.safe_load((Path(__file__).resolve().parents[2] / "search_space.yaml").read_text())
     classes = space["parameters"]["classes"]
+    constraints = space["parameters"]["hard_constraints"]
     validate_candidate_config({"max_total_pages": 5, "longterm_top_k": 30, "midterm_candidate_pool_multiplier": 8})
     with pytest.raises(ValueError):
         validate_candidate_config({"max_total_pages": 6})
+    for name in ("top_k_sessions", "top_k_pages", "max_total_pages"):
+        assert constraints[name]["min"] == 1
+        validate_candidate_config({name: 1})
+        with pytest.raises(ValueError):
+            validate_candidate_config({name: 0})
     with pytest.raises(ValueError):
         validate_candidate_config({"short_term_capacity": 5})
     with pytest.raises(ValueError):
@@ -430,7 +436,7 @@ def test_hard_constraints_and_parameter_classes() -> None:
     assert "top_k_sessions" in classes["query_time_retrieval_only"]
     assert "top_k_sessions" not in classes["source_changing"]
     assert "fusion_method" in classes["query_time_retrieval_only"]
-    assert space["parameters"]["hard_constraints"]["fusion_method"]["allowed"] == ["normalized_score", "rrf"]
+    assert constraints["fusion_method"]["allowed"] == ["normalized_score", "rrf"]
     assert parameter_class("retention_half_life_turns") == "within-session-stateful"
     assert parameter_class("cross_session_retention_half_life_hours") == "cross-session-temporal-stateful"
     assert parameter_class("max_total_pages") == "query-time"

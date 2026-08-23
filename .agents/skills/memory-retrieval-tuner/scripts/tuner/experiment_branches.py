@@ -874,7 +874,29 @@ class RerankingBranch(BaseBranch):
         candidates = []
         unavailable: list[str] = []
         method_limit = int(rerank_config.get("max_methods_standard") or 1) if context.budget == "standard" else 99
-        if context.budget in {"standard", "deep"} and method_limit > 0 and "auto_discovered_cross_encoder" in methods:
+        if context.budget not in {"standard", "deep"}:
+            return BranchOutcome(self.spec.name, "BUDGET_BLOCKED", reason="cross-encoder reranking requires standard")
+        if method_limit <= 0 or "auto_discovered_cross_encoder" not in methods:
+            return BranchOutcome(self.spec.name, "UNAVAILABLE", reason="cross-encoder reranking is disabled")
+
+        from mem0.configs.base import MidTermMemoryConfig
+
+        anchor_reranker = dict(context.anchor.config.get("reranker") or {})
+        reference_depth = int(
+            context.anchor.config.get("rerank_depth")
+            or anchor_reranker.get("rerank_depth")
+            or MidTermMemoryConfig().reranker.rerank_depth
+        )
+        configured_depths = rerank_config.get("rerank_depth") or [reference_depth]
+        depths = sorted({int(depth) for depth in configured_depths if 1 <= int(depth) <= 100})
+        if not depths:
+            return BranchOutcome(
+                self.spec.name,
+                "UNAVAILABLE",
+                reason="rerank_depth has no values within the Production range 1..100",
+            )
+
+        if context.generation_round == 1:
             allow_network = context.budget == "deep"
             model_limit = int(rerank_config.get("max_models_deep" if allow_network else "max_models_standard") or 2)
             models = context.model_discovery.discover(
@@ -883,7 +905,6 @@ class RerankingBranch(BaseBranch):
                 general_limit=model_limit,
                 finance_limit=1 if allow_network else 0,
             )
-            available_models = []
             for model in models[: max(0, model_limit)]:
                 model = context.model_discovery.ensure_available(model, allow_download=allow_network)
                 model = context.model_discovery.smoke_test(
@@ -892,48 +913,62 @@ class RerankingBranch(BaseBranch):
                 if model.status != "SMOKE_PASSED":
                     unavailable.append(f"{model.model_id}: {model.status}")
                     continue
-                available_models.append(model)
-
-            from mem0.configs.base import MidTermMemoryConfig
-
-            anchor_reranker = dict(context.anchor.config.get("reranker") or {})
-            reference_depth = int(
-                context.anchor.config.get("rerank_depth")
-                or anchor_reranker.get("rerank_depth")
-                or MidTermMemoryConfig().reranker.rerank_depth
+                candidates.append(
+                    _candidate(
+                        context,
+                        branch=self.spec.name,
+                        label=f"cross_encoder={model.model_id.replace('/', '--')},depth={reference_depth}",
+                        cost_level=self.spec.cost_level,
+                        complexity=3,
+                        provenance={"model_discovery": model.serializable(), "provenance_validated": True},
+                        reranker_method="cross_encoder",
+                        reranker_model_id=model.model_id,
+                        reranker_model_revision=model.revision,
+                        reranker_model_path=model.local_path,
+                        rerank_depth=reference_depth,
+                    )
+                )
+        else:
+            applied_branches = set(context.anchor.config.get("applied_branches") or [])
+            has_reranking_lineage = (
+                context.anchor.config.get("experiment_branch") == self.spec.name
+                or self.spec.name in applied_branches
             )
-            configured_depths = rerank_config.get("rerank_depth") or [reference_depth]
-            depths = sorted({int(depth) for depth in configured_depths if 1 <= int(depth) <= 100})
-            if not depths:
+            prior_frontier_winner = any(bool(record.get("frontier_winner")) for record in context.branch_history)
+            model_id = context.anchor.config.get("reranker_model_id")
+            model_revision = context.anchor.config.get("reranker_model_revision")
+            model_path = context.anchor.config.get("reranker_model_path")
+            if (
+                not has_reranking_lineage
+                or not prior_frontier_winner
+                or context.anchor.config.get("reranker_method") != "cross_encoder"
+                or not model_id
+                or not model_revision
+                or not model_path
+            ):
                 return BranchOutcome(
                     self.spec.name,
-                    "UNAVAILABLE",
-                    reason="rerank_depth has no values within the Production range 1..100",
+                    "NOT_TRIGGERED",
+                    reason="depth refinement requires the evaluated Reranking frontier winner as current anchor",
                 )
-
-            # Stage model selection at one Production reference depth, then
-            # scan depth only for the first viable model. This exposes both
-            # dimensions without constructing the full model x depth grid.
-            for model_index, model in enumerate(available_models):
-                model_depths = [reference_depth]
-                if model_index == 0:
-                    model_depths.extend(depth for depth in depths if depth != reference_depth)
-                for depth in model_depths:
-                    candidates.append(
-                        _candidate(
-                            context,
-                            branch=self.spec.name,
-                            label=f"cross_encoder={model.model_id.replace('/', '--')},depth={depth}",
-                            cost_level=self.spec.cost_level,
-                            complexity=3,
-                            provenance={"model_discovery": model.serializable(), "provenance_validated": True},
-                            reranker_method="cross_encoder",
-                            reranker_model_id=model.model_id,
-                            reranker_model_revision=model.revision,
-                            reranker_model_path=model.local_path,
-                            rerank_depth=depth,
-                        )
+            current_depth = int(context.anchor.config.get("rerank_depth") or reference_depth)
+            for depth in depths:
+                if depth == current_depth:
+                    continue
+                candidates.append(
+                    _candidate(
+                        context,
+                        branch=self.spec.name,
+                        label=f"cross_encoder={str(model_id).replace('/', '--')},depth={depth}",
+                        cost_level=self.spec.cost_level,
+                        complexity=1,
+                        reranker_method="cross_encoder",
+                        reranker_model_id=model_id,
+                        reranker_model_revision=model_revision,
+                        reranker_model_path=model_path,
+                        rerank_depth=depth,
                     )
+                )
         return BranchOutcome(
             self.spec.name,
             "READY",

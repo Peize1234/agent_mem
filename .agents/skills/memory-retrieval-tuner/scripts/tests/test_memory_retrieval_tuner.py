@@ -3174,16 +3174,19 @@ def _branch_context(
     dataset: Dataset,
     baseline: Candidate,
     *,
+    anchor: Candidate | None = None,
     budget: str = "standard",
     generation_round: int = 1,
+    branch_history: tuple[dict[str, Any], ...] = (),
     model_discovery: Any = None,
     search_space: dict[str, Any] | None = None,
 ) -> BranchContext:
+    active_anchor = anchor or baseline
     return BranchContext(
         dataset=dataset,
         baseline=baseline,
-        anchor=baseline,
-        anchor_result=result("baseline", 0.4),
+        anchor=active_anchor,
+        anchor_result=result(active_anchor.name, 0.4),
         diagnostic={
             "regime": "candidate_coverage_bottleneck",
             "recall_4k_minus_k_pp": 30.0,
@@ -3209,6 +3212,7 @@ def _branch_context(
         model_discovery=model_discovery,
         stage_index=generation_round,
         generation_round=generation_round,
+        branch_history=branch_history,
         execution_settings={"max_parallel_sessions": 2, "max_parallel_llm_calls": 2},
     )
 
@@ -4004,7 +4008,7 @@ def test_reranker_budget_uses_local_first_and_network_only_for_deep(
     assert all(candidate.config.get("reranker_method") != removed_method for candidate in outcome.candidates)
 
 
-def test_midterm_reranking_searches_explicit_depths_without_model_depth_cartesian_product(tmp_path: Path) -> None:
+def test_midterm_reranking_screens_models_at_production_reference_depth(tmp_path: Path) -> None:
     import yaml
 
     dataset = make_dataset(tmp_path, 1)
@@ -4015,8 +4019,8 @@ def test_midterm_reranking_searches_explicit_depths_without_model_depth_cartesia
 
         def discover(self, **_: Any) -> list[ModelCandidate]:
             return [
-                ModelCandidate("local/reranker-a", "reranker", "local_huggingface_cache"),
-                ModelCandidate("local/reranker-b", "reranker", "local_huggingface_cache"),
+                ModelCandidate("local/reranker-a", "reranker", "local_huggingface_cache", revision="revision-a"),
+                ModelCandidate("local/reranker-b", "reranker", "local_huggingface_cache", revision="revision-b"),
             ]
 
         def ensure_available(self, candidate: ModelCandidate, **_: Any) -> ModelCandidate:
@@ -4029,7 +4033,6 @@ def test_midterm_reranking_searches_explicit_depths_without_model_depth_cartesia
             return candidate
 
     space = yaml.safe_load((SCRIPTS.parent / "search_space.yaml").read_text(encoding="utf-8"))
-    configured_depths = set(space["search"]["stages"]["secondary"]["reranking"]["rerank_depth"])
     context = _branch_context(
         tmp_path,
         dataset,
@@ -4040,18 +4043,117 @@ def test_midterm_reranking_searches_explicit_depths_without_model_depth_cartesia
     )
 
     outcome = RerankingBranch().generate(context)
-    by_model: dict[str, set[int]] = {}
+    reference_depth = MidTermMemoryConfig().reranker.rerank_depth
+
+    assert outcome.status == "READY"
+    assert space["search"]["branch_registry"]["Reranking"]["max_rounds"] == 2
+    assert len(outcome.candidates) == 2
+    assert {candidate.config["reranker_model_id"] for candidate in outcome.candidates} == {
+        "local/reranker-a",
+        "local/reranker-b",
+    }
+    assert {candidate.config["rerank_depth"] for candidate in outcome.candidates} == {reference_depth}
     for candidate in outcome.candidates:
-        by_model.setdefault(candidate.config["reranker_model_id"], set()).add(candidate.config["rerank_depth"])
+        production = ProductionMidtermAdapter._validated_production_config(candidate.config)
+        assert production.midterm.reranker.method == "cross_encoder"
+        assert production.midterm.reranker.rerank_depth == reference_depth
+
+
+def test_midterm_reranking_refines_only_the_evaluated_frontier_model_depth(tmp_path: Path) -> None:
+    import yaml
+
+    dataset = make_dataset(tmp_path, 1)
+    baseline, _ = _production_branch_inputs(tmp_path, dataset)
+
+    class StageDiscovery:
+        resources = SimpleNamespace(gpu_count=0)
+
+        def __init__(self) -> None:
+            self.refining = False
+
+        def discover(self, **_: Any) -> list[ModelCandidate]:
+            if self.refining:
+                raise AssertionError("depth refinement must inherit the winning model without rediscovery")
+            return [
+                ModelCandidate("local/reranker-a", "reranker", "local_huggingface_cache", revision="revision-a"),
+                ModelCandidate("local/reranker-b", "reranker", "local_huggingface_cache", revision="revision-b"),
+            ]
+
+        def ensure_available(self, candidate: ModelCandidate, **_: Any) -> ModelCandidate:
+            candidate.status = "AVAILABLE"
+            candidate.local_path = f"/tmp/{candidate.model_id.rsplit('/', 1)[-1]}"
+            return candidate
+
+        def smoke_test(self, candidate: ModelCandidate, **_: Any) -> ModelCandidate:
+            candidate.status = "SMOKE_PASSED"
+            return candidate
+
+    space = yaml.safe_load((SCRIPTS.parent / "search_space.yaml").read_text(encoding="utf-8"))
+    discovery = StageDiscovery()
+    screening = RerankingBranch().generate(
+        _branch_context(
+            tmp_path,
+            dataset,
+            baseline,
+            model_discovery=discovery,
+            search_space=space,
+        )
+    )
+    winning_anchor = next(
+        candidate for candidate in screening.candidates if candidate.config["reranker_model_id"] == "local/reranker-b"
+    )
+    discovery.refining = True
+    context = _branch_context(
+        tmp_path,
+        dataset,
+        baseline,
+        anchor=winning_anchor,
+        budget="standard",
+        generation_round=2,
+        branch_history=(
+            {
+                "generation_round": 1,
+                "best_candidate": winning_anchor.name,
+                "frontier_winner": True,
+            },
+        ),
+        model_discovery=discovery,
+        search_space=space,
+    )
+
+    outcome = RerankingBranch().generate(context)
+
+    assert outcome.status == "READY"
+    assert {candidate.config["rerank_depth"] for candidate in outcome.candidates} == {10, 20, 50}
+    assert {candidate.config["reranker_model_id"] for candidate in outcome.candidates} == {"local/reranker-b"}
+    assert {candidate.config["reranker_model_revision"] for candidate in outcome.candidates} == {"revision-b"}
+    assert {candidate.config["reranker_model_path"] for candidate in outcome.candidates} == {"/tmp/reranker-b"}
+    for candidate in outcome.candidates:
+        assert candidate.provenance["model_discovery"] == winning_anchor.provenance["model_discovery"]
         production = ProductionMidtermAdapter._validated_production_config(candidate.config)
         assert production.midterm.reranker.method == "cross_encoder"
         assert production.midterm.reranker.rerank_depth == candidate.config["rerank_depth"]
 
-    assert {candidate.config["rerank_depth"] for candidate in outcome.candidates} == configured_depths
-    assert set(by_model) == {"local/reranker-a", "local/reranker-b"}
-    assert by_model["local/reranker-a"] == configured_depths
-    assert by_model["local/reranker-b"] == {MidTermMemoryConfig().reranker.rerank_depth}
-    assert len(outcome.candidates) == len(configured_depths) + len(by_model) - 1
+
+def test_midterm_reranking_does_not_refine_depth_without_a_winning_reranking_anchor(tmp_path: Path) -> None:
+    import yaml
+
+    dataset = make_dataset(tmp_path, 1)
+    baseline, _ = _production_branch_inputs(tmp_path, dataset)
+    space = yaml.safe_load((SCRIPTS.parent / "search_space.yaml").read_text(encoding="utf-8"))
+    context = _branch_context(
+        tmp_path,
+        dataset,
+        baseline,
+        generation_round=2,
+        branch_history=({"generation_round": 1, "frontier_winner": True},),
+        search_space=space,
+    )
+
+    outcome = RerankingBranch().generate(context)
+
+    assert outcome.status == "NOT_TRIGGERED"
+    assert outcome.candidates == []
 
 
 def test_removed_field_aware_method_cannot_generate_a_tuner_candidate(tmp_path: Path) -> None:
