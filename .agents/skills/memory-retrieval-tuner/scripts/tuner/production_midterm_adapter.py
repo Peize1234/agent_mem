@@ -34,7 +34,13 @@ from .benchmark_support import (
 )
 from .diagnostic_midterm_retriever import DiagnosticMidTermRetriever
 from .fact_evaluator import fact_member_hit, parse_required_context
-from .io_utils import atomic_write_json, load_jsonl, sha256_file, stable_hash, write_jsonl
+from .io_utils import (
+    atomic_write_json,
+    load_jsonl,
+    sha256_file,
+    stable_hash,
+    write_jsonl,
+)
 from .parameter_schema import production_overrides_from_candidate
 from .production_runtime import create_production_memory
 
@@ -52,7 +58,10 @@ def production_prompt_hashes(
     fine_grained_longterm_extraction_prompt: str | None = None,
     session_longterm_extraction_prompt: str | None = None,
 ) -> dict[str, str]:
-    from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT, MIDTERM_SESSION_MERGE_PROMPT
+    from mem0.configs.midterm_prompts import (
+        MIDTERM_PAGE_SUMMARY_PROMPT,
+        MIDTERM_SESSION_MERGE_PROMPT,
+    )
     from mem0.configs.prompts import ADDITIVE_EXTRACTION_PROMPT
 
     return {
@@ -1239,25 +1248,25 @@ class ProductionMidtermAdapter:
         return MemoryConfig(**_deep_merge_config(base, overrides))
 
     @staticmethod
-    def _production_reranker(memory_config: Any) -> Any | None:
-        needs_reranker = any(
-            layer.reranker.method == "cross_encoder"
-            for layer in (memory_config.midterm, memory_config.fine_grained_longterm)
-        )
-        if not needs_reranker:
+    def _create_layer_reranker(memory_config: Any, layer_name: str) -> Any | None:
+        layer = getattr(memory_config, layer_name)
+        if layer.reranker.method != "cross_encoder":
             return None
-        from mem0.reranker.concurrency import RerankerConcurrencyGuard
-        from mem0.utils.factory import RerankerFactory
+        from mem0.reranker.concurrency import create_layer_reranker
 
-        configured = memory_config.reranker
-        return RerankerConcurrencyGuard(
-            RerankerFactory.create(
-                configured.provider,
-                configured.config,
-                timeout_seconds=memory_config.reranker_timeout_seconds,
-            ),
-            max_concurrency=configured.max_concurrency,
+        backend = layer.reranker.backend or memory_config.reranker
+        return create_layer_reranker(
+            backend,
+            timeout_seconds=memory_config.reranker_timeout_seconds,
         )
+
+    @staticmethod
+    def _create_midterm_reranker(memory_config: Any) -> Any | None:
+        return ProductionMidtermAdapter._create_layer_reranker(memory_config, "midterm")
+
+    @staticmethod
+    def _create_fine_grained_longterm_reranker(memory_config: Any) -> Any | None:
+        return ProductionMidtermAdapter._create_layer_reranker(memory_config, "fine_grained_longterm")
 
     @staticmethod
     def _rank_fine_grained_longterm(
@@ -1265,7 +1274,7 @@ class ProductionMidtermAdapter:
         *,
         query: str,
         production_config: Any,
-        reranker: Any | None,
+        fine_grained_longterm_reranker: Any | None,
     ) -> list[dict[str, Any]]:
         """Convert production FineGrainedLongTerm replay results into benchmark rows."""
         pool = checkpoint.get("longterm_candidate_pool") or {}
@@ -1282,7 +1291,7 @@ class ProductionMidtermAdapter:
             embedding_model=None,
             entity_store_provider=lambda: None,
             config=fine_config,
-            reranker=reranker,
+            reranker=fine_grained_longterm_reranker,
             payload_is_expired=_payload_is_expired,
         )
         results = retriever.rank_frozen(
@@ -1341,7 +1350,9 @@ class ProductionMidtermAdapter:
             checkpoint,
             query=str(checkpoint.get("retrieval_query") or checkpoint.get("query") or ""),
             production_config=production_config,
-            reranker=None,
+            fine_grained_longterm_reranker=ProductionMidtermAdapter._create_fine_grained_longterm_reranker(
+                production_config
+            ),
         )
 
     def rank(self, checkpoint: Mapping[str, Any], config: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -1351,7 +1362,8 @@ class ProductionMidtermAdapter:
 
         self.supported(config)
         production_config = self._validated_production_config(config)
-        reranker = self._production_reranker(production_config)
+        midterm_reranker = self._create_midterm_reranker(production_config)
+        fine_grained_longterm_reranker = self._create_fine_grained_longterm_reranker(production_config)
         derived = self._derived_payload(config)
         query_id = str(checkpoint["query_id"])
         query = str(
@@ -1418,7 +1430,7 @@ class ProductionMidtermAdapter:
             retriever = DiagnosticMidTermRetriever(
                 memory,
                 production_config.midterm,
-                reranker=reranker,
+                reranker=midterm_reranker,
             )
             results = retriever.search(query, dict(checkpoint["filters"]), record_visits=False)
             job_map = {
@@ -1454,7 +1466,7 @@ class ProductionMidtermAdapter:
                 checkpoint,
                 query=query,
                 production_config=production_config,
-                reranker=reranker,
+                fine_grained_longterm_reranker=fine_grained_longterm_reranker,
             )
             return [{**row, "rank": rank} for rank, row in enumerate([*ranking, *longterm_ranking], start=1)]
         finally:

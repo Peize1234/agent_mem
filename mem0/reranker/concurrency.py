@@ -1,4 +1,4 @@
-"""Concurrency protection for one shared production reranker instance."""
+"""Concurrency protection for one production reranker instance."""
 
 from __future__ import annotations
 
@@ -7,9 +7,11 @@ import threading
 from contextlib import asynccontextmanager
 from typing import Any
 
+from mem0.configs.rerankers.config import RerankerConfig
+
 
 class RerankerConcurrencyGuard:
-    """Bound sync and async calls with one non-blocking shared semaphore."""
+    """Bound sync and async calls for one instance with a non-blocking semaphore."""
 
     def __init__(self, delegate: Any, max_concurrency: int = 1):
         self.delegate = delegate
@@ -45,3 +47,19 @@ class RerankerConcurrencyGuard:
     ):
         async with self._async_slot():
             return await asyncio.to_thread(self.delegate.rerank, query, documents, top_k)
+
+
+def create_layer_reranker(backend: RerankerConfig | None, *, timeout_seconds: float) -> Any | None:
+    """Build one independently guarded production reranker for a retrieval layer."""
+    if backend is None:
+        return None
+
+    # Import lazily so the guard remains usable without loading provider factories.
+    from mem0.utils.factory import RerankerFactory
+
+    delegate = RerankerFactory.create(
+        backend.provider,
+        backend.config,
+        timeout_seconds=timeout_seconds,
+    )
+    return RerankerConcurrencyGuard(delegate, max_concurrency=backend.max_concurrency)

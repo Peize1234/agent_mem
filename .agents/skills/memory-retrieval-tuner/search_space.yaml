@@ -452,9 +452,8 @@ search:
       reranking:
         min_deep_recall_gap_pp: 15.0
         methods:
-          - field_lexical
           - auto_discovered_cross_encoder
-        max_methods_standard: 2
+        max_methods_standard: 1
         max_models_standard: 2
         max_models_deep: 3
         candidate_depth: {min: 1, max: 100}
@@ -484,7 +483,6 @@ search:
 
       advanced_representation:
         methods:
-          - field_aware_lexical
           - multi_vector_maxsim
         max_methods_standard: 1
 

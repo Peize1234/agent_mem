@@ -48,14 +48,18 @@ from tuner.experiment_branches import (  # noqa: E402
     BranchRegistry,
     BranchSpec,
     EmbeddingBranch,
+    FieldAwareMultiVectorBranch,
     FineGrainedLongtermExtractionPromptBranch,
     QueryRepresentationBranch,
     RerankingBranch,
     RetrievalControlBranch,
     SourcePromptBranch,
+    _candidate,
     _derived_dimensions,
 )
-from tuner.generated_source_artifacts import prepare_generated_source_candidate  # noqa: E402
+from tuner.generated_source_artifacts import (  # noqa: E402
+    prepare_generated_source_candidate,
+)
 from tuner.io_utils import sha256_file  # noqa: E402
 from tuner.model_discovery import (  # noqa: E402
     ModelCandidate,
@@ -65,7 +69,13 @@ from tuner.model_discovery import (  # noqa: E402
     _candidate_score_value,
     _metadata_evidence,
 )
-from tuner.models import Candidate, CandidateResult, Dataset, Requirement, Turn  # noqa: E402
+from tuner.models import (  # noqa: E402
+    Candidate,
+    CandidateResult,
+    Dataset,
+    Requirement,
+    Turn,
+)
 from tuner.orchestrator import (  # noqa: E402
     TunerConfig,
     _artifact_cache_root,
@@ -74,7 +84,10 @@ from tuner.orchestrator import (  # noqa: E402
     _resolve_run_memory_config,
     _resolve_shortterm_window,
 )
-from tuner.parameter_schema import parameter_class  # noqa: E402
+from tuner.parameter_schema import (  # noqa: E402
+    parameter_class,
+    production_overrides_from_candidate,
+)
 from tuner.production_midterm_adapter import (  # noqa: E402
     ADAPTER_SCHEMA,
     ProductionMidtermAdapter,
@@ -97,7 +110,11 @@ from tuner.source_prompt_variants import (  # noqa: E402
 from tuner.split_sessions import create_or_load_split  # noqa: E402
 from tuner.staged_search import candidate_config_hash, run_staged_search  # noqa: E402
 
-from mem0.configs.base import AgenticRetrievalConfig, MemoryConfig, MidTermMemoryConfig  # noqa: E402
+from mem0.configs.base import (  # noqa: E402
+    AgenticRetrievalConfig,
+    MemoryConfig,
+    MidTermMemoryConfig,
+)
 from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT  # noqa: E402
 from mem0.configs.production import load_production_memory_config  # noqa: E402
 from mem0.configs.query_prompts import QUERY_REFERENCE_RESOLUTION_PROMPT  # noqa: E402
@@ -106,7 +123,9 @@ from mem0.memory import main as memory_main  # noqa: E402
 from mem0.memory.main import Memory  # noqa: E402
 from mem0.memory.midterm_retriever import MidTermRetriever  # noqa: E402
 from mem0.memory.midterm_updater import PRODUCTION_PAGE_CONTEXT_CONTRACT  # noqa: E402
-from mem0.memory.query_resolver import QueryResolver as ProductionQueryResolver  # noqa: E402
+from mem0.memory.query_resolver import (  # noqa: E402
+    QueryResolver as ProductionQueryResolver,
+)
 from mem0.memory.query_resolver import build_query_resolution_messages  # noqa: E402
 from mem0.memory.storage import SQLiteManager  # noqa: E402
 
@@ -3922,6 +3941,121 @@ def test_reranker_budget_uses_local_first_and_network_only_for_deep(
     assert outcome.status == "READY"
     assert discovery.allow_network == [expected_network]
     assert any(candidate.config.get("reranker_method") == "cross_encoder" for candidate in outcome.candidates)
+    removed_method = "_".join(("field", "lexical"))
+    assert all(candidate.config.get("reranker_method") != removed_method for candidate in outcome.candidates)
+
+
+def test_removed_field_aware_method_cannot_generate_a_tuner_candidate(tmp_path: Path) -> None:
+    dataset = make_dataset(tmp_path, 1)
+    baseline, _ = _production_branch_inputs(tmp_path, dataset)
+    removed_method = "_".join(("field", "aware", "lexical"))
+    context = _branch_context(
+        tmp_path,
+        dataset,
+        baseline,
+        search_space={
+            "search": {
+                "stages": {
+                    "secondary": {
+                        "advanced_representation": {"methods": [removed_method]},
+                    }
+                }
+            }
+        },
+    )
+
+    outcome = FieldAwareMultiVectorBranch().generate(context)
+
+    assert outcome.candidates == []
+
+
+def test_staged_candidates_preserve_independent_layer_reranker_models() -> None:
+    midterm_parent_config = {
+        "backend": "production_midterm",
+        "reranker_method": "cross_encoder",
+        "reranker_model_id": "model-A",
+        "reranker_model_revision": "rev-A",
+        "rerank_depth": 20,
+    }
+    midterm_parent_config["production_overrides"] = production_overrides_from_candidate(midterm_parent_config)
+    midterm_parent = Candidate("midterm-A", "stage_1", midterm_parent_config)
+    child = _candidate(
+        SimpleNamespace(anchor=midterm_parent, stage_index=2),
+        branch="FineGrainedReranking",
+        label="fine-B",
+        cost_level="high",
+        complexity=1,
+        longterm_reranker_method="cross_encoder",
+        longterm_reranker_model_id="model-B",
+        longterm_reranker_model_revision="rev-B",
+        longterm_rerank_depth=30,
+    )
+    overrides = child.config["production_overrides"]
+    assert overrides["midterm"]["reranker"]["backend"]["config"]["model"] == "model-A"
+    assert overrides["fine_grained_longterm"]["reranker"]["backend"]["config"]["model"] == "model-B"
+    assert "reranker" not in overrides
+
+    fine_parent_config = {
+        "backend": "production_midterm",
+        "longterm_reranker_method": "cross_encoder",
+        "longterm_reranker_model_id": "model-A",
+        "longterm_reranker_model_revision": "rev-A",
+        "longterm_rerank_depth": 20,
+    }
+    fine_parent_config["production_overrides"] = production_overrides_from_candidate(fine_parent_config)
+    fine_parent = Candidate("fine-A", "stage_1", fine_parent_config)
+    reverse_child = _candidate(
+        SimpleNamespace(anchor=fine_parent, stage_index=2),
+        branch="Reranking",
+        label="midterm-B",
+        cost_level="high",
+        complexity=1,
+        reranker_method="cross_encoder",
+        reranker_model_id="model-B",
+        reranker_model_revision="rev-B",
+        rerank_depth=30,
+    )
+    reverse_overrides = reverse_child.config["production_overrides"]
+    assert reverse_overrides["fine_grained_longterm"]["reranker"]["backend"]["config"]["model"] == "model-A"
+    assert reverse_overrides["midterm"]["reranker"]["backend"]["config"]["model"] == "model-B"
+
+
+def test_production_adapter_builds_separate_layer_rerankers(monkeypatch: pytest.MonkeyPatch) -> None:
+    created = []
+
+    class Delegate:
+        def __init__(self, model: str):
+            self.model = model
+
+        def rerank(self, query, documents, top_k):
+            return documents[:top_k]
+
+    def create(provider, config, **kwargs):
+        delegate = Delegate(config["model"])
+        created.append(delegate)
+        return delegate
+
+    monkeypatch.setattr("mem0.utils.factory.RerankerFactory.create", create)
+    config = MemoryConfig(
+        midterm={
+            "reranker": {
+                "method": "cross_encoder",
+                "backend": {"provider": "sentence_transformer", "config": {"model": "model-A"}},
+            }
+        },
+        fine_grained_longterm={
+            "reranker": {
+                "method": "cross_encoder",
+                "backend": {"provider": "sentence_transformer", "config": {"model": "model-B"}},
+            }
+        },
+    )
+
+    midterm = ProductionMidtermAdapter._create_midterm_reranker(config)
+    fine = ProductionMidtermAdapter._create_fine_grained_longterm_reranker(config)
+
+    assert midterm is not fine
+    assert [delegate.model for delegate in created] == ["model-A", "model-B"]
 
 
 def test_model_specific_encoding_contract_is_applied() -> None:

@@ -6,8 +6,6 @@ import math
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from mem0.utils.lemmatization import lemmatize_for_bm25
-
 
 def cosine_similarity(left: Sequence[float], right: Sequence[float]) -> float:
     if len(left) != len(right) or not left:
@@ -16,38 +14,6 @@ def cosine_similarity(left: Sequence[float], right: Sequence[float]) -> float:
     left_norm = math.sqrt(sum(float(value) ** 2 for value in left))
     right_norm = math.sqrt(sum(float(value) ** 2 for value in right))
     return numerator / (left_norm * right_norm) if left_norm and right_norm else 0.0
-
-
-def lexical_overlap(query: str, text: str, *, language: str | None = None) -> float:
-    query_tokens = set(lemmatize_for_bm25(query, language=language).split())
-    if not query_tokens:
-        return 0.0
-    text_tokens = set(lemmatize_for_bm25(text, language=language).split())
-    return len(query_tokens & text_tokens) / len(query_tokens)
-
-
-def field_lexical_score(
-    query: str,
-    payload: Mapping[str, Any],
-    *,
-    field_weights: Mapping[str, float],
-    language: str | None = None,
-) -> float:
-    keywords = payload.get("keywords") or []
-    values = {
-        "summary": str(payload.get("summary") or ""),
-        "keywords": " ".join(str(value) for value in keywords) if isinstance(keywords, list) else str(keywords),
-        "user_input": str(payload.get("user_input") or ""),
-        "raw_dialogue": str(payload.get("raw_dialogue") or ""),
-    }
-    total = sum(max(0.0, float(weight)) for weight in field_weights.values()) or 1.0
-    return (
-        sum(
-            max(0.0, float(weight)) * lexical_overlap(query, values.get(field, ""), language=language)
-            for field, weight in field_weights.items()
-        )
-        / total
-    )
 
 
 def blend_reranker_scores(

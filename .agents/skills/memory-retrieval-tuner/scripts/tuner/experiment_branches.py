@@ -19,8 +19,14 @@ from .derived_artifacts import DerivedArtifactBuilder
 from .io_utils import load_json, load_jsonl, sha256_file, stable_hash
 from .model_discovery import ModelDiscovery
 from .models import Candidate, CandidateResult, Dataset
-from .parameter_schema import production_overrides_from_candidate, validate_candidate_config
-from .prompt_artifacts import QueryPromptArtifactGenerator, controlled_query_prompt_variants
+from .parameter_schema import (
+    production_overrides_from_candidate,
+    validate_candidate_config,
+)
+from .prompt_artifacts import (
+    QueryPromptArtifactGenerator,
+    controlled_query_prompt_variants,
+)
 from .source_prompt_variants import (
     controlled_fine_grained_longterm_prompt_variants,
     controlled_page_prompt_variants,
@@ -820,23 +826,10 @@ class RerankingBranch(BaseBranch):
                 "NOT_TRIGGERED",
                 reason=f"deep recall gap is below min_deep_recall_gap_pp={minimum_gap}",
             )
-        methods = set(rerank_config.get("methods") or ["field_lexical", "auto_discovered_cross_encoder"])
+        methods = set(rerank_config.get("methods") or ["auto_discovered_cross_encoder"])
         candidates = []
-        if "field_lexical" in methods:
-            candidates.append(
-                _candidate(
-                    context,
-                    branch=self.spec.name,
-                    label="field_lexical",
-                    cost_level=self.spec.cost_level,
-                    complexity=2,
-                    reranker_method="field_lexical",
-                    reranker_dense_weight=0.75,
-                    rerank_depth=context.ranking_depth,
-                )
-            )
         unavailable: list[str] = []
-        method_limit = int(rerank_config.get("max_methods_standard") or 2) if context.budget == "standard" else 99
+        method_limit = int(rerank_config.get("max_methods_standard") or 1) if context.budget == "standard" else 99
         if context.budget in {"standard", "deep"} and "auto_discovered_cross_encoder" in methods:
             allow_network = context.budget == "deep"
             model_limit = int(rerank_config.get("max_models_deep" if allow_network else "max_models_standard") or 2)
@@ -1047,7 +1040,7 @@ class FieldAwareMultiVectorBranch(BaseBranch):
         cost_level="high",
         required_artifacts=("production_midterm_checkpoints", "page_fields"),
         execution_adapter="ProductionMidtermAdapter",
-        provenance_contract=("dataset_sha256", "field_weights", "manifest_sha256"),
+        provenance_contract=("dataset_sha256", "manifest_sha256"),
         resource_requirements={"llm": False, "embedding": "multi_vector_only", "gpu": False},
         priority=20,
     )
@@ -1056,22 +1049,8 @@ class FieldAwareMultiVectorBranch(BaseBranch):
         settings = (((context.search_space.get("search") or {}).get("stages") or {}).get("secondary") or {}).get(
             "advanced_representation"
         ) or {}
-        methods = set(settings.get("methods") or ["field_aware_lexical", "multi_vector_maxsim"])
+        methods = set(settings.get("methods") or ["multi_vector_maxsim"])
         candidates = []
-        if "field_aware_lexical" in methods:
-            candidates.append(
-                _candidate(
-                    context,
-                    branch=self.spec.name,
-                    label="lexical_fields",
-                    cost_level=self.spec.cost_level,
-                    complexity=3,
-                    reranker_method="field_lexical",
-                    field_weights={"summary": 0.5, "keywords": 0.3, "user_input": 0.2},
-                    reranker_dense_weight=0.7,
-                    rerank_depth=context.ranking_depth,
-                )
-            )
         embeddings = 0
         reused: list[str] = []
         reason = None

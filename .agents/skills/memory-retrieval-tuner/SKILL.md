@@ -305,7 +305,7 @@ split_manifest.json
 - dense/keyword score weight；
 - 在现有 artifact 支持下的低成本 lexical fusion。
 
-所有实验通过 Branch Registry 注册。首阶段运行 `RetrievalControl`；后续诊断可开启 Query Prompt 迭代、派生 Page representation、dense+Qdrant-BM25、field-aware 或 reranking。新 dataset 不要求预先存在 frozen Query/Page artifact：完全匹配 provenance 时复用，否则自动生成。Query/Page representation Branch 必须生成或复用匹配的派生 artifact；Embedding model Branch 必须重新执行真实 Production Add、Page generation 和 Session formation。两者都不能冒充 production baseline。
+所有实验通过 Branch Registry 注册。首阶段运行 `RetrievalControl`；后续诊断可开启 Query Prompt 迭代、派生 Page representation、dense+Qdrant-BM25、multi-vector MaxSim 或 cross-encoder reranking。新 dataset 不要求预先存在 frozen Query/Page artifact：完全匹配 provenance 时复用，否则自动生成。Query/Page representation Branch 必须生成或复用匹配的派生 artifact；Embedding model Branch 必须重新执行真实 Production Add、Page generation 和 Session formation。两者都不能冒充 production baseline。
 
 使用分阶段搜索，不要直接跑完整 Cartesian grid。
 
@@ -322,7 +322,7 @@ split_manifest.json
 
 示例：
 
-- **R@(4K) 高、R@K 低：** Gold 已经进入候选集，但前排排序不足。优先尝试 Query representation、score fusion、reranking、field weighting。
+- **R@(4K) 高、R@K 低：** Gold 已经进入候选集，但前排排序不足。优先尝试 Query representation、score fusion、cross-encoder reranking、multi-vector MaxSim。
 - **R@(4K) 低：** 候选覆盖不足。优先尝试 Page representation、memory-write summary、embedding、candidate generation。
 - **Session 方差较大：** 优先选择稳健、可泛化的配置；扩大搜索范围前先检查失败 Session / failure cluster。
 - **Tune 提升但 Validation 下降：** 判定为 overfit，不得晋级。

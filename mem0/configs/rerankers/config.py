@@ -12,7 +12,7 @@ class RerankerConfig(BaseModel):
         default=1,
         ge=1,
         le=32,
-        description="Maximum concurrent calls made through the shared production reranker instance",
+        description="Maximum concurrent calls made through this production reranker instance",
     )
 
     model_config = {"extra": "forbid"}

@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 
 from mem0.memory.memory_evolution import forgetting_factor, heat_modulations
 from mem0.memory.midterm import compute_recency, compute_session_heat
-from mem0.utils.retrieval_reranking import blend_reranker_scores, cosine_similarity, field_lexical_score
+from mem0.utils.retrieval_reranking import blend_reranker_scores, cosine_similarity
 
 logger = logging.getLogger(__name__)
 
@@ -347,37 +347,25 @@ class MidTermRetriever:
                         merged["final_score"] = float(merged["rerank_score"])
                     reordered.append(merged)
                 reranked_head = reordered
-            else:
+            elif method == "multi_vector_maxsim":
                 secondary_scores: Dict[str, float] = {}
-                if method == "field_lexical":
-                    language = self.midterm_memory._base_config_dict().get("bm25_language")
-                    secondary_scores = {
-                        str(row["id"]): field_lexical_score(
-                            query,
-                            row,
-                            field_weights=reranker_config.field_weights,
-                            language=language,
-                        )
-                        for row in head
-                    }
-                elif method == "multi_vector_maxsim":
-                    query_vector = self.midterm_memory.embedding_model.embed(query, "search")
-                    for row in head:
-                        stored = self.midterm_memory.get_page(str(row["id"]))
-                        payload = getattr(stored, "payload", None) or {}
-                        vectors = payload.get("_field_vectors") or {}
-                        if not vectors:
-                            raise ValueError("MidTerm Page is missing production _field_vectors")
-                        secondary_scores[str(row["id"])] = max(
-                            cosine_similarity(query_vector, vector) for vector in vectors.values()
-                        )
-                else:
-                    raise ValueError(f"Unsupported MidTerm reranker method: {method}")
+                query_vector = self.midterm_memory.embedding_model.embed(query, "search")
+                for row in head:
+                    stored = self.midterm_memory.get_page(str(row["id"]))
+                    payload = getattr(stored, "payload", None) or {}
+                    vectors = payload.get("_field_vectors") or {}
+                    if not vectors:
+                        raise ValueError("MidTerm Page is missing production _field_vectors")
+                    secondary_scores[str(row["id"])] = max(
+                        cosine_similarity(query_vector, vector) for vector in vectors.values()
+                    )
                 reranked_head = blend_reranker_scores(
                     head,
                     secondary_scores,
                     dense_weight=float(reranker_config.dense_weight),
                 )
+            else:
+                raise ValueError(f"Unsupported MidTerm reranker method: {method}")
             result = [*reranked_head, *tail]
         except Exception as exc:
             logger.warning("MidTerm reranking failed; using first-stage order: %s", exc)

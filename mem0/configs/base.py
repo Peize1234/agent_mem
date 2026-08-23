@@ -4,7 +4,10 @@ from typing import Any, Dict, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT, MIDTERM_SESSION_MERGE_PROMPT
+from mem0.configs.midterm_prompts import (
+    MIDTERM_PAGE_SUMMARY_PROMPT,
+    MIDTERM_SESSION_MERGE_PROMPT,
+)
 from mem0.configs.prompts import ADDITIVE_EXTRACTION_PROMPT
 from mem0.configs.query_prompts import QUERY_REFERENCE_RESOLUTION_PROMPT
 from mem0.configs.rerankers.config import RerankerConfig
@@ -31,28 +34,15 @@ class MemoryItem(BaseModel):
 
 
 class RetrievalRerankerConfig(BaseModel):
-    """Production retrieval reranker controls shared by memory layers."""
+    """Production reranker controls owned by one retrieval layer."""
 
-    method: Literal["none", "field_lexical", "multi_vector_maxsim", "cross_encoder"] = "none"
+    method: Literal["none", "multi_vector_maxsim", "cross_encoder"] = "none"
     rerank_depth: int = Field(30, ge=1, le=100)
     dense_weight: float = Field(0.7, ge=0, le=1)
-    field_weights: Dict[str, float] = Field(
-        default_factory=lambda: {"summary": 0.5, "keywords": 0.3, "user_input": 0.2}
+    backend: Optional[RerankerConfig] = Field(
+        default=None,
+        description="Layer-specific reranker backend; falls back to MemoryConfig.reranker for legacy configs",
     )
-
-    @field_validator("field_weights")
-    @classmethod
-    def validate_field_weights(cls, weights: Dict[str, float]) -> Dict[str, float]:
-        allowed = {"summary", "keywords", "user_input", "raw_dialogue"}
-        unknown = sorted(set(weights) - allowed)
-        if unknown:
-            raise ValueError(f"Unsupported reranker fields: {', '.join(unknown)}")
-        normalized = {str(key): float(value) for key, value in weights.items()}
-        if not normalized or any(not math.isfinite(value) or value < 0 for value in normalized.values()):
-            raise ValueError("field_weights must contain finite non-negative values")
-        if math.isclose(sum(normalized.values()), 0.0):
-            raise ValueError("field_weights must contain at least one positive value")
-        return normalized
 
 
 def _validate_llm_request_options(options: Dict[str, Any], *, field_name: str) -> Dict[str, Any]:
@@ -332,7 +322,7 @@ class MemoryConfig(BaseModel):
     reranker_timeout_seconds: float = Field(30.0, gt=0)
     entity_extraction_timeout_seconds: float = Field(60.0, gt=0)
     reranker: Optional[RerankerConfig] = Field(
-        description="Configuration for the reranker",
+        description="Legacy global reranker backend used only when a retrieval layer has no backend",
         default=None,
     )
     version: str = Field(
@@ -479,11 +469,19 @@ class MemoryConfig(BaseModel):
             )
             self.promoted_longterm_rag_threshold = threshold
 
-        requires_external_reranker = any(
-            layer.reranker.method == "cross_encoder" for layer in (self.midterm, self.fine_grained_longterm)
-        )
-        if requires_external_reranker and self.reranker is None:
-            raise ValueError("cross_encoder retrieval requires MemoryConfig.reranker")
+        missing_backends = [
+            name
+            for name, layer in (
+                ("midterm", self.midterm),
+                ("fine_grained_longterm", self.fine_grained_longterm),
+            )
+            if layer.reranker.method == "cross_encoder" and layer.reranker.backend is None and self.reranker is None
+        ]
+        if missing_backends:
+            raise ValueError(
+                "cross_encoder retrieval requires a layer-specific reranker backend or MemoryConfig.reranker "
+                f"fallback: {', '.join(missing_backends)}"
+            )
         return self
 
 

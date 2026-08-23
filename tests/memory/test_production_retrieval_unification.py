@@ -7,11 +7,15 @@ from types import SimpleNamespace
 import pytest
 from pydantic import ValidationError
 
-from mem0.configs.base import FineGrainedLongTermConfig, MemoryConfig, MidTermMemoryConfig
+from mem0.configs.base import (
+    FineGrainedLongTermConfig,
+    MemoryConfig,
+    MidTermMemoryConfig,
+)
 from mem0.embeddings.encoding_contract import EncodingContractEmbedding
 from mem0.memory.cross_session_longterm import CrossSessionLongTermMemory
 from mem0.memory.fine_grained_longterm import FineGrainedLongTermRetriever
-from mem0.memory.main import Memory
+from mem0.memory.main import AsyncMemory, Memory
 from mem0.memory.midterm import MidTermMemory, page_embedding_text
 from mem0.memory.midterm_retriever import MidTermRetriever
 from mem0.memory.midterm_updater import MidTermUpdater
@@ -224,6 +228,148 @@ def test_fine_grained_reranker_failure_falls_back_to_first_stage():
     assert [row["id"] for row in rows] == ["a", "b"]
 
 
+class PublicSearchStore:
+    def __init__(self):
+        self.rows = [
+            Point(id="a", score=0.9, payload={"data": "A", "run_id": "r1"}),
+            Point(id="b", score=0.8, payload={"data": "B", "run_id": "r1"}),
+            Point(id="c", score=0.7, payload={"data": "C", "run_id": "r1"}),
+        ]
+
+    def search(self, **kwargs):
+        return list(self.rows)
+
+    def keyword_search(self, **kwargs):
+        return []
+
+
+class PromoteThirdReranker:
+    def __init__(self, model: str):
+        self.model = model
+        self.calls = 0
+
+    def rerank(self, query, documents, top_k):
+        self.calls += 1
+        scores = {"a": 0.1, "b": 0.2, "c": 1.0}
+        return [
+            {**row, "rerank_score": scores[row["id"]]}
+            for row in sorted(documents, key=lambda item: scores[item["id"]], reverse=True)
+        ]
+
+
+def _public_search_memory(memory_type, config):
+    memory = memory_type.__new__(memory_type)
+    memory.config = config
+    memory.api_version = config.version
+    memory.reranker = None
+    memory._component_init_lock = threading.RLock()
+    memory._fine_grained_longterm_reranker = None
+    memory._midterm_reranker = None
+    memory._fine_grained_longterm_retriever = FineGrainedLongTermRetriever(
+        vector_store=PublicSearchStore(),
+        embedding_model=SimpleNamespace(embed=lambda *args: [1.0], embed_batch=lambda *args: []),
+        entity_store_provider=lambda: None,
+        config=config.fine_grained_longterm,
+        reranker_provider=lambda: memory.fine_grained_longterm_reranker,
+        entity_extractor=lambda query: [],
+    )
+    return memory
+
+
+def test_public_sync_rerank_true_uses_deep_fine_grained_pool(monkeypatch):
+    delegates = []
+
+    def create(provider, config, **kwargs):
+        delegate = PromoteThirdReranker(config["model"])
+        delegates.append(delegate)
+        return delegate
+
+    monkeypatch.setattr("mem0.utils.factory.RerankerFactory.create", create)
+    monkeypatch.setattr("mem0.memory.main.capture_event", lambda *args, **kwargs: None)
+    monkeypatch.setattr("mem0.memory.main.display_first_run_notice", lambda *args, **kwargs: None)
+    config = MemoryConfig(
+        midterm={"enabled": False},
+        fine_grained_longterm={"top_k": 2, "reranker": {"rerank_depth": 3}},
+        reranker={"provider": "sentence_transformer", "config": {"model": "legacy-model"}},
+    )
+    memory = _public_search_memory(Memory, config)
+
+    result = memory.search("query", top_k=2, filters={"user_id": "u1", "run_id": "r1"}, rerank=True)
+
+    assert [row["id"] for row in result["results"]] == ["c", "b"]
+    assert delegates[0].calls == 1
+
+
+@pytest.mark.asyncio
+async def test_public_async_configured_reranker_runs_once_and_can_promote_beyond_top_k(monkeypatch):
+    delegates = []
+
+    def create(provider, config, **kwargs):
+        delegate = PromoteThirdReranker(config["model"])
+        delegates.append(delegate)
+        return delegate
+
+    async def no_notice(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr("mem0.utils.factory.RerankerFactory.create", create)
+    monkeypatch.setattr("mem0.memory.main.capture_event", lambda *args, **kwargs: None)
+    monkeypatch.setattr("mem0.memory.main.display_first_run_notice_async", no_notice)
+    config = MemoryConfig(
+        midterm={"enabled": False},
+        fine_grained_longterm={
+            "top_k": 2,
+            "reranker": {
+                "method": "cross_encoder",
+                "rerank_depth": 3,
+                "backend": {
+                    "provider": "sentence_transformer",
+                    "config": {"model": "fine-model"},
+                },
+            },
+        },
+    )
+    memory = _public_search_memory(AsyncMemory, config)
+
+    result = await memory.search("query", top_k=2, filters={"user_id": "u1", "run_id": "r1"}, rerank=True)
+
+    assert [row["id"] for row in result["results"]] == ["c", "b"]
+    assert delegates[0].calls == 1
+
+
+def test_public_rerank_false_does_not_disable_layer_configured_reranker(monkeypatch):
+    delegates = []
+
+    def create(provider, config, **kwargs):
+        delegate = PromoteThirdReranker(config["model"])
+        delegates.append(delegate)
+        return delegate
+
+    monkeypatch.setattr("mem0.utils.factory.RerankerFactory.create", create)
+    monkeypatch.setattr("mem0.memory.main.capture_event", lambda *args, **kwargs: None)
+    monkeypatch.setattr("mem0.memory.main.display_first_run_notice", lambda *args, **kwargs: None)
+    config = MemoryConfig(
+        midterm={"enabled": False},
+        fine_grained_longterm={
+            "top_k": 2,
+            "reranker": {
+                "method": "cross_encoder",
+                "rerank_depth": 3,
+                "backend": {
+                    "provider": "sentence_transformer",
+                    "config": {"model": "configured-model"},
+                },
+            },
+        },
+    )
+    memory = _public_search_memory(Memory, config)
+
+    result = memory.search("query", top_k=2, filters={"user_id": "u1", "run_id": "r1"}, rerank=False)
+
+    assert [row["id"] for row in result["results"]] == ["c", "b"]
+    assert delegates[0].calls == 1
+
+
 @pytest.mark.asyncio
 async def test_reranker_concurrency_guard_bounds_sync_and_async_calls():
     class Delegate:
@@ -247,6 +393,94 @@ async def test_reranker_concurrency_guard_bounds_sync_and_async_calls():
         list(pool.map(lambda _: guard.rerank("q", [{"memory": "m"}], 1), range(4)))
     await asyncio.gather(*(guard.rerank_async("q", [{"memory": "m"}], 1) for _ in range(4)))
     assert delegate.maximum == 1
+
+
+def test_midterm_and_fine_grained_rerankers_use_independent_backends_and_guards(monkeypatch):
+    delegates = {}
+
+    class Delegate:
+        def __init__(self, model):
+            self.model = model
+            self.calls = 0
+
+        def rerank(self, query, documents, top_k):
+            self.calls += 1
+            return [{**row, "rerank_score": 1.0} for row in documents[:top_k]]
+
+    def create(provider, config, **kwargs):
+        delegate = Delegate(config["model"])
+        delegates[delegate.model] = delegate
+        return delegate
+
+    monkeypatch.setattr("mem0.utils.factory.RerankerFactory.create", create)
+    config = MemoryConfig(
+        midterm={
+            "reranker": {
+                "method": "cross_encoder",
+                "rerank_depth": 2,
+                "backend": {
+                    "provider": "sentence_transformer",
+                    "config": {"model": "model-A"},
+                    "max_concurrency": 1,
+                },
+            }
+        },
+        fine_grained_longterm={
+            "reranker": {
+                "method": "cross_encoder",
+                "rerank_depth": 2,
+                "backend": {
+                    "provider": "sentence_transformer",
+                    "config": {"model": "model-B"},
+                    "max_concurrency": 2,
+                },
+            }
+        },
+    )
+    memory = Memory.__new__(Memory)
+    memory.config = config
+    memory._component_init_lock = threading.RLock()
+    memory._midterm_reranker = None
+    memory._fine_grained_longterm_reranker = None
+
+    midterm_reranker = memory.midterm_reranker
+    fine_reranker = memory.fine_grained_longterm_reranker
+    rows = [{"id": "a", "memory": "A", "score": 0.9, "final_score": 0.9}]
+    MidTermRetriever(SimpleNamespace(), config.midterm, reranker=midterm_reranker)._apply_reranker("q", rows)
+    _fine_retriever(config.fine_grained_longterm, fine_reranker).rank_frozen(
+        "q", [{"id": "b", "score": 0.9, "payload": {"data": "B"}}]
+    )
+
+    assert delegates["model-A"].calls == 1
+    assert delegates["model-B"].calls == 1
+    assert midterm_reranker is not fine_reranker
+    assert midterm_reranker._semaphore is not fine_reranker._semaphore
+    assert midterm_reranker.max_concurrency == 1
+    assert fine_reranker.max_concurrency == 2
+
+
+def test_legacy_global_reranker_is_an_independent_fallback_for_each_layer(monkeypatch):
+    created = []
+
+    def create(provider, config, **kwargs):
+        delegate = PromoteThirdReranker(config["model"])
+        created.append(delegate)
+        return delegate
+
+    monkeypatch.setattr("mem0.utils.factory.RerankerFactory.create", create)
+    config = MemoryConfig(
+        reranker={"provider": "sentence_transformer", "config": {"model": "legacy"}},
+        midterm={"reranker": {"method": "cross_encoder"}},
+        fine_grained_longterm={"reranker": {"method": "cross_encoder"}},
+    )
+    memory = Memory.__new__(Memory)
+    memory.config = config
+    memory._component_init_lock = threading.RLock()
+    memory._midterm_reranker = None
+    memory._fine_grained_longterm_reranker = None
+
+    assert memory.midterm_reranker is not memory.fine_grained_longterm_reranker
+    assert len(created) == 2
 
 
 def test_promoted_longterm_rename_keeps_persisted_protocol_and_is_decoupled_from_midterm_top_k():
@@ -281,8 +515,11 @@ def test_production_config_validates_weights_and_cross_encoder_dependency():
                 "entity_weight": 0.1,
             }
         )
-    with pytest.raises(ValidationError, match="requires MemoryConfig.reranker"):
+    with pytest.raises(ValidationError, match="layer-specific reranker backend or MemoryConfig.reranker"):
         MemoryConfig(fine_grained_longterm={"reranker": {"method": "cross_encoder"}})
+    removed_method = "_".join(("field", "lexical"))
+    with pytest.raises(ValidationError):
+        MidTermMemoryConfig(reranker={"method": removed_method})
     with pytest.raises(ValidationError, match="cannot override reserved request fields"):
         MemoryConfig(midterm={"page_summary_request_options": {"response_format": {"type": "text"}}})
 

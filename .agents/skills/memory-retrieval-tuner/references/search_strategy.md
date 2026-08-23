@@ -249,7 +249,7 @@ Gold often appears just below K
 Search next:
 
 - query representation;
-- field-aware score;
+- multi-vector MaxSim;
 - dense/keyword fusion;
 - reranking;
 - rank calibration.
@@ -336,11 +336,11 @@ Search when R@(4K) is strong but R@K is weak.
 
 Do not rerank a tiny candidate pool that already excludes the Gold.
 
-Use the production-routed Page pool and require the configured R@(4K)-minus-R@K gap. The built-in lightweight field-aware reranker is always available. `standard` may use a compatible cross-encoder already in local cache; only `deep` may discover or download a new one.
+Use the production-routed Page pool and require the configured R@(4K)-minus-R@K gap. `standard` may use a compatible cross-encoder already in local cache; only `deep` may discover or download a new one. Multi-vector MaxSim remains a separate deep/source-regenerating candidate.
 
 ### Field-aware / multi-vector
 
-Use production `field_lexical` for the lightweight candidate. Production `multi_vector_maxsim` requires field vectors written by `MidTermMemory` during source generation and is a deep/high-cost variant. Both are production capabilities selected through validated config; the Skill owns only their experiment scheduling and provenance.
+Production `multi_vector_maxsim` requires field vectors written by `MidTermMemory` during source generation and is a deep/high-cost variant. Cross-encoder and multi-vector methods are production capabilities selected through validated layer config; the Skill owns only their experiment scheduling and provenance.
 
 ### Branch Registry contract
 

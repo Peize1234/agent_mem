@@ -15,7 +15,12 @@ from typing import Any, Dict, Optional
 
 from pydantic import ValidationError
 
-from mem0.configs.base import BackgroundTaskConfig, FineGrainedLongTermConfig, MemoryConfig, MemoryItem
+from mem0.configs.base import (
+    BackgroundTaskConfig,
+    FineGrainedLongTermConfig,
+    MemoryConfig,
+    MemoryItem,
+)
 from mem0.configs.enums import MemoryType
 from mem0.configs.prompts import (
     ADDITIVE_EXTRACTION_PROMPT,
@@ -67,7 +72,10 @@ from mem0.memory.profile_validator import (
     normalize_profile_user_id,
     select_profile_user_messages,
 )
-from mem0.memory.promoted_longterm import PromotedLongTermMemory, promotion_source_version
+from mem0.memory.promoted_longterm import (
+    PromotedLongTermMemory,
+    promotion_source_version,
+)
 from mem0.memory.query_resolver import QueryResolver
 from mem0.memory.retrieval_tools import AsyncMemoryToolExecutor, MemoryToolExecutor
 from mem0.memory.setup import mem0_dir, setup_config
@@ -80,12 +88,16 @@ from mem0.memory.utils import (
     process_telemetry_filters,
     remove_code_blocks,
 )
-from mem0.reranker.concurrency import RerankerConcurrencyGuard
+from mem0.reranker.concurrency import create_layer_reranker
 from mem0.utils.bounded_timeout import BoundedTimeoutExecutor
 from mem0.utils.entity_extraction import extract_entities, extract_entities_batch
-from mem0.utils.factory import EmbedderFactory, LlmFactory, RerankerFactory, VectorStoreFactory
+from mem0.utils.factory import EmbedderFactory, LlmFactory, VectorStoreFactory
 from mem0.utils.lemmatization import lemmatize_for_bm25
-from mem0.utils.timestamps import beijing_now, beijing_now_iso, normalize_iso_timestamp_to_beijing
+from mem0.utils.timestamps import (
+    beijing_now,
+    beijing_now_iso,
+    normalize_iso_timestamp_to_beijing,
+)
 from mem0.vector_stores.base import VectorStoreBase
 
 # Suppress SWIG deprecation warnings globally
@@ -1086,6 +1098,38 @@ class _BackgroundMemoryMixin:
         promoted = getattr(getattr(self, "config", None), "promoted_longterm", None)
         return self._midterm_enabled() and bool(promoted is None or promoted.enabled)
 
+    def _layer_reranker_backend(self, layer_name: str):
+        layer = getattr(getattr(self, "config", None), layer_name, None)
+        layer_reranker = getattr(layer, "reranker", None)
+        return getattr(layer_reranker, "backend", None) or getattr(getattr(self, "config", None), "reranker", None)
+
+    @property
+    def midterm_reranker(self):
+        """Return the independently configured MidTerm reranker instance."""
+        layer = getattr(getattr(self, "config", None), "midterm", None)
+        if getattr(getattr(layer, "reranker", None), "method", "none") != "cross_encoder":
+            return None
+        if getattr(self, "_midterm_reranker", None) is None:
+            with getattr(self, "_component_init_lock", threading.RLock()):
+                if getattr(self, "_midterm_reranker", None) is None:
+                    self._midterm_reranker = create_layer_reranker(
+                        self._layer_reranker_backend("midterm"),
+                        timeout_seconds=self.config.reranker_timeout_seconds,
+                    )
+        return self._midterm_reranker
+
+    @property
+    def fine_grained_longterm_reranker(self):
+        """Return the independently configured FineGrainedLongTerm reranker instance."""
+        if getattr(self, "_fine_grained_longterm_reranker", None) is None:
+            with getattr(self, "_component_init_lock", threading.RLock()):
+                if getattr(self, "_fine_grained_longterm_reranker", None) is None:
+                    self._fine_grained_longterm_reranker = create_layer_reranker(
+                        self._layer_reranker_backend("fine_grained_longterm"),
+                        timeout_seconds=self.config.reranker_timeout_seconds,
+                    )
+        return self._fine_grained_longterm_reranker
+
     @property
     def fine_grained_longterm_retriever(self):
         if getattr(self, "_fine_grained_longterm_retriever", None) is None:
@@ -1097,7 +1141,7 @@ class _BackgroundMemoryMixin:
                         embedding_model=self.embedding_model,
                         entity_store_provider=lambda: self.entity_store,
                         config=fine_config,
-                        reranker=getattr(self, "reranker", None),
+                        reranker_provider=lambda: self.fine_grained_longterm_reranker,
                         stage_output_is_visible=lambda payload: self._stage_output_is_visible(payload, "longterm"),
                         payload_is_expired=_payload_is_expired,
                         entity_extractor=lambda query: self._run_entity_extraction(extract_entities, query),
@@ -2136,6 +2180,9 @@ class _BackgroundMemoryMixin:
             getattr(self, "_midterm_memory", None),
             getattr(self, "_cross_session_longterm", None),
             getattr(self, "_entity_store", None),
+            getattr(self, "_midterm_reranker", None),
+            getattr(self, "_fine_grained_longterm_reranker", None),
+            # Compatibility-only attribute retained for callers that inspect it.
             getattr(self, "reranker", None),
             getattr(self, "llm", None),
             getattr(self, "embedding_model", None),
@@ -2220,17 +2267,9 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         self.api_version = self.config.version
         self.custom_instructions = self.config.custom_instructions
 
-        # Initialize reranker if configured
+        # Compatibility-only placeholder. Production retrieval uses the two
+        # layer-specific lazy instances below, never this shared attribute.
         self.reranker = None
-        if config.reranker:
-            self.reranker = RerankerConcurrencyGuard(
-                RerankerFactory.create(
-                    config.reranker.provider,
-                    config.reranker.config,
-                    timeout_seconds=self.config.reranker_timeout_seconds,
-                ),
-                max_concurrency=config.reranker.max_concurrency,
-            )
 
         # Entity store is initialized lazily on first use
         self._entity_store = None
@@ -2238,6 +2277,8 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         self._midterm_updater = None
         self._midterm_retriever = None
         self._fine_grained_longterm_retriever = None
+        self._midterm_reranker = None
+        self._fine_grained_longterm_reranker = None
         self._cross_session_longterm = None
         self._profile_manager = None
         self._profile_updater = None
@@ -2353,7 +2394,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                     self._midterm_retriever = MidTermRetriever(
                         self.midterm_memory,
                         self.config.midterm,
-                        reranker=getattr(self, "reranker", None),
+                        reranker=self.midterm_reranker,
                     )
         return self._midterm_retriever
 
@@ -3866,7 +3907,8 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                 - {"OR": [filter1, filter2]} - logical OR
                 - {"NOT": [filter1]} - logical NOT
             threshold (float, optional): Minimum score for a memory to be included. Defaults to 0.1.
-            rerank (bool, optional): Whether to rerank results. Defaults to False.
+            rerank (bool, optional): Compatibility switch enabling the production FineGrainedLongTerm
+                two-stage reranker. A reranker enabled in layer config remains enabled when this is False.
             explain (bool, optional): Whether to include score_details for each result. Defaults to False.
             reference_date (Any, optional): Platform-only temporal parameter. Not supported in OSS.
             show_expired (bool, optional): Include expired memories. Defaults to False.
@@ -3941,27 +3983,15 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
 
         search_start = time.perf_counter()
         original_memories = self._search_vector_store(
-            query, effective_filters, limit, threshold, explain=explain, show_expired=show_expired
+            query,
+            effective_filters,
+            limit,
+            threshold,
+            explain=explain,
+            show_expired=show_expired,
+            rerank=rerank,
         )
         search_elapsed_seconds = time.perf_counter() - search_start
-
-        # Apply reranking if enabled and reranker is available
-        configured_fine_reranker = getattr(
-            getattr(getattr(self, "config", None), "fine_grained_longterm", None),
-            "reranker",
-            None,
-        )
-        if (
-            rerank
-            and self.reranker
-            and original_memories
-            and getattr(configured_fine_reranker, "method", "none") == "none"
-        ):
-            try:
-                reranked_memories = self.reranker.rerank(query, original_memories, limit)
-                original_memories = reranked_memories
-            except Exception as e:
-                logger.warning(f"Reranking failed, using original results: {e}")
 
         original_memories = self._with_midterm_search_results(query, effective_filters, original_memories)
 
@@ -4095,7 +4125,16 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                 return True
         return False
 
-    def _search_vector_store(self, query, filters, limit, threshold=0.1, explain=False, show_expired=False):
+    def _search_vector_store(
+        self,
+        query,
+        filters,
+        limit,
+        threshold=0.1,
+        explain=False,
+        show_expired=False,
+        rerank=False,
+    ):
         return self.fine_grained_longterm_retriever.search(
             query,
             filters,
@@ -4103,6 +4142,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             threshold=threshold,
             explain=explain,
             show_expired=show_expired,
+            rerank=rerank,
         )
 
     def _compute_entity_boosts(self, query_entities, filters):
@@ -4475,6 +4515,8 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         self._midterm_updater = None
         self._midterm_retriever = None
         self._fine_grained_longterm_retriever = None
+        self._midterm_reranker = None
+        self._fine_grained_longterm_reranker = None
         self._cross_session_longterm = None
         self._profile_manager = None
         self._profile_updater = None
@@ -4482,17 +4524,9 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         self._profile_user_locks = {}
         self._profile_user_locks_guard = threading.Lock()
 
-        # Initialize reranker if configured
+        # Compatibility-only placeholder. Production retrieval uses separate,
+        # layer-specific lazy reranker instances.
         self.reranker = None
-        if config.reranker:
-            self.reranker = RerankerConcurrencyGuard(
-                RerankerFactory.create(
-                    config.reranker.provider,
-                    config.reranker.config,
-                    timeout_seconds=self.config.reranker_timeout_seconds,
-                ),
-                max_concurrency=config.reranker.max_concurrency,
-            )
 
         if MEM0_TELEMETRY:
             telemetry_config = _build_telemetry_vector_store_config(self.config)
@@ -4602,7 +4636,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                     self._midterm_retriever = MidTermRetriever(
                         self.midterm_memory,
                         self.config.midterm,
-                        reranker=getattr(self, "reranker", None),
+                        reranker=self.midterm_reranker,
                     )
         return self._midterm_retriever
 
@@ -6347,7 +6381,8 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                 - {"OR": [filter1, filter2]} - logical OR
                 - {"NOT": [filter1]} - logical NOT
             threshold (float, optional): Minimum score for a memory to be included. Defaults to 0.1.
-            rerank (bool, optional): Whether to rerank results. Defaults to False.
+            rerank (bool, optional): Compatibility switch enabling the production FineGrainedLongTerm
+                two-stage reranker. A reranker enabled in layer config remains enabled when this is False.
             explain (bool, optional): Whether to include score_details for each result. Defaults to False.
             reference_date (Any, optional): Platform-only temporal parameter. Not supported in OSS.
             show_expired (bool, optional): Include expired memories. Defaults to False.
@@ -6423,31 +6458,15 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
 
         search_start = time.perf_counter()
         original_memories = await self._search_vector_store(
-            query, effective_filters, limit, threshold, explain=explain, show_expired=show_expired
+            query,
+            effective_filters,
+            limit,
+            threshold,
+            explain=explain,
+            show_expired=show_expired,
+            rerank=rerank,
         )
         search_elapsed_seconds = time.perf_counter() - search_start
-
-        # Apply reranking if enabled and reranker is available
-        configured_fine_reranker = getattr(
-            getattr(getattr(self, "config", None), "fine_grained_longterm", None),
-            "reranker",
-            None,
-        )
-        if (
-            rerank
-            and self.reranker
-            and original_memories
-            and getattr(configured_fine_reranker, "method", "none") == "none"
-        ):
-            try:
-                rerank_async = getattr(self.reranker, "rerank_async", None)
-                if callable(rerank_async):
-                    reranked_memories = await rerank_async(query, original_memories, limit)
-                else:
-                    reranked_memories = await asyncio.to_thread(self.reranker.rerank, query, original_memories, limit)
-                original_memories = reranked_memories
-            except Exception as e:
-                logger.warning(f"Reranking failed, using original results: {e}")
 
         original_memories = await asyncio.to_thread(
             self._with_midterm_search_results, query, effective_filters, original_memories
@@ -6581,7 +6600,16 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                 return True
         return False
 
-    async def _search_vector_store(self, query, filters, limit, threshold=0.1, explain=False, show_expired=False):
+    async def _search_vector_store(
+        self,
+        query,
+        filters,
+        limit,
+        threshold=0.1,
+        explain=False,
+        show_expired=False,
+        rerank=False,
+    ):
         return await self.fine_grained_longterm_retriever.search_async(
             query,
             filters,
@@ -6589,6 +6617,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             threshold=threshold,
             explain=explain,
             show_expired=show_expired,
+            rerank=rerank,
         )
 
     async def _compute_entity_boosts_async(self, query_entities, filters):
@@ -6777,7 +6806,9 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         try:
             if llm is not None:
                 try:
-                    from langchain_core.messages.utils import convert_to_messages  # type: ignore
+                    from langchain_core.messages.utils import (
+                        convert_to_messages,  # type: ignore
+                    )
                 except Exception:
                     logger.error(
                         "Import error while loading langchain-core. "

@@ -10,7 +10,12 @@ from typing import Any, Dict, Optional
 
 from mem0.configs.base import MemoryItem
 from mem0.utils.lemmatization import lemmatize_for_bm25
-from mem0.utils.scoring import ENTITY_BOOST_WEIGHT, get_bm25_params, normalize_bm25, score_and_rank
+from mem0.utils.scoring import (
+    ENTITY_BOOST_WEIGHT,
+    get_bm25_params,
+    normalize_bm25,
+    score_and_rank,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +69,7 @@ class FineGrainedLongTermRetriever:
         entity_store_provider: Callable[[], Any],
         config: Any,
         reranker: Any = None,
+        reranker_provider: Callable[[], Any] | None = None,
         stage_output_is_visible: Callable[[Dict[str, Any]], bool] | None = None,
         payload_is_expired: Callable[[Dict[str, Any]], bool] | None = None,
         entity_extractor: Callable[[str], Sequence[tuple[str, str]]] | None = None,
@@ -77,6 +83,7 @@ class FineGrainedLongTermRetriever:
         self.entity_store_provider = entity_store_provider
         self.config = config
         self.reranker = reranker
+        self.reranker_provider = reranker_provider
         self.stage_output_is_visible = stage_output_is_visible or (lambda payload: True)
         self.payload_is_expired = payload_is_expired or (lambda payload: False)
         self.entity_extractor = entity_extractor or (lambda query: [])
@@ -140,9 +147,10 @@ class FineGrainedLongTermRetriever:
         threshold: float,
         top_k: int,
         explain: bool,
+        reranker_enabled: bool,
     ) -> list[dict[str, Any]]:
         reranker_config = self.config.reranker
-        depth = max(top_k, int(reranker_config.rerank_depth)) if reranker_config.method != "none" else top_k
+        depth = max(top_k, int(reranker_config.rerank_depth)) if reranker_enabled else top_k
         return score_and_rank(
             semantic_results=candidates,
             bm25_scores=bm25_scores,
@@ -180,16 +188,29 @@ class FineGrainedLongTermRetriever:
             finalized.append(item)
         return finalized
 
-    def _rerank(self, query: str, scored: list[dict[str, Any]], top_k: int) -> list[dict[str, Any]]:
-        if self.config.reranker.method == "none" or not scored:
-            return scored[:top_k]
-        if self.config.reranker.method != "cross_encoder":
-            raise ValueError("FineGrainedLongTerm supports only cross_encoder reranking")
-        if self.reranker is None:
+    def _resolve_reranker(self, runtime_rerank: bool) -> Any | None:
+        configured = self.config.reranker.method == "cross_encoder"
+        if not configured and not runtime_rerank:
+            return None
+        reranker = self.reranker
+        if reranker is None and self.reranker_provider is not None:
+            reranker = self.reranker_provider()
+        if configured and reranker is None:
             raise ValueError("FineGrainedLongTerm cross_encoder requires an injected production reranker")
+        return reranker
+
+    def _rerank(
+        self,
+        query: str,
+        scored: list[dict[str, Any]],
+        top_k: int,
+        reranker: Any | None,
+    ) -> list[dict[str, Any]]:
+        if reranker is None or not scored:
+            return scored[:top_k]
         documents = self._reranker_documents(scored)
         try:
-            reranked = self.reranker.rerank(query, documents, len(documents))
+            reranked = reranker.rerank(query, documents, len(documents))
             return self._finalize_reranked(reranked)[:top_k]
         except Exception as exc:
             logger.warning("FineGrainedLongTerm reranking failed; using first-stage order: %s", exc)
@@ -200,20 +221,17 @@ class FineGrainedLongTermRetriever:
         query: str,
         scored: list[dict[str, Any]],
         top_k: int,
+        reranker: Any | None,
     ) -> list[dict[str, Any]]:
-        if self.config.reranker.method == "none" or not scored:
+        if reranker is None or not scored:
             return scored[:top_k]
-        if self.config.reranker.method != "cross_encoder":
-            raise ValueError("FineGrainedLongTerm supports only cross_encoder reranking")
-        if self.reranker is None:
-            raise ValueError("FineGrainedLongTerm cross_encoder requires an injected production reranker")
         documents = self._reranker_documents(scored)
         try:
-            rerank_async = getattr(self.reranker, "rerank_async", None)
+            rerank_async = getattr(reranker, "rerank_async", None)
             if callable(rerank_async):
                 result = await rerank_async(query, documents, len(documents))
             else:
-                result = await asyncio.to_thread(self.reranker.rerank, query, documents, len(documents))
+                result = await asyncio.to_thread(reranker.rerank, query, documents, len(documents))
             return self._finalize_reranked(result)[:top_k]
         except Exception as exc:
             logger.warning("Async FineGrainedLongTerm reranking failed; using first-stage order: %s", exc)
@@ -521,9 +539,11 @@ class FineGrainedLongTermRetriever:
         threshold: float | None = None,
         explain: bool = False,
         show_expired: bool = False,
+        rerank: bool = False,
     ) -> list[dict[str, Any]]:
         top_k = int(top_k or self.config.top_k)
         threshold = max(float(threshold or 0.0), float(self.config.rag_threshold))
+        active_reranker = self._resolve_reranker(rerank)
         internal_limit = self._internal_limit(top_k)
         signals = self.collect_candidate_signals(
             query,
@@ -540,8 +560,9 @@ class FineGrainedLongTermRetriever:
             threshold=threshold,
             top_k=top_k,
             explain=explain,
+            reranker_enabled=active_reranker is not None,
         )
-        return self._format_results(self._rerank(query, coarse, top_k), explain=explain)
+        return self._format_results(self._rerank(query, coarse, top_k, active_reranker), explain=explain)
 
     def rank_frozen(
         self,
@@ -555,6 +576,7 @@ class FineGrainedLongTermRetriever:
         top_k: int | None = None,
         threshold: float | None = None,
         explain: bool = True,
+        rerank: bool = False,
     ) -> list[dict[str, Any]]:
         """Rank a frozen production candidate pool with the production algorithm.
 
@@ -564,6 +586,7 @@ class FineGrainedLongTermRetriever:
         """
         top_k = int(top_k or self.config.top_k)
         threshold = max(float(threshold or 0.0), float(self.config.rag_threshold))
+        active_reranker = self._resolve_reranker(rerank)
         internal_limit = self._internal_limit(top_k)
         current_ids = {str(value) for value in (current_session_candidate_ids or [])}
         current = [row for row in semantic_candidates if str(row.get("id") or "") in current_ids][:internal_limit]
@@ -589,8 +612,9 @@ class FineGrainedLongTermRetriever:
             threshold=threshold,
             top_k=top_k,
             explain=explain,
+            reranker_enabled=active_reranker is not None,
         )
-        return self._format_results(self._rerank(query, coarse, top_k), explain=explain)
+        return self._format_results(self._rerank(query, coarse, top_k, active_reranker), explain=explain)
 
     async def search_async(
         self,
@@ -601,9 +625,11 @@ class FineGrainedLongTermRetriever:
         threshold: float | None = None,
         explain: bool = False,
         show_expired: bool = False,
+        rerank: bool = False,
     ) -> list[dict[str, Any]]:
         top_k = int(top_k or self.config.top_k)
         threshold = max(float(threshold or 0.0), float(self.config.rag_threshold))
+        active_reranker = self._resolve_reranker(rerank)
         internal_limit = self._internal_limit(top_k)
         signals = await self.collect_candidate_signals_async(
             query,
@@ -620,6 +646,7 @@ class FineGrainedLongTermRetriever:
             threshold=threshold,
             top_k=top_k,
             explain=explain,
+            reranker_enabled=active_reranker is not None,
         )
-        reranked = await self._rerank_async(query, coarse, top_k)
+        reranked = await self._rerank_async(query, coarse, top_k, active_reranker)
         return self._format_results(reranked, explain=explain)

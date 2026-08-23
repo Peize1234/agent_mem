@@ -147,26 +147,30 @@ def production_overrides_from_candidate(config: Mapping[str, Any]) -> dict[str, 
 
     reranker_method = config.get("reranker_method")
     if reranker_method is not None:
-        midterm["reranker"] = {
-            "method": str(reranker_method),
-            "rerank_depth": int(config.get("rerank_depth") or config.get("candidate_depth") or 30),
-            "dense_weight": float(config.get("reranker_dense_weight", 0.7)),
-            "field_weights": deepcopy(
-                config.get("field_weights") or {"summary": 0.5, "keywords": 0.3, "user_input": 0.2}
-            ),
-        }
+        midterm_reranker = dict(midterm.get("reranker") or {})
+        midterm_reranker.update(
+            {
+                "method": str(reranker_method),
+                "rerank_depth": int(config.get("rerank_depth") or config.get("candidate_depth") or 30),
+            }
+        )
         if str(reranker_method) == "cross_encoder":
             model = config.get("reranker_model_path") or config.get("reranker_model_id")
             if model:
-                overrides["reranker"] = {
+                midterm_reranker["backend"] = {
                     "provider": "sentence_transformer",
                     "config": {
                         "model": str(model),
                         "revision": config.get("reranker_model_revision"),
                         "local_files_only": bool(config.get("reranker_model_path")),
                     },
-                    "max_concurrency": int(config.get("reranker_max_concurrency") or 1),
+                    "max_concurrency": int(
+                        config.get("midterm_reranker_max_concurrency") or config.get("reranker_max_concurrency") or 1
+                    ),
                 }
+        else:
+            midterm_reranker.pop("backend", None)
+        midterm["reranker"] = midterm_reranker
 
     fine_names = {
         "longterm_top_k": "top_k",
@@ -190,22 +194,30 @@ def production_overrides_from_candidate(config: Mapping[str, Any]) -> dict[str, 
 
     fine_reranker_method = config.get("longterm_reranker_method")
     if fine_reranker_method is not None:
-        fine["reranker"] = {
-            "method": str(fine_reranker_method),
-            "rerank_depth": int(config.get("longterm_rerank_depth") or 30),
-        }
+        fine_reranker = dict(fine.get("reranker") or {})
+        fine_reranker.update(
+            {
+                "method": str(fine_reranker_method),
+                "rerank_depth": int(config.get("longterm_rerank_depth") or 30),
+            }
+        )
         if str(fine_reranker_method) == "cross_encoder":
             model = config.get("longterm_reranker_model_path") or config.get("longterm_reranker_model_id")
             if model:
-                overrides["reranker"] = {
+                fine_reranker["backend"] = {
                     "provider": "sentence_transformer",
                     "config": {
                         "model": str(model),
                         "revision": config.get("longterm_reranker_model_revision"),
                         "local_files_only": bool(config.get("longterm_reranker_model_path")),
                     },
-                    "max_concurrency": int(config.get("reranker_max_concurrency") or 1),
+                    "max_concurrency": int(
+                        config.get("longterm_reranker_max_concurrency") or config.get("reranker_max_concurrency") or 1
+                    ),
                 }
+        else:
+            fine_reranker.pop("backend", None)
+        fine["reranker"] = fine_reranker
 
     if config.get("query_rewrite_prompt"):
         overrides["query_rewrite_prompt"] = str(config["query_rewrite_prompt"])

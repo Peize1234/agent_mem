@@ -32,10 +32,8 @@ RESEARCH_CONFIG_KEYS = frozenset(
         "embedding_model_revision",
         "encoding_contract",
         "reranker_method",
-        "reranker_dense_weight",
         "reranker_model_id",
         "reranker_model_revision",
-        "field_weights",
         "page_summary_prompt_hash",
         "source_variant",
         "page_context_contract",
@@ -205,12 +203,9 @@ def _failure_distribution(result: CandidateResult, tune_sessions: Sequence[str])
         "Context Budget Loss",
     )
     failure_counts = {
-        name: sum(str(row.get("failure_class") or "") == name for row in misses)
-        for name in failure_classes
+        name: sum(str(row.get("failure_class") or "") == name for row in misses) for name in failure_classes
     }
-    failure_rates = {
-        name: count / len(misses) if misses else 0.0 for name, count in failure_counts.items()
-    }
+    failure_rates = {name: count / len(misses) if misses else 0.0 for name, count in failure_counts.items()}
     by_session: dict[str, dict[str, int]] = {}
     for session_id in tune_sessions:
         session_rows = [row for row in rows if str(row.get("session_id") or "") == session_id]
