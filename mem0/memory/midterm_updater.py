@@ -10,11 +10,7 @@ from typing import Any, Dict, List, Optional
 from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT, MIDTERM_SESSION_MERGE_PROMPT
 from mem0.memory.midterm import compute_recency, compute_session_heat, keyword_overlap
 from mem0.memory.utils import extract_json, remove_code_blocks
-from mem0.utils.timestamps import (
-    BEIJING_TIMEZONE,
-    beijing_now_iso,
-    normalize_iso_timestamp_to_beijing,
-)
+from mem0.utils.timestamps import BEIJING_TIMEZONE, beijing_now_iso, normalize_iso_timestamp_to_beijing
 
 logger = logging.getLogger(__name__)
 
@@ -126,10 +122,14 @@ class MidTermUpdater:
         try:
             response = self.llm.generate_response(
                 messages=[
-                    {"role": "system", "content": MIDTERM_PAGE_SUMMARY_PROMPT},
+                    {
+                        "role": "system",
+                        "content": getattr(self.config, "page_summary_prompt", MIDTERM_PAGE_SUMMARY_PROMPT),
+                    },
                     {"role": "user", "content": summary_input},
                 ],
                 response_format={"type": "json_object"},
+                **dict(getattr(self.config, "page_summary_request_options", {}) or {}),
             )
             parsed = self._parse_json_response(response)
             summary = str(parsed.get("summary") or "").strip()
@@ -176,10 +176,14 @@ class MidTermUpdater:
         try:
             response = await self._generate_response_async(
                 messages=[
-                    {"role": "system", "content": MIDTERM_PAGE_SUMMARY_PROMPT},
+                    {
+                        "role": "system",
+                        "content": getattr(self.config, "page_summary_prompt", MIDTERM_PAGE_SUMMARY_PROMPT),
+                    },
                     {"role": "user", "content": summary_input},
                 ],
                 response_format={"type": "json_object"},
+                **dict(getattr(self.config, "page_summary_request_options", {}) or {}),
             )
             parsed = self._parse_json_response(response)
             summary = str(parsed.get("summary") or "").strip()
@@ -445,13 +449,17 @@ class MidTermUpdater:
         try:
             response = self.llm.generate_response(
                 messages=[
-                    {"role": "system", "content": MIDTERM_SESSION_MERGE_PROMPT},
+                    {
+                        "role": "system",
+                        "content": getattr(self.config, "session_merge_prompt", MIDTERM_SESSION_MERGE_PROMPT),
+                    },
                     {
                         "role": "user",
                         "content": json.dumps(merge_input, ensure_ascii=False, indent=2),
                     },
                 ],
                 response_format={"type": "json_object"},
+                **dict(getattr(self.config, "session_merge_request_options", {}) or {}),
             )
             parsed = self._parse_json_response(response)
             summary = str(parsed.get("summary") or "").strip()
@@ -498,10 +506,14 @@ class MidTermUpdater:
         try:
             response = await self._generate_response_async(
                 messages=[
-                    {"role": "system", "content": MIDTERM_SESSION_MERGE_PROMPT},
+                    {
+                        "role": "system",
+                        "content": getattr(self.config, "session_merge_prompt", MIDTERM_SESSION_MERGE_PROMPT),
+                    },
                     {"role": "user", "content": json.dumps(merge_input, ensure_ascii=False, indent=2)},
                 ],
                 response_format={"type": "json_object"},
+                **dict(getattr(self.config, "session_merge_request_options", {}) or {}),
             )
             parsed = self._parse_json_response(response)
             summary = str(parsed.get("summary") or "").strip()

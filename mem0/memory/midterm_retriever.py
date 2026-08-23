@@ -3,14 +3,20 @@ from typing import Any, Dict, List
 
 from mem0.memory.memory_evolution import forgetting_factor, heat_modulations
 from mem0.memory.midterm import compute_recency, compute_session_heat
+from mem0.utils.retrieval_reranking import blend_reranker_scores, cosine_similarity, field_lexical_score
 
 logger = logging.getLogger(__name__)
 
 
 class MidTermRetriever:
-    def __init__(self, midterm_memory, config):
+    def __init__(self, midterm_memory, config, *, reranker=None):
         self.midterm_memory = midterm_memory
         self.config = config
+        self.reranker = reranker
+
+    def _on_stage(self, stage_name: str, payload: Any) -> None:
+        """Diagnostic extension point; production intentionally keeps no search state."""
+        del stage_name, payload
 
     @staticmethod
     def _scope_filters(filters: Dict[str, Any]) -> Dict[str, Any]:
@@ -172,6 +178,15 @@ class MidTermRetriever:
         payloads: Dict[str, Dict[str, Any]],
         current_turn_index: int,
     ) -> tuple[Dict[str, float], Dict[str, float]]:
+        payloads = {
+            session_id: {
+                **payload,
+                "last_visit_turn_index": payload.get("last_visit_turn_index") or 0,
+                "N_visit": payload.get("N_visit") or 0,
+                "L_interaction": payload.get("L_interaction") or 0,
+            }
+            for session_id, payload in payloads.items()
+        }
         recencies = {
             session_id: compute_recency(
                 int(payload["last_visit_turn_index"]),
@@ -185,6 +200,201 @@ class MidTermRetriever:
             for session_id, payload in payloads.items()
         }
         return recencies, heats
+
+    def _select_sessions(self, query: str, scope_filters: Dict[str, Any]) -> List[Any]:
+        sessions = self.midterm_memory.search_sessions(
+            query=query,
+            filters=scope_filters,
+            top_k=int(self.config.top_k_sessions),
+        )
+        self._on_stage("session_candidates", sessions)
+        return sessions
+
+    def _collect_page_candidates(
+        self,
+        query: str,
+        scope_filters: Dict[str, Any],
+        sessions: List[Any],
+        *,
+        exclude_source_job_id: str | None,
+    ) -> tuple[List[Any], Dict[str, float]]:
+        top_k_pages = int(self.config.top_k_pages)
+        page_candidates: List[Any] = []
+        session_scores: Dict[str, float] = {}
+        for session in sessions:
+            session_id = str(session.id)
+            session_scores[session_id] = float(getattr(session, "score", 0.0) or 0.0)
+            pages = self.midterm_memory.search_pages(
+                query=query,
+                filters={**scope_filters, "session_id": session_id},
+                top_k=top_k_pages,
+            )
+            if not pages and (getattr(session, "payload", None) or {}).get("page_ids"):
+                pages = self.midterm_memory.search_pages(
+                    query=query,
+                    filters=scope_filters,
+                    top_k=max(top_k_pages * len(sessions), top_k_pages),
+                )
+            page_candidates.extend(
+                page
+                for page in pages[:top_k_pages]
+                if (getattr(page, "payload", None) or {}).get("session_id") == session_id
+            )
+
+        routed_candidates = self._dedupe_pages(page_candidates)
+        self._on_stage("routed_page_candidates", routed_candidates)
+        unique_candidates = list(routed_candidates)
+        target_candidate_count = int(getattr(self.config, "midterm_candidate_pool_multiplier", 4)) * int(
+            self.config.max_total_pages
+        )
+        global_candidates: List[Any] = []
+        if len(unique_candidates) < target_candidate_count:
+            global_candidates = self._global_page_candidates(query, scope_filters, target_candidate_count)
+            unique_candidates = self._dedupe_pages([*unique_candidates, *global_candidates])
+        if exclude_source_job_id is not None:
+            unique_candidates = [
+                page
+                for page in unique_candidates
+                if (getattr(page, "payload", None) or {}).get("source_job_id") != exclude_source_job_id
+            ]
+        routed_ids = {str(page.id) for page in routed_candidates}
+        candidate_ids = {str(page.id) for page in unique_candidates}
+        self._on_stage(
+            "global_supplement",
+            [page for page in global_candidates if str(page.id) in candidate_ids - routed_ids],
+        )
+        self._on_stage("deduplicated_candidates", unique_candidates)
+        return unique_candidates, session_scores
+
+    def _score_page_candidates(
+        self,
+        sessions: List[Any],
+        candidates: List[Any],
+        session_scores: Dict[str, float],
+        scope_filters: Dict[str, Any],
+    ) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        session_payloads = self._session_payloads(sessions, candidates)
+        current_turn_index = self._current_turn_index(scope_filters)
+        recencies, all_heats = self._session_evolution(session_payloads, current_turn_index)
+        candidate_session_ids = {
+            str((getattr(page, "payload", None) or {}).get("session_id"))
+            for page in candidates
+            if (getattr(page, "payload", None) or {}).get("session_id") not in (None, "")
+        }
+        modulations = heat_modulations(
+            {session_id: all_heats.get(session_id, 0.0) for session_id in candidate_session_ids},
+            minimum=self.config.heat_modulation_min,
+            maximum=self.config.heat_modulation_max,
+        )
+        public_sessions = [
+            self._format_session(
+                session,
+                float(getattr(session, "score", 0.0) or 0.0),
+                session_heat=all_heats.get(str(session.id)),
+                session_recency=recencies.get(str(session.id)),
+            )
+            for session in sessions
+        ]
+        ranked_pages: List[Dict[str, Any]] = []
+        for page in candidates:
+            payload = getattr(page, "payload", None) or {}
+            session_id = str(payload.get("session_id") or "")
+            raw_score = float(getattr(page, "score", 0.0) or 0.0)
+            modulation = modulations.get(session_id, 1.0)
+            retention = forgetting_factor(
+                payload,
+                self.config,
+                current_turn_index=current_turn_index,
+                heat_factor=modulation,
+            )
+            ranked_pages.append(
+                self._format_page(
+                    page,
+                    raw_score * retention,
+                    session_score=session_scores.get(session_id, 0.0),
+                    raw_rag_score=raw_score,
+                    page_forgetting_factor=retention,
+                    heat_factor=modulation,
+                    effective_half_life_turns=float(self.config.retention_half_life_turns) * modulation,
+                )
+            )
+        ranked_pages.sort(key=lambda item: float(item.get("final_score") or 0.0), reverse=True)
+        self._on_stage("scored_candidates", ranked_pages)
+        return public_sessions, ranked_pages
+
+    def _apply_reranker(self, query: str, ranked_pages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        reranker_config = getattr(self.config, "reranker", None)
+        method = getattr(reranker_config, "method", "none") if reranker_config is not None else "none"
+        if method == "none" or not ranked_pages:
+            self._on_stage("reranked_candidates", ranked_pages)
+            return ranked_pages
+        depth = min(int(reranker_config.rerank_depth), len(ranked_pages))
+        head = [dict(row) for row in ranked_pages[:depth]]
+        tail = [dict(row) for row in ranked_pages[depth:]]
+        try:
+            if method == "cross_encoder":
+                if self.reranker is None:
+                    raise ValueError("MidTerm cross_encoder reranking requires an injected production reranker")
+                reranked = self.reranker.rerank(query, head, depth)
+                by_id = {str(row.get("id") or ""): dict(row) for row in head}
+                reordered = []
+                for row in reranked:
+                    item_id = str(row.get("id") or "")
+                    merged = {**by_id.get(item_id, {}), **dict(row)}
+                    merged["first_stage_score"] = by_id.get(item_id, {}).get("score")
+                    if merged.get("rerank_score") is not None:
+                        merged["score"] = float(merged["rerank_score"])
+                        merged["final_score"] = float(merged["rerank_score"])
+                    reordered.append(merged)
+                reranked_head = reordered
+            else:
+                secondary_scores: Dict[str, float] = {}
+                if method == "field_lexical":
+                    language = self.midterm_memory._base_config_dict().get("bm25_language")
+                    secondary_scores = {
+                        str(row["id"]): field_lexical_score(
+                            query,
+                            row,
+                            field_weights=reranker_config.field_weights,
+                            language=language,
+                        )
+                        for row in head
+                    }
+                elif method == "multi_vector_maxsim":
+                    query_vector = self.midterm_memory.embedding_model.embed(query, "search")
+                    for row in head:
+                        stored = self.midterm_memory.get_page(str(row["id"]))
+                        payload = getattr(stored, "payload", None) or {}
+                        vectors = payload.get("_field_vectors") or {}
+                        if not vectors:
+                            raise ValueError("MidTerm Page is missing production _field_vectors")
+                        secondary_scores[str(row["id"])] = max(
+                            cosine_similarity(query_vector, vector) for vector in vectors.values()
+                        )
+                else:
+                    raise ValueError(f"Unsupported MidTerm reranker method: {method}")
+                reranked_head = blend_reranker_scores(
+                    head,
+                    secondary_scores,
+                    dense_weight=float(reranker_config.dense_weight),
+                )
+            result = [*reranked_head, *tail]
+        except Exception as exc:
+            logger.warning("MidTerm reranking failed; using first-stage order: %s", exc)
+            result = ranked_pages
+        self._on_stage("reranked_candidates", result)
+        return result
+
+    def _apply_threshold(self, ranked_pages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        threshold = float(self.config.midterm_rag_threshold)
+        selected = [page for page in ranked_pages if float(page.get("raw_rag_score") or 0.0) >= threshold]
+        self._on_stage("threshold_candidates", {"threshold": threshold, "candidates": selected})
+        return selected
+
+    def _select_final_pages(self, ranked_pages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        selected = ranked_pages[: int(self.config.max_total_pages)]
+        self._on_stage("final_selection", selected)
+        return selected
 
     def search(
         self,
@@ -202,26 +412,19 @@ class MidTermRetriever:
         and the candidate target is always derived from ``max_total_pages``.
         """
         del record_visits, candidate_pool_size
+        self._on_stage("search_started", {"query": query, "filters": dict(filters or {})})
         scope_filters = self._scope_filters(filters)
         if not scope_filters:
             return []
 
-        top_k_sessions = int(self.config.top_k_sessions)
-        top_k_pages = int(self.config.top_k_pages)
-        max_total_pages = int(self.config.max_total_pages)
-        if top_k_sessions <= 0:
+        if int(self.config.top_k_sessions) <= 0:
             return []
-
-        sessions = self.midterm_memory.search_sessions(
-            query=query,
-            filters=scope_filters,
-            top_k=top_k_sessions,
-        )
-        if top_k_pages <= 0 or max_total_pages <= 0:
+        sessions = self._select_sessions(query, scope_filters)
+        if int(self.config.top_k_pages) <= 0 or int(self.config.max_total_pages) <= 0:
             current_turn_index = self._current_turn_index(scope_filters)
             session_payloads = self._session_payloads(sessions, [])
             recencies, heats = self._session_evolution(session_payloads, current_turn_index)
-            return [
+            public_sessions = [
                 self._format_session(
                     session,
                     float(getattr(session, "score", 0.0) or 0.0),
@@ -230,99 +433,21 @@ class MidTermRetriever:
                 )
                 for session in sessions
             ]
+            self._on_stage("final_selection", [])
+            return public_sessions
 
-        page_candidates: List[Any] = []
-        session_scores: Dict[str, float] = {}
-        for session in sessions:
-            session_id = str(session.id)
-            session_scores[session_id] = float(getattr(session, "score", 0.0) or 0.0)
-            pages = self.midterm_memory.search_pages(
-                query=query,
-                filters={**scope_filters, "session_id": session_id},
-                top_k=top_k_pages,
-            )
-            if not pages and (getattr(session, "payload", None) or {}).get("page_ids"):
-                # Fallback for stores whose filtered vector search is incomplete.
-                pages = self.midterm_memory.search_pages(
-                    query=query,
-                    filters=scope_filters,
-                    top_k=max(top_k_pages * top_k_sessions, top_k_pages),
-                )
-            matching_pages = [
-                page for page in pages if (getattr(page, "payload", None) or {}).get("session_id") == session_id
-            ]
-            page_candidates.extend(matching_pages[:top_k_pages])
-
-        unique_candidates = self._dedupe_pages(page_candidates)
-        multiplier = int(getattr(self.config, "midterm_candidate_pool_multiplier", 4))
-        target_candidate_count = multiplier * max_total_pages
-        if len(unique_candidates) < target_candidate_count:
-            unique_candidates = self._dedupe_pages(
-                [
-                    *unique_candidates,
-                    *self._global_page_candidates(query, scope_filters, target_candidate_count),
-                ]
-            )
-        if exclude_source_job_id is not None:
-            unique_candidates = [
-                page
-                for page in unique_candidates
-                if (getattr(page, "payload", None) or {}).get("source_job_id") != exclude_source_job_id
-            ]
-
-        session_payloads = self._session_payloads(sessions, unique_candidates)
-        candidate_session_ids = {
-            str((getattr(page, "payload", None) or {}).get("session_id"))
-            for page in unique_candidates
-            if (getattr(page, "payload", None) or {}).get("session_id") not in (None, "")
-        }
-        current_turn_index = self._current_turn_index(scope_filters)
-        recencies, all_heats = self._session_evolution(session_payloads, current_turn_index)
-        heats = {session_id: all_heats.get(session_id, 0.0) for session_id in candidate_session_ids}
-        modulations = heat_modulations(
-            heats,
-            minimum=self.config.heat_modulation_min,
-            maximum=self.config.heat_modulation_max,
+        candidates, session_scores = self._collect_page_candidates(
+            query,
+            scope_filters,
+            sessions,
+            exclude_source_job_id=exclude_source_job_id,
         )
-
-        results = [
-            self._format_session(
-                session,
-                float(getattr(session, "score", 0.0) or 0.0),
-                session_heat=all_heats.get(str(session.id)),
-                session_recency=recencies.get(str(session.id)),
-            )
-            for session in sessions
-        ]
-        ranked_pages: List[Dict[str, Any]] = []
-        for page in unique_candidates:
-            payload = getattr(page, "payload", None) or {}
-            session_id = str(payload.get("session_id") or "")
-            raw_score = float(getattr(page, "score", 0.0) or 0.0)
-            modulation = modulations.get(session_id, 1.0)
-            retention = forgetting_factor(
-                payload,
-                self.config,
-                current_turn_index=current_turn_index,
-                heat_factor=modulation,
-            )
-            final_score = raw_score * retention
-            ranked_pages.append(
-                self._format_page(
-                    page,
-                    final_score,
-                    session_score=session_scores.get(session_id, 0.0),
-                    raw_rag_score=raw_score,
-                    page_forgetting_factor=retention,
-                    heat_factor=modulation,
-                    effective_half_life_turns=float(self.config.retention_half_life_turns) * modulation,
-                )
-            )
-
-        ranked_pages.sort(key=lambda item: float(item.get("final_score") or 0.0), reverse=True)
-        threshold = float(self.config.midterm_rag_threshold)
-        selected_pages = [page for page in ranked_pages if float(page.get("raw_rag_score") or 0.0) >= threshold][
-            :max_total_pages
-        ]
-        results.extend(selected_pages)
-        return results
+        public_sessions, ranked_pages = self._score_page_candidates(
+            sessions,
+            candidates,
+            session_scores,
+            scope_filters,
+        )
+        reranked_pages = self._apply_reranker(query, ranked_pages)
+        thresholded_pages = self._apply_threshold(reranked_pages)
+        return [*public_sessions, *self._select_final_pages(thresholded_pages)]

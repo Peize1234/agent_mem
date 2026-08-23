@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from mem0.configs.query_prompts import QUERY_REFERENCE_RESOLUTION_PROMPT
-from mem0.memory.query_resolver import build_query_resolution_messages, parse_resolved_query
+from mem0.memory.query_resolver import QueryResolver
 
 from .artifact_registry import ArtifactRegistry
 from .benchmark_support import load_json, redact_secrets
@@ -339,9 +339,7 @@ class QueryPromptArtifactGenerator:
             for turn in turns:
                 turns_by_id[turn.query_id] = turn
                 history_by_query[turn.query_id] = [
-                    message
-                    for qa_messages in history[-shortterm.shortterm_qa_turns :]
-                    for message in qa_messages
+                    message for qa_messages in history[-shortterm.shortterm_qa_turns :] for message in qa_messages
                 ]
                 history.append(
                     [
@@ -364,34 +362,16 @@ class QueryPromptArtifactGenerator:
                 }
 
                 def call() -> dict[str, Any]:
-                    messages = build_query_resolution_messages(
+                    history = history_by_query[turn.query_id]
+                    resolved = QueryResolver(get_llm(), prompt=variant.prompt_text).resolve(
                         turn.question,
-                        history_by_query[turn.query_id],
-                        prompt=variant.prompt_text,
+                        history,
                     )
-                    attempts = 0
-                    errors: list[str] = []
-                    for _ in range(3):
-                        attempts += 1
-                        try:
-                            response = get_llm().generate_response(
-                                messages=messages,
-                                response_format={"type": "json_object"},
-                            )
-                            resolved = parse_resolved_query(response, turn.question)
-                            return {
-                                "resolved_query": resolved,
-                                "llm_calls": attempts,
-                                "errors": errors,
-                                "failed": False,
-                            }
-                        except Exception as exc:
-                            errors.append(f"{type(exc).__name__}: {exc}")
                     return {
-                        "resolved_query": turn.question,
-                        "llm_calls": attempts,
-                        "errors": errors,
-                        "failed": True,
+                        "resolved_query": resolved,
+                        "llm_calls": 1 if history else 0,
+                        "errors": [],
+                        "failed": False,
                     }
 
                 value, reused = self.registry.materialize_once(row_identity, call)

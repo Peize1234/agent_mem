@@ -6,8 +6,8 @@ import threading
 import uuid
 from typing import Any, Callable, Dict, List, Optional
 
-from mem0.memory.midterm import vector_rows
 from mem0.memory.memory_evolution import forgetting_factor, memory_strength, unique_ids
+from mem0.memory.midterm import vector_rows
 from mem0.utils.factory import VectorStoreFactory
 from mem0.utils.timestamps import beijing_now_iso
 
@@ -25,8 +25,8 @@ def promotion_source_version(session_payload: Dict[str, Any]) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-class CrossSessionLongTermMemory:
-    """User-scoped promoted memories stored outside existing long-term memory."""
+class PromotedLongTermMemory:
+    """Heat-promoted MidTerm Session summaries with a slow lifecycle."""
 
     SOURCE = "cross_session_long_term"
 
@@ -102,15 +102,27 @@ class CrossSessionLongTermMemory:
         }
 
     def _retention_half_life_hours(self) -> float:
-        return float(self.config.cross_session_retention_half_life_hours)
+        promoted = getattr(self.config, "promoted_longterm", None)
+        return float(
+            promoted.retention_half_life_hours
+            if promoted is not None
+            else self.config.cross_session_retention_half_life_hours
+        )
 
     def _retention_floor(self) -> float:
-        return float(self.config.cross_session_retention_floor)
+        promoted = getattr(self.config, "promoted_longterm", None)
+        return float(promoted.retention_floor if promoted is not None else self.config.cross_session_retention_floor)
 
     def _reinforcement_gain(self) -> float:
-        return float(self.config.cross_session_reinforcement_gain)
+        promoted = getattr(self.config, "promoted_longterm", None)
+        return float(
+            promoted.reinforcement_gain if promoted is not None else self.config.cross_session_reinforcement_gain
+        )
 
     def _rag_threshold(self) -> float:
+        promoted = getattr(self.config, "promoted_longterm", None)
+        if promoted is not None:
+            return float(promoted.rag_threshold)
         return float(
             getattr(
                 self.config,
@@ -332,3 +344,9 @@ class CrossSessionLongTermMemory:
             self.store.reset()
         else:
             logger.warning("Cross-session long-term store does not support reset")
+
+
+# Compatibility contract for imports and persisted protocol terminology. The
+# collection suffix, payload source value, deterministic IDs, and history rows
+# intentionally remain unchanged so existing data remains readable.
+CrossSessionLongTermMemory = PromotedLongTermMemory

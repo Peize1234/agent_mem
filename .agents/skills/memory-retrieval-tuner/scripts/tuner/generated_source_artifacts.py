@@ -51,16 +51,13 @@ def prepare_generated_source_candidate(
             max_parallel_sessions=max_parallel_sessions,
             max_parallel_llm_calls=max_parallel_llm_calls,
             page_summary_prompt=(str(spec["page_summary_prompt"]) if spec.get("page_summary_prompt") else None),
-            session_merge_prompt=(
-                str(spec["session_merge_prompt"]) if spec.get("session_merge_prompt") else None
-            ),
+            session_merge_prompt=(str(spec["session_merge_prompt"]) if spec.get("session_merge_prompt") else None),
             fine_grained_longterm_extraction_prompt=(
                 str(
                     spec.get("fine_grained_longterm_extraction_prompt")
                     or spec.get("session_longterm_extraction_prompt")
                 )
-                if spec.get("fine_grained_longterm_extraction_prompt")
-                or spec.get("session_longterm_extraction_prompt")
+                if spec.get("fine_grained_longterm_extraction_prompt") or spec.get("session_longterm_extraction_prompt")
                 else None
             ),
             source_variant=str(spec["source_variant"]),
@@ -103,20 +100,13 @@ def prepare_generated_source_candidate(
         "manifest_paths": [str(path.resolve()) for path in manifest_paths],
         "manifest_sha256": {str(path.resolve()): sha256_file(path) for path in manifest_paths},
     }
-    # Any derivative inherited from the parent was built over the parent's
-    # Page/Session graph. Rebuild it below only when a non-production
-    # representation still requires one after the real source replay.
+    # Query artifacts are replay-only. Page/Session/multi-vector embeddings
+    # are already present in the newly generated production source.
     config.pop("derived_artifact_path", None)
     config.pop("derived_artifact_sha256", None)
     embedding_calls = int(stats.get("embedding_calls") or 0)
     reused_artifacts = [sha256_file(path) for path in generated] if stats.get("reused_sessions") else []
-    needs_derived = any(
-        (
-            config.get("query_representation") not in (None, "original"),
-            config.get("page_representation") not in (None, "production"),
-            config.get("reranker_method") == "multi_vector_maxsim",
-        )
-    )
+    needs_derived = config.get("query_representation") not in (None, "original")
     if needs_derived:
         temporary = Candidate(candidate.name, candidate.stage, config, candidate.provenance, candidate.complexity)
         derived = DerivedArtifactBuilder(registry).build(
@@ -128,12 +118,10 @@ def prepare_generated_source_candidate(
                 Path(str(config["query_artifact_path"])) if config.get("query_artifact_path") else None
             ),
             query_artifact_variant=config.get("query_artifact_variant"),
-            page_representation_name=str(config.get("page_representation") or "production"),
             embedding_model_id=str(config.get("embedding_model_id") or "production"),
             embedding_revision=config.get("embedding_model_revision"),
             embedding_local_path=config.get("embedding_model_path"),
             encoding_contract=config.get("encoding_contract"),
-            include_field_vectors=config.get("reranker_method") == "multi_vector_maxsim",
             device="cuda" if gpu_count else "cpu",
         )
         config["derived_artifact_path"] = str(derived.path)

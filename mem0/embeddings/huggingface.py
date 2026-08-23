@@ -22,7 +22,10 @@ class HuggingFaceEmbedding(EmbeddingBase):
         else:
             self.config.model = self.config.model or "multi-qa-MiniLM-L6-cos-v1"
 
-            self.model = SentenceTransformer(self.config.model, **self.config.model_kwargs)
+            model_kwargs = dict(self.config.model_kwargs)
+            if self.config.revision and "revision" not in model_kwargs:
+                model_kwargs["revision"] = self.config.revision
+            self.model = SentenceTransformer(self.config.model, **model_kwargs)
 
             self.config.embedding_dims = self.config.embedding_dims or self.model.get_sentence_embedding_dimension()
 
@@ -37,9 +40,11 @@ class HuggingFaceEmbedding(EmbeddingBase):
             list: The embedding vector.
         """
         if self.config.huggingface_base_url:
-            return self.client.embeddings.create(
-                input=text, model=self.config.model, **self.config.model_kwargs
-            ).data[0].embedding
+            return (
+                self.client.embeddings.create(input=text, model=self.config.model, **self.config.model_kwargs)
+                .data[0]
+                .embedding
+            )
         else:
             return self.model.encode(text, convert_to_numpy=True).tolist()
 

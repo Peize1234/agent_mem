@@ -288,7 +288,7 @@ def write_outputs(
             f"`{run_metadata.get('production_agentic_parent_retrieval_identity_sha256') or 'N/A'}`",
             f"- Production Agentic unavailable reason: "
             f"`{run_metadata.get('production_agentic_trace_unavailable_reason') or 'N/A'}`",
-            "- Production isolation: diagnostic trace, hybrid presets, Prompt overrides, and the tuner Agentic/Mid-term union cap are Skill-only; they do not add state or experimental branches to production classes.",
+            "- Production parity boundary: hybrid presets and Prompt candidates are validated Production config overrides; retrieval, scoring, reranking, source generation, Page representation, and embedding run only through Production classes. The Skill owns diagnostic hook payloads, experiment metadata, evaluation, and the Agentic/Mid-term benchmark union cap.",
             f"- Stateful replay: `{run_metadata.get('stateful_replay_status', 'not recorded')}`",
             f"- Stateful replay Candidates: `{run_metadata.get('stateful_replay_candidates', [])}`",
             "",
@@ -330,7 +330,7 @@ def write_outputs(
             f"- MidTerm baseline prompt provenance: "
             f"`{(run_metadata.get('midterm_baseline_provenance') or {}).get('prompt_provenance') or 'explicit prompt hashes validated'}`.",
             "- Frozen rankings are eligible only when dataset provenance and the `production_midterm_v1` retrieval contract validate.",
-            "- Query/Page representation variants may be derived from matching production artifacts. Embedding model changes instead regenerate isolated Production sources through real Add, Page generation, and Session formation before evaluation; all remain explicitly marked as Benchmark candidates, not production behavior.",
+            "- Query-only artifacts may be derived from a matching Production checkpoint. Page representation, field-vector, Prompt, and embedding changes regenerate isolated Production sources through real Add, Page generation, and Session formation before evaluation; candidates select deployable Production behavior through validated overrides.",
             "- Query Rewrite requires standard/deep budget; Page Summary, Session Merge and Fine-grained LongTerm Extraction prompt branches require deep budget. Missing API/model resources are recorded as unavailable rather than replaced by surrogate artifacts.",
         )
     )

@@ -465,6 +465,10 @@ search:
         longterm_candidate_pool_multiplier: [2, 4, 6]
         hybrid_presets: [semantic-heavy, balanced, keyword-heavy, entity-aware]
         entity_similarity_threshold: [0.4, 0.5, 0.6, 0.7, 0.8]
+        reranker_methods: [auto_discovered_cross_encoder]
+        rerank_depth: [20, 30, 50]
+        max_reranker_models_standard: 1
+        max_reranker_models_deep: 2
 
       cross_session_temporal:
         tuning: disabled

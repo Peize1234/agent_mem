@@ -33,10 +33,7 @@ from tuner.candidate_selector import classify_overfit, select_best  # noqa: E402
 from tuner.dataset_audit import DatasetAuditFailed, audit_dataset  # noqa: E402
 from tuner.derived_artifacts import DerivedArtifactBuilder  # noqa: E402
 from tuner.diagnostic_midterm_retriever import DiagnosticMidTermRetriever  # noqa: E402
-from tuner.encoding_contract import (  # noqa: E402
-    EncodingContract,
-    SentenceTransformerEncodingAdapter,
-)
+from tuner.encoding_contract import EncodingContract  # noqa: E402
 from tuner.evaluate_candidate import (  # noqa: E402
     _eligible_requirements,
     _evaluate_session,
@@ -58,9 +55,7 @@ from tuner.experiment_branches import (  # noqa: E402
     SourcePromptBranch,
     _derived_dimensions,
 )
-from tuner.generated_source_artifacts import (  # noqa: E402
-    prepare_generated_source_candidate,
-)
+from tuner.generated_source_artifacts import prepare_generated_source_candidate  # noqa: E402
 from tuner.io_utils import sha256_file  # noqa: E402
 from tuner.model_discovery import (  # noqa: E402
     ModelCandidate,
@@ -70,13 +65,7 @@ from tuner.model_discovery import (  # noqa: E402
     _candidate_score_value,
     _metadata_evidence,
 )
-from tuner.models import (  # noqa: E402
-    Candidate,
-    CandidateResult,
-    Dataset,
-    Requirement,
-    Turn,
-)
+from tuner.models import Candidate, CandidateResult, Dataset, Requirement, Turn  # noqa: E402
 from tuner.orchestrator import (  # noqa: E402
     TunerConfig,
     _artifact_cache_root,
@@ -102,28 +91,22 @@ from tuner.prompt_artifacts import (  # noqa: E402
     controlled_query_prompt_variants,
 )
 from tuner.source_prompt_variants import (  # noqa: E402
-    PromptOverrideLLM,
     controlled_fine_grained_longterm_prompt_variants,
     controlled_page_prompt_variants,
 )
 from tuner.split_sessions import create_or_load_split  # noqa: E402
 from tuner.staged_search import candidate_config_hash, run_staged_search  # noqa: E402
 
-from mem0.configs.base import (  # noqa: E402
-    AgenticRetrievalConfig,
-    MemoryConfig,
-    MidTermMemoryConfig,
-)
+from mem0.configs.base import AgenticRetrievalConfig, MemoryConfig, MidTermMemoryConfig  # noqa: E402
 from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT  # noqa: E402
 from mem0.configs.production import load_production_memory_config  # noqa: E402
 from mem0.configs.query_prompts import QUERY_REFERENCE_RESOLUTION_PROMPT  # noqa: E402
+from mem0.embeddings.encoding_contract import EncodingContractEmbedding  # noqa: E402
 from mem0.memory import main as memory_main  # noqa: E402
 from mem0.memory.main import Memory  # noqa: E402
 from mem0.memory.midterm_retriever import MidTermRetriever  # noqa: E402
 from mem0.memory.midterm_updater import PRODUCTION_PAGE_CONTEXT_CONTRACT  # noqa: E402
-from mem0.memory.query_resolver import (  # noqa: E402
-    QueryResolver as ProductionQueryResolver,
-)
+from mem0.memory.query_resolver import QueryResolver as ProductionQueryResolver  # noqa: E402
 from mem0.memory.query_resolver import build_query_resolution_messages  # noqa: E402
 from mem0.memory.storage import SQLiteManager  # noqa: E402
 
@@ -266,10 +249,7 @@ def test_default_memory_config_is_resolved_from_current_production_defaults(tmp_
     assert resolved["embedder"]["config"]["model"] == "BAAI/bge-small-zh-v1.5"
     assert resolved["embedder"]["config"]["embedding_dims"] == 512
     assert resolved["agentic_retrieval"]["max_tool_result_chars"] == 30000
-    assert (
-        resolved["agentic_retrieval"]["max_tool_result_chars"]
-        == AgenticRetrievalConfig().max_tool_result_chars
-    )
+    assert resolved["agentic_retrieval"]["max_tool_result_chars"] == AgenticRetrievalConfig().max_tool_result_chars
 
 
 def test_partial_explicit_memory_config_overrides_only_declared_values(tmp_path: Path) -> None:
@@ -298,6 +278,27 @@ def test_partial_explicit_memory_config_overrides_only_declared_values(tmp_path:
     assert resolved["agentic_retrieval"]["max_iterations"] == AgenticRetrievalConfig().max_iterations
     assert resolved["agentic_retrieval"]["max_tool_calls"] == AgenticRetrievalConfig().max_tool_calls
     assert resolved["benchmark_runtime"] == {"llm_observability": True}
+
+
+def test_legacy_non_thinking_flags_become_production_request_options(tmp_path: Path) -> None:
+    config_path = tmp_path / "non-thinking.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "benchmark_runtime": {
+                    "deepseek_midterm_non_thinking": True,
+                    "deepseek_longterm_non_thinking": True,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    resolved, _ = _resolve_memory_config(config_path)
+    disabled = {"extra_body": {"thinking": {"type": "disabled"}}}
+    assert resolved["midterm"]["page_summary_request_options"] == disabled
+    assert resolved["midterm"]["session_merge_request_options"] == disabled
+    assert resolved["fine_grained_longterm"]["extraction_request_options"] == disabled
 
 
 def test_resume_uses_frozen_config_after_repository_production_changes(tmp_path: Path, monkeypatch) -> None:
@@ -636,7 +637,8 @@ def test_production_adapter_manifest_and_runtime_isolation(tmp_path: Path) -> No
     assert config["backend"] == "production_midterm"
     assert config["retrieval_method"] == "dense"
     assert config["bm25_language"] == "zh"
-    assert config["max_total_results"] == 5
+    assert config["max_total_results"] == 6
+    assert config["benchmark_constraints"]["agentic_result_cap"] == 5
     assert config["agentic_fixed_max_tool_result_chars"] == 23456
     assert provenance["source"] == "real AsyncMemory Add/MidTerm pipeline"
     assert provenance["llm_calls"] == 3
@@ -645,14 +647,57 @@ def test_production_adapter_manifest_and_runtime_isolation(tmp_path: Path) -> No
     assert provenance["production_agentic_max_tool_result_chars"] == 23456
     assert provenance["tuner_agentic_context_cap"] == 5
     ProductionMidtermAdapter.supported(config)
-    with pytest.raises(ValueError, match="regenerated production artifacts"):
-        ProductionMidtermAdapter.supported({**config, "page_representation": "summary"})
+    with pytest.raises(ValueError, match="regenerated production source artifacts"):
+        ProductionMidtermAdapter._validated_production_config({**config, "page_representation": "summary"})
+    with pytest.raises(ValueError, match="regenerated production source artifacts"):
+        ProductionMidtermAdapter._validated_production_config(
+            {
+                **config,
+                "production_overrides": {
+                    "fine_grained_longterm": {
+                        "extraction_request_options": {"extra_body": {"thinking": {"type": "disabled"}}}
+                    }
+                },
+            }
+        )
+    with pytest.raises(ValueError, match="Production QueryResolver artifact"):
+        ProductionMidtermAdapter._validated_production_config(
+            {**config, "production_overrides": {"query_rewrite_prompt": "custom query prompt"}}
+        )
 
     first = isolated_runtime_layout(tmp_path, candidate_hash="candidate-a", session_id="S001")
     second = isolated_runtime_layout(tmp_path, candidate_hash="candidate-b", session_id="S001")
     third = isolated_runtime_layout(tmp_path, candidate_hash="candidate-a", session_id="S002")
     assert len({first.root, second.root, third.root}) == 3
     assert all(layout.sqlite_path.exists() for layout in (first, second, third))
+
+
+def test_production_candidate_inherits_deployed_midterm_behavior(tmp_path: Path) -> None:
+    checkpoints = tmp_path / "checkpoints.jsonl"
+    checkpoints.write_text("", encoding="utf-8")
+    manifest = tmp_path / "production_midterm_manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "schema": ADAPTER_SCHEMA,
+                "status": "COMPLETE",
+                "production_config": {
+                    "retrieval_method": "dense_bm25_fusion",
+                    "page_representation": "summary_keywords",
+                    "dense_weight": 0.35,
+                },
+                "effective_memory_config": {},
+                "checkpoints_path": str(checkpoints),
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    config, _ = production_candidate_from_manifests([manifest])
+
+    assert config["retrieval_method"] == "dense_bm25_fusion"
+    assert config["page_representation"] == "summary_keywords"
+    assert config["dense_weight"] == pytest.approx(0.35)
 
 
 def test_production_source_workers_respect_llm_concurrency_limit(
@@ -860,6 +905,7 @@ def test_diagnostic_retriever_matches_production_and_keeps_trace_isolated() -> N
     assert len(diagnostic.last_search_diagnostics["final_visible_pages"]) == 2
     # The default remains the production's historical 4 * max_total_pages.
     assert production_store.global_depths == diagnostic_store.global_depths == [8]
+    assert "search" not in DiagnosticMidTermRetriever.__dict__
 
 
 def test_production_parameterization_defaults_match_historical_constants() -> None:
@@ -901,24 +947,12 @@ def test_production_default_entity_threshold_matches_historical_half() -> None:
     assert boosts["at-threshold"] == pytest.approx(0.25)
 
 
-def test_prompt_override_is_instance_scoped_and_does_not_mutate_production_globals() -> None:
-    import mem0.memory.midterm_updater as updater_module
+def test_prompt_override_is_a_production_config_and_does_not_mutate_defaults() -> None:
+    production_prompt = MIDTERM_PAGE_SUMMARY_PROMPT
+    config = MidTermMemoryConfig(page_summary_prompt="tuner candidate prompt")
 
-    class Delegate:
-        def __init__(self) -> None:
-            self.messages: list[dict[str, Any]] = []
-
-        def generate_response(self, *, messages: list[dict[str, Any]], **kwargs: Any) -> str:
-            self.messages = messages
-            return "{}"
-
-    production_prompt = updater_module.MIDTERM_PAGE_SUMMARY_PROMPT
-    delegate = Delegate()
-    wrapper = PromptOverrideLLM(delegate, page_summary_prompt="tuner-only prompt")
-    wrapper.generate_response(messages=[{"role": "system", "content": MIDTERM_PAGE_SUMMARY_PROMPT}])
-
-    assert delegate.messages[0]["content"] == "tuner-only prompt"
-    assert updater_module.MIDTERM_PAGE_SUMMARY_PROMPT == production_prompt
+    assert config.page_summary_prompt == "tuner candidate prompt"
+    assert MidTermMemoryConfig().page_summary_prompt == production_prompt
 
 
 def _checkpoint_with_history(
@@ -1130,9 +1164,7 @@ def test_production_query_baseline_is_the_p0_prompt_hash(tmp_path: Path) -> None
 def test_all_page_prompt_candidates_use_one_production_context_contract() -> None:
     variants = controlled_page_prompt_variants({"regime": "balanced_or_plateau"})
 
-    assert {variant["context_contract"] for variant in variants.values()} == {
-        PRODUCTION_PAGE_CONTEXT_CONTRACT
-    }
+    assert {variant["context_contract"] for variant in variants.values()} == {PRODUCTION_PAGE_CONTEXT_CONTRACT}
     assert all("context_mode" not in variant for variant in variants.values())
 
 
@@ -1142,10 +1174,7 @@ def test_other_session_weight_is_production_fixed_not_a_search_parameter() -> No
     space = yaml.safe_load((Path(__file__).resolve().parents[2] / "search_space.yaml").read_text())
     classes = space["parameters"]["classes"]
     all_searchable = {
-        value
-        for name, values in classes.items()
-        if name != "production_fixed_not_searched"
-        for value in values
+        value for name, values in classes.items() if name != "production_fixed_not_searched" for value in values
     }
 
     assert parameter_class("longterm_other_session_weight") == "production-fixed"
@@ -1187,7 +1216,13 @@ def test_production_adapter_exports_full_candidate_threshold_and_cap_trace(tmp_p
             {
                 "id": session_id,
                 "vector": [1.0, 0.0],
-                "payload": {**scope, "session_id": session_id, "summary": "trace session", "page_ids": [row["id"] for row in pages], "output_state": "committed"},
+                "payload": {
+                    **scope,
+                    "session_id": session_id,
+                    "summary": "trace session",
+                    "page_ids": [row["id"] for row in pages],
+                    "output_state": "committed",
+                },
             }
         ],
         "pages": pages,
@@ -1511,9 +1546,7 @@ def test_trace_does_not_replace_midterm_checkpoints_and_regression_is_separate(
     assert metadata["embedding_calls"] == 11
     assert metadata["execution"]["source_worker_parallelism"] == 2
     assert metadata["shortterm_qa_turns"] == 3
-    assert metadata["resolved_memory_config_sha256"] == sha256_file(
-        Path(metadata["resolved_memory_config_path"])
-    )
+    assert metadata["resolved_memory_config_sha256"] == sha256_file(Path(metadata["resolved_memory_config_path"]))
     assert best["candidate"].startswith("RetrievalControl:top_k_pages=10")
     assert best["config"]["top_k_pages"] == 10
     assert best["validation_metrics"]["recall_at_k"] == pytest.approx(0.70)
@@ -1793,20 +1826,14 @@ def _write_production_agentic_trace(
 
 
 def _agentic_query_ids(dataset: Dataset) -> dict[str, list[str]]:
-    return {
-        session_id: [turn.query_id for turn in turns]
-        for session_id, turns in dataset.sessions.items()
-    }
+    return {session_id: [turn.query_id for turn in turns] for session_id, turns in dataset.sessions.items()}
 
 
 def _agentic_trace_config(paths: list[Path], *, max_tool_result_chars: int = 30000) -> dict[str, Any]:
     return {
         "agentic_fixed_max_tool_result_chars": max_tool_result_chars,
         "production_agentic_trace_paths": [str(path) for path in paths],
-        "production_agentic_trace_sha256": {
-            str(path.resolve()): sha256_file(path)
-            for path in paths
-        },
+        "production_agentic_trace_sha256": {str(path.resolve()): sha256_file(path) for path in paths},
     }
 
 
@@ -2304,10 +2331,7 @@ def test_agentic_branch_generates_real_parameter_candidates_and_keeps_fixed_limi
     assert all(candidate.config["agentic_trace_enabled"] is True for candidate in outcome.candidates)
     assert all(candidate.config["agentic_fixed_max_iterations"] == 2 for candidate in outcome.candidates)
     assert all(candidate.config["agentic_fixed_max_tool_calls"] == 1 for candidate in outcome.candidates)
-    assert all(
-        candidate.config["agentic_fixed_max_tool_result_chars"] == 30000
-        for candidate in outcome.candidates
-    )
+    assert all(candidate.config["agentic_fixed_max_tool_result_chars"] == 30000 for candidate in outcome.candidates)
     assert all(candidate.config["production_agentic_trace_sha256"] for candidate in outcome.candidates)
 
 
@@ -3182,9 +3206,10 @@ def test_fine_grained_longterm_prompt_candidates_change_real_extraction_and_sour
     prompt_b = second.config["fine_grained_longterm_extraction_prompt"]
     identity_a = first.config["source_generation_spec"]["source_identity"]
     identity_b = second.config["source_generation_spec"]["source_identity"]
-    assert first.config["fine_grained_longterm_extraction_prompt_hash"] != second.config[
-        "fine_grained_longterm_extraction_prompt_hash"
-    ]
+    assert (
+        first.config["fine_grained_longterm_extraction_prompt_hash"]
+        != second.config["fine_grained_longterm_extraction_prompt_hash"]
+    )
     assert identity_a != identity_b
     assert production_prompt_hashes(fine_grained_longterm_extraction_prompt=prompt_a) != production_prompt_hashes(
         fine_grained_longterm_extraction_prompt=prompt_b
@@ -3235,9 +3260,12 @@ def test_fine_grained_longterm_prompt_candidates_change_real_extraction_and_sour
         memory = Memory.__new__(Memory)
         delegate = PromptAwareLLM(prompt, output)
         store = VectorStore()
-        memory.config = SimpleNamespace(midterm=SimpleNamespace(enabled=False, short_term_capacity=20))
+        memory.config = SimpleNamespace(
+            midterm=SimpleNamespace(enabled=False, short_term_capacity=20),
+            fine_grained_longterm=SimpleNamespace(extraction_prompt=prompt),
+        )
         memory.db = db
-        memory.llm = PromptOverrideLLM(delegate, fine_grained_longterm_extraction_prompt=prompt)
+        memory.llm = delegate
         memory.embedding_model = Embedding()
         memory.vector_store = store
         memory.custom_instructions = None
@@ -3381,9 +3409,7 @@ def test_query_history_uses_exact_production_shortterm_window(
     assert [row["content"] for row in request["recent_history"] if row["role"] == "assistant"] == [
         turns[index - 1].answer for index in expected_history
     ]
-    visible_questions = [
-        row["content"] for row in request["recent_history"] if row["role"] == "user"
-    ]
+    visible_questions = [row["content"] for row in request["recent_history"] if row["role"] == "user"]
     if capacity_messages == 8:
         assert turns[0].question in visible_questions
     else:
@@ -3846,17 +3872,17 @@ def test_derived_artifact_rebuild_preserves_frontier_dimensions(tmp_path: Path) 
             "reranker_method": "multi_vector_maxsim",
         },
     )
-    dimensions = _derived_dimensions(anchor, page_representation_name="user_summary")
+    with pytest.raises(ValueError, match="regenerated by Production"):
+        _derived_dimensions(anchor, page_representation_name="user_summary")
+    dimensions = _derived_dimensions(anchor)
     assert dimensions == {
         "query_representation": "bounded_reference_resolution",
         "query_artifact_path": query_artifact,
         "query_artifact_variant": "generated:v1",
-        "page_representation_name": "user_summary",
         "embedding_model_id": "local/embedding",
         "embedding_revision": "immutable-revision",
         "embedding_local_path": "/models/embedding",
         "encoding_contract": {"query_prefix": "query: ", "document_prefix": "passage: "},
-        "include_field_vectors": True,
     }
 
 
@@ -3908,6 +3934,14 @@ def test_model_specific_encoding_contract_is_applied() -> None:
             return [[1.0, 0.0] for _ in texts]
 
     model = FakeModel()
+
+    class Delegate:
+        def __init__(self, model: FakeModel) -> None:
+            self.model = model
+
+        def embed(self, text: str, action: str) -> list[float]:
+            return self.model.encode([text], convert_to_numpy=True)[0]
+
     contract = EncodingContract(
         query_prefix="query: ",
         document_prefix="passage: ",
@@ -3916,9 +3950,9 @@ def test_model_specific_encoding_contract_is_applied() -> None:
         pooling="mean",
         source="test-model-card",
     )
-    adapter = SentenceTransformerEncodingAdapter(model, contract)
-    adapter.encode(["现金流"], action="search")
-    adapter.encode(["经营现金流改善"], action="add")
+    adapter = EncodingContractEmbedding(Delegate(model), contract.serializable())
+    adapter.embed_batch(["现金流"], "search")
+    adapter.embed_batch(["经营现金流改善"], "add")
     assert model.calls[0][0] == ["query: 现金流"]
     assert model.calls[0][1]["prompt_name"] == "query"
     assert model.calls[0][1]["normalize_embeddings"] is True
@@ -3993,6 +4027,13 @@ def test_embedding_branch_replays_real_production_sources_before_evaluation(
     assert spec["embedding_encoding_contract"] == candidate.config["encoding_contract"]
     assert spec["config_overrides"]["embedder"]["config"]["model"] == str(model_path.resolve())
     assert spec["config_overrides"]["vector_store"]["config"]["embedding_model_dims"] == 384
+    assert candidate.config["production_overrides"]["embedder"]["config"]["model"] == str(model_path.resolve())
+    assert candidate.config["production_overrides"]["embedder"]["config"]["revision"] == "immutable-revision"
+    assert (
+        candidate.config["production_overrides"]["embedder"]["config"]["encoding_contract"]
+        == candidate.config["encoding_contract"]
+    )
+    assert candidate.config["production_overrides"]["vector_store"]["config"]["embedding_model_dims"] == 384
     assert candidate.config.get("derived_artifact_path") is None
 
     generation_calls: list[dict[str, Any]] = []

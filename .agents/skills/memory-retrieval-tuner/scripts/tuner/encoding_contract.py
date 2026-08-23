@@ -4,7 +4,7 @@ import json
 import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping
 
 
 @dataclass(frozen=True)
@@ -24,14 +24,6 @@ class EncodingContract:
 
     def serializable(self) -> dict[str, Any]:
         return asdict(self)
-
-    def text(self, value: str, *, action: str) -> str:
-        if action == "search":
-            return f"{self.query_instruction}{self.query_prefix}{value}"
-        return f"{self.document_instruction}{self.document_prefix}{value}"
-
-    def prompt_name(self, *, action: str) -> str | None:
-        return self.query_prompt_name if action == "search" else self.document_prompt_name
 
 
 def _load_json(path: Path) -> Mapping[str, Any]:
@@ -182,23 +174,3 @@ def resolve_encoding_contract(
     if sentence_transformer_owned or "sentence-transformer" in architecture:
         return EncodingContract(pooling=pooling, source="sentence-transformers-model-default"), None
     return None, "no reliable query/document encoding contract in model config or official family metadata"
-
-
-class SentenceTransformerEncodingAdapter:
-    def __init__(self, model: Any, contract: EncodingContract):
-        self.model = model
-        self.contract = contract
-
-    def encode(self, texts: Sequence[str], *, action: str) -> list[list[float]]:
-        if not texts:
-            return []
-        values = [self.contract.text(str(text), action=action) for text in texts]
-        kwargs: dict[str, Any] = {
-            "convert_to_numpy": True,
-            "normalize_embeddings": self.contract.normalize_embeddings,
-        }
-        prompt_name = self.contract.prompt_name(action=action)
-        if prompt_name:
-            kwargs["prompt_name"] = prompt_name
-        vectors = self.model.encode(values, **kwargs)
-        return [[float(value) for value in vector] for vector in vectors]

@@ -4,6 +4,9 @@ from typing import Any, Dict, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT, MIDTERM_SESSION_MERGE_PROMPT
+from mem0.configs.prompts import ADDITIVE_EXTRACTION_PROMPT
+from mem0.configs.query_prompts import QUERY_REFERENCE_RESOLUTION_PROMPT
 from mem0.configs.rerankers.config import RerankerConfig
 from mem0.embeddings.configs import EmbedderConfig
 from mem0.llms.configs import LlmConfig
@@ -27,6 +30,38 @@ class MemoryItem(BaseModel):
     updated_at: Optional[str] = Field(None, description="The timestamp when the memory was updated")
 
 
+class RetrievalRerankerConfig(BaseModel):
+    """Production retrieval reranker controls shared by memory layers."""
+
+    method: Literal["none", "field_lexical", "multi_vector_maxsim", "cross_encoder"] = "none"
+    rerank_depth: int = Field(30, ge=1, le=100)
+    dense_weight: float = Field(0.7, ge=0, le=1)
+    field_weights: Dict[str, float] = Field(
+        default_factory=lambda: {"summary": 0.5, "keywords": 0.3, "user_input": 0.2}
+    )
+
+    @field_validator("field_weights")
+    @classmethod
+    def validate_field_weights(cls, weights: Dict[str, float]) -> Dict[str, float]:
+        allowed = {"summary", "keywords", "user_input", "raw_dialogue"}
+        unknown = sorted(set(weights) - allowed)
+        if unknown:
+            raise ValueError(f"Unsupported reranker fields: {', '.join(unknown)}")
+        normalized = {str(key): float(value) for key, value in weights.items()}
+        if not normalized or any(not math.isfinite(value) or value < 0 for value in normalized.values()):
+            raise ValueError("field_weights must contain finite non-negative values")
+        if math.isclose(sum(normalized.values()), 0.0):
+            raise ValueError("field_weights must contain at least one positive value")
+        return normalized
+
+
+def _validate_llm_request_options(options: Dict[str, Any], *, field_name: str) -> Dict[str, Any]:
+    conflicts = sorted({"messages", "response_format"} & set(options))
+    if conflicts:
+        raise ValueError(f"{field_name} cannot override reserved request fields: {', '.join(conflicts)}")
+    return options
+
+
 class MidTermMemoryConfig(BaseModel):
     enabled: bool = Field(True, description="Enable the mid-term memory layer")
     short_term_capacity: int = Field(10, description="Number of recent SQLite messages to keep per session")
@@ -45,6 +80,39 @@ class MidTermMemoryConfig(BaseModel):
         le=1,
         description="Minimum raw RAG score for a mid-term page to enter context",
     )
+    page_representation: Literal[
+        "production",
+        "P0",
+        "summary",
+        "P1",
+        "user",
+        "P2",
+        "raw_dialogue",
+        "P3",
+        "user_assistant",
+        "P4",
+        "user_summary",
+        "P5",
+        "summary_raw",
+        "P6",
+        "user_keywords",
+        "P7",
+        "summary_keywords",
+        "P8",
+    ] = Field("production", description="Text representation embedded for each MidTerm Page")
+    retrieval_method: Literal["dense", "dense_bm25_fusion"] = Field(
+        "dense", description="Production Page candidate retrieval method"
+    )
+    fusion_method: Literal["normalized_score", "rrf"] = Field(
+        "normalized_score", description="Dense/BM25 fusion algorithm"
+    )
+    dense_weight: float = Field(0.7, ge=0, le=1)
+    rrf_rank_constant: int = Field(60, ge=1)
+    reranker: RetrievalRerankerConfig = Field(default_factory=RetrievalRerankerConfig)
+    page_summary_prompt: str = Field(default=MIDTERM_PAGE_SUMMARY_PROMPT, min_length=1)
+    session_merge_prompt: str = Field(default=MIDTERM_SESSION_MERGE_PROMPT, min_length=1)
+    page_summary_request_options: Dict[str, Any] = Field(default_factory=dict)
+    session_merge_request_options: Dict[str, Any] = Field(default_factory=dict)
 
     retention_half_life_turns: float = Field(
         168.0,
@@ -93,6 +161,57 @@ class MidTermMemoryConfig(BaseModel):
         if self.heat_modulation_min >= self.heat_modulation_max:
             raise ValueError("heat_modulation_min must be less than heat_modulation_max")
         return self
+
+    @field_validator("page_summary_request_options", "session_merge_request_options")
+    @classmethod
+    def validate_request_options(cls, options: Dict[str, Any], info) -> Dict[str, Any]:
+        return _validate_llm_request_options(options, field_name=info.field_name)
+
+
+class FineGrainedLongTermConfig(BaseModel):
+    """Retrieval and source-generation contract for per-QA extracted facts."""
+
+    enabled: bool = True
+    top_k: int = Field(20, ge=1, le=30)
+    rag_threshold: float = Field(0.1, ge=0, le=1)
+    candidate_pool_multiplier: int = Field(4, ge=1, le=6)
+    other_session_weight: float = Field(0.7, ge=0, le=1)
+    entity_similarity_threshold: float = Field(0.5, ge=0, le=1)
+    semantic_weight: Optional[float] = Field(None, ge=0, le=1)
+    bm25_weight: Optional[float] = Field(None, ge=0, le=1)
+    entity_weight: Optional[float] = Field(None, ge=0, le=1)
+    reranker: RetrievalRerankerConfig = Field(default_factory=RetrievalRerankerConfig)
+    extraction_prompt: str = Field(default=ADDITIVE_EXTRACTION_PROMPT, min_length=1)
+    extraction_request_options: Dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("extraction_request_options")
+    @classmethod
+    def validate_extraction_request_options(cls, options: Dict[str, Any]) -> Dict[str, Any]:
+        return _validate_llm_request_options(options, field_name="extraction_request_options")
+
+    @model_validator(mode="after")
+    def validate_scoring_weights(self):
+        if self.reranker.method not in {"none", "cross_encoder"}:
+            raise ValueError("FineGrainedLongTerm reranker must be none or cross_encoder")
+        weights = (self.semantic_weight, self.bm25_weight, self.entity_weight)
+        if all(value is None for value in weights):
+            return self
+        if any(value is None for value in weights):
+            raise ValueError("semantic_weight, bm25_weight, and entity_weight must be configured together")
+        if not math.isclose(sum(float(value) for value in weights), 1.0, abs_tol=1e-9):
+            raise ValueError("FineGrainedLongTerm scoring weights must sum to 1")
+        return self
+
+
+class PromotedLongTermConfig(BaseModel):
+    """Retrieval contract for heat-promoted MidTerm Session summaries."""
+
+    enabled: bool = True
+    top_k: int = Field(4, ge=0, le=100)
+    rag_threshold: float = Field(0.1, ge=0, le=1)
+    retention_half_life_hours: float = Field(720.0, gt=0)
+    retention_floor: float = Field(0.2, ge=0, le=1)
+    reinforcement_gain: float = Field(0.25, ge=0)
 
 
 class UserProfileConfig(BaseModel):
@@ -224,6 +343,17 @@ class MemoryConfig(BaseModel):
         description="Custom instructions for fact extraction",
         default=None,
     )
+    query_rewrite_prompt: str = Field(
+        default=QUERY_REFERENCE_RESOLUTION_PROMPT,
+        min_length=1,
+        description="Production ShortTerm-aware query rewrite prompt",
+    )
+    longterm_top_k: int = Field(
+        20,
+        ge=1,
+        le=30,
+        description="Compatibility alias for fine_grained_longterm.top_k",
+    )
     longterm_rag_threshold: float = Field(
         0.1,
         ge=0,
@@ -270,6 +400,26 @@ class MemoryConfig(BaseModel):
         ge=0,
         description="Independent logarithmic strength gain for cross-session valid recalls",
     )
+    promoted_longterm_top_k: int = Field(
+        4,
+        ge=0,
+        le=100,
+        description="Compatibility alias for promoted_longterm.top_k",
+    )
+    promoted_longterm_rag_threshold: float = Field(
+        0.1,
+        ge=0,
+        le=1,
+        description="Compatibility alias for promoted_longterm.rag_threshold",
+    )
+    fine_grained_longterm: FineGrainedLongTermConfig = Field(
+        description="Production configuration for per-QA extracted fact retrieval",
+        default_factory=FineGrainedLongTermConfig,
+    )
+    promoted_longterm: PromotedLongTermConfig = Field(
+        description="Production configuration for promoted MidTerm Session summaries",
+        default_factory=PromotedLongTermConfig,
+    )
     midterm: MidTermMemoryConfig = Field(
         description="Configuration for the optional mid-term memory layer",
         default_factory=MidTermMemoryConfig,
@@ -286,6 +436,55 @@ class MemoryConfig(BaseModel):
         description="Configuration for optional model-directed mid-term retrieval",
         default_factory=AgenticRetrievalConfig,
     )
+
+    @model_validator(mode="after")
+    def synchronize_longterm_compatibility_fields(self):
+        """Keep persisted legacy config names valid while new layer configs become canonical."""
+        if "fine_grained_longterm" in self.model_fields_set:
+            fine = self.fine_grained_longterm
+            self.longterm_top_k = fine.top_k
+            self.longterm_rag_threshold = fine.rag_threshold
+            self.longterm_candidate_pool_multiplier = fine.candidate_pool_multiplier
+            self.longterm_other_session_weight = fine.other_session_weight
+            self.entity_similarity_threshold = fine.entity_similarity_threshold
+        else:
+            self.fine_grained_longterm = FineGrainedLongTermConfig(
+                top_k=self.longterm_top_k,
+                rag_threshold=self.longterm_rag_threshold,
+                candidate_pool_multiplier=self.longterm_candidate_pool_multiplier,
+                other_session_weight=self.longterm_other_session_weight,
+                entity_similarity_threshold=self.entity_similarity_threshold,
+            )
+
+        if "promoted_longterm" in self.model_fields_set:
+            promoted = self.promoted_longterm
+            self.promoted_longterm_top_k = promoted.top_k
+            self.promoted_longterm_rag_threshold = promoted.rag_threshold
+            self.cross_session_longterm_rag_threshold = promoted.rag_threshold
+            self.cross_session_retention_half_life_hours = promoted.retention_half_life_hours
+            self.cross_session_retention_floor = promoted.retention_floor
+            self.cross_session_reinforcement_gain = promoted.reinforcement_gain
+        else:
+            threshold = (
+                self.promoted_longterm_rag_threshold
+                if "promoted_longterm_rag_threshold" in self.model_fields_set
+                else self.cross_session_longterm_rag_threshold
+            )
+            self.promoted_longterm = PromotedLongTermConfig(
+                top_k=self.promoted_longterm_top_k,
+                rag_threshold=threshold,
+                retention_half_life_hours=self.cross_session_retention_half_life_hours,
+                retention_floor=self.cross_session_retention_floor,
+                reinforcement_gain=self.cross_session_reinforcement_gain,
+            )
+            self.promoted_longterm_rag_threshold = threshold
+
+        requires_external_reranker = any(
+            layer.reranker.method == "cross_encoder" for layer in (self.midterm, self.fine_grained_longterm)
+        )
+        if requires_external_reranker and self.reranker is None:
+            raise ValueError("cross_encoder retrieval requires MemoryConfig.reranker")
+        return self
 
 
 class AzureConfig(BaseModel):

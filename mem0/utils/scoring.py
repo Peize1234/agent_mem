@@ -55,6 +55,25 @@ def normalize_bm25(raw_score: float, midpoint: float, steepness: float) -> float
 
 
 ENTITY_BOOST_WEIGHT = 0.5
+HYBRID_PRESET_WEIGHTS = {
+    "semantic-heavy": {"semantic": 0.70, "bm25": 0.20, "entity": 0.10},
+    "balanced": {"semantic": 0.40, "bm25": 0.40, "entity": 0.20},
+    "keyword-heavy": {"semantic": 0.25, "bm25": 0.65, "entity": 0.10},
+    "entity-aware": {"semantic": 0.50, "bm25": 0.15, "entity": 0.35},
+}
+
+
+def validate_hybrid_weights(
+    semantic_weight: float,
+    bm25_weight: float,
+    entity_weight: float,
+) -> tuple[float, float, float]:
+    weights = tuple(float(value) for value in (semantic_weight, bm25_weight, entity_weight))
+    if any(not math.isfinite(value) or not 0 <= value <= 1 for value in weights):
+        raise ValueError("hybrid weights must be finite values between 0 and 1")
+    if not math.isclose(sum(weights), 1.0, abs_tol=1e-9):
+        raise ValueError("hybrid weights must sum to 1")
+    return weights
 
 
 def score_and_rank(
@@ -65,6 +84,9 @@ def score_and_rank(
     top_k: int,
     explain: bool = False,
     session_weights: Optional[Dict[str, float]] = None,
+    semantic_weight: Optional[float] = None,
+    bm25_weight: Optional[float] = None,
+    entity_weight: Optional[float] = None,
 ) -> List[Dict[str, Any]]:
     """Score candidates additively and return top-k results.
 
@@ -92,6 +114,17 @@ def score_and_rank(
     Returns:
         List of scored result dicts sorted by combined score descending.
     """
+    configured_weights = (semantic_weight, bm25_weight, entity_weight)
+    weighted = not all(value is None for value in configured_weights)
+    if weighted:
+        if any(value is None for value in configured_weights):
+            raise ValueError("semantic_weight, bm25_weight, and entity_weight must be configured together")
+        semantic_weight, bm25_weight, entity_weight = validate_hybrid_weights(
+            semantic_weight,
+            bm25_weight,
+            entity_weight,
+        )
+
     has_bm25 = bool(bm25_scores)
     has_entity = bool(entity_boosts)
 
@@ -116,8 +149,17 @@ def score_and_rank(
         bm25_score = bm25_scores.get(mem_id_str, 0.0)
         entity_boost = entity_boosts.get(mem_id_str, 0.0)
 
-        raw_combined = semantic_score + bm25_score + entity_boost
-        hybrid_score = min(raw_combined / max_possible, 1.0)
+        if weighted:
+            normalized_entity = min(max(entity_boost / ENTITY_BOOST_WEIGHT, 0.0), 1.0)
+            raw_combined = (
+                semantic_weight * semantic_score + bm25_weight * bm25_score + entity_weight * normalized_entity
+            )
+            hybrid_score = min(max(raw_combined, 0.0), 1.0)
+        else:
+            # Compatibility contract: the historical production formula and
+            # its dynamic divisor remain byte-for-byte equivalent by default.
+            raw_combined = semantic_score + bm25_score + entity_boost
+            hybrid_score = min(raw_combined / max_possible, 1.0)
         session_weight = float((session_weights or {}).get(mem_id_str, 1.0))
         combined = hybrid_score * session_weight
 
@@ -138,6 +180,12 @@ def score_and_rank(
                 "final_score": combined,
                 "threshold": threshold,
             }
+            if weighted:
+                scored_result["score_details"]["weights"] = {
+                    "semantic": semantic_weight,
+                    "bm25": bm25_weight,
+                    "entity": entity_weight,
+                }
         scored.append(scored_result)
 
     scored.sort(key=lambda x: x["score"], reverse=True)

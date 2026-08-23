@@ -65,3 +65,47 @@ try:
 
 finally:
     memory.close()
+
+
+
+
+import sys
+
+def get_max_score(n, k, v):
+    max_score = 0
+
+    for a in range(min(n, k) + 1):
+        for b in range(min(n - a, k - a) + 1):
+            hand = []
+
+            if a > 0:
+                hand.extend(v[:a])
+
+            if b > 0:
+                hand.extend(v[n - b:])
+
+            hand.sort()
+
+            rem_ops = k - (a + b)
+            current_score = 0
+
+            for card in hand:
+                if card < 0 and rem_ops > 0:
+                    rem_ops -= 1
+                else:
+                    current_score += card
+
+            max_score = max(max_score, current_score)
+
+    return max_score
+
+input_data = sys.stdin.read().split()
+
+if len(input_data) >= 2:
+    N = int(input_data[0])
+    K = int(input_data[1])
+    V = [int(x) for x in input_data[2: 2 + N]]
+
+    ans = get_max_score(N, K, V)
+
+    print(ans)

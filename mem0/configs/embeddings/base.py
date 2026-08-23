@@ -22,6 +22,8 @@ class BaseEmbedderConfig(ABC):
         openai_base_url: Optional[str] = None,
         # Huggingface specific
         model_kwargs: Optional[dict] = None,
+        revision: Optional[str] = None,
+        encoding_contract: Optional[dict] = None,
         huggingface_base_url: Optional[str] = None,
         # AzureOpenAI specific
         azure_kwargs: Optional[AzureConfig] = None,
@@ -88,6 +90,8 @@ class BaseEmbedderConfig(ABC):
 
         # Huggingface specific
         self.model_kwargs = model_kwargs or {}
+        self.revision = revision
+        self.encoding_contract = encoding_contract or {}
         self.huggingface_base_url = huggingface_base_url
         # AzureOpenAI specific
         self.azure_kwargs = AzureConfig(**(azure_kwargs or {})) or {}

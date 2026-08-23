@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from copy import deepcopy
 from typing import Any, Mapping
 
 from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT, MIDTERM_SESSION_MERGE_PROMPT
@@ -105,69 +104,3 @@ def controlled_fine_grained_longterm_prompt_variants() -> dict[str, str]:
 def controlled_session_longterm_prompt_variants() -> dict[str, str]:
     """Compatibility alias for historical registries/artifacts."""
     return controlled_fine_grained_longterm_prompt_variants()
-
-
-class PromptOverrideLLM:
-    """Instance-scoped Prompt replacement for isolated tuner source runs."""
-
-    def __init__(
-        self,
-        delegate: Any,
-        *,
-        page_summary_prompt: str | None = None,
-        session_merge_prompt: str | None = None,
-        fine_grained_longterm_extraction_prompt: str | None = None,
-        session_longterm_extraction_prompt: str | None = None,
-    ):
-        self.delegate = delegate
-        self._page_summary_prompt = page_summary_prompt
-        self._session_merge_prompt = session_merge_prompt
-        self._fine_grained_longterm_extraction_prompt = (
-            fine_grained_longterm_extraction_prompt or session_longterm_extraction_prompt
-        )
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self.delegate, name)
-
-    def _messages(self, messages: Any) -> Any:
-        if not isinstance(messages, list):
-            return messages
-        updated = deepcopy(messages)
-        for message in updated:
-            if not isinstance(message, dict) or message.get("role") != "system":
-                continue
-            content = str(message.get("content") or "")
-            if self._page_summary_prompt and content == MIDTERM_PAGE_SUMMARY_PROMPT:
-                message["content"] = self._page_summary_prompt
-            elif self._session_merge_prompt and content == MIDTERM_SESSION_MERGE_PROMPT:
-                message["content"] = self._session_merge_prompt
-            elif self._fine_grained_longterm_extraction_prompt and content.startswith(ADDITIVE_EXTRACTION_PROMPT):
-                message["content"] = self._fine_grained_longterm_extraction_prompt + content[len(ADDITIVE_EXTRACTION_PROMPT) :]
-        return updated
-
-    def generate_response(self, *args: Any, **kwargs: Any) -> Any:
-        if args:
-            args = (self._messages(args[0]), *args[1:])
-        elif "messages" in kwargs:
-            kwargs = {**kwargs, "messages": self._messages(kwargs["messages"])}
-        return self.delegate.generate_response(*args, **kwargs)
-
-    async def generate_response_async(self, *args: Any, **kwargs: Any) -> Any:
-        if args:
-            args = (self._messages(args[0]), *args[1:])
-        elif "messages" in kwargs:
-            kwargs = {**kwargs, "messages": self._messages(kwargs["messages"])}
-        method = getattr(self.delegate, "generate_response_async", None)
-        if method is not None:
-            return await method(*args, **kwargs)
-        return self.delegate.generate_response(*args, **kwargs)
-
-    async def agenerate_response(self, *args: Any, **kwargs: Any) -> Any:
-        if args:
-            args = (self._messages(args[0]), *args[1:])
-        elif "messages" in kwargs:
-            kwargs = {**kwargs, "messages": self._messages(kwargs["messages"])}
-        method = getattr(self.delegate, "agenerate_response", None)
-        if method is not None:
-            return await method(*args, **kwargs)
-        return await self.generate_response_async(*args, **kwargs)

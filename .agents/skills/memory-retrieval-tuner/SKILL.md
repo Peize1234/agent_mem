@@ -119,13 +119,15 @@ R@K = top K 内满足的 Gold requirement 数量
 
 生产配置仍是公式与默认值的唯一来源。当前允许读取的配置包括 Mid-term 全局补充池倍率、Fine-grained LongTerm over-fetch 倍率、实体匹配阈值，以及固定为 `0.7` 且不自动搜索的 `longterm_other_session_weight`。Benchmark-only 诊断不得回写生产配置或把 Gold 带入生产分支。
 
-除此以外，不要为了运行实验修改 `mem0/`。优先使用：
+如果一个候选会改变最终检索结果、写入内容或 embedding，它必须先由 `mem0/` 的生产配置和生产类实现。Tuner 只通过 `production_overrides` 选择这些能力。Benchmark 评价、诊断记录、实验调度和报告优先使用：
 
 1. 现有 Benchmark / Evaluation 代码；
 2. 实验 adapter / 配置覆盖；
 3. 本 Skill `scripts/` 下的新 adapter；`exp/benchmark/` 仅作为 legacy 参考，不得成为核心运行依赖。
 
-完整 candidate/threshold/ranking trace 由 Skill 内 `DiagnosticMidTermRetriever` 生成，生产 `MidTermRetriever` 不得包含 `last_search_diagnostics` 或其他 benchmark 状态。Long-term hybrid presets 使用 Skill 内 `tuner_score_and_rank`；Source Prompt 通过实例级 `PromptOverrideLLM` 注入，不得修改 production module global。Agentic 与普通 Mid-term 合计 `<=5` 仅是 tuner evaluator 的 context constraint，不得据此改写 Production 的 `max_total_results` 或 `MemoryToolExecutor` 截断语义；Production 固定的 `max_tool_result_chars` 必须原样进入 Candidate 和 Agentic trace provenance。
+完整 candidate/threshold/ranking trace 由 Skill 内 `DiagnosticMidTermRetriever` 通过覆盖 production `_on_stage` hook 记录；它不得覆盖或复制 `search()`。Long-term hybrid preset 只映射为 production `semantic_weight` / `bm25_weight` / `entity_weight`，实际打分只调用 `mem0.utils.scoring.score_and_rank`。Source Prompt 必须写入 `MemoryConfig`，由真实 `QueryResolver`、`MidTermUpdater` 和 Fine-grained LongTerm extraction pipeline 执行。Agentic 与普通 Mid-term 合计 `<=5` 仅是 tuner evaluator 的 context constraint，不得据此改写 Production 的 `max_total_results` 或 `MemoryToolExecutor` 截断语义；Production 固定的 `max_tool_result_chars` 必须原样进入 Candidate 和 Agentic trace provenance。
+
+任何会改变 source 的 LLM 请求选项也必须写入 production `midterm.*_request_options` 或 `fine_grained_longterm.extraction_request_options`。Tuner 的 LLM wrapper 只能记录诊断；历史 `benchmark_runtime.deepseek_*_non_thinking` flag 必须先迁移成上述可部署 Production 配置，不能在 wrapper 中私自改请求。
 
 只有当用户明确要求落地所选配置时，才允许修改上述边界之外的生产代码。
 
@@ -141,12 +143,12 @@ R@K = top K 内满足的 Gold requirement 数量
 - `staged_search.py`：Tune-only successive filtering；
 - `research_evidence.py` / `research_policy.py`：Tune-only 结构化证据与 Python legal action 空间；
 - `research_decision.py` / `research_runtime.py`：Research LLM 决策、严格校验、重试、cache 与完整 trace；
-- `derived_artifacts.py`：Query/Page/Session/field 向量派生与 content-addressed cache；
+- `derived_artifacts.py`：Query 派生 artifact 与 content-addressed cache；Page/Session/field 向量只能由 production source generation 生成；
 - `prompt_artifacts.py`：Query Prompt 受控迭代、逐 Query 原子缓存与恢复；
-- `source_prompt_variants.py`：Add/Page Summary 受控 Prompt 与实例级 Prompt override；Page context 由 Production 固定提供；
-- `diagnostic_midterm_retriever.py`：与 production public result 保持 parity 的 Skill-only 完整候选诊断；
+- `source_prompt_variants.py`：Add/Page Summary 受控 Prompt 文本和生成 metadata；Prompt 通过 Production config 执行；
+- `diagnostic_midterm_retriever.py`：只覆盖 production diagnostic hook、记录阶段 payload，不实现 retrieval；
 - `generated_source_artifacts.py`：Add/Page Prompt 候选按 screening/Tune/Validation Session 延迟物化；
-- `encoding_contract.py`：模型自己的 Query/Document encoding contract；
+- `encoding_contract.py`：发现并描述模型的 Query/Document encoding contract；实际编码由 production embedder 执行；
 - `model_discovery.py`：cache-aware 的 Hugging Face 发现、统一质量排序、下载与 smoke；
 - `benchmark_support.py` / `production_runtime.py`：自包含 benchmark schema 与生产 runtime wrapper；
 - `production_midterm_adapter.py`：生产 checkpoint 生成和隔离 replay。

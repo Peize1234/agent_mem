@@ -6,13 +6,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from mem0.configs.query_prompts import QUERY_REFERENCE_RESOLUTION_PROMPT
-from mem0.memory.query_resolver import (
-    QueryResolver,
-    build_query_resolution_messages,
-    parse_resolved_query,
-)
 from mem0.memory.main import Memory
-
+from mem0.memory.query_resolver import QueryResolver, build_query_resolution_messages, parse_resolved_query
 
 HISTORY = [
     {"role": "user", "content": "Compare Alpha Fund and Beta Fund."},
@@ -44,6 +39,17 @@ def test_explicit_reference_can_be_resolved_conservatively():
     assert json.loads(request[1]["content"]) == {
         "current_query": "What is its fee?",
         "recent_history": HISTORY,
+    }
+
+
+def test_custom_production_query_rewrite_prompt_is_used():
+    llm = MagicMock()
+    llm.generate_response.return_value = '{"resolved_query":"resolved"}'
+
+    assert QueryResolver(llm, prompt="custom rewrite prompt").resolve("original", HISTORY) == "resolved"
+    assert llm.generate_response.call_args.kwargs["messages"][0] == {
+        "role": "system",
+        "content": "custom rewrite prompt",
     }
 
 

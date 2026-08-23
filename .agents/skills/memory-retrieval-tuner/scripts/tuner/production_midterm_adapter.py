@@ -6,7 +6,6 @@ import hashlib
 import inspect
 import json
 import logging
-import math
 import os
 import re
 import sqlite3
@@ -20,6 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from mem0.configs.query_prompts import QUERY_REFERENCE_RESOLUTION_PROMPT
 from mem0.memory.midterm_updater import PRODUCTION_PAGE_CONTEXT_CONTRACT
 from mem0.memory.query_resolver import QueryResolver
 
@@ -33,26 +33,10 @@ from .benchmark_support import (
     wait_for_migration_jobs,
 )
 from .diagnostic_midterm_retriever import DiagnosticMidTermRetriever
-from .encoding_contract import EncodingContract, SentenceTransformerEncodingAdapter
 from .fact_evaluator import fact_member_hit, parse_required_context
-from .io_utils import (
-    atomic_write_json,
-    load_jsonl,
-    sha256_file,
-    stable_hash,
-    write_jsonl,
-)
+from .io_utils import atomic_write_json, load_jsonl, sha256_file, stable_hash, write_jsonl
+from .parameter_schema import production_overrides_from_candidate
 from .production_runtime import create_production_memory
-from .retrieval_primitives import (
-    HYBRID_PRESET_WEIGHTS,
-    cosine,
-    field_aware_score,
-    normalize_scores,
-    normalized_score_fuse,
-    page_representation,
-    tuner_score_and_rank,
-)
-from .source_prompt_variants import PromptOverrideLLM
 
 ADAPTER_SCHEMA = 7  # isolates the per-QA LongTerm and fixed Page-context production contract
 PRODUCTION_BACKEND = "production_midterm"
@@ -68,10 +52,7 @@ def production_prompt_hashes(
     fine_grained_longterm_extraction_prompt: str | None = None,
     session_longterm_extraction_prompt: str | None = None,
 ) -> dict[str, str]:
-    from mem0.configs.midterm_prompts import (
-        MIDTERM_PAGE_SUMMARY_PROMPT,
-        MIDTERM_SESSION_MERGE_PROMPT,
-    )
+    from mem0.configs.midterm_prompts import MIDTERM_PAGE_SUMMARY_PROMPT, MIDTERM_SESSION_MERGE_PROMPT
     from mem0.configs.prompts import ADDITIVE_EXTRACTION_PROMPT
 
     return {
@@ -146,58 +127,6 @@ class FrozenQueryEmbedding:
 
     def embed_batch(self, texts: Sequence[str], memory_action: str | None = None) -> list[list[float]]:
         return [self.embed(text, memory_action) for text in texts]
-
-
-@dataclass
-class AdapterPoint:
-    id: str
-    payload: dict[str, Any]
-    score: float
-
-
-def _hybrid_memory_class() -> type[Any]:
-    from mem0.memory.midterm import MidTermMemory, derived_output_is_visible
-
-    class HybridMidTermMemory(MidTermMemory):
-        """Benchmark-only Page-search extension; Session routing remains production code."""
-
-        def __init__(self, *args: Any, dense_weight: float, **kwargs: Any):
-            self._dense_weight = dense_weight
-            super().__init__(*args, **kwargs)
-
-        def search_pages(
-            self,
-            query: str,
-            filters: dict[str, Any] | None = None,
-            top_k: int = 5,
-        ) -> list[Any]:
-            dense = super().search_pages(query=query, filters=filters, top_k=top_k)
-            sparse_result = self.pages_store.keyword_search(query, top_k=top_k, filters=filters)
-            if sparse_result is None and (
-                not getattr(self.pages_store, "_has_bm25_slot", False) or self.pages_store._get_bm25_encoder() is None
-            ):
-                raise RuntimeError("Qdrant BM25 sparse slot is unavailable for dense_bm25_fusion")
-            # A valid sparse query may simply have no term overlap.  That is a
-            # real hybrid result (dense-only for this Query), not an unavailable Branch.
-            sparse = list(sparse_result or [])
-
-            dense_rows = [{"page_id": str(row.id), "score": float(getattr(row, "score", 0.0) or 0.0)} for row in dense]
-            sparse_rows = [
-                {"page_id": str(row.id), "score": float(getattr(row, "score", 0.0) or 0.0)} for row in sparse
-            ]
-            fused = normalized_score_fuse(dense_rows, sparse_rows, dense_weight=self._dense_weight)
-            payload_by_id = {str(row.id): dict(getattr(row, "payload", None) or {}) for row in [*dense, *sparse]}
-            return [
-                AdapterPoint(
-                    id=str(row["page_id"]),
-                    payload=payload_by_id[str(row["page_id"])],
-                    score=float(row["score"]),
-                )
-                for row in fused[:top_k]
-                if derived_output_is_visible(payload_by_id[str(row["page_id"])])
-            ]
-
-    return HybridMidTermMemory
 
 
 def _dense_vector(value: Any) -> list[float]:
@@ -321,9 +250,7 @@ def _unselected_page_diagnostic_rows(
 ) -> list[dict[str, Any]]:
     """Expose source Pages omitted before candidate pooling for loss diagnosis."""
     pool_ids = {
-        str(row.get("id") or "")
-        for row in diagnostics.get("deduplicated_candidate_pool") or []
-        if row.get("id")
+        str(row.get("id") or "") for row in diagnostics.get("deduplicated_candidate_pool") or [] if row.get("id")
     }
     routed_session_ids = {
         str(row.get("session_id") or row.get("id") or "")
@@ -371,85 +298,17 @@ def _longterm_candidate_pool(
     query_vector: Sequence[float],
     filters: Mapping[str, Any],
 ) -> dict[str, Any]:
-    """Freeze production Long-term signals deeply enough for query-only replay."""
-    from mem0.memory.main import _payload_is_expired
-    from mem0.utils.entity_extraction import extract_entities
-    from mem0.utils.lemmatization import lemmatize_for_bm25
-    from mem0.utils.scoring import get_bm25_params, normalize_bm25
-
+    """Freeze signals through the production FineGrainedLongTerm retriever."""
     pool_limit = max(30 * 6, 60)
-    current_filters = dict(filters)
-    all_session_filters = {key: value for key, value in current_filters.items() if key != "run_id"}
-    semantic_routes = [
-        memory.vector_store.search(
-            query=query,
-            vectors=list(query_vector),
-            top_k=pool_limit,
-            filters=route_filters,
-        )
-        for route_filters in (current_filters, all_session_filters)
-    ]
-    current_candidate_ids = {str(row.id) for row in semantic_routes[0]}
-    candidates_by_id: dict[str, dict[str, Any]] = {}
-    for row in [item for route in semantic_routes for item in route]:
-        payload = dict(getattr(row, "payload", None) or {})
-        if not memory._stage_output_is_visible(payload, "longterm") or _payload_is_expired(payload):
-            continue
-        candidate = {
-            "id": str(row.id),
-            "score": float(getattr(row, "score", 0.0) or 0.0),
-            "payload": payload,
-        }
-        existing = candidates_by_id.get(candidate["id"])
-        if existing is None or candidate["score"] > existing["score"]:
-            candidates_by_id[candidate["id"]] = candidate
-    candidates = sorted(candidates_by_id.values(), key=lambda item: float(item["score"]), reverse=True)
-
-    query_lemmatized = lemmatize_for_bm25(query, language=getattr(memory, "_bm25_language", None))
-    keyword_rows = [
-        item
-        for route_filters in (current_filters, all_session_filters)
-        for item in (
-            memory.vector_store.keyword_search(
-                query=query_lemmatized,
-                top_k=pool_limit,
-                filters=route_filters,
-            )
-            or []
-        )
-    ]
-    midpoint, steepness = get_bm25_params(query, lemmatized=query_lemmatized)
-    bm25_scores: dict[str, float] = {}
-    for row in keyword_rows or []:
-        raw_score = float(getattr(row, "score", 0.0) or 0.0)
-        if raw_score > 0:
-            bm25_scores[str(row.id)] = normalize_bm25(raw_score, midpoint, steepness)
-
-    query_entities = memory._run_entity_extraction(extract_entities, query)
-    entity_boosts: dict[str, dict[str, float]] = {}
-    for threshold in (0.4, 0.5, 0.6, 0.7, 0.8):
-        if query_entities:
-            compute = getattr(memory, "_compute_entity_boosts_async", None)
-            boosts = (
-                asyncio.run(compute(query_entities, dict(filters), threshold=threshold))
-                if callable(compute)
-                else {}
-            )
-        else:
-            boosts = {}
-        entity_boosts[f"{threshold:.1f}"] = {
-            str(memory_id): float(score) for memory_id, score in boosts.items()
-        }
-
-    return {
-        "schema": 2,
-        "pool_limit": pool_limit,
-        "current_run_id": current_filters.get("run_id"),
-        "semantic_candidates": candidates,
-        "current_session_candidate_ids": sorted(current_candidate_ids),
-        "bm25_scores": bm25_scores,
-        "entity_boosts_by_threshold": entity_boosts,
-    }
+    signals = memory.fine_grained_longterm_retriever.collect_candidate_signals(
+        query,
+        dict(filters),
+        internal_limit=pool_limit,
+        query_vector=query_vector,
+        entity_thresholds=(0.4, 0.5, 0.6, 0.7, 0.8),
+    )
+    signals.pop("session_weights", None)
+    return {"schema": 3, "pool_limit": pool_limit, **signals}
 
 
 def _session_heat_states(
@@ -514,12 +373,19 @@ def _checkpoint(
         )
     )
     retrieval_query = asyncio.run(
-        QueryResolver(memory.llm).resolve_async(query, base_context.get("short_term_messages") or [])
+        QueryResolver(
+            memory.llm,
+            prompt=getattr(memory.config, "query_rewrite_prompt", None) or QUERY_REFERENCE_RESOLUTION_PROMPT,
+        ).resolve_async(query, base_context.get("short_term_messages") or [])
     )
     query_vector = memory.embedding_model.embed(retrieval_query, "search")
     pages = _scroll_points(memory.midterm_memory.pages_store)
     sessions = _scroll_points(memory.midterm_memory.sessions_store)
-    diagnostic_retriever = DiagnosticMidTermRetriever(memory.midterm_memory, memory.config.midterm)
+    diagnostic_retriever = DiagnosticMidTermRetriever(
+        memory.midterm_memory,
+        memory.config.midterm,
+        reranker=getattr(memory, "reranker", None),
+    )
     results = diagnostic_retriever.search(
         retrieval_query,
         {"user_id": user_id, "run_id": session_id},
@@ -557,7 +423,7 @@ def _checkpoint(
 
         raw = memory.search(
             retrieval_query,
-            top_k=min(int(getattr(memory.config, "longterm_top_k", 30)), 30),
+            top_k=int(memory.config.fine_grained_longterm.top_k),
             filters={"user_id": user_id, "run_id": session_id},
             threshold=None,
         )
@@ -579,13 +445,12 @@ def _checkpoint(
         )
     except Exception:
         logger.debug("Long-term candidate pool unavailable for %s", query_id, exc_info=True)
-    current_turn_index = int(
-        memory.midterm_memory.current_turn_index({"user_id": user_id, "run_id": session_id})
-    )
+    current_turn_index = int(memory.midterm_memory.current_turn_index({"user_id": user_id, "run_id": session_id}))
     return {
         "query_id": query_id,
         "query": query,
         "retrieval_query": retrieval_query,
+        "short_term_messages": deepcopy(base_context.get("short_term_messages") or []),
         "filters": {"user_id": user_id, "run_id": session_id},
         "query_vector": list(query_vector),
         # Search is performed before Add for this turn.  Persist the exact
@@ -676,9 +541,7 @@ def _valid_recalled_page_ids(turn: Any, checkpoint: Mapping[str, Any]) -> list[s
         ]
 
     required_ids = {
-        str(member).upper()
-        for requirement in getattr(turn, "requirements", ())
-        for member in requirement.members
+        str(member).upper() for requirement in getattr(turn, "requirements", ()) for member in requirement.members
     }
     job_map = {
         str(job_id): {str(turn_id).upper() for turn_id in turn_ids}
@@ -738,30 +601,6 @@ class CountingEmbedding:
         return self.delegate.embed_batch(texts, *args, **kwargs)
 
 
-class EncodingContractEmbedding:
-    """Apply the model-owned encoding contract inside an isolated source runtime."""
-
-    def __init__(self, delegate: Any, contract: Mapping[str, Any]):
-        model = getattr(delegate, "model", None)
-        if model is None:
-            raise ValueError("Candidate encoding contracts require a local SentenceTransformer model")
-        self.delegate = delegate
-        self.adapter = SentenceTransformerEncodingAdapter(model, EncodingContract(**dict(contract)))
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self.delegate, name)
-
-    @staticmethod
-    def _action(memory_action: str | None) -> str:
-        return "search" if memory_action == "search" else "add"
-
-    def embed(self, text: str, memory_action: str | None = None) -> list[float]:
-        return self.adapter.encode([text], action=self._action(memory_action))[0]
-
-    def embed_batch(self, texts: Sequence[str], memory_action: str | None = "add") -> list[list[float]]:
-        return self.adapter.encode(texts, action=self._action(memory_action))
-
-
 def _deep_merge_config(base: Mapping[str, Any], updates: Mapping[str, Any]) -> dict[str, Any]:
     result = deepcopy(dict(base))
     for key, value in updates.items():
@@ -806,9 +645,7 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
     if isinstance(overrides, Mapping) and overrides:
         runtime_vector_config = dict((config.get("vector_store") or {}).get("config") or {})
         isolated_vector_config = {
-            key: runtime_vector_config[key]
-            for key in ("path", "collection_name")
-            if key in runtime_vector_config
+            key: runtime_vector_config[key] for key in ("path", "collection_name") if key in runtime_vector_config
         }
         isolated_history_db_path = config.get("history_db_path")
         config = _deep_merge_config(config, overrides)
@@ -819,11 +656,21 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
     config["background"]["longterm_worker_count"] = 1
     page_summary_prompt = str(spec.get("page_summary_prompt") or "") or None
     session_merge_prompt = str(spec.get("session_merge_prompt") or "") or None
-    fine_grained_longterm_extraction_prompt = str(
-        spec.get("fine_grained_longterm_extraction_prompt")
-        or spec.get("session_longterm_extraction_prompt")
-        or ""
-    ) or None
+    fine_grained_longterm_extraction_prompt = (
+        str(spec.get("fine_grained_longterm_extraction_prompt") or spec.get("session_longterm_extraction_prompt") or "")
+        or None
+    )
+    if page_summary_prompt:
+        config.setdefault("midterm", {})["page_summary_prompt"] = page_summary_prompt
+    if session_merge_prompt:
+        config.setdefault("midterm", {})["session_merge_prompt"] = session_merge_prompt
+    if fine_grained_longterm_extraction_prompt:
+        config.setdefault("fine_grained_longterm", {})["extraction_prompt"] = fine_grained_longterm_extraction_prompt
+    encoding_contract = dict(spec.get("embedding_encoding_contract") or {})
+    if encoding_contract:
+        config.setdefault("embedder", {}).setdefault("config", {})["encoding_contract"] = encoding_contract
+    if spec.get("embedding_model_revision"):
+        config.setdefault("embedder", {}).setdefault("config", {})["revision"] = str(spec["embedding_model_revision"])
     memory = create_production_memory(config, llm_mode=str(spec.get("llm_mode") or "real"))
     config_model = getattr(memory, "config", None)
     model_dump = getattr(config_model, "model_dump", None)
@@ -837,25 +684,8 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
         output_dir / "effective_memory_config.json",
         redact_secrets(effective_memory_config),
     )
-    prompt_kwargs = {
-        "page_summary_prompt": page_summary_prompt,
-        "session_merge_prompt": session_merge_prompt,
-        "fine_grained_longterm_extraction_prompt": fine_grained_longterm_extraction_prompt,
-    }
-    if hasattr(memory.llm, "_delegate"):
-        # Keep TunerPolicyLLM outside the override so it still recognizes the
-        # production operation before the instance-scoped delegate replaces it.
-        memory.llm._delegate = PromptOverrideLLM(memory.llm._delegate, **prompt_kwargs)
-        counted = CountingLLM(memory.llm)
-    else:
-        counted = CountingLLM(PromptOverrideLLM(memory.llm, **prompt_kwargs))
-    encoding_contract = dict(spec.get("embedding_encoding_contract") or {})
-    source_embedding = (
-        EncodingContractEmbedding(memory.embedding_model, encoding_contract)
-        if encoding_contract
-        else memory.embedding_model
-    )
-    counted_embedding = CountingEmbedding(source_embedding)
+    counted = CountingLLM(memory.llm)
+    counted_embedding = CountingEmbedding(memory.embedding_model)
     memory.llm = counted
     memory.embedding_model = counted_embedding
     if getattr(memory, "_midterm_updater", None) is not None:
@@ -963,7 +793,9 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
                     "long_retrieved_turn_ids": list(dict.fromkeys(long_retrieved_turn_ids)),
                     "all_retrieved_turn_ids": list(dict.fromkeys(all_retrieved_turn_ids)),
                     "valid_recalled_page_ids": valid_recalled_page_ids,
-                    "heat_states": list(checkpoint.get("post_recall_heat_states") or checkpoint.get("heat_states") or []),
+                    "heat_states": list(
+                        checkpoint.get("post_recall_heat_states") or checkpoint.get("heat_states") or []
+                    ),
                     "promotion_events": list(checkpoint.get("promotion_events") or []),
                     "current_turn_index": int(checkpoint["current_turn_index"]),
                     "stateful_replay": bool(spec.get("stateful_replay")),
@@ -1218,6 +1050,27 @@ def production_candidate_from_manifests(
     manifests = [load_json(path) for path in manifest_paths]
     if not manifests:
         raise ValueError("No production MidTerm manifests")
+    production_contracts = [
+        {
+            "midterm": deepcopy(
+                (manifest.get("effective_memory_config") or {}).get("midterm")
+                or manifest.get("production_config")
+                or {}
+            ),
+            "fine_grained_longterm": deepcopy(
+                (manifest.get("effective_memory_config") or {}).get("fine_grained_longterm") or {}
+            ),
+            "promoted_longterm": deepcopy(
+                (manifest.get("effective_memory_config") or {}).get("promoted_longterm") or {}
+            ),
+            "query_rewrite_prompt": (manifest.get("effective_memory_config") or {}).get("query_rewrite_prompt"),
+            "embedder": deepcopy((manifest.get("effective_memory_config") or {}).get("embedder") or {}),
+            "reranker": deepcopy((manifest.get("effective_memory_config") or {}).get("reranker")),
+        }
+        for manifest in manifests
+    ]
+    if any(contract != production_contracts[0] for contract in production_contracts[1:]):
+        raise ValueError("Production manifests disagree on the retrieval/source configuration")
     config = deepcopy(manifests[0].get("production_config") or {})
     effective_memory_config = manifests[0].get("effective_memory_config") or {}
     vector_config = (effective_memory_config.get("vector_store") or {}).get("config") or {}
@@ -1253,7 +1106,7 @@ def production_candidate_from_manifests(
         raise ValueError("Production manifests disagree on the effective Agentic retrieval configuration")
     agentic = effective_agentic_configs[0]
     config["max_queries"] = int(agentic.max_queries)
-    config["max_total_results"] = min(5, int(agentic.max_total_results))
+    config["max_total_results"] = int(agentic.max_total_results)
     config["agentic_fixed_max_iterations"] = int(agentic.max_iterations)
     config["agentic_fixed_max_tool_calls"] = int(agentic.max_tool_calls)
     config["agentic_fixed_max_tool_result_chars"] = int(agentic.max_tool_result_chars)
@@ -1262,11 +1115,20 @@ def production_candidate_from_manifests(
             "backend": PRODUCTION_BACKEND,
             "retrieval_contract": "production_midterm_v1",
             "production_memory_contract": PRODUCTION_MEMORY_CONTRACT,
-            "retrieval_method": "dense",
+            "retrieval_method": str(config.get("retrieval_method") or "dense"),
             "query_representation": "original",
-            "query_prompt_text": QUERY_REFERENCE_RESOLUTION_PROMPT,
-            "query_prompt_hash": hashlib.sha256(QUERY_REFERENCE_RESOLUTION_PROMPT.encode()).hexdigest(),
-            "page_representation": "production",
+            "query_prompt_text": str(
+                effective_memory_config.get("query_rewrite_prompt") or QUERY_REFERENCE_RESOLUTION_PROMPT
+            ),
+            "query_prompt_hash": hashlib.sha256(
+                str(effective_memory_config.get("query_rewrite_prompt") or QUERY_REFERENCE_RESOLUTION_PROMPT).encode()
+            ).hexdigest(),
+            "page_representation": str(config.get("page_representation") or "production"),
+            "production_overrides": {},
+            "benchmark_constraints": {
+                "context_budget": 5,
+                "agentic_result_cap": 5,
+            },
             "bm25_language": str(vector_config.get("bm25_language") or "en"),
             "manifest_paths": [str(path.resolve()) for path in manifest_paths],
             "manifest_sha256": {str(path.resolve()): sha256_file(path) for path in manifest_paths},
@@ -1302,15 +1164,15 @@ class ProductionMidtermAdapter:
             purpose="replay",
         )
         self.ranking_depth = ranking_depth
-        self._cross_encoder: Any | None = None
 
     @staticmethod
     def supported(config: Mapping[str, Any]) -> None:
-        method = str(config.get("retrieval_method") or "dense")
+        overrides = production_overrides_from_candidate(config)
+        method = str((overrides.get("midterm") or {}).get("retrieval_method") or "dense")
         if method not in SUPPORTED_RETRIEVAL_METHODS:
             raise ValueError(f"Unsupported production MidTerm retrieval method: {method}")
         has_derived = bool(config.get("derived_artifact_path"))
-        if str(config.get("page_representation") or "production") != "production" and not has_derived:
+        if str(config.get("page_representation") or "production") != "production" and not config.get("manifest_paths"):
             raise ValueError("Page representation changes require regenerated production artifacts")
         if str(config.get("query_representation") or "original") != "original" and not has_derived:
             raise ValueError("Query representation requires a matching frozen query embedding artifact")
@@ -1327,138 +1189,121 @@ class ProductionMidtermAdapter:
             raise ValueError("Derived artifact is missing or its SHA-256 does not match")
         return load_derived_payload(path)
 
-    def _rerank_pages(
-        self,
-        rows: Sequence[Mapping[str, Any]],
-        *,
-        query: str,
-        query_vector: Sequence[float],
-        point_by_id: Mapping[str, Mapping[str, Any]],
-        derived: Mapping[str, Any] | None,
-        config: Mapping[str, Any],
-    ) -> list[Mapping[str, Any]]:
-        method = str(config.get("reranker_method") or "none")
-        if method == "none" or not rows:
-            return list(rows)
-        dense_rows = [{"page_id": str(row.get("id") or ""), "score": float(row.get("score") or 0.0)} for row in rows]
-        dense_scores = normalize_scores(dense_rows)
-        secondary: dict[str, float] = {}
-        language = str(config.get("bm25_language") or "zh")
-        if method == "field_lexical":
-            weights = config.get("field_weights") or {"summary": 0.5, "keywords": 0.3, "user_input": 0.2}
-            secondary = {
-                page_id: field_aware_score(
-                    query,
-                    point.get("payload") or {},
-                    field_weights=weights,
-                    language=language,
-                )
-                for page_id, point in point_by_id.items()
-            }
-        elif method == "multi_vector_maxsim":
-            if derived is None:
-                raise ValueError("multi_vector_maxsim requires a derived field-vector artifact")
-            from .derived_artifacts import point_fingerprint
+    @staticmethod
+    def _validated_production_config(config: Mapping[str, Any]):
+        from mem0.configs.base import MemoryConfig
 
-            field_vectors = derived.get("field_vectors") or {}
-            secondary = {
-                page_id: max(
-                    [
-                        cosine(query_vector, vector)
-                        for vector in field_vectors.get(point_fingerprint(point), {}).values()
-                    ]
-                    or [0.0]
-                )
-                for page_id, point in point_by_id.items()
-            }
-        elif method == "cross_encoder":
-            from sentence_transformers import CrossEncoder
+        manifests = [load_json(Path(str(path))) for path in config.get("manifest_paths") or []]
+        overrides = production_overrides_from_candidate(config)
+        if not manifests:
+            return MemoryConfig(**overrides)
+        # Manifests may contain a deliberately sparse config. Compare source-changing
+        # fields against the production defaults that actually built the source, not
+        # against missing dictionary keys.
+        base = MemoryConfig(**dict(manifests[0].get("effective_memory_config") or {})).model_dump(mode="python")
+        base_midterm = dict(base.get("midterm") or {})
+        requested_midterm = dict(overrides.get("midterm") or {})
+        source_changing_midterm = {
+            "short_term_capacity",
+            "session_similarity_threshold",
+            "embedding_similarity_weight",
+            "keyword_overlap_weight",
+            "page_representation",
+            "page_summary_prompt",
+            "session_merge_prompt",
+            "page_summary_request_options",
+            "session_merge_request_options",
+        }
+        for name in source_changing_midterm & requested_midterm.keys():
+            if requested_midterm[name] != base_midterm.get(name):
+                raise ValueError(f"{name} requires regenerated production source artifacts")
+        requested_reranker = dict(requested_midterm.get("reranker") or {})
+        if requested_reranker.get("method") == "multi_vector_maxsim":
+            source_method = dict(base_midterm.get("reranker") or {}).get("method")
+            if source_method != "multi_vector_maxsim":
+                raise ValueError("multi_vector_maxsim requires production-generated field vectors")
+        requested_fine = dict(overrides.get("fine_grained_longterm") or {})
+        base_fine = dict(base.get("fine_grained_longterm") or {})
+        for name in ("extraction_prompt", "extraction_request_options"):
+            if name in requested_fine and requested_fine[name] != base_fine.get(name):
+                raise ValueError(f"{name} requires regenerated production source artifacts")
+        if "embedder" in overrides and dict(overrides.get("embedder") or {}) != dict(base.get("embedder") or {}):
+            raise ValueError("embedder requires regenerated production source artifacts")
+        requested_query_prompt = overrides.get("query_rewrite_prompt")
+        if (
+            requested_query_prompt is not None
+            and requested_query_prompt != base.get("query_rewrite_prompt")
+            and not config.get("derived_artifact_path")
+        ):
+            raise ValueError("query_rewrite_prompt requires a Production QueryResolver artifact")
+        return MemoryConfig(**_deep_merge_config(base, overrides))
 
-            if self._cross_encoder is None:
-                model_path = str(config.get("reranker_model_path") or config.get("reranker_model_id") or "")
-                if not model_path:
-                    raise ValueError("cross_encoder requires reranker_model_path or reranker_model_id")
-                self._cross_encoder = CrossEncoder(model_path)
-            page_ids = [str(row.get("id") or "") for row in rows]
-            texts = [
-                page_representation(point_by_id[page_id].get("payload") or {}, "production") for page_id in page_ids
-            ]
-            scores = self._cross_encoder.predict([[query, text] for text in texts])
-            secondary = {page_id: float(score) for page_id, score in zip(page_ids, scores)}
-            low, high = min(secondary.values()), max(secondary.values())
-            if not math.isclose(low, high):
-                secondary = {key: (value - low) / (high - low) for key, value in secondary.items()}
-        else:
-            raise ValueError(f"Unsupported reranker method: {method}")
-        dense_weight = float(config.get("reranker_dense_weight", 0.7))
-        reranked = sorted(
-            rows,
-            key=lambda row: (
-                -(
-                    dense_weight * dense_scores.get(str(row.get("id") or ""), 0.0)
-                    + (1.0 - dense_weight) * secondary.get(str(row.get("id") or ""), 0.0)
-                ),
-                str(row.get("id") or ""),
-            ),
+    @staticmethod
+    def _production_reranker(memory_config: Any) -> Any | None:
+        needs_reranker = any(
+            layer.reranker.method == "cross_encoder"
+            for layer in (memory_config.midterm, memory_config.fine_grained_longterm)
         )
-        return list(reranked)
+        if not needs_reranker:
+            return None
+        from mem0.reranker.concurrency import RerankerConcurrencyGuard
+        from mem0.utils.factory import RerankerFactory
+
+        configured = memory_config.reranker
+        return RerankerConcurrencyGuard(
+            RerankerFactory.create(
+                configured.provider,
+                configured.config,
+                timeout_seconds=memory_config.reranker_timeout_seconds,
+            ),
+            max_concurrency=configured.max_concurrency,
+        )
 
     @staticmethod
     def _rank_fine_grained_longterm(
         checkpoint: Mapping[str, Any],
-        config: Mapping[str, Any],
+        *,
+        query: str,
+        production_config: Any,
+        reranker: Any | None,
     ) -> list[dict[str, Any]]:
-        """Replay per-QA Long-term with Production cross-session ranking semantics."""
+        """Convert production FineGrainedLongTerm replay results into benchmark rows."""
         pool = checkpoint.get("longterm_candidate_pool") or {}
         if not pool:
             return []
-        top_k = min(30, max(1, int(config.get("longterm_top_k", 20))))
-        multiplier = min(6, max(1, int(config.get("longterm_candidate_pool_multiplier", 4))))
-        internal_limit = max(top_k * multiplier, 60)
-        all_semantic_candidates = [dict(row) for row in (pool.get("semantic_candidates") or [])]
-        current_candidate_ids = {str(value) for value in pool.get("current_session_candidate_ids") or []}
-        current_candidates = [
-            row for row in all_semantic_candidates if str(row.get("id") or "") in current_candidate_ids
-        ][:internal_limit]
-        routed_candidates = [*current_candidates, *all_semantic_candidates[:internal_limit]]
-        semantic_candidates_by_id: dict[str, dict[str, Any]] = {}
-        for row in routed_candidates:
-            memory_id = str(row.get("id") or "")
-            existing = semantic_candidates_by_id.get(memory_id)
-            if memory_id and (existing is None or float(row.get("score") or 0.0) > float(existing.get("score") or 0.0)):
-                semantic_candidates_by_id[memory_id] = row
-        semantic_candidates = list(semantic_candidates_by_id.values())
-        threshold = float(config.get("longterm_rag_threshold", 0.1))
-        entity_threshold = float(config.get("entity_similarity_threshold", 0.5))
+        from mem0.memory.fine_grained_longterm import FineGrainedLongTermRetriever
+        from mem0.memory.main import _payload_is_expired
+
+        fine_config = production_config.fine_grained_longterm
         entity_maps = pool.get("entity_boosts_by_threshold") or {}
-        entity_boosts = entity_maps.get(f"{entity_threshold:.1f}") or {}
-        preset = str(config.get("longterm_hybrid_preset") or "balanced")
-        current_run_id = pool.get("current_run_id")
-        other_session_weight = float(config.get("longterm_other_session_weight", 0.7))
-        session_weights = {
-            str(row.get("id") or ""): (
-                1.0 if (row.get("payload") or {}).get("run_id") == current_run_id else other_session_weight
-            )
-            for row in semantic_candidates
-        }
-        scored = tuner_score_and_rank(
-            semantic_results=semantic_candidates,
-            bm25_scores={str(key): float(value) for key, value in (pool.get("bm25_scores") or {}).items()},
-            entity_boosts={str(key): float(value) for key, value in entity_boosts.items()},
-            threshold=threshold,
-            top_k=top_k,
+        entity_boosts = entity_maps.get(f"{float(fine_config.entity_similarity_threshold):.1f}") or {}
+        retriever = FineGrainedLongTermRetriever(
+            vector_store=None,
+            embedding_model=None,
+            entity_store_provider=lambda: None,
+            config=fine_config,
+            reranker=reranker,
+            payload_is_expired=_payload_is_expired,
+        )
+        results = retriever.rank_frozen(
+            query,
+            [dict(row) for row in (pool.get("semantic_candidates") or [])],
+            bm25_scores=pool.get("bm25_scores") or {},
+            entity_boosts=entity_boosts,
+            current_run_id=pool.get("current_run_id"),
+            current_session_candidate_ids=pool.get("current_session_candidate_ids") or [],
+            top_k=fine_config.top_k,
+            threshold=fine_config.rag_threshold,
             explain=True,
-            weights=HYBRID_PRESET_WEIGHTS[preset],
-            session_weights=session_weights,
         )
         rows = []
-        for rank, item in enumerate(scored, start=1):
-            payload = dict(item.get("payload") or {})
-            metadata = payload.get("metadata") if isinstance(payload.get("metadata"), Mapping) else {}
+        for rank, item in enumerate(results, start=1):
+            metadata = item.get("metadata") if isinstance(item.get("metadata"), Mapping) else {}
             source_turn_id = str(
-                payload.get("dataset_turn_id")
+                item.get("dataset_turn_id")
                 or metadata.get("dataset_turn_id")
-                or payload.get("source_turn_id")
+                or item.get("source_turn_id")
+                or metadata.get("source_turn_id")
                 or ""
             ).upper()
             details = item.get("score_details") or {}
@@ -1468,28 +1313,45 @@ class ProductionMidtermAdapter:
                     "source_turn_id": source_turn_id,
                     "source": "long_term",
                     "score": float(item.get("score") or 0.0),
-                    "memory": payload.get("data") or "",
+                    "memory": item.get("memory") or "",
                     "raw_rag_score": details.get("semantic_score"),
                     "bm25_score": details.get("bm25_score"),
                     "entity_boost": details.get("entity_boost"),
                     "hybrid_score": details.get("hybrid_score"),
                     "session_weight": details.get("session_weight"),
                     "final_score": details.get("final_score"),
-                    "candidate_pool_count": len(semantic_candidates),
+                    "rerank_score": item.get("rerank_score"),
+                    "first_stage_score": item.get("first_stage_score"),
+                    "candidate_pool_count": len(pool.get("semantic_candidates") or []),
                     "final_rank": rank,
                 }
             )
         return rows
 
-    _rank_session_longterm = _rank_fine_grained_longterm
+    @staticmethod
+    def _rank_session_longterm(
+        checkpoint: Mapping[str, Any],
+        config: Mapping[str, Any],
+    ) -> list[dict[str, Any]]:
+        """Compatibility replay API, still delegated to the production retriever."""
+        from mem0.configs.base import MemoryConfig
+
+        production_config = MemoryConfig(**production_overrides_from_candidate(config))
+        return ProductionMidtermAdapter._rank_fine_grained_longterm(
+            checkpoint,
+            query=str(checkpoint.get("retrieval_query") or checkpoint.get("query") or ""),
+            production_config=production_config,
+            reranker=None,
+        )
 
     def rank(self, checkpoint: Mapping[str, Any], config: Mapping[str, Any]) -> list[dict[str, Any]]:
         from qdrant_client import QdrantClient
 
-        from mem0.configs.base import MidTermMemoryConfig
         from mem0.memory.midterm import MidTermMemory
 
         self.supported(config)
+        production_config = self._validated_production_config(config)
+        reranker = self._production_reranker(production_config)
         derived = self._derived_payload(config)
         query_id = str(checkpoint["query_id"])
         query = str(
@@ -1512,121 +1374,89 @@ class ProductionMidtermAdapter:
             "bm25_language": str(config.get("bm25_language") or "en"),
             "on_disk": False,
         }
-        midterm_config = MidTermMemoryConfig(
-            **{key: value for key, value in config.items() if key in MidTermMemoryConfig.model_fields}
-        )
-        memory_class = (
-            _hybrid_memory_class() if config.get("retrieval_method") == "dense_bm25_fusion" else MidTermMemory
-        )
-        extra = (
-            {"dense_weight": float(config.get("dense_weight", 0.7))}
-            if config.get("retrieval_method") == "dense_bm25_fusion"
-            else {}
-        )
         qdrant_client = QdrantClient(path=str(self.layout.qdrant_path))
 
         class PrimaryStore:
             client = qdrant_client
 
-        memory = memory_class(
+        memory = MidTermMemory(
             provider="qdrant",
             base_vector_config=vector_config,
             base_collection_name=base_collection,
             embedding_model=FrozenQueryEmbedding({query: query_vector}),
-            config=midterm_config,
+            config=production_config.midterm,
             primary_vector_store=PrimaryStore(),
             current_turn_index_provider=lambda filters: int(
-                checkpoint.get("current_turn_index", max(
-                    (int((point.get("payload") or {}).get("turn_index"))
-                     for point in checkpoint.get("pages") or []
-                     if (point.get("payload") or {}).get("turn_index") is not None),
-                    default=0,
-                ))
+                checkpoint.get(
+                    "current_turn_index",
+                    max(
+                        (
+                            int((point.get("payload") or {}).get("turn_index"))
+                            for point in checkpoint.get("pages") or []
+                            if (point.get("payload") or {}).get("turn_index") is not None
+                        ),
+                        default=0,
+                    ),
+                )
             ),
-            **extra,
         )
         try:
-            point_by_kind_and_id: dict[str, dict[str, Mapping[str, Any]]] = {"pages": {}, "sessions": {}}
             for key, store in (("pages", memory.pages_store), ("sessions", memory.sessions_store)):
                 points = list(checkpoint.get(key) or [])
-                point_by_kind_and_id[key] = {str(point["id"]): point for point in points}
-                if points:
-                    from .derived_artifacts import point_fingerprint
-
-                replacements = (derived or {}).get(f"{key[:-1]}_vectors") or {}
                 payloads = []
                 for point in points:
                     payload = dict(point["payload"])
                     if key == "pages":
-                        # Checkpoints emitted before the turn-clock contract
-                        # are still replayable at the current query clock.
                         payload.setdefault("turn_index", int(checkpoint.get("current_turn_index", 0)))
                     payloads.append(payload)
-                store.insert(
-                        vectors=[
-                            list(replacements.get(point_fingerprint(point)) or point["vector"]) for point in points
-                        ],
+                if points:
+                    store.insert(
+                        vectors=[list(point["vector"]) for point in points],
                         ids=[str(point["id"]) for point in points],
-                    payloads=payloads,
-                )
-            retriever = DiagnosticMidTermRetriever(memory, midterm_config)
-            results = retriever.search(
-                query,
-                dict(checkpoint["filters"]),
-                record_visits=False,
+                        payloads=payloads,
+                    )
+            retriever = DiagnosticMidTermRetriever(
+                memory,
+                production_config.midterm,
+                reranker=reranker,
             )
+            results = retriever.search(query, dict(checkpoint["filters"]), record_visits=False)
             job_map = {
                 str(job_id): [str(turn_id).upper() for turn_id in turn_ids]
                 for job_id, turn_ids in (checkpoint.get("source_turn_ids_by_job") or {}).items()
             }
-            retrieval_diagnostics = retriever.last_search_diagnostics
-            diagnostic_pages = list(retrieval_diagnostics.get("pre_threshold_ranking") or [])
-            if diagnostic_pages:
-                # Reranking is allowed to inspect a diagnostic candidate depth;
-                # the final_visible flags are recomputed below and still obey
-                # production max_total_pages.
-                page_results = self._rerank_pages(
-                    [dict(row) for row in diagnostic_pages],
-                    query=query,
-                    query_vector=query_vector,
-                    point_by_id=point_by_kind_and_id["pages"],
-                    derived=derived,
-                    config=config,
-                )
-                max_total_pages = min(5, max(1, int(config.get("max_total_pages", 5))))
-                for rank, row in enumerate(page_results, start=1):
+            diagnostics = retriever.last_search_diagnostics
+            reranked = [dict(row) for row in diagnostics.get("reranked_candidates") or []]
+            if reranked:
+                threshold_rows = list((diagnostics.get("threshold_candidates") or {}).get("candidates") or [])
+                threshold_ids = [str(row.get("id") or "") for row in threshold_rows]
+                threshold_rank = {page_id: rank for rank, page_id in enumerate(threshold_ids, start=1)}
+                final_ids = {str(row.get("id") or "") for row in diagnostics.get("final_selection") or []}
+                for rank, row in enumerate(reranked, start=1):
+                    page_id = str(row.get("id") or "")
                     row["rank_before_threshold"] = rank
-                thresholded = [row for row in page_results if not bool(row.get("threshold_filtered"))]
-                for rank, row in enumerate(thresholded, start=1):
-                    row["final_rank"] = rank
-                    row["final_visible"] = rank <= max_total_pages
-                ranking = _diagnostic_rows_from_pages(page_results, job_map, ranking_depth=self.ranking_depth)
-                ranking.extend(_unselected_page_diagnostic_rows(checkpoint, retrieval_diagnostics, job_map))
-            else:
-                # Checkpoints produced before the diagnostic contract remain
-                # replayable, but are explicitly a degraded trace.
-                page_results = [row for row in results if row.get("source") == "mid_term_page"]
-                page_results = self._rerank_pages(
-                    page_results,
-                    query=query,
-                    query_vector=query_vector,
-                    point_by_id=point_by_kind_and_id["pages"],
-                    derived=derived,
-                    config=config,
+                    row["threshold_filtered"] = page_id not in threshold_rank
+                    row["final_rank"] = threshold_rank.get(page_id)
+                    row["final_visible"] = page_id in final_ids
+                    row["candidate_pool_count"] = len(reranked)
+                ranking = _diagnostic_rows_from_pages(
+                    reranked,
+                    job_map,
+                    ranking_depth=self.ranking_depth,
                 )
-                ordered_results = [
-                    *page_results,
-                    *[row for row in results if row.get("source") == "mid_term_session"],
-                ]
-                ranking = _diagnostic_rows_from_pages(ordered_results, job_map)
-                for rank, row in enumerate(ranking, start=1):
-                    row["rank_before_threshold"] = row.get("rank_before_threshold") or rank
-                    row["final_rank"] = row.get("final_rank") or rank
-                    max_total_pages = min(5, max(1, int(config.get("max_total_pages", 5))))
-                    row["final_visible"] = row.get("final_visible", rank <= max_total_pages)
-            longterm_ranking = self._rank_fine_grained_longterm(checkpoint, config)
-            combined = [*ranking, *longterm_ranking]
-            return [{**row, "rank": rank} for rank, row in enumerate(combined, start=1)]
+                ranking.extend(_unselected_page_diagnostic_rows(checkpoint, diagnostics, job_map))
+            else:
+                ranking = _diagnostic_rows_from_pages(
+                    [row for row in results if row.get("source") == "mid_term_page"],
+                    job_map,
+                )
+            longterm_ranking = self._rank_fine_grained_longterm(
+                checkpoint,
+                query=query,
+                production_config=production_config,
+                reranker=reranker,
+            )
+            return [{**row, "rank": rank} for rank, row in enumerate([*ranking, *longterm_ranking], start=1)]
         finally:
             try:
                 memory.reset()

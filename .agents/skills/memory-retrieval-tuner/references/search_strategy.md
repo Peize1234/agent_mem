@@ -37,7 +37,7 @@ Production Baseline
 
 Research decisions use only the current run's Tune evidence and current-run experiment trajectory; previous-run winners, metrics or lessons are never search priors.
 
-Production changes remain explicit and narrowly scoped. Complete diagnostic state, hybrid scoring presets, Prompt overrides, cache/experiment state, and benchmark-only context caps remain inside this Skill. `DiagnosticMidTermRetriever` must return exactly the same public rows as production for the same query/store/config/turn clock, while retaining its trace only on the Skill-owned instance. The tuner `<=5` Agentic/Mid-term union is an evaluation constraint and does not change Production `max_total_results`; Production's fixed `max_tool_result_chars` is read from the effective config and must match every reused Agentic trace row.
+Production is the single implementation of every behavior that can change retrieval output or generated source. The Skill owns preset-to-config mapping, diagnostic state, cache/experiment state, benchmark evaluation, and benchmark-only context caps. Hybrid presets and Prompt candidates are converted to validated `MemoryConfig` overrides before production execution. `DiagnosticMidTermRetriever` may override only the production `_on_stage` hook and must inherit `search()` unchanged. The tuner `<=5` Agentic/Mid-term union is an evaluation constraint and does not change Production `max_total_results`; Production's fixed `max_tool_result_chars` is read from the effective config and must match every reused Agentic trace row.
 
 ## 2. Configurable Recall@K
 
@@ -200,7 +200,7 @@ Prompt direction selection may summarize missed Tune Query patterns without read
 
 ### B2. Page representation
 
-Use the Page fields frozen by the production MidTerm checkpoint. Recompose controlled representations and re-embed them with a provenance-keyed derivative; keep production Session routing unless the Branch explicitly re-embeds Sessions. Never use workbook answers as Page summaries.
+Set the production `midterm.page_representation` override and regenerate the affected production source with `AsyncMemory.add()` so `MidTermMemory.page_embedding_text()` and the production embedder create the vectors. Retrieval-only candidates may reuse a checkpoint only when its production config and representation identity match exactly. Never use workbook answers as Page summaries.
 
 ### B3. Retrieval controls
 
@@ -340,7 +340,7 @@ Use the production-routed Page pool and require the configured R@(4K)-minus-R@K 
 
 ### Field-aware / multi-vector
 
-Use weighted production Page fields for the lightweight candidate. `multi_vector_maxsim` requires provenance-keyed field vectors and is a deep/high-cost variant. Do not label either variant as production behavior.
+Use production `field_lexical` for the lightweight candidate. Production `multi_vector_maxsim` requires field vectors written by `MidTermMemory` during source generation and is a deep/high-cost variant. Both are production capabilities selected through validated config; the Skill owns only their experiment scheduling and provenance.
 
 ### Branch Registry contract
 

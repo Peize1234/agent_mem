@@ -1,5 +1,4 @@
 import asyncio
-import concurrent.futures
 import hashlib
 import inspect
 import json
@@ -16,7 +15,7 @@ from typing import Any, Dict, Optional
 
 from pydantic import ValidationError
 
-from mem0.configs.base import BackgroundTaskConfig, MemoryConfig, MemoryItem
+from mem0.configs.base import BackgroundTaskConfig, FineGrainedLongTermConfig, MemoryConfig, MemoryItem
 from mem0.configs.enums import MemoryType
 from mem0.configs.prompts import (
     ADDITIVE_EXTRACTION_PROMPT,
@@ -26,12 +25,13 @@ from mem0.configs.prompts import (
     PROCEDURAL_MEMORY_SYSTEM_PROMPT,
     generate_additive_extraction_prompt,
 )
+from mem0.configs.query_prompts import QUERY_REFERENCE_RESOLUTION_PROMPT
 from mem0.exceptions import LLMError
 from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.memory.agentic_retrieval import AgenticMemoryRunner, AsyncAgenticMemoryRunner
 from mem0.memory.background_worker import BackgroundWorkerManager
 from mem0.memory.base import MemoryBase
-from mem0.memory.cross_session_longterm import CrossSessionLongTermMemory, promotion_source_version
+from mem0.memory.fine_grained_longterm import FineGrainedLongTermRetriever
 from mem0.memory.midterm import MidTermMemory
 from mem0.memory.midterm_retriever import MidTermRetriever
 from mem0.memory.midterm_updater import MidTermUpdater
@@ -67,6 +67,7 @@ from mem0.memory.profile_validator import (
     normalize_profile_user_id,
     select_profile_user_messages,
 )
+from mem0.memory.promoted_longterm import PromotedLongTermMemory, promotion_source_version
 from mem0.memory.query_resolver import QueryResolver
 from mem0.memory.retrieval_tools import AsyncMemoryToolExecutor, MemoryToolExecutor
 from mem0.memory.setup import mem0_dir, setup_config
@@ -79,26 +80,12 @@ from mem0.memory.utils import (
     process_telemetry_filters,
     remove_code_blocks,
 )
+from mem0.reranker.concurrency import RerankerConcurrencyGuard
 from mem0.utils.bounded_timeout import BoundedTimeoutExecutor
 from mem0.utils.entity_extraction import extract_entities, extract_entities_batch
-from mem0.utils.factory import (
-    EmbedderFactory,
-    LlmFactory,
-    RerankerFactory,
-    VectorStoreFactory,
-)
+from mem0.utils.factory import EmbedderFactory, LlmFactory, RerankerFactory, VectorStoreFactory
 from mem0.utils.lemmatization import lemmatize_for_bm25
-from mem0.utils.scoring import (
-    ENTITY_BOOST_WEIGHT,
-    get_bm25_params,
-    normalize_bm25,
-    score_and_rank,
-)
-from mem0.utils.timestamps import (
-    beijing_now,
-    beijing_now_iso,
-    normalize_iso_timestamp_to_beijing,
-)
+from mem0.utils.timestamps import beijing_now, beijing_now_iso, normalize_iso_timestamp_to_beijing
 from mem0.vector_stores.base import VectorStoreBase
 
 # Suppress SWIG deprecation warnings globally
@@ -264,29 +251,6 @@ def _vector_store_list_rows(listed):
     return []
 
 
-def _merge_vector_candidates(*routes):
-    """Merge vector/keyword routes by memory ID while preserving the strongest score."""
-    merged = {}
-    for route in routes:
-        for item in route or []:
-            memory_id = getattr(item, "id", None)
-            if memory_id is None and isinstance(item, dict):
-                memory_id = item.get("id")
-            if memory_id is None:
-                continue
-            key = str(memory_id)
-            score = getattr(item, "score", None)
-            if score is None and isinstance(item, dict):
-                score = item.get("score")
-            existing = merged.get(key)
-            existing_score = getattr(existing, "score", None)
-            if existing_score is None and isinstance(existing, dict):
-                existing_score = existing.get("score")
-            if existing is None or float(score or 0.0) > float(existing_score or 0.0):
-                merged[key] = item
-    return list(merged.values())
-
-
 def _update_vector_store_payload(store, memory_id: str, payload: Dict[str, Any]) -> None:
     update = getattr(store, "update", None)
     if callable(update):
@@ -315,11 +279,7 @@ def _new_entity_payload(entity_text, entity_type, linked_memory_ids, filters):
 
 def _longterm_entity_filters(filters: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """Use user/agent isolation for fine-grained LongTerm entities, never run isolation."""
-    return {
-        key: value
-        for key, value in (filters or {}).items()
-        if key in ("user_id", "agent_id") and value
-    }
+    return {key: value for key, value in (filters or {}).items() if key in ("user_id", "agent_id") and value}
 
 
 def _update_entity_payload(payload, linked_memory_ids):
@@ -381,34 +341,38 @@ def _additive_midterm_context(memory, query, filters, *, exclude_source_job_id=N
 # Fields that hold runtime auth/connection objects and must be preserved.
 # These are non-serializable objects (e.g. AWSV4SignerAuth, RequestsHttpConnection)
 # needed by clients like OpenSearch — not sensitive strings to redact.
-_RUNTIME_FIELDS = frozenset({
-    "http_auth",
-    "auth",
-    "connection_class",
-    "ssl_context",
-})
+_RUNTIME_FIELDS = frozenset(
+    {
+        "http_auth",
+        "auth",
+        "connection_class",
+        "ssl_context",
+    }
+)
 
 # Fields that are known to contain sensitive secrets and must be redacted.
-_SENSITIVE_FIELDS_EXACT = frozenset({
-    "api_key",
-    "secret_key",
-    "private_key",
-    "access_key",
-    "password",
-    "credentials",
-    "credential",
-    "secret",
-    "token",
-    "access_token",
-    "refresh_token",
-    "auth_token",
-    "session_token",
-    "client_secret",
-    "auth_client_secret",
-    "azure_client_secret",
-    "service_account_json",
-    "aws_session_token",
-})
+_SENSITIVE_FIELDS_EXACT = frozenset(
+    {
+        "api_key",
+        "secret_key",
+        "private_key",
+        "access_key",
+        "password",
+        "credentials",
+        "credential",
+        "secret",
+        "token",
+        "access_token",
+        "refresh_token",
+        "auth_token",
+        "session_token",
+        "client_secret",
+        "auth_client_secret",
+        "azure_client_secret",
+        "service_account_json",
+        "aws_session_token",
+    }
+)
 
 # Suffixes that indicate a field likely holds a secret value.
 _SENSITIVE_SUFFIXES = (
@@ -468,16 +432,12 @@ def _validate_search_params(threshold: Optional[float] = None, top_k: Optional[i
         if not isinstance(threshold, (int, float)):
             raise ValueError("threshold must be a valid number")
         if threshold < 0 or threshold > 1:
-            raise ValueError(
-                f"Invalid threshold: {threshold}. Must be between 0 and 1 (inclusive)."
-            )
+            raise ValueError(f"Invalid threshold: {threshold}. Must be between 0 and 1 (inclusive).")
     if top_k is not None:
         if not isinstance(top_k, int) or isinstance(top_k, bool):
             raise ValueError("top_k must be a valid integer")
         if top_k < 0:
-            raise ValueError(
-                f"Invalid top_k: {top_k}. Must be a non-negative integer."
-            )
+            raise ValueError(f"Invalid top_k: {top_k}. Must be a non-negative integer.")
 
 
 def _validate_and_trim_search_query(query: str) -> str:
@@ -639,7 +599,7 @@ def _build_filters_and_metadata(
             message="At least one of 'user_id', 'agent_id', or 'run_id' must be provided.",
             error_code="VALIDATION_001",
             details={"provided_ids": {"user_id": user_id, "agent_id": agent_id, "run_id": run_id}},
-            suggestion="Please provide at least one identifier to scope the memory operation."
+            suggestion="Please provide at least one identifier to scope the memory operation.",
         )
 
     # ---------- optional actor filter ----------
@@ -745,9 +705,7 @@ def _assemble_retrieved_context(
 ) -> Dict[str, Any]:
     """Build the stable context payload shared by sync and async APIs."""
     retrieved_memories = (
-        search_result["results"]
-        if isinstance(search_result, dict) and "results" in search_result
-        else search_result
+        search_result["results"] if isinstance(search_result, dict) and "results" in search_result else search_result
     )
     messages = []
     for message in short_term_messages:
@@ -1029,11 +987,58 @@ def _payload_is_expired(payload: Optional[Dict[str, Any]]) -> bool:
 
 def _effective_longterm_threshold(memory: Any, requested: Optional[float]) -> float:
     """Keep the public threshold as an optional stricter bound on configured RAG gating."""
-    configured = getattr(getattr(memory, "config", None), "longterm_rag_threshold", None)
+    memory_config = getattr(memory, "config", None)
+    fine_config = getattr(memory_config, "fine_grained_longterm", None)
+    nested = getattr(fine_config, "rag_threshold", None)
+    legacy = getattr(memory_config, "longterm_rag_threshold", None)
+    configured = max(
+        float(nested) if nested is not None else 0.1,
+        float(legacy) if legacy is not None else 0.1,
+    )
     configured_threshold = 0.1 if configured is None else float(configured)
     if requested is None:
         return configured_threshold
     return max(float(requested), configured_threshold)
+
+
+def _configured_query_rewrite_prompt(memory: Any) -> str:
+    config = getattr(memory, "config", None)
+    prompt = getattr(config, "query_rewrite_prompt", None)
+    return prompt if isinstance(prompt, str) and prompt.strip() else QUERY_REFERENCE_RESOLUTION_PROMPT
+
+
+def _configured_fine_grained_extraction_prompt(memory: Any) -> str:
+    config = getattr(memory, "config", None)
+    fine_config = getattr(config, "fine_grained_longterm", None)
+    prompt = getattr(fine_config, "extraction_prompt", None)
+    return prompt if isinstance(prompt, str) and prompt.strip() else ADDITIVE_EXTRACTION_PROMPT
+
+
+def _configured_fine_grained_extraction_request_options(memory: Any) -> Dict[str, Any]:
+    config = getattr(memory, "config", None)
+    fine_config = getattr(config, "fine_grained_longterm", None)
+    options = getattr(fine_config, "extraction_request_options", None)
+    return dict(options) if isinstance(options, dict) else {}
+
+
+def _fine_grained_longterm_config(memory: Any) -> FineGrainedLongTermConfig:
+    config = getattr(memory, "config", None)
+    fine_config = getattr(config, "fine_grained_longterm", None)
+    if isinstance(fine_config, FineGrainedLongTermConfig):
+        return fine_config
+
+    def legacy_number(name: str, default: int | float) -> int | float:
+        value = getattr(config, name, default)
+        return value if isinstance(value, (int, float)) and not isinstance(value, bool) else default
+
+    return FineGrainedLongTermConfig(
+        top_k=int(legacy_number("longterm_top_k", 20)),
+        rag_threshold=float(legacy_number("longterm_rag_threshold", 0.1)),
+        candidate_pool_multiplier=int(legacy_number("longterm_candidate_pool_multiplier", 4)),
+        other_session_weight=float(legacy_number("longterm_other_session_weight", 0.7)),
+        entity_similarity_threshold=float(legacy_number("entity_similarity_threshold", 0.5)),
+        extraction_prompt=_configured_fine_grained_extraction_prompt(memory),
+    )
 
 
 setup_config()
@@ -1077,12 +1082,40 @@ class _BackgroundMemoryMixin:
     def _cross_session_longterm_enabled(self) -> bool:
         return self._midterm_enabled()
 
+    def _promoted_longterm_enabled(self) -> bool:
+        promoted = getattr(getattr(self, "config", None), "promoted_longterm", None)
+        return self._midterm_enabled() and bool(promoted is None or promoted.enabled)
+
     @property
-    def cross_session_longterm(self):
+    def fine_grained_longterm_retriever(self):
+        if getattr(self, "_fine_grained_longterm_retriever", None) is None:
+            with getattr(self, "_component_init_lock", threading.RLock()):
+                if getattr(self, "_fine_grained_longterm_retriever", None) is None:
+                    fine_config = _fine_grained_longterm_config(self)
+                    self._fine_grained_longterm_retriever = FineGrainedLongTermRetriever(
+                        vector_store=getattr(self, "vector_store", None),
+                        embedding_model=self.embedding_model,
+                        entity_store_provider=lambda: self.entity_store,
+                        config=fine_config,
+                        reranker=getattr(self, "reranker", None),
+                        stage_output_is_visible=lambda payload: self._stage_output_is_visible(payload, "longterm"),
+                        payload_is_expired=_payload_is_expired,
+                        entity_extractor=lambda query: self._run_entity_extraction(extract_entities, query),
+                        entity_boost_provider=lambda entities, filters: self._compute_entity_boosts(entities, filters),
+                        entity_boost_provider_async=lambda entities, filters: self._compute_entity_boosts_async(
+                            entities, filters
+                        ),
+                        bm25_preprocessor=lemmatize_for_bm25,
+                        bm25_language=getattr(self, "_bm25_language", None),
+                    )
+        return self._fine_grained_longterm_retriever
+
+    @property
+    def promoted_longterm(self):
         if getattr(self, "_cross_session_longterm", None) is None:
             with self._component_init_lock:
                 if getattr(self, "_cross_session_longterm", None) is None:
-                    self._cross_session_longterm = CrossSessionLongTermMemory(
+                    self._cross_session_longterm = PromotedLongTermMemory(
                         provider=self.config.vector_store.provider,
                         base_vector_config=self.config.vector_store.config,
                         base_collection_name=self.collection_name,
@@ -1096,6 +1129,11 @@ class _BackgroundMemoryMixin:
                         ),
                     )
         return self._cross_session_longterm
+
+    @property
+    def cross_session_longterm(self):
+        """Compatibility alias for promoted_longterm."""
+        return self.promoted_longterm
 
     def _confirm_context_valid_recalls(
         self,
@@ -1121,7 +1159,7 @@ class _BackgroundMemoryMixin:
             str(item.get("id"))
             for item in retrieved_memories
             if isinstance(item, dict)
-            and item.get("source") == CrossSessionLongTermMemory.SOURCE
+            and item.get("source") == PromotedLongTermMemory.SOURCE
             and item.get("id") not in (None, "")
             and item.get("memory")
         }
@@ -1131,9 +1169,9 @@ class _BackgroundMemoryMixin:
                 raise ValueError("current_turn_index is required to confirm Mid-term recalls")
             self._confirm_valid_midterm_page_ids(page_ids, current_turn_index=current_turn_index)
 
-        if cross_session_ids and self._cross_session_longterm_enabled():
+        if cross_session_ids and self._promoted_longterm_enabled():
             try:
-                self.cross_session_longterm.record_valid_recalls(sorted(cross_session_ids))
+                self.promoted_longterm.record_valid_recalls(sorted(cross_session_ids))
             except Exception:
                 logger.warning("Failed to record cross-session long-term recalls", exc_info=True)
         return page_ids
@@ -1147,14 +1185,12 @@ class _BackgroundMemoryMixin:
                 normalized_page_ids,
                 recall_turn_index=current_turn_index,
             )
+            if not self._promoted_longterm_enabled():
+                return
             for session in updated_sessions:
-                if int(session.get("valid_recall_count", 0) or 0) < int(
-                    self.config.midterm.promotion_min_recall_count
-                ):
+                if int(session.get("valid_recall_count", 0) or 0) < int(self.config.midterm.promotion_min_recall_count):
                     continue
-                if float(session.get("H_segment", 0.0) or 0.0) < float(
-                    self.config.midterm.promotion_heat_threshold
-                ):
+                if float(session.get("H_segment", 0.0) or 0.0) < float(self.config.midterm.promotion_heat_threshold):
                     continue
                 try:
                     self._enqueue_promotion_job(session)
@@ -1511,17 +1547,17 @@ class _BackgroundMemoryMixin:
     def _background_process_midterm(self, job, messages, degraded: bool) -> None:
         if not self._midterm_enabled():
             return
-        
+
         def lease_is_current():
             return self.db.migration_stage_lease_is_current(
                 job["job_id"],
                 "midterm",
                 job["midterm_lease_token"],
             )
-        
+
         if not lease_is_current():
             raise RuntimeError("stale migration stage lease")
-        
+
         result = self._process_midterm_evictions(
             messages,
             job["filters"],
@@ -1542,6 +1578,7 @@ class _BackgroundMemoryMixin:
                 "longterm",
                 job["longterm_lease_token"],
             )
+
         if not lease_is_current():
             raise RuntimeError("stale migration stage lease")
         if degraded:
@@ -1602,6 +1639,8 @@ class _BackgroundMemoryMixin:
         )
 
     def _background_process_promotion(self, job) -> Optional[str]:
+        if not self._promoted_longterm_enabled():
+            return "promoted long-term memory is disabled"
         session_id = str(job["source_midterm_session_id"])
         session = self.midterm_memory.get_session(session_id)
         if not session:
@@ -1611,13 +1650,9 @@ class _BackgroundMemoryMixin:
             return "source mid-term session user does not match promotion job"
         if promotion_source_version(session_payload) != str(job["source_version"]):
             return "source mid-term session version has changed"
-        if int(session_payload.get("valid_recall_count", 0) or 0) < int(
-            self.config.midterm.promotion_min_recall_count
-        ):
+        if int(session_payload.get("valid_recall_count", 0) or 0) < int(self.config.midterm.promotion_min_recall_count):
             return "source mid-term session no longer meets recall threshold"
-        if float(session_payload.get("H_segment", 0.0) or 0.0) < float(
-            self.config.midterm.promotion_heat_threshold
-        ):
+        if float(session_payload.get("H_segment", 0.0) or 0.0) < float(self.config.midterm.promotion_heat_threshold):
             return "source mid-term session no longer meets heat threshold"
 
         def lease_is_current() -> bool:
@@ -1625,7 +1660,7 @@ class _BackgroundMemoryMixin:
 
         if not lease_is_current():
             raise RuntimeError("stale promotion job lease")
-        promoted = self.cross_session_longterm.promote_session(
+        promoted = self.promoted_longterm.promote_session(
             session_id,
             self.midterm_memory,
             expected_source_version=str(job["source_version"]),
@@ -1772,6 +1807,7 @@ class _BackgroundMemoryMixin:
                 stage,
                 lease_token,
             )
+
         if not lease_is_current():
             raise RuntimeError("stale migration stage lease")
         if stage == "midterm":
@@ -1797,10 +1833,7 @@ class _BackgroundMemoryMixin:
                 payload = dict(getattr(row, "payload", None) or {})
                 if payload.get("output_state") == "committed":
                     continue
-                if (
-                    payload.get("output_state") != "staging"
-                    or payload.get("output_lease_token") != lease_token
-                ):
+                if payload.get("output_state") != "staging" or payload.get("output_lease_token") != lease_token:
                     raise RuntimeError("staging output is owned by another lease")
                 pending_rows.append((memory_id, payload))
                 if not lease_is_current():
@@ -1901,10 +1934,7 @@ class _BackgroundMemoryMixin:
         for memory_id in discarded_memory_ids:
             current = self.vector_store.get(vector_id=memory_id)
             payload = dict(getattr(current, "payload", None) or {}) if current else {}
-            if (
-                payload.get("output_state") == "discarded"
-                and payload.get("discarded_by_lease_token") == lease_token
-            ):
+            if payload.get("output_state") == "discarded" and payload.get("discarded_by_lease_token") == lease_token:
                 cleanup_memory_ids.append(memory_id)
         if cleanup_memory_ids:
             try:
@@ -1914,10 +1944,7 @@ class _BackgroundMemoryMixin:
         for memory_id in cleanup_memory_ids:
             current = self.vector_store.get(vector_id=memory_id)
             payload = dict(getattr(current, "payload", None) or {}) if current else {}
-            if (
-                payload.get("output_state") != "discarded"
-                or payload.get("discarded_by_lease_token") != lease_token
-            ):
+            if payload.get("output_state") != "discarded" or payload.get("discarded_by_lease_token") != lease_token:
                 continue
             try:
                 self._strict_remove_stage_entity_links(memory_id, job["filters"])
@@ -2196,10 +2223,13 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         # Initialize reranker if configured
         self.reranker = None
         if config.reranker:
-            self.reranker = RerankerFactory.create(
-                config.reranker.provider,
-                config.reranker.config,
-                timeout_seconds=self.config.reranker_timeout_seconds,
+            self.reranker = RerankerConcurrencyGuard(
+                RerankerFactory.create(
+                    config.reranker.provider,
+                    config.reranker.config,
+                    timeout_seconds=self.config.reranker_timeout_seconds,
+                ),
+                max_concurrency=config.reranker.max_concurrency,
             )
 
         # Entity store is initialized lazily on first use
@@ -2207,6 +2237,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         self._midterm_memory = None
         self._midterm_updater = None
         self._midterm_retriever = None
+        self._fine_grained_longterm_retriever = None
         self._cross_session_longterm = None
         self._profile_manager = None
         self._profile_updater = None
@@ -2319,7 +2350,11 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         if self._midterm_retriever is None:
             with self._component_init_lock:
                 if self._midterm_retriever is None:
-                    self._midterm_retriever = MidTermRetriever(self.midterm_memory, self.config.midterm)
+                    self._midterm_retriever = MidTermRetriever(
+                        self.midterm_memory,
+                        self.config.midterm,
+                        reranker=getattr(self, "reranker", None),
+                    )
         return self._midterm_retriever
 
     @property
@@ -2351,7 +2386,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         *,
         user_id: str,
         session_id: str,
-        top_k: int = 20,
+        top_k: Optional[int] = None,
         threshold: Optional[float] = None,
         rerank: bool = False,
         explain: bool = False,
@@ -2370,7 +2405,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         }
         resolver_llm = getattr(self, "llm", None)
         retrieval_query = (
-            QueryResolver(resolver_llm).resolve(
+            QueryResolver(resolver_llm, prompt=_configured_query_rewrite_prompt(self)).resolve(
                 context["query"],
                 context.get("short_term_messages"),
             )
@@ -2378,6 +2413,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             else context["query"]
         )
         context["retrieval_query"] = retrieval_query
+        top_k = 20 if top_k is None else top_k
         search_result = self.search(
             retrieval_query,
             top_k=top_k,
@@ -2394,9 +2430,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         _filter_shortterm_duplicate_longterm(context)
         _strip_shortterm_internal_fields(context)
         has_midterm_page = any(
-            isinstance(item, dict)
-            and item.get("source") in {"mid_term_page", "midterm"}
-            and item.get("raw_dialogue")
+            isinstance(item, dict) and item.get("source") in {"mid_term_page", "midterm"} and item.get("raw_dialogue")
             for item in (context["retrieved_memories"] or [])
         )
         self._confirm_context_valid_recalls(
@@ -2711,7 +2745,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
     ):
         if not self._midterm_enabled() or not evicted_messages:
             return []
-        
+
         try:
             return self.midterm_updater.process_evicted_messages(
                 evicted_messages,
@@ -2737,14 +2771,14 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         except Exception as e:
             logger.warning(f"Mid-term memory search failed: {e}")
         user_id = (filters or {}).get("user_id")
-        if user_id:
+        if user_id and self._promoted_longterm_enabled():
             try:
                 results.extend(
-                    self.cross_session_longterm.search(
+                    self.promoted_longterm.search(
                         query,
                         user_id=user_id,
-                        top_k=max(int(self.config.midterm.max_total_pages), 0),
-                        threshold=float(self.config.cross_session_longterm_rag_threshold),
+                        top_k=int(self.config.promoted_longterm.top_k),
+                        threshold=float(self.config.promoted_longterm.rag_threshold),
                     )
                 )
             except Exception as e:
@@ -2760,6 +2794,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         self._midterm_memory = None
         self._midterm_updater = None
         self._midterm_retriever = None
+        self._fine_grained_longterm_retriever = None
         cross_session_longterm = getattr(self, "_cross_session_longterm", None)
         if cross_session_longterm is not None:
             try:
@@ -3030,7 +3065,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                 message="messages must be str, dict, or list[dict]",
                 error_code="VALIDATION_003",
                 details={"provided_type": type(messages).__name__, "valid_types": ["str", "dict", "list[dict]"]},
-                suggestion="Convert your input to a string, dictionary, or list of dictionaries."
+                suggestion="Convert your input to a string, dictionary, or list of dictionaries.",
             )
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
@@ -3192,7 +3227,9 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                     else None
                 )
                 vector_store = getattr(self, "vector_store", None)
-                existing_memory = vector_store.get(vector_id=memory_id) if memory_id and vector_store is not None else None
+                existing_memory = (
+                    vector_store.get(vector_id=memory_id) if memory_id and vector_store is not None else None
+                )
                 if existing_memory is not None:
                     existing_payload = dict(getattr(existing_memory, "payload", None) or {})
                     existing_payload.update(
@@ -3267,7 +3304,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
 
         # Phase 2: LLM extraction (single call)
         is_agent_scoped = bool(filters.get("agent_id")) and not filters.get("user_id")
-        system_prompt = ADDITIVE_EXTRACTION_PROMPT
+        system_prompt = _configured_fine_grained_extraction_prompt(self)
         if is_agent_scoped:
             system_prompt += AGENT_CONTEXT_SUFFIX
 
@@ -3289,6 +3326,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                     {"role": "user", "content": user_prompt},
                 ],
                 response_format={"type": "json_object"},
+                **_configured_fine_grained_extraction_request_options(self),
             )
         except Exception as e:
             # Re-raise so callers can implement provider fallback / retry.
@@ -3511,7 +3549,6 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
                         except Exception:
                             entity_embeddings.append(None)
 
-
                 if len(entity_embeddings) != len(ordered_keys):
                     logger.warning(
                         "embed_batch returned %d vectors for %d entity texts — "
@@ -3582,10 +3619,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         except Exception as e:
             logger.warning(f"Batch entity linking failed: {e}")
 
-        returned_memories = [
-            {"id": r[0], "memory": r[1], "event": "ADD"}
-            for r in records
-        ]
+        returned_memories = [{"id": r[0], "memory": r[1], "event": "ADD"} for r in records]
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event(
@@ -3634,7 +3668,16 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             "expiration_date",
         ]
 
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
+        core_and_promoted_keys = {
+            "data",
+            "hash",
+            "created_at",
+            "updated_at",
+            "id",
+            "text_lemmatized",
+            "attributed_to",
+            *promoted_payload_keys,
+        }
 
         result_item = MemoryItem(
             id=memory.id,
@@ -3690,23 +3733,16 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         # Validate and trim entity IDs in filters
         effective_filters = dict(filters) if filters else {}
         if "user_id" in effective_filters:
-            effective_filters["user_id"] = _validate_and_trim_entity_id(
-                effective_filters["user_id"], "user_id"
-            )
+            effective_filters["user_id"] = _validate_and_trim_entity_id(effective_filters["user_id"], "user_id")
         if "agent_id" in effective_filters:
-            effective_filters["agent_id"] = _validate_and_trim_entity_id(
-                effective_filters["agent_id"], "agent_id"
-            )
+            effective_filters["agent_id"] = _validate_and_trim_entity_id(effective_filters["agent_id"], "agent_id")
         if "run_id" in effective_filters:
-            effective_filters["run_id"] = _validate_and_trim_entity_id(
-                effective_filters["run_id"], "run_id"
-            )
+            effective_filters["run_id"] = _validate_and_trim_entity_id(effective_filters["run_id"], "run_id")
 
         # Validate filters contains at least one entity ID
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError(
-                "filters must contain at least one of: user_id, agent_id, run_id. "
-                "Example: filters={'user_id': 'u1'}"
+                "filters must contain at least one of: user_id, agent_id, run_id. Example: filters={'user_id': 'u1'}"
             )
 
         limit = top_k
@@ -3751,7 +3787,16 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             "attributed_to",
             "expiration_date",
         ]
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
+        core_and_promoted_keys = {
+            "data",
+            "hash",
+            "created_at",
+            "updated_at",
+            "id",
+            "text_lemmatized",
+            "attributed_to",
+            *promoted_payload_keys,
+        }
 
         formatted_memories = []
         for mem in actual_memories:
@@ -3785,7 +3830,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         self,
         query: str,
         *,
-        top_k: int = 20,
+        top_k: Optional[int] = None,
         filters: Optional[Dict[str, Any]] = None,
         threshold: Optional[float] = None,
         rerank: bool = False,
@@ -3840,6 +3885,8 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         # Reject top-level entity params - must use filters instead
         _reject_top_level_entity_params(kwargs, "search")
 
+        if top_k is None:
+            top_k = int(_fine_grained_longterm_config(self).top_k)
         # Validate search parameters (before applying defaults)
         _validate_search_params(threshold=threshold, top_k=top_k)
         threshold = _effective_longterm_threshold(self, threshold)
@@ -3849,21 +3896,14 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         # Validate and trim entity IDs in filters
         effective_filters = filters.copy() if filters else {}
         if "user_id" in effective_filters:
-            effective_filters["user_id"] = _validate_and_trim_entity_id(
-                effective_filters["user_id"], "user_id"
-            )
+            effective_filters["user_id"] = _validate_and_trim_entity_id(effective_filters["user_id"], "user_id")
         if "agent_id" in effective_filters:
-            effective_filters["agent_id"] = _validate_and_trim_entity_id(
-                effective_filters["agent_id"], "agent_id"
-            )
+            effective_filters["agent_id"] = _validate_and_trim_entity_id(effective_filters["agent_id"], "agent_id")
         if "run_id" in effective_filters:
-            effective_filters["run_id"] = _validate_and_trim_entity_id(
-                effective_filters["run_id"], "run_id"
-            )
+            effective_filters["run_id"] = _validate_and_trim_entity_id(effective_filters["run_id"], "run_id")
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError(
-                "filters must contain at least one of: user_id, agent_id, run_id. "
-                "Example: filters={'user_id': 'u1'}"
+                "filters must contain at least one of: user_id, agent_id, run_id. Example: filters={'user_id': 'u1'}"
             )
 
         limit = top_k
@@ -3876,7 +3916,9 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             for logical_key in ("AND", "OR", "NOT"):
                 effective_filters.pop(logical_key, None)
             for fk in list(effective_filters.keys()):
-                if fk not in ("AND", "OR", "NOT", "user_id", "agent_id", "run_id") and isinstance(effective_filters.get(fk), dict):
+                if fk not in ("AND", "OR", "NOT", "user_id", "agent_id", "run_id") and isinstance(
+                    effective_filters.get(fk), dict
+                ):
                     effective_filters.pop(fk, None)
             effective_filters.update(processed_filters)
 
@@ -3904,7 +3946,17 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         search_elapsed_seconds = time.perf_counter() - search_start
 
         # Apply reranking if enabled and reranker is available
-        if rerank and self.reranker and original_memories:
+        configured_fine_reranker = getattr(
+            getattr(getattr(self, "config", None), "fine_grained_longterm", None),
+            "reranker",
+            None,
+        )
+        if (
+            rerank
+            and self.reranker
+            and original_memories
+            and getattr(configured_fine_reranker, "method", "none") == "none"
+        ):
             try:
                 reranked_memories = self.reranker.rerank(query, original_memories, limit)
                 original_memories = reranked_memories
@@ -3956,9 +4008,16 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             for operator, value in condition.items():
                 # Map platform operators to universal format that can be translated by each vector store
                 operator_map = {
-                    "eq": "eq", "ne": "ne", "gt": "gt", "gte": "gte",
-                    "lt": "lt", "lte": "lte", "in": "in", "nin": "nin",
-                    "contains": "contains", "icontains": "icontains"
+                    "eq": "eq",
+                    "ne": "ne",
+                    "gt": "gt",
+                    "gte": "gte",
+                    "lt": "lt",
+                    "lte": "lte",
+                    "in": "in",
+                    "nin": "nin",
+                    "contains": "contains",
+                    "icontains": "icontains",
                 }
 
                 if operator in operator_map:
@@ -4012,16 +4071,16 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
     def _has_advanced_operators(self, filters: Dict[str, Any]) -> bool:
         """
         Check if filters contain advanced operators that need special processing.
-        
+
         Args:
             filters: Dictionary of filters to check
-            
+
         Returns:
             bool: True if advanced operators are detected
         """
         if not isinstance(filters, dict):
             return False
-            
+
         for key, value in filters.items():
             # Check for platform-style logical operators
             if key in ["AND", "OR", "NOT"]:
@@ -4037,234 +4096,18 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         return False
 
     def _search_vector_store(self, query, filters, limit, threshold=0.1, explain=False, show_expired=False):
-        # Guard against None threshold (backward compat)
-        if threshold is None:
-            threshold = 0.1
-
-        # Step 1: Preprocess query
-        query_lemmatized = lemmatize_for_bm25(query, language=getattr(self, "_bm25_language", None))
-        query_entities = self._run_entity_extraction(extract_entities, query)
-
-        # Step 2: Embed query
-        embeddings = self.embedding_model.embed(query, "search")
-
-        # Step 3: Semantic search (over-fetch for scoring pool)
-        candidate_multiplier = int(
-            getattr(getattr(self, "config", None), "longterm_candidate_pool_multiplier", 4)
-        )
-        internal_limit = max(limit * candidate_multiplier, 60)
-        current_run_id = (filters or {}).get("run_id")
-        user_id = (filters or {}).get("user_id")
-        all_session_filters = dict(filters or {})
-        if user_id and current_run_id:
-            all_session_filters.pop("run_id", None)
-        semantic_current = self.vector_store.search(
-            query=query, vectors=embeddings, top_k=internal_limit, filters=filters
-        )
-        semantic_all = (
-            self.vector_store.search(
-                query=query,
-                vectors=embeddings,
-                top_k=internal_limit,
-                filters=all_session_filters,
-            )
-            if all_session_filters != filters
-            else []
-        )
-        semantic_results = _merge_vector_candidates(semantic_current, semantic_all)
-
-        # Step 4: Keyword search (if store supports it)
-        keyword_current = self.vector_store.keyword_search(
-            query=query_lemmatized, top_k=internal_limit, filters=filters
-        )
-        keyword_all = (
-            self.vector_store.keyword_search(
-                query=query_lemmatized,
-                top_k=internal_limit,
-                filters=all_session_filters,
-            )
-            if all_session_filters != filters
-            else []
-        )
-        keyword_results = _merge_vector_candidates(keyword_current, keyword_all)
-
-        # Step 5: Compute BM25 scores from keyword results
-        bm25_scores = {}
-        if keyword_results is not None:
-            midpoint, steepness = get_bm25_params(query, lemmatized=query_lemmatized)
-            for mem in keyword_results:
-                mem_id = str(mem.id) if hasattr(mem, 'id') else str(mem.get('id', ''))
-                raw_score = mem.score if hasattr(mem, 'score') else mem.get('score', 0)
-                if raw_score and raw_score > 0:
-                    bm25_scores[mem_id] = normalize_bm25(raw_score, midpoint, steepness)
-
-        # Step 6: Compute entity boosts
-        entity_boosts = {}
-        if query_entities:
-            entity_boosts = self._compute_entity_boosts(query_entities, filters)
-
-        # Step 7: Build candidate set from semantic results
-        candidates = []
-        session_weights = {}
-        other_session_weight = float(
-            getattr(getattr(self, "config", None), "longterm_other_session_weight", 0.7)
-        )
-        for mem in semantic_results:
-            payload = mem.payload if hasattr(mem, 'payload') else {}
-            if not self._stage_output_is_visible(payload, "longterm"):
-                continue
-            if not show_expired and _payload_is_expired(payload):
-                continue
-            mem_id = str(mem.id)
-            candidates.append({
-                "id": mem_id,
-                "score": mem.score,
-                "payload": payload,
-            })
-            session_weights[mem_id] = (
-                1.0
-                if not current_run_id or str(payload.get("run_id") or "") == str(current_run_id)
-                else other_session_weight
-            )
-
-        # Step 8: Score and rank
-        scored_results = score_and_rank(
-            semantic_results=candidates,
-            bm25_scores=bm25_scores,
-            entity_boosts=entity_boosts,
-            threshold=threshold,
+        return self.fine_grained_longterm_retriever.search(
+            query,
+            filters,
             top_k=limit,
+            threshold=threshold,
             explain=explain,
-            session_weights=session_weights,
+            show_expired=show_expired,
         )
-
-        # Step 9: Format results
-        promoted_payload_keys = [
-            "user_id",
-            "agent_id",
-            "run_id",
-            "actor_id",
-            "role",
-            "attributed_to",
-            "expiration_date",
-            "source_turn_index",
-        ]
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
-
-        original_memories = []
-        for scored in scored_results:
-            payload = scored.get("payload") or {}
-
-            if not payload.get("data"):
-                continue  # Skip candidates with no payload data
-
-            memory_item_dict = MemoryItem(
-                id=scored["id"],
-                memory=payload.get("data", ""),
-                hash=payload.get("hash"),
-                created_at=payload.get("created_at"),
-                updated_at=payload.get("updated_at"),
-                score=scored["score"],
-            ).model_dump()
-
-            for key in promoted_payload_keys:
-                if key in payload:
-                    memory_item_dict[key] = payload[key]
-
-            additional_metadata = {k: v for k, v in payload.items() if k not in core_and_promoted_keys}
-            if additional_metadata:
-                if not memory_item_dict.get("metadata"):
-                    memory_item_dict["metadata"] = {}
-                memory_item_dict["metadata"].update(additional_metadata)
-            if explain and "score_details" in scored:
-                memory_item_dict["score_details"] = scored["score_details"]
-
-            original_memories.append(memory_item_dict)
-
-        return original_memories
 
     def _compute_entity_boosts(self, query_entities, filters):
-        """Compute per-memory entity boosts from entity store search.
-
-        For each extracted entity from the query:
-        1. Embed the entity text
-        2. Search the entity store (threshold >= 0.5)
-        3. For each matched entity, boost its linked memories
-
-        Returns:
-            Dict mapping memory_id (str) -> max entity boost [0, 0.5].
-        """
-        # Deduplicate entities (max 8)
-        seen = set()
-        deduped = []
-        for entity_type, entity_text in query_entities[:8]:
-            key = self._normalize_entity_text(entity_text)
-            if key and key not in seen:
-                seen.add(key)
-                deduped.append((entity_type, entity_text))
-
-        if not deduped:
-            return {}
-
-        search_filters = _longterm_entity_filters(filters)
-        memory_boosts = {}
-
-        threshold_value = float(getattr(getattr(self, "config", None), "entity_similarity_threshold", 0.5))
-        try:
-            entity_texts = [text for _, text in deduped]
-            embeddings = self.embedding_model.embed_batch(entity_texts, "search")
-
-            if len(embeddings) != len(entity_texts):
-                logger.warning(
-                    "embed_batch returned %d vectors for %d texts — skipping entity boost",
-                    len(embeddings),
-                    len(entity_texts),
-                )
-                return memory_boosts
-
-            entity_store = self.entity_store
-
-            def _search_entity(entity_text, embedding):
-                return entity_store.search(
-                    query=entity_text, vectors=embedding, top_k=500, filters=search_filters
-                )
-
-            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-                futures = {
-                    pool.submit(_search_entity, text, emb): text
-                    for text, emb in zip(entity_texts, embeddings)
-                }
-
-                for future in concurrent.futures.as_completed(futures):
-                    try:
-                        matches = future.result()
-                    except Exception as e:
-                        logger.warning("Entity boost search failed for one entity: %s", e)
-                        continue
-
-                    for match in matches:
-                        similarity = match.score if hasattr(match, 'score') else 0.0
-                        if similarity < threshold_value:
-                            continue
-
-                        payload = match.payload if hasattr(match, 'payload') else {}
-                        linked_memory_ids = payload.get("linked_memory_ids", [])
-                        if not isinstance(linked_memory_ids, list):
-                            continue
-
-                        num_linked = max(len(linked_memory_ids), 1)
-                        memory_count_weight = 1.0 / (1.0 + 0.001 * ((num_linked - 1) ** 2))
-                        boost = similarity * ENTITY_BOOST_WEIGHT * memory_count_weight
-
-                        for memory_id in linked_memory_ids:
-                            if memory_id:
-                                memory_key = str(memory_id)
-                                memory_boosts[memory_key] = max(memory_boosts.get(memory_key, 0.0), boost)
-
-        except Exception as e:
-            logger.warning(f"Entity boost computation failed: {e}")
-
-        return memory_boosts
+        """Compatibility entry point backed by the production FineGrainedLongTerm retriever."""
+        return self.fine_grained_longterm_retriever._entity_boosts(query_entities, filters)
 
     def update(
         self,
@@ -4405,9 +4248,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             normalize_iso_timestamp_to_beijing(new_metadata.get("created_at")) or beijing_now_iso()
         )
         new_metadata["updated_at"] = new_metadata["created_at"]
-        new_metadata["text_lemmatized"] = lemmatize_for_bm25(
-            data, language=getattr(self, "_bm25_language", None)
-        )
+        new_metadata["text_lemmatized"] = lemmatize_for_bm25(data, language=getattr(self, "_bm25_language", None))
 
         self.vector_store.insert(
             vectors=[embeddings],
@@ -4485,9 +4326,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        new_metadata["text_lemmatized"] = lemmatize_for_bm25(
-            data, language=getattr(self, "_bm25_language", None)
-        )
+        new_metadata["text_lemmatized"] = lemmatize_for_bm25(data, language=getattr(self, "_bm25_language", None))
         new_metadata["created_at"] = normalize_iso_timestamp_to_beijing(existing_memory.payload.get("created_at"))
         new_metadata["updated_at"] = beijing_now_iso()
 
@@ -4635,6 +4474,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         self._midterm_memory = None
         self._midterm_updater = None
         self._midterm_retriever = None
+        self._fine_grained_longterm_retriever = None
         self._cross_session_longterm = None
         self._profile_manager = None
         self._profile_updater = None
@@ -4645,10 +4485,13 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         # Initialize reranker if configured
         self.reranker = None
         if config.reranker:
-            self.reranker = RerankerFactory.create(
-                config.reranker.provider,
-                config.reranker.config,
-                timeout_seconds=self.config.reranker_timeout_seconds,
+            self.reranker = RerankerConcurrencyGuard(
+                RerankerFactory.create(
+                    config.reranker.provider,
+                    config.reranker.config,
+                    timeout_seconds=self.config.reranker_timeout_seconds,
+                ),
+                max_concurrency=config.reranker.max_concurrency,
             )
 
         if MEM0_TELEMETRY:
@@ -4756,7 +4599,11 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         if self._midterm_retriever is None:
             with self._component_init_lock:
                 if self._midterm_retriever is None:
-                    self._midterm_retriever = MidTermRetriever(self.midterm_memory, self.config.midterm)
+                    self._midterm_retriever = MidTermRetriever(
+                        self.midterm_memory,
+                        self.config.midterm,
+                        reranker=getattr(self, "reranker", None),
+                    )
         return self._midterm_retriever
 
     @property
@@ -4921,7 +4768,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         *,
         user_id: str,
         session_id: str,
-        top_k: int = 20,
+        top_k: Optional[int] = None,
         threshold: Optional[float] = None,
         rerank: bool = False,
         explain: bool = False,
@@ -4941,7 +4788,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         )
         resolver_llm = getattr(self, "llm", None)
         retrieval_query = (
-            await QueryResolver(resolver_llm).resolve_async(
+            await QueryResolver(resolver_llm, prompt=_configured_query_rewrite_prompt(self)).resolve_async(
                 context["query"],
                 context.get("short_term_messages"),
             )
@@ -4949,6 +4796,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             else context["query"]
         )
         context["retrieval_query"] = retrieval_query
+        top_k = 20 if top_k is None else top_k
         search_result = await self.search(
             retrieval_query,
             top_k=top_k,
@@ -4968,7 +4816,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             isinstance(item, dict)
             and (
                 (item.get("source") in {"mid_term_page", "midterm"} and item.get("raw_dialogue"))
-                or (item.get("source") == CrossSessionLongTermMemory.SOURCE and item.get("memory"))
+                or (item.get("source") == PromotedLongTermMemory.SOURCE and item.get("memory"))
             )
             for item in (context["retrieved_memories"] or [])
         ):
@@ -5365,14 +5213,14 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         except Exception as e:
             logger.warning(f"Mid-term memory search failed: {e}")
         user_id = (filters or {}).get("user_id")
-        if user_id:
+        if user_id and self._promoted_longterm_enabled():
             try:
                 results.extend(
-                    self.cross_session_longterm.search(
+                    self.promoted_longterm.search(
                         query,
                         user_id=user_id,
-                        top_k=max(int(self.config.midterm.max_total_pages), 0),
-                        threshold=float(self.config.cross_session_longterm_rag_threshold),
+                        top_k=int(self.config.promoted_longterm.top_k),
+                        threshold=float(self.config.promoted_longterm.rag_threshold),
                     )
                 )
             except Exception as e:
@@ -5388,6 +5236,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         self._midterm_memory = None
         self._midterm_updater = None
         self._midterm_retriever = None
+        self._fine_grained_longterm_retriever = None
         cross_session_longterm = getattr(self, "_cross_session_longterm", None)
         if cross_session_longterm is not None:
             try:
@@ -5424,9 +5273,9 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         try:
             entity_embedding = await asyncio.to_thread(self.embedding_model.embed, entity_text, "add")
             search_filters = _longterm_entity_filters(filters)
-            exact_match = (
-                await asyncio.to_thread(self._existing_entities_by_text, search_filters)
-            ).get(self._normalize_entity_text(entity_text))
+            exact_match = (await asyncio.to_thread(self._existing_entities_by_text, search_filters)).get(
+                self._normalize_entity_text(entity_text)
+            )
 
             existing = []
             if exact_match is None:
@@ -5651,7 +5500,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                 message="messages must be str, dict, or list[dict]",
                 error_code="VALIDATION_003",
                 details={"provided_type": type(messages).__name__, "valid_types": ["str", "dict", "list[dict]"]},
-                suggestion="Convert your input to a string, dictionary, or list of dictionaries."
+                suggestion="Convert your input to a string, dictionary, or list of dictionaries.",
             )
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
@@ -5917,7 +5766,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
 
         # Phase 2: LLM extraction (single call)
         is_agent_scoped = bool(effective_filters.get("agent_id")) and not effective_filters.get("user_id")
-        system_prompt = ADDITIVE_EXTRACTION_PROMPT
+        system_prompt = _configured_fine_grained_extraction_prompt(self)
         if is_agent_scoped:
             system_prompt += AGENT_CONTEXT_SUFFIX
 
@@ -5939,6 +5788,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                     {"role": "user", "content": user_prompt},
                 ],
                 "response_format": {"type": "json_object"},
+                **_configured_fine_grained_extraction_request_options(self),
             }
             async_generate = getattr(self.llm, "generate_response_async", None)
             if inspect.iscoroutinefunction(async_generate):
@@ -6121,8 +5971,12 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                 for hr in history_records:
                     try:
                         await asyncio.to_thread(
-                            self.db.add_history, hr["memory_id"], None, hr["new_memory"], "ADD",
-                            created_at=hr.get("created_at")
+                            self.db.add_history,
+                            hr["memory_id"],
+                            None,
+                            hr["new_memory"],
+                            "ADD",
+                            created_at=hr.get("created_at"),
                         )
                     except Exception as e:
                         logger.error(f"Failed to add history for {hr['memory_id']} (async): {e}")
@@ -6239,10 +6093,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         except Exception as e:
             logger.warning(f"Batch entity linking failed (async): {e}")
 
-        returned_memories = [
-            {"id": r[0], "memory": r[1], "event": "ADD"}
-            for r in records
-        ]
+        returned_memories = [{"id": r[0], "memory": r[1], "event": "ADD"} for r in records]
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
@@ -6298,7 +6149,16 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             "expiration_date",
         ]
 
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
+        core_and_promoted_keys = {
+            "data",
+            "hash",
+            "created_at",
+            "updated_at",
+            "id",
+            "text_lemmatized",
+            "attributed_to",
+            *promoted_payload_keys,
+        }
 
         result_item = MemoryItem(
             id=memory.id,
@@ -6354,23 +6214,16 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         # Validate and trim entity IDs in filters
         effective_filters = dict(filters) if filters else {}
         if "user_id" in effective_filters:
-            effective_filters["user_id"] = _validate_and_trim_entity_id(
-                effective_filters["user_id"], "user_id"
-            )
+            effective_filters["user_id"] = _validate_and_trim_entity_id(effective_filters["user_id"], "user_id")
         if "agent_id" in effective_filters:
-            effective_filters["agent_id"] = _validate_and_trim_entity_id(
-                effective_filters["agent_id"], "agent_id"
-            )
+            effective_filters["agent_id"] = _validate_and_trim_entity_id(effective_filters["agent_id"], "agent_id")
         if "run_id" in effective_filters:
-            effective_filters["run_id"] = _validate_and_trim_entity_id(
-                effective_filters["run_id"], "run_id"
-            )
+            effective_filters["run_id"] = _validate_and_trim_entity_id(effective_filters["run_id"], "run_id")
 
         # Validate filters contains at least one entity ID
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError(
-                "filters must contain at least one of: user_id, agent_id, run_id. "
-                "Example: filters={'user_id': 'u1'}"
+                "filters must contain at least one of: user_id, agent_id, run_id. Example: filters={'user_id': 'u1'}"
             )
 
         limit = top_k
@@ -6415,7 +6268,16 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             "attributed_to",
             "expiration_date",
         ]
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
+        core_and_promoted_keys = {
+            "data",
+            "hash",
+            "created_at",
+            "updated_at",
+            "id",
+            "text_lemmatized",
+            "attributed_to",
+            *promoted_payload_keys,
+        }
 
         formatted_memories = []
         for mem in actual_memories:
@@ -6449,7 +6311,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         self,
         query: str,
         *,
-        top_k: int = 20,
+        top_k: Optional[int] = None,
         filters: Optional[Dict[str, Any]] = None,
         threshold: Optional[float] = None,
         rerank: bool = False,
@@ -6499,13 +6361,13 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
                 or if threshold/top_k values are invalid.
         """
         if reference_date is not None:
-            raise ValueError(
-                await get_temporal_feature_error_message_async("async", "search", "reference_date")
-            )
+            raise ValueError(await get_temporal_feature_error_message_async("async", "search", "reference_date"))
 
         # Reject top-level entity params - must use filters instead
         _reject_top_level_entity_params(kwargs, "search")
 
+        if top_k is None:
+            top_k = int(_fine_grained_longterm_config(self).top_k)
         # Validate search parameters (before applying defaults)
         _validate_search_params(threshold=threshold, top_k=top_k)
         threshold = _effective_longterm_threshold(self, threshold)
@@ -6515,23 +6377,16 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         # Validate and trim entity IDs in filters
         effective_filters = filters.copy() if filters else {}
         if "user_id" in effective_filters:
-            effective_filters["user_id"] = _validate_and_trim_entity_id(
-                effective_filters["user_id"], "user_id"
-            )
+            effective_filters["user_id"] = _validate_and_trim_entity_id(effective_filters["user_id"], "user_id")
         if "agent_id" in effective_filters:
-            effective_filters["agent_id"] = _validate_and_trim_entity_id(
-                effective_filters["agent_id"], "agent_id"
-            )
+            effective_filters["agent_id"] = _validate_and_trim_entity_id(effective_filters["agent_id"], "agent_id")
         if "run_id" in effective_filters:
-            effective_filters["run_id"] = _validate_and_trim_entity_id(
-                effective_filters["run_id"], "run_id"
-            )
+            effective_filters["run_id"] = _validate_and_trim_entity_id(effective_filters["run_id"], "run_id")
 
         # Validate filters contains at least one entity ID
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError(
-                "filters must contain at least one of: user_id, agent_id, run_id. "
-                "Example: filters={'user_id': 'u1'}"
+                "filters must contain at least one of: user_id, agent_id, run_id. Example: filters={'user_id': 'u1'}"
             )
 
         limit = top_k
@@ -6544,7 +6399,9 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             for logical_key in ("AND", "OR", "NOT"):
                 effective_filters.pop(logical_key, None)
             for fk in list(effective_filters.keys()):
-                if fk not in ("AND", "OR", "NOT", "user_id", "agent_id", "run_id") and isinstance(effective_filters.get(fk), dict):
+                if fk not in ("AND", "OR", "NOT", "user_id", "agent_id", "run_id") and isinstance(
+                    effective_filters.get(fk), dict
+                ):
                     effective_filters.pop(fk, None)
             effective_filters.update(processed_filters)
 
@@ -6571,12 +6428,23 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         search_elapsed_seconds = time.perf_counter() - search_start
 
         # Apply reranking if enabled and reranker is available
-        if rerank and self.reranker and original_memories:
+        configured_fine_reranker = getattr(
+            getattr(getattr(self, "config", None), "fine_grained_longterm", None),
+            "reranker",
+            None,
+        )
+        if (
+            rerank
+            and self.reranker
+            and original_memories
+            and getattr(configured_fine_reranker, "method", "none") == "none"
+        ):
             try:
-                # Run reranking in thread pool to avoid blocking async loop
-                reranked_memories = await asyncio.to_thread(
-                    self.reranker.rerank, query, original_memories, limit
-                )
+                rerank_async = getattr(self.reranker, "rerank_async", None)
+                if callable(rerank_async):
+                    reranked_memories = await rerank_async(query, original_memories, limit)
+                else:
+                    reranked_memories = await asyncio.to_thread(self.reranker.rerank, query, original_memories, limit)
                 original_memories = reranked_memories
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
@@ -6626,9 +6494,16 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             for operator, value in condition.items():
                 # Map platform operators to universal format that can be translated by each vector store
                 operator_map = {
-                    "eq": "eq", "ne": "ne", "gt": "gt", "gte": "gte",
-                    "lt": "lt", "lte": "lte", "in": "in", "nin": "nin",
-                    "contains": "contains", "icontains": "icontains"
+                    "eq": "eq",
+                    "ne": "ne",
+                    "gt": "gt",
+                    "gte": "gte",
+                    "lt": "lt",
+                    "lte": "lte",
+                    "in": "in",
+                    "nin": "nin",
+                    "contains": "contains",
+                    "icontains": "icontains",
                 }
 
                 if operator in operator_map:
@@ -6707,237 +6582,18 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         return False
 
     async def _search_vector_store(self, query, filters, limit, threshold=0.1, explain=False, show_expired=False):
-        if threshold is None:
-            threshold = 0.1
-
-        # Step 1: Preprocess query (CPU-bound)
-        query_lemmatized = await asyncio.to_thread(
-            lemmatize_for_bm25,
+        return await self.fine_grained_longterm_retriever.search_async(
             query,
-            language=getattr(self, "_bm25_language", None),
-        )
-        query_entities = await asyncio.to_thread(self._run_entity_extraction, extract_entities, query)
-
-        # Step 2: Embed query
-        embeddings = await asyncio.to_thread(self.embedding_model.embed, query, "search")
-
-        # Step 3: Semantic search (over-fetch)
-        candidate_multiplier = int(
-            getattr(getattr(self, "config", None), "longterm_candidate_pool_multiplier", 4)
-        )
-        internal_limit = max(limit * candidate_multiplier, 60)
-        current_run_id = (filters or {}).get("run_id")
-        user_id = (filters or {}).get("user_id")
-        all_session_filters = dict(filters or {})
-        if user_id and current_run_id:
-            all_session_filters.pop("run_id", None)
-        semantic_current, semantic_all = await asyncio.gather(
-            asyncio.to_thread(
-                self.vector_store.search,
-                query=query,
-                vectors=embeddings,
-                top_k=internal_limit,
-                filters=filters,
-            ),
-            asyncio.to_thread(
-                self.vector_store.search,
-                query=query,
-                vectors=embeddings,
-                top_k=internal_limit,
-                filters=all_session_filters,
-            )
-            if all_session_filters != filters
-            else asyncio.sleep(0, result=[]),
-        )
-        semantic_results = _merge_vector_candidates(semantic_current, semantic_all)
-
-        # Step 4: Keyword search (if store supports it)
-        keyword_current, keyword_all = await asyncio.gather(
-            asyncio.to_thread(
-                self.vector_store.keyword_search,
-                query=query_lemmatized,
-                top_k=internal_limit,
-                filters=filters,
-            ),
-            asyncio.to_thread(
-                self.vector_store.keyword_search,
-                query=query_lemmatized,
-                top_k=internal_limit,
-                filters=all_session_filters,
-            )
-            if all_session_filters != filters
-            else asyncio.sleep(0, result=[]),
-        )
-        keyword_results = _merge_vector_candidates(keyword_current, keyword_all)
-
-        # Step 5: Compute BM25 scores
-        bm25_scores = {}
-        if keyword_results is not None:
-            midpoint, steepness = get_bm25_params(query, lemmatized=query_lemmatized)
-            for mem in keyword_results:
-                mem_id = str(mem.id) if hasattr(mem, 'id') else str(mem.get('id', ''))
-                raw_score = mem.score if hasattr(mem, 'score') else mem.get('score', 0)
-                if raw_score and raw_score > 0:
-                    bm25_scores[mem_id] = normalize_bm25(raw_score, midpoint, steepness)
-
-        # Step 6: Compute entity boosts
-        entity_boosts = {}
-        if query_entities:
-            entity_boosts = await self._compute_entity_boosts_async(query_entities, filters)
-
-        # Step 7: Build candidate set from semantic results
-        candidates = []
-        session_weights = {}
-        other_session_weight = float(
-            getattr(getattr(self, "config", None), "longterm_other_session_weight", 0.7)
-        )
-        for mem in semantic_results:
-            payload = mem.payload if hasattr(mem, 'payload') else {}
-            if not self._stage_output_is_visible(payload, "longterm"):
-                continue
-            if not show_expired and _payload_is_expired(payload):
-                continue
-            mem_id = str(mem.id)
-            candidates.append({
-                "id": mem_id,
-                "score": mem.score,
-                "payload": payload,
-            })
-            session_weights[mem_id] = (
-                1.0
-                if not current_run_id or str(payload.get("run_id") or "") == str(current_run_id)
-                else other_session_weight
-            )
-
-        # Step 8: Score and rank
-        scored_results = score_and_rank(
-            semantic_results=candidates,
-            bm25_scores=bm25_scores,
-            entity_boosts=entity_boosts,
-            threshold=threshold,
+            filters,
             top_k=limit,
+            threshold=threshold,
             explain=explain,
-            session_weights=session_weights,
+            show_expired=show_expired,
         )
-
-        # Step 9: Format results
-        promoted_payload_keys = [
-            "user_id",
-            "agent_id",
-            "run_id",
-            "actor_id",
-            "role",
-            "attributed_to",
-            "expiration_date",
-            "source_turn_index",
-        ]
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
-
-        original_memories = []
-        for scored in scored_results:
-            payload = scored.get("payload") or {}
-            if not payload.get("data"):
-                continue
-
-            memory_item_dict = MemoryItem(
-                id=scored["id"],
-                memory=payload.get("data", ""),
-                hash=payload.get("hash"),
-                created_at=payload.get("created_at"),
-                updated_at=payload.get("updated_at"),
-                score=scored["score"],
-            ).model_dump()
-
-            for key in promoted_payload_keys:
-                if key in payload:
-                    memory_item_dict[key] = payload[key]
-
-            additional_metadata = {k: v for k, v in payload.items() if k not in core_and_promoted_keys}
-            if additional_metadata:
-                if not memory_item_dict.get("metadata"):
-                    memory_item_dict["metadata"] = {}
-                memory_item_dict["metadata"].update(additional_metadata)
-            if explain and "score_details" in scored:
-                memory_item_dict["score_details"] = scored["score_details"]
-
-            original_memories.append(memory_item_dict)
-
-        return original_memories
 
     async def _compute_entity_boosts_async(self, query_entities, filters):
-        """Async version of entity boost computation."""
-        seen = set()
-        deduped = []
-        for entity_type, entity_text in query_entities[:8]:
-            key = self._normalize_entity_text(entity_text)
-            if key and key not in seen:
-                seen.add(key)
-                deduped.append((entity_type, entity_text))
-
-        if not deduped:
-            return {}
-
-        search_filters = _longterm_entity_filters(filters)
-        memory_boosts = {}
-
-        threshold_value = float(getattr(getattr(self, "config", None), "entity_similarity_threshold", 0.5))
-        try:
-            entity_texts = [text for _, text in deduped]
-            embeddings = await asyncio.to_thread(self.embedding_model.embed_batch, entity_texts, "search")
-
-            if len(embeddings) != len(entity_texts):
-                logger.warning(
-                    "embed_batch returned %d vectors for %d texts — skipping entity boost",
-                    len(embeddings),
-                    len(entity_texts),
-                )
-                return memory_boosts
-
-            sem = asyncio.Semaphore(4)
-
-            async def _search_entity(entity_text, embedding):
-                async with sem:
-                    return await asyncio.to_thread(
-                        self.entity_store.search,
-                        query=entity_text,
-                        vectors=embedding,
-                        top_k=500,
-                        filters=search_filters,
-                    )
-
-            results = await asyncio.gather(
-                *(_search_entity(text, emb) for text, emb in zip(entity_texts, embeddings)),
-                return_exceptions=True,
-            )
-
-            for matches in results:
-                if isinstance(matches, BaseException):
-                    logger.warning("Entity boost search failed for one entity: %s", matches)
-                    continue
-
-                for match in matches:
-                    similarity = match.score if hasattr(match, 'score') else 0.0
-                    if similarity < threshold_value:
-                        continue
-
-                    payload = match.payload if hasattr(match, 'payload') else {}
-                    linked_memory_ids = payload.get("linked_memory_ids", [])
-                    if not isinstance(linked_memory_ids, list):
-                        continue
-
-                    num_linked = max(len(linked_memory_ids), 1)
-                    memory_count_weight = 1.0 / (1.0 + 0.001 * ((num_linked - 1) ** 2))
-                    boost = similarity * ENTITY_BOOST_WEIGHT * memory_count_weight
-
-                    for memory_id in linked_memory_ids:
-                        if memory_id:
-                            memory_key = str(memory_id)
-                            memory_boosts[memory_key] = max(memory_boosts.get(memory_key, 0.0), boost)
-
-        except Exception as e:
-            logger.warning(f"Entity boost computation failed: {e}")
-
-        return memory_boosts
+        """Compatibility entry point backed by the production FineGrainedLongTerm retriever."""
+        return await self.fine_grained_longterm_retriever._entity_boosts_async(query_entities, filters)
 
     async def update(
         self,
@@ -7080,9 +6736,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             normalize_iso_timestamp_to_beijing(new_metadata.get("created_at")) or beijing_now_iso()
         )
         new_metadata["updated_at"] = new_metadata["created_at"]
-        new_metadata["text_lemmatized"] = lemmatize_for_bm25(
-            data, language=getattr(self, "_bm25_language", None)
-        )
+        new_metadata["text_lemmatized"] = lemmatize_for_bm25(data, language=getattr(self, "_bm25_language", None))
 
         await asyncio.to_thread(
             self.vector_store.insert,
@@ -7195,9 +6849,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        new_metadata["text_lemmatized"] = lemmatize_for_bm25(
-            data, language=getattr(self, "_bm25_language", None)
-        )
+        new_metadata["text_lemmatized"] = lemmatize_for_bm25(data, language=getattr(self, "_bm25_language", None))
         new_metadata["created_at"] = normalize_iso_timestamp_to_beijing(existing_memory.payload.get("created_at"))
         new_metadata["updated_at"] = beijing_now_iso()
 

@@ -22,6 +22,7 @@ from mem0.configs.rerankers.huggingface import HuggingFaceRerankerConfig
 from mem0.configs.rerankers.llm import LLMRerankerConfig
 from mem0.configs.rerankers.sentence_transformer import SentenceTransformerRerankerConfig
 from mem0.configs.rerankers.zero_entropy import ZeroEntropyRerankerConfig
+from mem0.embeddings.encoding_contract import EncodingContractEmbedding
 from mem0.embeddings.mock import MockEmbeddings
 
 logger = logging.getLogger(__name__)
@@ -231,7 +232,10 @@ class EmbedderFactory:
         if class_type:
             embedder_instance = load_class(class_type)
             base_config = BaseEmbedderConfig(**config)
-            return _configure_native_timeout(embedder_instance(base_config), timeout_seconds)
+            instance = _configure_native_timeout(embedder_instance(base_config), timeout_seconds)
+            if base_config.encoding_contract:
+                instance = EncodingContractEmbedding(instance, base_config.encoding_contract)
+            return instance
         else:
             raise ValueError(f"Unsupported Embedder provider: {provider_name}")
 

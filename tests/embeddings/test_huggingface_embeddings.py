@@ -48,6 +48,24 @@ def test_embed_with_model_kwargs(mock_sentence_transformer):
     assert result == [0.7, 0.8, 0.9]
 
 
+def test_embedder_passes_immutable_revision_to_sentence_transformer(mock_sentence_transformer):
+    HuggingFaceEmbedding(
+        BaseEmbedderConfig(
+            model="local/model",
+            revision="immutable-revision",
+            model_kwargs={"local_files_only": True},
+        )
+    )
+
+    from mem0.embeddings.huggingface import SentenceTransformer
+
+    SentenceTransformer.assert_called_once_with(
+        "local/model",
+        local_files_only=True,
+        revision="immutable-revision",
+    )
+
+
 def test_embed_sets_embedding_dims(mock_sentence_transformer):
     config = BaseEmbedderConfig()
 
@@ -81,14 +99,14 @@ def test_embed_with_huggingface_base_url():
     with patch("mem0.embeddings.huggingface.OpenAI") as mock_openai:
         mock_client = Mock()
         mock_openai.return_value = mock_client
-        
+
         # Create a mock for the response object and its attributes
         mock_embedding_response = Mock()
         mock_embedding_response.embedding = [0.1, 0.2, 0.3]
-        
+
         mock_create_response = Mock()
         mock_create_response.data = [mock_embedding_response]
-        
+
         mock_client.embeddings.create.return_value = mock_create_response
 
         embedder = HuggingFaceEmbedding(config)
@@ -140,9 +158,7 @@ def test_embed_batch_base_url():
         texts = ["First text.", "Second text."]
         result = embedder.embed_batch(texts)
 
-        mock_client.embeddings.create.assert_called_once_with(
-            input=texts, model="my-custom-model"
-        )
+        mock_client.embeddings.create.assert_called_once_with(input=texts, model="my-custom-model")
         assert result == [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
 
 

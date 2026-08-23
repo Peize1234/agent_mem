@@ -10,11 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import pytest
 import yaml
 from tuner.artifact_registry import ArtifactRegistry
-from tuner.evaluate_candidate import (
-    _eligible_requirements,
-    _evaluate_session,
-    _fact_rows_for_visible,
-)
+from tuner.evaluate_candidate import _eligible_requirements, _evaluate_session, _fact_rows_for_visible
 from tuner.experiment_branches import (
     BranchContext,
     BranchRegistry,
@@ -22,11 +18,7 @@ from tuner.experiment_branches import (
     MidtermSourceConfigBranch,
     PromotionBranch,
 )
-from tuner.fact_evaluator import (
-    deterministic_fact_match,
-    fact_member_hit,
-    parse_required_context,
-)
+from tuner.fact_evaluator import deterministic_fact_match, fact_member_hit, parse_required_context
 from tuner.io_utils import sha256_file
 from tuner.models import Candidate, CandidateResult, Dataset, Requirement, Turn
 from tuner.parameter_schema import (
@@ -137,9 +129,10 @@ def test_new_branches_are_reachable_through_real_coverage_policy() -> None:
         assert selected
         return selected[0].spec.name
 
-    assert next_branch(
-        "session_instability", {"RetrievalControl": 1, "FineGrainedLongtermRetrieval": 1}
-    ) == "MidtermEvolution"
+    assert (
+        next_branch("session_instability", {"RetrievalControl": 1, "FineGrainedLongtermRetrieval": 1})
+        == "MidtermEvolution"
+    )
     ranking_selected = registry.select(
         regime="ranking_bottleneck",
         max_cost_level="expensive",
@@ -152,33 +145,46 @@ def test_new_branches_are_reachable_through_real_coverage_policy() -> None:
         remaining_expensive_candidates=100,
     )
     assert any(branch.spec.name == "MidtermEvolution" for branch in ranking_selected)
-    assert next_branch(
-        "session_instability",
-        {"RetrievalControl": 1, "FineGrainedLongtermRetrieval": 1, "MidtermEvolution": 1},
-    ) == "PageRepresentation"
+    assert (
+        next_branch(
+            "session_instability",
+            {"RetrievalControl": 1, "FineGrainedLongtermRetrieval": 1, "MidtermEvolution": 1},
+        )
+        == "PageRepresentation"
+    )
     assert "Promotion" not in policy["session_instability"]["relevant"]
     assert "Promotion" not in policy["balanced_or_plateau"]["relevant"]
+    assert "Promotion" not in {branch.spec.name for branch in registry.ordered()}
     assert space["search"]["stages"]["secondary"]["cross_session_temporal"]["tuning"] == "disabled"
-    assert space["search"]["stages"]["cheap"]["retrieval"]["midterm_evolution"]["promotion_min_recall_count"] == "production_default_only"
-    assert next_branch(
-        "candidate_coverage_bottleneck",
-        {
-            "RetrievalControl": 1,
-            "HybridRetrieval": 1,
-            "Embedding": 1,
-            "FineGrainedLongtermRetrieval": 1,
-        },
-    ) == "AgenticRetrieval"
-    assert next_branch(
-        "candidate_coverage_bottleneck",
-        {
-            "RetrievalControl": 1,
-            "HybridRetrieval": 1,
-            "AgenticRetrieval": 1,
-            "Embedding": 1,
-            "FineGrainedLongtermRetrieval": 1,
-        },
-    ) == "QueryRewritePrompt"
+    assert (
+        space["search"]["stages"]["cheap"]["retrieval"]["midterm_evolution"]["promotion_min_recall_count"]
+        == "production_default_only"
+    )
+    assert (
+        next_branch(
+            "candidate_coverage_bottleneck",
+            {
+                "RetrievalControl": 1,
+                "HybridRetrieval": 1,
+                "Embedding": 1,
+                "FineGrainedLongtermRetrieval": 1,
+            },
+        )
+        == "AgenticRetrieval"
+    )
+    assert (
+        next_branch(
+            "candidate_coverage_bottleneck",
+            {
+                "RetrievalControl": 1,
+                "HybridRetrieval": 1,
+                "AgenticRetrieval": 1,
+                "Embedding": 1,
+                "FineGrainedLongtermRetrieval": 1,
+            },
+        )
+        == "QueryRewritePrompt"
+    )
     candidate_relevant = policy["candidate_coverage_bottleneck"]["relevant"]
     assert candidate_relevant["MidtermSourceConfig"]["minimum_attempts"] == 1
     assert candidate_relevant["MidtermSourceConfig"]["coverage_class"] == "expensive_gated"
@@ -189,11 +195,7 @@ def test_yaml_and_branch_specs_agree_on_midterm_evolution_regimes() -> None:
     space = yaml.safe_load((Path(__file__).resolve().parents[2] / "search_space.yaml").read_text())
     policy = space["search"]["branch_coverage"]
     spec = BranchRegistry().get("MidtermEvolution").spec
-    configured = {
-        regime
-        for regime, value in policy.items()
-        if "MidtermEvolution" in (value.get("relevant") or {})
-    }
+    configured = {regime for regime, value in policy.items() if "MidtermEvolution" in (value.get("relevant") or {})}
     assert configured <= set(spec.diagnostic_regimes)
     assert "ranking_bottleneck" in spec.diagnostic_regimes
 
@@ -276,15 +278,28 @@ def test_adapter_diagnostic_trace_drives_all_failure_classes() -> None:
     )
     assert evaluate(routing_rows) == "Session Routing Loss"
 
-    coverage_rows = _unselected_page_diagnostic_rows(
-        checkpoint, routed, {"job": ["S001-Q001"]}
-    )
+    coverage_rows = _unselected_page_diagnostic_rows(checkpoint, routed, {"job": ["S001-Q001"]})
     assert evaluate(coverage_rows) == "Candidate Coverage Loss"
-    assert evaluate(_diagnostic_rows_from_pages([page(threshold_filtered=True, threshold_passed=False, final_visible=False)], {"job": ["S001-Q001"]})) == "Threshold Loss"
-    assert evaluate(_diagnostic_rows_from_pages([page(ranking_loss=True, final_visible=None)], {"job": ["S001-Q001"]})) == "Ranking Loss"
-    assert evaluate(
-        _diagnostic_rows_from_pages([page(final_visible=False, context_budget_filtered=True)], {"job": ["S001-Q001"]})
-    ) == "Context Budget Loss"
+    assert (
+        evaluate(
+            _diagnostic_rows_from_pages(
+                [page(threshold_filtered=True, threshold_passed=False, final_visible=False)], {"job": ["S001-Q001"]}
+            )
+        )
+        == "Threshold Loss"
+    )
+    assert (
+        evaluate(_diagnostic_rows_from_pages([page(ranking_loss=True, final_visible=None)], {"job": ["S001-Q001"]}))
+        == "Ranking Loss"
+    )
+    assert (
+        evaluate(
+            _diagnostic_rows_from_pages(
+                [page(final_visible=False, context_budget_filtered=True)], {"job": ["S001-Q001"]}
+            )
+        )
+        == "Context Budget Loss"
+    )
 
 
 def test_adapter_candidate_pool_recall_is_pre_threshold_and_capped_final() -> None:
@@ -407,7 +422,7 @@ def test_hard_constraints_and_parameter_classes() -> None:
         validate_candidate_config({"max_total_pages": 6})
     with pytest.raises(ValueError):
         validate_candidate_config({"short_term_capacity": 5})
-    assert parameter_class("top_k_sessions") == "source-changing"
+    assert parameter_class("top_k_sessions") == "query-time"
     assert parameter_class("retention_half_life_turns") == "within-session-stateful"
     assert parameter_class("cross_session_retention_half_life_hours") == "cross-session-temporal-stateful"
     assert parameter_class("max_total_pages") == "query-time"
@@ -423,7 +438,7 @@ def test_dynamic_turn_and_heat_threshold_candidates() -> None:
 def test_evolution_and_longterm_branches_are_staged_not_cartesian() -> None:
     source = Path(MidtermEvolutionBranch.generate.__code__.co_filename).read_text(encoding="utf-8")
     evolution = source[source.index("class MidtermEvolutionBranch") : source.index("class PromotionBranch")]
-    assert "cartesian_grid\": False" in evolution
+    assert 'cartesian_grid": False' in evolution
     assert "for tau in" not in evolution
     assert "longterm_hybrid_preset" in source
     assert "entity_similarity_threshold" in source
@@ -580,14 +595,20 @@ def test_midterm_source_config_deep_generates_real_source_specs(tmp_path: Path) 
     context = _promotion_context(tmp_path, [2.0])
     outcome = MidtermSourceConfigBranch().generate(context)
     assert outcome.status == "READY"
-    changed = {key for candidate in outcome.candidates for key in candidate.config.get("source_config_overrides", {}).get("midterm", {})}
+    changed = {
+        key
+        for candidate in outcome.candidates
+        for key in candidate.config.get("source_config_overrides", {}).get("midterm", {})
+    }
     assert {"short_term_capacity", "session_similarity_threshold", "top_k_sessions"} <= changed
     assert all(candidate.config.get("source_generation_spec") for candidate in outcome.candidates)
     assert all(candidate.provenance.get("requires_source_regeneration") for candidate in outcome.candidates)
 
 
 def test_stateful_replay_rejects_add_without_turn_progress() -> None:
-    replay = WithinSessionStatefulReplay(search=lambda turn, index: [], add=lambda turn: None, current_turn_index=lambda: 0)
+    replay = WithinSessionStatefulReplay(
+        search=lambda turn, index: [], add=lambda turn: None, current_turn_index=lambda: 0
+    )
     with pytest.raises(RuntimeError, match="did not advance"):
         replay.replay(["Q1"])
 
@@ -719,3 +740,53 @@ def test_session_longterm_replay_honors_all_query_time_controls() -> None:
     assert len(rows) == 1
     assert rows[0]["page_id"] == "b"
     assert rows[0]["candidate_pool_count"] == 2
+
+
+def test_tuner_fine_grained_replay_matches_production_retriever() -> None:
+    from mem0.configs.base import FineGrainedLongTermConfig
+    from mem0.memory.fine_grained_longterm import FineGrainedLongTermRetriever
+
+    pool = {
+        "semantic_candidates": [
+            {"id": "a", "score": 0.9, "payload": {"data": "A", "run_id": "r1"}},
+            {"id": "b", "score": 0.7, "payload": {"data": "B", "run_id": "r2"}},
+        ],
+        "current_session_candidate_ids": ["a"],
+        "current_run_id": "r1",
+        "bm25_scores": {"b": 1.0},
+        "entity_boosts_by_threshold": {"0.5": {}},
+    }
+    checkpoint = {"query": "query", "longterm_candidate_pool": pool}
+    config = {
+        "longterm_top_k": 2,
+        "longterm_rag_threshold": 0.1,
+        "longterm_candidate_pool_multiplier": 4,
+        "longterm_other_session_weight": 0.7,
+        "longterm_hybrid_preset": "balanced",
+        "entity_similarity_threshold": 0.5,
+    }
+    tuner_rows = ProductionMidtermAdapter._rank_session_longterm(checkpoint, config)
+
+    production_config = FineGrainedLongTermConfig(
+        top_k=2,
+        semantic_weight=0.4,
+        bm25_weight=0.4,
+        entity_weight=0.2,
+    )
+    production = FineGrainedLongTermRetriever(
+        vector_store=None,
+        embedding_model=None,
+        entity_store_provider=lambda: None,
+        config=production_config,
+    ).rank_frozen(
+        "query",
+        pool["semantic_candidates"],
+        bm25_scores=pool["bm25_scores"],
+        current_run_id="r1",
+        current_session_candidate_ids=["a"],
+        top_k=2,
+        threshold=0.1,
+    )
+
+    assert [row["page_id"] for row in tuner_rows] == [row["id"] for row in production]
+    assert [row["score"] for row in tuner_rows] == pytest.approx([row["score"] for row in production])

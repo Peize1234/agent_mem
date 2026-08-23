@@ -11,7 +11,7 @@ from typing import Any, Iterable, Mapping, Protocol, Sequence
 
 import yaml
 
-from .encoding_contract import SentenceTransformerEncodingAdapter, resolve_encoding_contract
+from .encoding_contract import resolve_encoding_contract
 from .io_utils import atomic_write_json
 
 MODEL_KINDS = {"embedding", "reranker"}
@@ -872,9 +872,8 @@ class ModelDiscovery:
         started = time.perf_counter()
         try:
             if candidate.model_type == "embedding":
-                from sentence_transformers import SentenceTransformer
+                from mem0.utils.factory import EmbedderFactory
 
-                model = SentenceTransformer(candidate.local_path or candidate.model_id, device=device)
                 contract, reason = resolve_encoding_contract(
                     model_id=candidate.model_id,
                     local_path=candidate.local_path,
@@ -883,18 +882,39 @@ class ModelDiscovery:
                 if contract is None:
                     raise RuntimeError(reason or "encoding contract unavailable")
                 candidate.encoding_contract = contract.serializable()
-                vectors = SentenceTransformerEncodingAdapter(model, contract).encode(
-                    ["贵州茅台经营现金流", "profit and cash flow"], action="search"
+                embedder = EmbedderFactory.create(
+                    "huggingface",
+                    {
+                        "model": candidate.local_path or candidate.model_id,
+                        "revision": candidate.revision,
+                        "model_kwargs": {"device": device},
+                        "encoding_contract": candidate.encoding_contract,
+                    },
+                    None,
                 )
+                vectors = embedder.embed_batch(["贵州茅台经营现金流", "profit and cash flow"], "search")
                 if len(vectors) != 2 or not len(vectors[0]):
                     raise RuntimeError("embedding smoke test returned invalid vectors")
                 candidate.resource_usage["embedding_dimension"] = int(len(vectors[0]))
             else:
-                from sentence_transformers import CrossEncoder
+                from mem0.utils.factory import RerankerFactory
 
-                model = CrossEncoder(candidate.local_path or candidate.model_id, device=device)
-                scores = model.predict([["现金流", "经营活动现金流改善"], ["现金流", "股本结构"]])
-                if len(scores) != 2:
+                reranker = RerankerFactory.create(
+                    "sentence_transformer",
+                    {
+                        "model": candidate.local_path or candidate.model_id,
+                        "device": device,
+                        "revision": candidate.revision,
+                        "local_files_only": bool(candidate.local_path),
+                        "top_k": 2,
+                    },
+                )
+                ranked = reranker.rerank(
+                    "现金流",
+                    [{"memory": "经营活动现金流改善"}, {"memory": "股本结构"}],
+                    top_k=2,
+                )
+                if len(ranked) != 2 or any("rerank_score" not in row for row in ranked):
                     raise RuntimeError("reranker smoke test returned invalid scores")
             candidate.status = "SMOKE_PASSED"
         except Exception as exc:

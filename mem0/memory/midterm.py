@@ -2,13 +2,66 @@ import copy
 import logging
 import math
 import threading
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from mem0.memory.memory_evolution import unique_ids
 from mem0.utils.factory import VectorStoreFactory
+from mem0.utils.retrieval_fusion import normalized_score_fuse, rrf_fuse
 from mem0.utils.timestamps import beijing_now_iso
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class MidTermSearchResult:
+    id: str
+    payload: Dict[str, Any]
+    score: float
+
+
+PAGE_REPRESENTATION_ALIASES = {
+    "P0": "production",
+    "P1": "summary",
+    "P2": "user",
+    "P3": "raw_dialogue",
+    "P4": "user_assistant",
+    "P5": "user_summary",
+    "P6": "summary_raw",
+    "P7": "user_keywords",
+    "P8": "summary_keywords",
+}
+
+
+def page_embedding_text(payload: Dict[str, Any], representation: str = "production") -> str:
+    """Build the production Page embedding text for one configured representation."""
+    representation = PAGE_REPRESENTATION_ALIASES.get(str(representation), str(representation))
+    summary = str(payload.get("summary") or "").strip()
+    user = str(payload.get("user_input") or "").strip()
+    assistant = str(payload.get("assistant_response") or "").strip()
+    raw = str(payload.get("raw_dialogue") or "").strip()
+    keywords = payload.get("keywords") or []
+    keywords_text = ", ".join(str(item) for item in keywords) if isinstance(keywords, list) else str(keywords)
+    keyword_line = f"Keywords: {keywords_text}" if keywords_text else ""
+    # Keep the historical Production/P0 representation exact, including the
+    # role marker when a malformed Page has an empty field.
+    user_line = f"User: {user}"
+    assistant_line = f"Assistant: {assistant}"
+
+    variants = {
+        "production": (summary, keyword_line, user_line),
+        "summary": (summary,),
+        "user": (user,),
+        "raw_dialogue": (raw,),
+        "user_assistant": (user_line, assistant_line),
+        "user_summary": (user_line, summary),
+        "summary_raw": (summary, raw),
+        "user_keywords": (user_line, keyword_line),
+        "summary_keywords": (summary, keyword_line),
+    }
+    if representation not in variants:
+        raise ValueError(f"Unknown Page representation: {representation}")
+    return "\n".join(part for part in variants[representation] if part)
 
 
 def vector_rows(listed) -> List[Any]:
@@ -117,22 +170,29 @@ class MidTermMemory:
             timeout_seconds=self.vector_store_timeout_seconds,
         )
 
+    def page_embedding_text(self, payload: Dict[str, Any]) -> str:
+        return page_embedding_text(payload, getattr(self.config, "page_representation", "production"))
+
     @staticmethod
-    def page_embedding_text(payload: Dict[str, Any]) -> str:
+    def page_field_texts(payload: Dict[str, Any]) -> Dict[str, str]:
         keywords = payload.get("keywords") or []
-        if isinstance(keywords, list):
-            keywords_text = ", ".join(str(item) for item in keywords)
-        else:
-            keywords_text = str(keywords)
-        return "\n".join(
-            part
-            for part in [
-                payload.get("summary", ""),
-                f"Keywords: {keywords_text}" if keywords_text else "",
-                f"User: {payload.get('user_input', '')}",
-            ]
-            if part
-        )
+        return {
+            "summary": str(payload.get("summary") or ""),
+            "keywords": " ".join(str(item) for item in keywords) if isinstance(keywords, list) else str(keywords),
+            "user_input": str(payload.get("user_input") or ""),
+            "raw_dialogue": str(payload.get("raw_dialogue") or ""),
+        }
+
+    def _with_page_field_vectors(self, payload: Dict[str, Any], memory_action: str) -> Dict[str, Any]:
+        reranker = getattr(self.config, "reranker", None)
+        if reranker is None or reranker.method != "multi_vector_maxsim":
+            return payload
+        field_vectors = {
+            field: self.embedding_model.embed(text, memory_action)
+            for field, text in self.page_field_texts(payload).items()
+            if text
+        }
+        return {**payload, "_field_vectors": field_vectors}
 
     def _stored_page_payload(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         embedding_text = self.page_embedding_text(payload)
@@ -171,11 +231,15 @@ class MidTermMemory:
     def insert_page(self, page_id: str, payload: Dict[str, Any]) -> None:
         embedding_text = self.page_embedding_text(payload)
         vector = self.embedding_model.embed(embedding_text, "add")
-        self.pages_store.insert(vectors=[vector], ids=[page_id], payloads=[self._stored_page_payload(payload)])
+        stored_payload = self._with_page_field_vectors(self._stored_page_payload(payload), "add")
+        self.pages_store.insert(vectors=[vector], ids=[page_id], payloads=[stored_payload])
 
     def update_page(self, page_id: str, payload: Dict[str, Any], reembed: bool = False) -> None:
         vector = self.embedding_model.embed(self.page_embedding_text(payload), "update") if reembed else None
-        self.pages_store.update(vector_id=page_id, vector=vector, payload=self._stored_page_payload(payload))
+        stored_payload = self._stored_page_payload(payload)
+        if reembed:
+            stored_payload = self._with_page_field_vectors(stored_payload, "update")
+        self.pages_store.update(vector_id=page_id, vector=vector, payload=stored_payload)
 
     def get_page(self, page_id: str):
         return self.pages_store.get(vector_id=page_id)
@@ -194,13 +258,46 @@ class MidTermMemory:
 
     def search_pages(self, query: str, filters: Optional[Dict[str, Any]] = None, top_k: int = 5) -> List[Any]:
         vector = self.embedding_model.embed(query, "search")
+        fetch_k = max(top_k * 4, top_k)
         rows = self.pages_store.search(
             query=query,
             vectors=vector,
-            top_k=max(top_k * 4, top_k),
+            top_k=fetch_k,
             filters=filters,
         )
-        return [row for row in rows if self.output_is_visible(getattr(row, "payload", None) or {})][:top_k]
+        dense = [row for row in rows if self.output_is_visible(getattr(row, "payload", None) or {})]
+        if getattr(self.config, "retrieval_method", "dense") == "dense":
+            return dense[:top_k]
+
+        try:
+            sparse_rows = self.pages_store.keyword_search(query=query, top_k=fetch_k, filters=filters)
+        except Exception as exc:
+            logger.warning("MidTerm BM25 Page retrieval failed; using dense candidates: %s", exc)
+            return dense[:top_k]
+        sparse = [row for row in (sparse_rows or []) if self.output_is_visible(getattr(row, "payload", None) or {})]
+        dense_values = [{"id": str(row.id), "score": float(getattr(row, "score", 0.0) or 0.0)} for row in dense]
+        sparse_values = [{"id": str(row.id), "score": float(getattr(row, "score", 0.0) or 0.0)} for row in sparse]
+        if getattr(self.config, "fusion_method", "normalized_score") == "rrf":
+            fused = rrf_fuse(
+                [dense_values, sparse_values],
+                rank_constant=int(getattr(self.config, "rrf_rank_constant", 60)),
+            )
+        else:
+            fused = normalized_score_fuse(
+                dense_values,
+                sparse_values,
+                dense_weight=float(getattr(self.config, "dense_weight", 0.7)),
+            )
+        payload_by_id = {str(row.id): dict(getattr(row, "payload", None) or {}) for row in [*dense, *sparse]}
+        return [
+            MidTermSearchResult(
+                id=str(row["id"]),
+                payload=payload_by_id[str(row["id"])],
+                score=float(row["score"]),
+            )
+            for row in fused[:top_k]
+            if str(row["id"]) in payload_by_id
+        ]
 
     def delete_page(self, page_id: str) -> None:
         self.pages_store.delete(vector_id=page_id)

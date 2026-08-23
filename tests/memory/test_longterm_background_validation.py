@@ -24,7 +24,6 @@ from mem0.memory.main import (
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.utils import parse_messages
 
-
 MESSAGES = [
     {"role": "user", "content": "I prefer long-term investing."},
     {"role": "assistant", "content": "I will remember that."},
@@ -91,6 +90,9 @@ def _memory(db, response, *, async_mode=False):
     memory.config = SimpleNamespace(
         llm=SimpleNamespace(config={}),
         midterm=SimpleNamespace(enabled=False, short_term_capacity=2),
+        fine_grained_longterm=SimpleNamespace(
+            extraction_request_options={"extra_body": {"thinking": {"type": "disabled"}}}
+        ),
         profile=SimpleNamespace(enabled=False, update_on_add=False),
         background=BackgroundTaskConfig(enabled=False),
     )
@@ -212,6 +214,7 @@ async def test_sync_and_async_longterm_inputs_preserve_roles_newlines_and_pretty
         assert "user: 用户第一行\n用户第二行" in expected_query
         assert "\n\nassistant: 助手第一行\n助手第二行\n" in expected_query
         request = memory.llm.generate_response.call_args.kwargs
+        assert request["extra_body"] == {"thinking": {"type": "disabled"}}
         user_prompt = request["messages"][1]["content"]
         assert f"## 新消息\n```json\n{expected_prompt_json}\n```" in user_prompt
         assert '[{"role"' not in user_prompt
@@ -521,9 +524,7 @@ def test_invalid_json_exhaustion_uses_longterm_degradation():
         assert db.get_background_job(job_id)["status"] == "succeeded_degraded"
         assert db.get_migration_job_messages(job_id) == []
         fallback_rows = [
-            row
-            for row in memory.vector_store.rows.values()
-            if row["payload"].get("memory_type") == "raw_fallback"
+            row for row in memory.vector_store.rows.values() if row["payload"].get("memory_type") == "raw_fallback"
         ]
         assert len(fallback_rows) == 1
         assert fallback_rows[0]["payload"]["output_state"] == "committed"
@@ -804,9 +805,7 @@ def test_partial_write_then_reordered_retry_preserves_all_facts():
         assert db.get_background_job(job_id)["status"] == "succeeded"
         assert db.get_migration_job_messages(job_id) == []
         assert len(memory.vector_store.rows) == 2
-        assert {
-            memory_id: row["payload"]["data"] for memory_id, row in memory.vector_store.rows.items()
-        } == {
+        assert {memory_id: row["payload"]["data"] for memory_id, row in memory.vector_store.rows.items()} == {
             _longterm_memory_id(job_id, "fact A"): "fact A",
             _longterm_memory_id(job_id, "fact B"): "fact B",
         }

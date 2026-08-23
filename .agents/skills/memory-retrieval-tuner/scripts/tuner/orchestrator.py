@@ -20,21 +20,10 @@ from .artifact_registry import ArtifactRegistry
 from .build_report import write_outputs
 from .candidate_selector import select_best
 from .dataset_audit import audit_dataset
-from .evaluate_candidate import (
-    candidate_hash,
-    combine_candidate_results,
-    evaluate_candidate,
-)
+from .evaluate_candidate import candidate_hash, combine_candidate_results, evaluate_candidate
 from .experiment_branches import BranchRegistry
 from .generated_source_artifacts import prepare_generated_source_candidate
-from .io_utils import (
-    append_jsonl,
-    atomic_write_json,
-    load_json,
-    sha256_file,
-    stable_hash,
-    write_jsonl,
-)
+from .io_utils import append_jsonl, atomic_write_json, load_json, sha256_file, stable_hash, write_jsonl
 from .model_discovery import ModelDiscovery, ResourceEnvelope
 from .models import Candidate, CandidateResult, Dataset
 from .production_midterm_adapter import (
@@ -414,15 +403,29 @@ def _resolve_memory_config(memory_config_path: Path | None) -> tuple[dict[str, A
         source = "repository_production_config_with_explicit_override"
 
     # This block controls tuner-only request/observability policy and is not a
-    # MemoryConfig field. Preserve it outside the repository Production merge.
+    # MemoryConfig field. Preserve diagnostics separately, but migrate any
+    # source-changing request behavior into deployable Production fields.
     benchmark_runtime = raw_config.pop("benchmark_runtime", None)
+    if benchmark_runtime is not None:
+        if not isinstance(benchmark_runtime, Mapping):
+            raise ValueError("memory_config.benchmark_runtime must be a JSON object")
+        disabled = {"extra_body": {"thinking": {"type": "disabled"}}}
+        production_request_overrides: dict[str, Any] = {}
+        if benchmark_runtime.get("deepseek_midterm_non_thinking"):
+            production_request_overrides["midterm"] = {
+                "page_summary_request_options": disabled,
+                "session_merge_request_options": disabled,
+            }
+        if benchmark_runtime.get("deepseek_longterm_non_thinking"):
+            production_request_overrides["fine_grained_longterm"] = {
+                "extraction_request_options": disabled,
+            }
+        raw_config = _deep_merge(raw_config, production_request_overrides)
     resolved = load_production_memory_config(
         raw_config,
         resolve_environment=False,
     ).model_dump(mode="json", warnings=False)
     if benchmark_runtime is not None:
-        if not isinstance(benchmark_runtime, Mapping):
-            raise ValueError("memory_config.benchmark_runtime must be a JSON object")
         resolved["benchmark_runtime"] = copy.deepcopy(dict(benchmark_runtime))
     return resolved, source
 
@@ -612,13 +615,10 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         production_agentic_trace = registry.discover_production_agentic_trace(
             dataset_sha256=dataset.sha256,
             query_ids_by_session={
-                session_id: [turn.query_id for turn in turns]
-                for session_id, turns in dataset.sessions.items()
+                session_id: [turn.query_id for turn in turns] for session_id, turns in dataset.sessions.items()
             },
             expected_parent_retrieval_identity=agentic_parent_identity,
-            expected_max_tool_result_chars=int(
-                midterm_baseline.config["agentic_fixed_max_tool_result_chars"]
-            ),
+            expected_max_tool_result_chars=int(midterm_baseline.config["agentic_fixed_max_tool_result_chars"]),
             source_run=config.source_run,
         )
     except ValueError as exc:
@@ -630,9 +630,7 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
                 "production_agentic_trace_paths": production_agentic_trace["paths"],
                 "production_agentic_trace_sha256": production_agentic_trace["sha256"],
                 "production_agentic_trace_variants": production_agentic_trace["variants"],
-                "production_agentic_parent_retrieval_identity": production_agentic_trace[
-                    "parent_retrieval_identity"
-                ],
+                "production_agentic_parent_retrieval_identity": production_agentic_trace["parent_retrieval_identity"],
                 "production_agentic_parent_retrieval_identity_sha256": production_agentic_trace[
                     "parent_retrieval_identity_sha256"
                 ],
@@ -952,9 +950,7 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
             "metrics": full_memory_regression_result.metrics,
         }
 
-    stateful_results = [
-        result for result in tune_results if bool(result.config.get("requires_within_session_replay"))
-    ]
+    stateful_results = [result for result in tune_results if bool(result.config.get("requires_within_session_replay"))]
     stateful_status = "COMPLETE" if stateful_results else "NOT_RUN_BUDGET_OR_DIAGNOSTIC_GATE"
     run_metadata = {
         "status": "COMPLETE",

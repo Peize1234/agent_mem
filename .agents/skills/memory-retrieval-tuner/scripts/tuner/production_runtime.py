@@ -142,56 +142,42 @@ class DeterministicTunerLLM:
 
 
 class TunerPolicyLLM:
-    """Apply explicit experiment request policy without changing production code."""
+    """Observe source-generation calls without changing production request behavior."""
 
     def __init__(
         self,
         delegate: Any,
         *,
         observability_enabled: bool,
-        deepseek_midterm_non_thinking: bool,
-        deepseek_longterm_non_thinking: bool,
+        page_summary_prompt: str = MIDTERM_PAGE_SUMMARY_PROMPT,
+        session_merge_prompt: str = MIDTERM_SESSION_MERGE_PROMPT,
+        fine_grained_longterm_extraction_prompt: str = ADDITIVE_EXTRACTION_PROMPT,
     ):
         self._delegate = delegate
         self._observability_enabled = observability_enabled
-        self._deepseek_midterm_non_thinking = deepseek_midterm_non_thinking
-        self._deepseek_longterm_non_thinking = deepseek_longterm_non_thinking
+        self._page_summary_prompt = page_summary_prompt
+        self._session_merge_prompt = session_merge_prompt
+        self._fine_grained_longterm_extraction_prompt = fine_grained_longterm_extraction_prompt
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._delegate, name)
 
-    @staticmethod
-    def _operation(messages: list[dict[str, Any]]) -> str | None:
+    def _operation(self, messages: list[dict[str, Any]]) -> str | None:
         system = str(messages[0].get("content", "")) if messages else ""
-        if system.strip() == MIDTERM_PAGE_SUMMARY_PROMPT.strip():
+        if system.strip() == self._page_summary_prompt.strip():
             return "midterm_page_summary"
-        if system.strip() == MIDTERM_SESSION_MERGE_PROMPT.strip():
+        if system.strip() == self._session_merge_prompt.strip():
             return "midterm_session_merge"
-        if system.startswith(ADDITIVE_EXTRACTION_PROMPT):
+        if system.startswith(self._fine_grained_longterm_extraction_prompt):
             return "longterm_extraction"
         return None
-
-    def _request_kwargs(self, operation: str | None, kwargs: dict[str, Any]) -> dict[str, Any]:
-        disable = (
-            self._deepseek_midterm_non_thinking and operation in {"midterm_page_summary", "midterm_session_merge"}
-        ) or (self._deepseek_longterm_non_thinking and operation == "longterm_extraction")
-        if not disable:
-            return kwargs
-        updated = dict(kwargs)
-        extra_body = deepcopy(updated.get("extra_body") or {})
-        thinking = deepcopy(extra_body.get("thinking") or {})
-        thinking["type"] = "disabled"
-        extra_body["thinking"] = thinking
-        updated["extra_body"] = extra_body
-        return updated
 
     def generate_response(self, messages: Any, response_format: Any = None, **kwargs: Any) -> Any:
         messages = messages or []
         operation = self._operation(messages)
-        request_kwargs = self._request_kwargs(operation, kwargs)
         started = time.perf_counter()
         try:
-            return self._delegate.generate_response(messages, response_format=response_format, **request_kwargs)
+            return self._delegate.generate_response(messages, response_format=response_format, **kwargs)
         finally:
             if operation and self._observability_enabled:
                 LOGGER.info("LLM operation=%s elapsed_ms=%.1f", operation, (time.perf_counter() - started) * 1000.0)
@@ -216,8 +202,9 @@ def create_tuner_policy_llm(config: dict[str, Any], *, llm_mode: str) -> Any:
     return TunerPolicyLLM(
         delegate,
         observability_enabled=bool(runtime.get("llm_observability", False)),
-        deepseek_midterm_non_thinking=bool(runtime.get("deepseek_midterm_non_thinking", False)),
-        deepseek_longterm_non_thinking=bool(runtime.get("deepseek_longterm_non_thinking", False)),
+        page_summary_prompt=parsed.midterm.page_summary_prompt,
+        session_merge_prompt=parsed.midterm.session_merge_prompt,
+        fine_grained_longterm_extraction_prompt=parsed.fine_grained_longterm.extraction_prompt,
     )
 
 
@@ -234,6 +221,25 @@ def create_production_memory(config: dict[str, Any], *, llm_mode: str) -> TunerA
     llm_provider = str((runtime_config.get("llm") or {}).get("provider") or "").strip().lower()
     if (deepseek_midterm_non_thinking or deepseek_longterm_non_thinking) and llm_provider != "deepseek":
         raise ValueError("DeepSeek non-thinking policy requires llm.provider=deepseek")
+
+    def disable_thinking(section: str, field: str) -> None:
+        layer = runtime_config.setdefault(section, {})
+        options = deepcopy(layer.get(field) or {})
+        extra_body = deepcopy(options.get("extra_body") or {})
+        thinking = deepcopy(extra_body.get("thinking") or {})
+        thinking["type"] = "disabled"
+        extra_body["thinking"] = thinking
+        options["extra_body"] = extra_body
+        layer[field] = options
+
+    # Compatibility migration for historical benchmark_runtime flags. The
+    # effective manifest now records deployable, Pydantic-validated Production
+    # request options; the tuner LLM wrapper no longer changes source behavior.
+    if deepseek_midterm_non_thinking:
+        disable_thinking("midterm", "page_summary_request_options")
+        disable_thinking("midterm", "session_merge_request_options")
+    if deepseek_longterm_non_thinking:
+        disable_thinking("fine_grained_longterm", "extraction_request_options")
     patchers = [
         patch("mem0.memory.main.MEM0_TELEMETRY", False),
         patch("mem0.utils.factory.VectorStoreFactory.create", side_effect=_create_vector_store_for_tuner),
@@ -251,8 +257,9 @@ def create_production_memory(config: dict[str, Any], *, llm_mode: str) -> TunerA
     memory.llm = TunerPolicyLLM(
         memory.llm,
         observability_enabled=observability_enabled,
-        deepseek_midterm_non_thinking=deepseek_midterm_non_thinking,
-        deepseek_longterm_non_thinking=deepseek_longterm_non_thinking,
+        page_summary_prompt=memory.config.midterm.page_summary_prompt,
+        session_merge_prompt=memory.config.midterm.session_merge_prompt,
+        fine_grained_longterm_extraction_prompt=memory.config.fine_grained_longterm.extraction_prompt,
     )
     if getattr(memory, "_midterm_updater", None) is not None:
         memory._midterm_updater.llm = memory.llm

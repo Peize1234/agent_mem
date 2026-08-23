@@ -180,6 +180,15 @@ MEMORY_ANSWER_PROMPT = """
 # 下面是用户与助手之间的对话。你需要从中提取与助手有关的事实和偏好（如果存在），并按照上面的 JSON 格式返回。
 # """
 
+DEFAULT_UPDATE_MEMORY_PROMPT = """你是一个负责管理系统记忆的智能记忆管理器。
+你可以执行四种操作：ADD、UPDATE、DELETE 或 NONE。
+
+将新检索到的事实与现有记忆比较：新信息使用 ADD；对现有信息的修正使用 UPDATE；
+与现有信息矛盾且应失效时使用 DELETE；已存在或无关的信息使用 NONE。
+更新或删除时必须沿用现有记忆 ID；只有新增记忆可以生成新 ID。
+"""
+
+# Historical expanded version retained below for reference.
 # DEFAULT_UPDATE_MEMORY_PROMPT = """你是一个负责管理系统记忆的智能记忆管理器。
 # 你可以执行四种操作：(1) 添加记忆，(2) 更新记忆，(3) 删除记忆，(4) 不做修改。
 
@@ -859,6 +868,7 @@ ADDITIVE_EXTRACTION_PROMPT = """
 
 # 八、输出格式
 
+只返回能被 json.loads() 解析的有效 JSON。
 只返回严格有效的 JSON，不要添加 Markdown 代码块、解释、前言或结尾。
 
 输出根对象必须包含 memory 数组。
@@ -1816,12 +1826,8 @@ def generate_additive_extraction_prompt(
     sections = []
     sections.append(_format_structured_prompt_section("新消息", _format_prompt_messages(new_messages)))
     sections.append(f"## 会话摘要\n{_format_session_summary(session_summary)}")
-    sections.append(
-        _format_structured_prompt_section("现有长期记忆", _serialize_memories(existing_long_term_memories))
-    )
-    sections.append(
-        _format_structured_prompt_section("现有相关记忆", _serialize_memories(existing_related_memories))
-    )
+    sections.append(_format_structured_prompt_section("现有长期记忆", _serialize_memories(existing_long_term_memories)))
+    sections.append(_format_structured_prompt_section("现有相关记忆", _serialize_memories(existing_related_memories)))
     sections.append(
         _format_structured_prompt_section("当前短期窗口上下文", _format_prompt_messages(short_term_context))
     )
