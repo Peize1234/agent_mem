@@ -92,6 +92,19 @@ _ROUND_DIRECTIONS = {
 }
 
 
+_DIRECTION_LABELS = {
+    "explicit_coreference_resolution": "显式指代消解",
+    "entity_metric_time_preservation": "主体、指标与时间信息保留",
+    "bounded_context_with_noise_suppression": "受控上下文补全与噪声抑制",
+    "narrower_antecedent_selection": "更严格的指代对象选择",
+    "relationship_and_comparison_preservation": "关系与比较结构保留",
+    "minimal_change_information_guard": "最小改写与信息边界保护",
+    "failure_focused_reference_precision": "针对失败样本提高指代精度",
+    "failure_focused_retrieval_terms": "针对失败样本强化检索信息",
+    "strict_unsupported_detail_prevention": "严格禁止无依据细节",
+}
+
+
 _DIRECTION_RULES = {
     "explicit_coreference_resolution": "明确消解代词、省略主语以及“前述/这个判断/这些指标”等历史引用。",
     "entity_metric_time_preservation": "完整保留问题中的主体、指标、时间、范围、比较关系和约束词。",
@@ -105,24 +118,34 @@ _DIRECTION_RULES = {
 }
 
 
+_FAILURE_PROFILE_LABELS = {
+    "missed_queries": "未命中问题数",
+    "reference_markers": "指代表达数",
+    "time_markers": "时间表达数",
+    "comparison_markers": "比较表达数",
+}
+
+
 def _prompt_text(parent_prompt: str | None, direction: str, failure_profile: Mapping[str, int]) -> str:
     parent_rule = (
         "上一轮最佳 Prompt 如下，其约束继续生效；本轮只强化后面一个方向：\n"
         f"<parent_prompt>\n{parent_prompt}\n</parent_prompt>"
         if parent_prompt
         else (
-            "这是从 Production P0 Query Resolution Prompt 出发的第一轮受控改写。"
+            "这是从生产 P0 查询指代消解 Prompt 出发的第一轮受控改写。"
             f"\n<production_p0_prompt>\n{QUERY_REFERENCE_RESOLUTION_PROMPT}\n</production_p0_prompt>"
         )
     )
-    profile = ", ".join(f"{key}={value}" for key, value in sorted(failure_profile.items())) or "none"
+    profile = ", ".join(
+        f"{_FAILURE_PROFILE_LABELS.get(key, key)}={value}" for key, value in sorted(failure_profile.items())
+    ) or "无"
     return (
-        '你是 Memory 检索 Query 的保守改写器。输出严格 JSON：{"resolved_query": "..."}。\n'
+        '你是记忆检索查询的保守改写器。输出严格 JSON：{"resolved_query": "..."}。\n'
         "只允许使用 current_query 与 recent_history 中已经出现的信息；禁止使用答案标签、Gold、未来轮次，"
         "禁止回答问题。原问题已独立时应原样返回。\n"
         f"{parent_rule}\n"
-        f"本轮唯一优化方向：{direction}。{_DIRECTION_RULES[direction]}\n"
-        f"Tune 失败样本的无标签聚合特征：{profile}。\n"
+        f"本轮唯一优化方向：{_DIRECTION_LABELS[direction]}。{_DIRECTION_RULES[direction]}\n"
+        f"调参失败样本的无标签聚合特征：{profile}。\n"
         "控制改写幅度，保持原问题意图、语气、否定、时间范围和比较关系。"
     )
 
