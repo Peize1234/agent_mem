@@ -1,4 +1,4 @@
 interface:
-  display_name: "Memory Retrieval Tuner"
-  short_description: "Tune production MidTerm retrieval across sessions"
-  default_prompt: "Use $memory-retrieval-tuner to audit this dataset, tune the production MidTerm retrieval contract with session-held-out validation, and report the best stable configuration."
+  display_name: "记忆检索调参器"
+  short_description: "基于跨 Session 验证调优生产 MidTerm 检索"
+  default_prompt: "使用 $memory-retrieval-tuner 审查该数据集，基于按 Session 留出的验证集调优生产 MidTerm 检索，并报告最稳定的最佳配置。"
