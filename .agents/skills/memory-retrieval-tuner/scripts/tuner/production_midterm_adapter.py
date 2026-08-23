@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from mem0.memory.midterm_updater import PRODUCTION_PAGE_CONTEXT_CONTRACT
+from mem0.memory.promoted_longterm import PromotedLongTermMemory
 from mem0.memory.query_resolver import QueryResolver
 
 from .benchmark_support import (
@@ -49,9 +50,12 @@ from .parameter_schema import (
 )
 from .production_runtime import create_production_memory
 
-ADAPTER_SCHEMA = 7  # isolates the per-QA LongTerm and fixed Page-context production contract
+ADAPTER_SCHEMA = 8  # splits Fine-grained and Promoted LongTerm production trace semantics
 PRODUCTION_BACKEND = "production_midterm"
 PRODUCTION_MEMORY_CONTRACT = "agent_memory_p0_query_fixed_page_context_per_qa_cross_session_longterm_v2"
+FINE_GRAINED_LONGTERM_SOURCE = "long_term"
+PROMOTED_LONGTERM_SOURCE = "cross_session_long_term"
+MIDTERM_TRACE_SOURCES = frozenset({"mid_term_page", "mid_term_session", "midterm"})
 SUPPORTED_RETRIEVAL_METHODS = frozenset(production_literal_candidates("retrieval_method"))
 _DEFAULT_RETRIEVAL_METHOD = str(production_parameter_metadata("retrieval_method").default)
 _DEFAULT_PAGE_REPRESENTATION = str(production_parameter_metadata("page_representation").default)
@@ -333,6 +337,32 @@ def _longterm_candidate_pool(
     return {"schema": 3, "pool_limit": pool_limit, **signals}
 
 
+def _layered_trace_recall_ids(layered_results: Sequence[Mapping[str, Any]]) -> dict[str, list[str]]:
+    """Project production results to explicit layer-specific trace identities."""
+    all_retrieved_turn_ids: list[str] = []
+    fine_grained_longterm_retrieved_turn_ids: list[str] = []
+    cross_session_valid_recall_ids: list[str] = []
+    for item in layered_results:
+        source = str(item.get("source") or "")
+        source_turn_id = str(item.get("source_turn_id") or "").upper()
+        if source in MIDTERM_TRACE_SOURCES:
+            if source_turn_id:
+                all_retrieved_turn_ids.append(source_turn_id)
+        elif source == FINE_GRAINED_LONGTERM_SOURCE:
+            if source_turn_id:
+                fine_grained_longterm_retrieved_turn_ids.append(source_turn_id)
+                all_retrieved_turn_ids.append(source_turn_id)
+        elif source == PROMOTED_LONGTERM_SOURCE:
+            memory_id = str(item.get("id") or "")
+            if memory_id:
+                cross_session_valid_recall_ids.append(memory_id)
+    return {
+        "fine_grained_longterm_retrieved_turn_ids": list(dict.fromkeys(fine_grained_longterm_retrieved_turn_ids)),
+        "cross_session_valid_recall_ids": list(dict.fromkeys(cross_session_valid_recall_ids)),
+        "all_retrieved_turn_ids": list(dict.fromkeys(all_retrieved_turn_ids)),
+    }
+
+
 def _session_heat_states(
     memory: Any,
     *,
@@ -516,7 +546,7 @@ def _checkpoint(
         "layered_results": [
             {
                 "id": str(item.get("id") or ""),
-                "source": str(item.get("source") or "long_term"),
+                "source": str(item.get("source") or ""),
                 "memory": item.get("memory") or item.get("data") or item.get("raw_dialogue") or "",
                 "summary": item.get("summary"),
                 "raw_dialogue": item.get("raw_dialogue"),
@@ -758,7 +788,8 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
                 )
                 checkpoint["promotion_events"] = [
                     {
-                        "memory_id": state["session_id"],
+                        "memory_id": PromotedLongTermMemory._memory_id(user_id, state["session_id"]),
+                        "source_midterm_session_id": state["session_id"],
                         "H_segment": state["H_segment"],
                         "valid_recall_count": state["valid_recall_count"],
                         "current_turn_index": state["current_turn_index"],
@@ -786,18 +817,7 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
             if migration_job_id:
                 pending.append(str(migration_job_id))
             layered = list(checkpoint.get("layered_results") or [])
-            all_retrieved_turn_ids = [
-                str(item.get("source_turn_id") or "").upper()
-                for item in layered
-                if isinstance(item, Mapping) and item.get("source_turn_id")
-            ]
-            long_retrieved_turn_ids = [
-                str(item.get("source_turn_id") or "").upper()
-                for item in layered
-                if isinstance(item, Mapping)
-                and item.get("source_turn_id")
-                and str(item.get("source") or "") not in {"mid_term_page", "mid_term_session", "midterm"}
-            ]
+            layered_trace_ids = _layered_trace_recall_ids([item for item in layered if isinstance(item, Mapping)])
             turn_rows.append(
                 {
                     "session_id": session.session_id,
@@ -812,8 +832,7 @@ async def build_production_source(spec: Mapping[str, Any]) -> dict[str, Any]:
                         if item.get("source_turn_id")
                     ],
                     "all_memory_results": layered,
-                    "long_retrieved_turn_ids": list(dict.fromkeys(long_retrieved_turn_ids)),
-                    "all_retrieved_turn_ids": list(dict.fromkeys(all_retrieved_turn_ids)),
+                    **layered_trace_ids,
                     "valid_recalled_page_ids": valid_recalled_page_ids,
                     "heat_states": list(
                         checkpoint.get("post_recall_heat_states") or checkpoint.get("heat_states") or []
@@ -1102,6 +1121,8 @@ def production_candidate_from_manifests(
         "longterm_hybrid_preset",
         "entity_similarity_threshold",
         "longterm_other_session_weight",
+        "promoted_longterm_top_k",
+        "promoted_longterm_rag_threshold",
         "cross_session_longterm_rag_threshold",
         "cross_session_retention_half_life_hours",
         "cross_session_retention_floor",

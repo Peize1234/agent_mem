@@ -792,16 +792,17 @@ def _memory_created_at_sort_key(memory: Dict[str, Any]) -> tuple[bool, str]:
 
 def _project_retrieved_memories(
     retrieved_context: Dict[str, Any],
-) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]]]:
+) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]], list[Dict[str, Any]]]:
     """Project retrieved memories to the fields shared by answer and agentic prompts."""
     mid_term_memories = []
-    long_term_memories = []
+    fine_grained_longterm_memories = []
+    promoted_longterm_memories = []
     for memory in retrieved_context.get("retrieved_memories") or []:
         if not isinstance(memory, dict):
             continue
 
         source = str(memory.get("source") or "")
-        if source in {"mid_term_page", "midterm"}:
+        if source == "mid_term_page":
             content = memory.get("raw_dialogue")
             if content:
                 mid_term_memories.append(
@@ -811,10 +812,20 @@ def _project_retrieved_memories(
                         "content": content,
                     }
                 )
-        elif not source.startswith("mid_term"):
+        elif source == "long_term":
             content = memory.get("memory")
             if content:
-                long_term_memories.append(
+                fine_grained_longterm_memories.append(
+                    {
+                        "score": memory.get("score"),
+                        "created_at": memory.get("created_at"),
+                        "content": content,
+                    }
+                )
+        elif source == "cross_session_long_term":
+            content = memory.get("memory")
+            if content:
+                promoted_longterm_memories.append(
                     {
                         "score": memory.get("score"),
                         "created_at": memory.get("created_at"),
@@ -823,19 +834,23 @@ def _project_retrieved_memories(
                 )
 
     mid_term_memories.sort(key=_memory_created_at_sort_key)
-    long_term_memories.sort(key=_memory_created_at_sort_key)
-    return mid_term_memories, long_term_memories
+    fine_grained_longterm_memories.sort(key=_memory_created_at_sort_key)
+    promoted_longterm_memories.sort(key=_memory_created_at_sort_key)
+    return mid_term_memories, fine_grained_longterm_memories, promoted_longterm_memories
 
 
 def _build_answer_prompt_messages(
     retrieved_context: Dict[str, Any],
     reference_information: Any = None,
     agentic_memory_supplement: str = "",
+    custom_prompt: Optional[str] = None,
     *,
     agentic_answer: Optional[str] = None,
 ) -> list[Dict[str, str]]:
     """Project retrieved context to the minimal fields needed by the answer model."""
-    mid_term_memories, long_term_memories = _project_retrieved_memories(retrieved_context)
+    mid_term_memories, fine_grained_longterm_memories, promoted_longterm_memories = _project_retrieved_memories(
+        retrieved_context
+    )
     # ``agentic_answer`` is a compatibility alias for callers using the old
     # parameter name. Its value now has supplement-only semantics.
     if not agentic_memory_supplement and agentic_answer:
@@ -845,11 +860,13 @@ def _build_answer_prompt_messages(
         current_time=beijing_now_iso(),
         user_query=retrieved_context["query"],
         short_term_memory=_serialize_prompt_value(retrieved_context.get("short_term_messages"), []),
-        mid_term_memory=_serialize_prompt_value(mid_term_memories, []),
-        long_term_memory=_serialize_prompt_value(long_term_memories, []),
+        mid_term_memories=_serialize_prompt_value(mid_term_memories, []),
+        fine_grained_longterm_memories=_serialize_prompt_value(fine_grained_longterm_memories, []),
+        promoted_longterm_memories=_serialize_prompt_value(promoted_longterm_memories, []),
         user_profile=_serialize_prompt_value(retrieved_context.get("profile"), {}),
         reference_information=_serialize_prompt_value(reference_information, []),
         agentic_memory_supplement=agentic_memory_supplement,
+        custom_prompt=custom_prompt or "",
     )
     return [{"role": "system", "content": prompt}]
 
@@ -858,6 +875,7 @@ def build_answer_prompt_messages_from_context(
     retrieved_context: Dict[str, Any],
     reference_information: Any = None,
     agentic_memory_supplement: str = "",
+    custom_prompt: Optional[str] = None,
     *,
     agentic_answer: Optional[str] = None,
 ) -> list[Dict[str, str]]:
@@ -866,6 +884,7 @@ def build_answer_prompt_messages_from_context(
         retrieved_context,
         reference_information,
         agentic_memory_supplement=agentic_memory_supplement,
+        custom_prompt=custom_prompt,
         agentic_answer=agentic_answer,
     )
 
@@ -875,13 +894,16 @@ def _build_agentic_prompt_messages(
     reference_information: Any = None,
 ) -> list[Dict[str, str]]:
     """Build the Agentic prompt from an already retrieved, complete context."""
-    mid_term_memories, long_term_memories = _project_retrieved_memories(retrieved_context)
+    mid_term_memories, fine_grained_longterm_memories, promoted_longterm_memories = _project_retrieved_memories(
+        retrieved_context
+    )
     prompt = AGENTIC_RETRIEVAL_PROMPT.format(
         current_time=beijing_now_iso(),
         user_query=retrieved_context["query"],
         short_term_memory=_serialize_prompt_value(retrieved_context.get("short_term_messages"), []),
-        mid_term_memory=_serialize_prompt_value(mid_term_memories, []),
-        long_term_memory=_serialize_prompt_value(long_term_memories, []),
+        mid_term_memories=_serialize_prompt_value(mid_term_memories, []),
+        fine_grained_longterm_memories=_serialize_prompt_value(fine_grained_longterm_memories, []),
+        promoted_longterm_memories=_serialize_prompt_value(promoted_longterm_memories, []),
         user_profile=_serialize_prompt_value(retrieved_context.get("profile"), {}),
         reference_information=_serialize_prompt_value(reference_information, []),
     )
@@ -2533,6 +2555,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         include_profile_metadata: bool = False,
         reference_information: Any = None,
         agentic_generation_kwargs: Optional[Dict[str, Any]] = None,
+        custom_prompt: Optional[str] = None,
     ) -> list[Dict[str, str]]:
         """Build messages for an external LLM from the query and layered memory context."""
         retrieved_context = self._retrieve_context(
@@ -2566,6 +2589,7 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
             retrieved_context,
             reference_information,
             agentic_memory_supplement=agentic_memory_supplement,
+            custom_prompt=custom_prompt,
         )
 
     def _run_agentic_retrieval_from_context(
@@ -4933,6 +4957,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         include_profile_metadata: bool = False,
         reference_information: Any = None,
         agentic_generation_kwargs: Optional[Dict[str, Any]] = None,
+        custom_prompt: Optional[str] = None,
     ) -> list[Dict[str, str]]:
         """Asynchronously build messages for an external LLM from layered memory context."""
         retrieved_context = await self._retrieve_context(
@@ -4966,6 +4991,7 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
             retrieved_context,
             reference_information,
             agentic_memory_supplement=agentic_memory_supplement,
+            custom_prompt=custom_prompt,
         )
 
     async def _run_agentic_retrieval_from_context(

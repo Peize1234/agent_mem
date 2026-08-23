@@ -351,7 +351,7 @@ def _load_frozen_rankings(config: Mapping[str, Any]) -> dict[str, list[dict[str,
 def _load_production_trace_rankings(config: Mapping[str, Any], target: str) -> dict[str, list[dict[str, Any]]]:
     field = {
         "midterm": "mid_retrieved_turn_ids",
-        "longterm": "long_retrieved_turn_ids",
+        "longterm": "fine_grained_longterm_retrieved_turn_ids",
         "all_memory": "all_retrieved_turn_ids",
     }[target]
     grouped: dict[str, list[dict[str, Any]]] = {}
@@ -378,7 +378,7 @@ def _load_production_trace_rankings(config: Mapping[str, Any], target: str) -> d
                         "source_turn_id": str(item.get("source_turn_id") or item.get("id") or rank).upper(),
                         "rank": rank,
                         "score": float(item.get("score") or 0.0),
-                        "source": str(item.get("source") or "long_term"),
+                        "source": str(item.get("source") or ""),
                         "memory": item.get("memory"),
                         "summary": item.get("summary"),
                         "raw_dialogue": item.get("raw_dialogue"),

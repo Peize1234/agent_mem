@@ -260,8 +260,9 @@ def test_frozen_demo_context_builds_exactly_the_core_final_prompt(monkeypatch):
     assert demo_messages == core_messages
     prompt = demo_messages[0]["content"]
     assert '<short_term_memory>\n[\n  {\n    "role": "user",\n    "content": "保留中文"' in prompt
-    assert '<mid_term_memory>\n[\n  {\n    "score": 0.9,\n    "created_at": "2026-08-01T10:00:00+08:00"' in prompt
-    assert "<long_term_memory>\n[]\n</long_term_memory>" in prompt
+    assert '<mid_term_memories>\n[\n  {\n    "score": 0.9,\n    "created_at": "2026-08-01T10:00:00+08:00"' in prompt
+    assert "<fine_grained_longterm_memories>\n[]\n</fine_grained_longterm_memories>" in prompt
+    assert "<promoted_longterm_memories>\n[]\n</promoted_longterm_memories>" in prompt
     assert '<user_profile>\n{\n  "风险偏好": "稳健"\n}\n</user_profile>' in prompt
     assert "<reference_information>\n[]\n</reference_information>" in prompt
     assert "\\u4e2d" not in prompt

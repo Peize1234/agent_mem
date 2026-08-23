@@ -154,6 +154,13 @@ async def test_async_build_agent_answer_messages_matches_sync_prompt_flow(monkey
                 "created_at": "2026-07-19T08:00:00+08:00",
                 "metadata": {"internal": "must not enter the prompt"},
             },
+            {
+                "id": "promoted-1",
+                "score": 0.91,
+                "source": "cross_session_long_term",
+                "memory": "promoted risk policy",
+                "created_at": "2026-07-18T08:00:00+08:00",
+            },
         ],
     }
     reference_information = {"as_of": "2026-07-24", "market": "reference data"}
@@ -171,6 +178,7 @@ async def test_async_build_agent_answer_messages_matches_sync_prompt_flow(monkey
         explain=True,
         include_profile_metadata=True,
         reference_information=reference_information,
+        custom_prompt="先给出三行结论，再列示依据。",
     )
 
     memory._retrieve_context.assert_awaited_once_with(
@@ -189,7 +197,7 @@ async def test_async_build_agent_answer_messages_matches_sync_prompt_flow(monkey
         short_term_memory=json.dumps(
             retrieved_context["short_term_messages"], ensure_ascii=False, indent=2, default=str
         ),
-        mid_term_memory=json.dumps(
+        mid_term_memories=json.dumps(
             [
                 {
                     "score": 0.83,
@@ -201,7 +209,7 @@ async def test_async_build_agent_answer_messages_matches_sync_prompt_flow(monkey
             indent=2,
             default=str,
         ),
-        long_term_memory=json.dumps(
+        fine_grained_longterm_memories=json.dumps(
             [
                 {
                     "score": 0.72,
@@ -213,11 +221,39 @@ async def test_async_build_agent_answer_messages_matches_sync_prompt_flow(monkey
             indent=2,
             default=str,
         ),
+        promoted_longterm_memories=json.dumps(
+            [
+                {
+                    "score": 0.91,
+                    "created_at": "2026-07-18T08:00:00+08:00",
+                    "content": "promoted risk policy",
+                }
+            ],
+            ensure_ascii=False,
+            indent=2,
+            default=str,
+        ),
         user_profile=json.dumps(retrieved_context["profile"], ensure_ascii=False, indent=2, default=str),
         reference_information=json.dumps(reference_information, ensure_ascii=False, indent=2, default=str),
         agentic_memory_supplement="",
+        custom_prompt="先给出三行结论，再列示依据。",
     )
     assert result == [{"role": "system", "content": expected_prompt}]
+    sync_memory = _build_sync_memory(search_result={}, profile_result={}, messages=[])
+    sync_memory._retrieve_context = MagicMock(return_value=deepcopy(retrieved_context))
+    sync_result = sync_memory.build_agent_answer_messages(
+        "  how should I invest?  ",
+        user_id=" user-1 ",
+        session_id=" session-1 ",
+        top_k=7,
+        threshold=0.35,
+        rerank=True,
+        explain=True,
+        include_profile_metadata=True,
+        reference_information=reference_information,
+        custom_prompt="先给出三行结论，再列示依据。",
+    )
+    assert result == sync_result
     memory.llm.generate_response.assert_not_called()
 
 

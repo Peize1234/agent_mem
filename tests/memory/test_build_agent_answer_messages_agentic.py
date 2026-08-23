@@ -85,6 +85,13 @@ def _retrieved_context():
                 "created_at": "2026-07-28T10:00:00+08:00",
                 "memory": "ordinary long-term context",
             },
+            {
+                "id": "promoted-ordinary",
+                "source": "cross_session_long_term",
+                "score": 0.81,
+                "created_at": "2026-07-27T10:00:00+08:00",
+                "memory": "ordinary promoted long-term context",
+            },
         ],
     }
 
@@ -146,6 +153,7 @@ def _assert_empty_agentic_supplement(messages):
     assert "<agentic_memory_supplement>\n\n</agentic_memory_supplement>" in messages[0]["content"]
     assert "ordinary mid-term context" in messages[0]["content"]
     assert "ordinary long-term context" in messages[0]["content"]
+    assert "ordinary promoted long-term context" in messages[0]["content"]
 
 
 def test_disabled_agentic_retrieval_keeps_original_message_flow():
@@ -189,6 +197,7 @@ def test_enabled_agentic_retrieval_ignores_accidental_answer_without_tool_call()
         session_id="run-1",
         reference_information={"source": "reference detail"},
         agentic_generation_kwargs=agentic_generation_kwargs,
+        custom_prompt="最终回答使用表格。",
     )
 
     memory._retrieve_context.assert_called_once()
@@ -207,12 +216,16 @@ def test_enabled_agentic_retrieval_ignores_accidental_answer_without_tool_call()
         "Use my existing plan.",
         "ordinary mid-term context",
         "ordinary long-term context",
+        "ordinary promoted long-term context",
         "balanced",
         "reference detail",
     ):
         assert expected in agentic_prompt
     assert len(messages) == 1
     assert messages[0]["role"] == "system"
+    assert "最终回答使用表格。" in messages[0]["content"]
+    assert "最终回答使用表格。" not in agentic_prompt
+    assert "<custom_prompt>" not in agentic_prompt
     _assert_empty_agentic_supplement(messages)
     assert accidental_answer not in messages[0]["content"]
 

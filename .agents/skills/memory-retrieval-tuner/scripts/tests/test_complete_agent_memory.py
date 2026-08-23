@@ -38,6 +38,7 @@ from tuner.parameter_schema import (
 from tuner.production_midterm_adapter import (
     ProductionMidtermAdapter,
     _diagnostic_rows_from_pages,
+    _layered_trace_recall_ids,
     _unselected_page_diagnostic_rows,
     _valid_recalled_page_ids,
 )
@@ -74,6 +75,29 @@ def test_required_context_denominator_is_fixed_and_layer_union() -> None:
     assert one["metrics"]["eligible_requirement_count"] == two["metrics"]["eligible_requirement_count"] == 2
     assert one["metrics"]["final_context_recall"] == 1.0
     assert one["metrics"]["short_mid_session_longterm_union"] == 1.0
+
+
+def test_promoted_longterm_is_excluded_from_ordinary_session_winner_evaluation() -> None:
+    dataset = _dataset("华辰公司授信额度100万元")
+    result = _evaluate_session(
+        dataset,
+        "S001",
+        {
+            "S001-Q002": {
+                "midterm": [],
+                "session_longterm": [],
+                "cross_session_longterm": [
+                    {"id": "promoted-1", "source": "cross_session_long_term", "memory": "华辰公司授信额度100万元"}
+                ],
+            }
+        },
+        k=1,
+        target="all_memory",
+        shortterm_window=0,
+    )
+
+    assert result["metrics"]["recall_at_k"] == 0.0
+    assert result["metrics"]["final_context_recall"] == 0.0
 
 
 def test_fact_parser_and_deterministic_types() -> None:
@@ -702,6 +726,27 @@ def test_stateful_production_replay_confirms_only_gold_visible_pages() -> None:
     assert _valid_recalled_page_ids(turn, checkpoint) == ["hit"]
 
 
+def test_production_trace_splits_fine_grained_and_promoted_longterm_identities() -> None:
+    projected = _layered_trace_recall_ids(
+        [
+            {"id": "page-1", "source": "mid_term_page", "source_turn_id": "s001-q001"},
+            {"id": "fine-1", "source": "long_term", "source_turn_id": "s001-q002"},
+            {
+                "id": "promoted-memory-id",
+                "source": "cross_session_long_term",
+                "source_turn_id": "must-not-be-forced-to-a-turn",
+            },
+            {"id": "unknown", "source": "unknown", "source_turn_id": "s001-q999"},
+        ]
+    )
+
+    assert projected == {
+        "fine_grained_longterm_retrieved_turn_ids": ["S001-Q002"],
+        "cross_session_valid_recall_ids": ["promoted-memory-id"],
+        "all_retrieved_turn_ids": ["S001-Q001", "S001-Q002"],
+    }
+
+
 def test_cross_session_temporal_without_gold_is_not_a_winner() -> None:
     now = datetime.now(timezone.utc)
     replay = CrossSessionTemporalReplay()
@@ -745,6 +790,39 @@ def test_orchestrator_executes_temporal_replay_without_gold(tmp_path: Path) -> N
         "reinforcement",
     }
     assert (tmp_path / "temporal_replay.json").exists()
+
+
+def test_temporal_replay_consumes_production_cross_session_valid_recall_ids(tmp_path: Path) -> None:
+    memory_id = "real-promoted-memory-id"
+    trace_path = tmp_path / "recall_turn_results.jsonl"
+    trace_path.write_text(
+        json.dumps(
+            {
+                "session_id": "S001",
+                "turn_id": "S001-Q001",
+                "promotion_events": [{"memory_id": memory_id}],
+                "cross_session_valid_recall_ids": [memory_id],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    manifest_path = tmp_path / "production_midterm_manifest.json"
+    manifest_path.write_text(json.dumps({"trace_path": str(trace_path)}), encoding="utf-8")
+    result = run_cross_session_temporal_replay(
+        dataset=_dataset("目标事实"),
+        audit={"cross_session_gold_available": False},
+        baseline=Candidate(
+            "baseline",
+            "baseline",
+            {"backend": "production_midterm", "manifest_paths": [str(manifest_path)]},
+        ),
+        memory_config={},
+        run_dir=tmp_path,
+    )
+
+    assert result["provenance"]["structural_probe"] is False
+    assert any(row["event"] == "valid_recall" and row["memory_id"] == memory_id for row in result["transitions"])
 
 
 def test_cross_session_marker_without_temporal_schema_is_not_validated(tmp_path: Path) -> None:

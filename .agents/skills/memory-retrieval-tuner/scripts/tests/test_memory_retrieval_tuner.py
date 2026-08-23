@@ -100,6 +100,7 @@ from tuner.production_midterm_adapter import (  # noqa: E402
     ProductionMidtermAdapter,
     generate_production_sources,
     isolated_runtime_layout,
+    load_checkpoints,
     production_candidate_from_manifests,
     production_prompt_hashes,
 )
@@ -1409,6 +1410,25 @@ def test_production_trace_discovery_checks_completeness(tmp_path: Path) -> None:
     )
 
 
+def test_load_checkpoints_rejects_previous_mixed_longterm_adapter_schema(tmp_path: Path) -> None:
+    checkpoints_path = tmp_path / "production_midterm_checkpoints.jsonl"
+    checkpoints_path.write_text("", encoding="utf-8")
+    manifest_path = tmp_path / "production_midterm_manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "schema": ADAPTER_SCHEMA - 1,
+                "status": "COMPLETE",
+                "checkpoints_path": str(checkpoints_path),
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Invalid production MidTerm manifest"):
+        load_checkpoints([manifest_path])
+
+
 def test_trace_does_not_replace_midterm_checkpoints_and_regression_is_separate(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -2014,6 +2034,8 @@ def test_agentic_parent_identity_covers_effective_inputs_but_excludes_bookkeepin
         "longterm_top_k": 20,
         "longterm_rag_threshold": 0.1,
         "longterm_hybrid_preset": "balanced",
+        "cross_session_longterm_rag_threshold": 0.2,
+        "cross_session_retention_half_life_hours": 720.0,
     }
     identity = build_agentic_parent_retrieval_identity(base)
     path_and_bookkeeping_only = {
@@ -2033,6 +2055,10 @@ def test_agentic_parent_identity_covers_effective_inputs_but_excludes_bookkeepin
         "parent_candidate_hash": "mutable-parent-name",
         "applied_branches": ["report-only"],
     }
+    assert set(identity) >= {"fine_grained_longterm", "promoted_longterm"}
+    assert "longterm_rag_threshold" in identity["fine_grained_longterm"]
+    assert "cross_session_longterm_rag_threshold" not in identity["fine_grained_longterm"]
+    assert "cross_session_longterm_rag_threshold" in identity["promoted_longterm"]
     assert build_agentic_parent_retrieval_identity(path_and_bookkeeping_only) == identity
     for field, value in (
         ("top_k_pages", 9),
@@ -2041,6 +2067,7 @@ def test_agentic_parent_identity_covers_effective_inputs_but_excludes_bookkeepin
         ("query_artifact_sha256", "query-b"),
         ("page_representation", "summary"),
         ("longterm_rag_threshold", 0.2),
+        ("cross_session_longterm_rag_threshold", 0.3),
     ):
         assert build_agentic_parent_retrieval_identity({**base, field: value}) != identity
     changed_source = {
@@ -2051,6 +2078,28 @@ def test_agentic_parent_identity_covers_effective_inputs_but_excludes_bookkeepin
         },
     }
     assert build_agentic_parent_retrieval_identity(changed_source) != identity
+
+
+def test_agentic_trace_rejects_previous_schema(tmp_path: Path) -> None:
+    dataset = make_dataset(tmp_path, 1)
+    parent_config = {"max_total_pages": 4, **_synthetic_agentic_source()}
+    trace_path = tmp_path / "production_agentic_trace_v2.jsonl"
+    _write_production_agentic_trace(trace_path, dataset, [(3, 5)], parent_config=parent_config)
+    rows = [json.loads(line) for line in trace_path.read_text(encoding="utf-8").splitlines()]
+    for row in rows:
+        row["schema"] = "production_agentic_trace_v2"
+    trace_path.write_text(
+        "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="unsupported production Agentic trace schema"):
+        load_production_agentic_trace(
+            _agentic_trace_config([trace_path]),
+            dataset_sha256=dataset.sha256,
+            query_ids_by_session=_agentic_query_ids(dataset),
+            expected_parent_retrieval_identity=build_agentic_parent_retrieval_identity(parent_config),
+        )
 
 
 def test_agentic_semantic_manifest_identity_ignores_runtime_paths(tmp_path: Path) -> None:

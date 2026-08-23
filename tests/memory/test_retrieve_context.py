@@ -197,6 +197,19 @@ def test_build_agent_answer_messages_uses_agent_prompt_and_layered_context(monke
                 "created_at": "2026-07-19T08:00:00+08:00",
                 "metadata": {"internal": "must not enter the prompt"},
             },
+            {
+                "id": "promoted-1",
+                "score": 0.91,
+                "source": "cross_session_long_term",
+                "memory": "promoted risk policy",
+                "created_at": "2026-07-18T08:00:00+08:00",
+            },
+            {
+                "id": "unknown-1",
+                "score": 1.0,
+                "source": "unknown_source",
+                "memory": "unknown memory must not enter the prompt",
+            },
         ],
     }
     reference_information = {"as_of": "2026-07-24", "market": "reference data"}
@@ -214,6 +227,7 @@ def test_build_agent_answer_messages_uses_agent_prompt_and_layered_context(monke
         explain=True,
         include_profile_metadata=True,
         reference_information=reference_information,
+        custom_prompt="先给出三行结论，再列示依据。",
     )
 
     memory._retrieve_context.assert_called_once_with(
@@ -232,7 +246,7 @@ def test_build_agent_answer_messages_uses_agent_prompt_and_layered_context(monke
         short_term_memory=json.dumps(
             retrieved_context["short_term_messages"], ensure_ascii=False, indent=2, default=str
         ),
-        mid_term_memory=json.dumps(
+        mid_term_memories=json.dumps(
             [
                 {
                     "score": 0.83,
@@ -249,7 +263,7 @@ def test_build_agent_answer_messages_uses_agent_prompt_and_layered_context(monke
             indent=2,
             default=str,
         ),
-        long_term_memory=json.dumps(
+        fine_grained_longterm_memories=json.dumps(
             [
                 {
                     "score": 0.72,
@@ -266,12 +280,26 @@ def test_build_agent_answer_messages_uses_agent_prompt_and_layered_context(monke
             indent=2,
             default=str,
         ),
+        promoted_longterm_memories=json.dumps(
+            [
+                {
+                    "score": 0.91,
+                    "created_at": "2026-07-18T08:00:00+08:00",
+                    "content": "promoted risk policy",
+                }
+            ],
+            ensure_ascii=False,
+            indent=2,
+            default=str,
+        ),
         user_profile=json.dumps(retrieved_context["profile"], ensure_ascii=False, indent=2, default=str),
         reference_information=json.dumps(reference_information, ensure_ascii=False, indent=2, default=str),
         agentic_memory_supplement="",
+        custom_prompt="先给出三行结论，再列示依据。",
     )
     assert result == [{"role": "system", "content": expected_prompt}]
     assert "session summary must not enter the prompt" not in result[0]["content"]
+    assert "unknown memory must not enter the prompt" not in result[0]["content"]
     memory.llm.generate_response.assert_not_called()
 
 
@@ -295,10 +323,12 @@ def test_answer_prompt_preserves_empty_values_none_and_json_like_user_text(monke
     prompt = messages[0]["content"]
     assert f"<user_query>\n{query}\n</user_query>" in prompt
     assert "<short_term_memory>\n[]\n</short_term_memory>" in prompt
-    assert "<mid_term_memory>\n[]\n</mid_term_memory>" in prompt
-    assert "<long_term_memory>\n[]\n</long_term_memory>" in prompt
+    assert "<mid_term_memories>\n[]\n</mid_term_memories>" in prompt
+    assert "<fine_grained_longterm_memories>\n[]\n</fine_grained_longterm_memories>" in prompt
+    assert "<promoted_longterm_memories>\n[]\n</promoted_longterm_memories>" in prompt
     assert "<user_profile>\n{}\n</user_profile>" in prompt
     assert "<reference_information>\n[]\n</reference_information>" in prompt
+    assert "<custom_prompt>\n\n</custom_prompt>" in prompt
     assert "\\u" not in prompt
 
 

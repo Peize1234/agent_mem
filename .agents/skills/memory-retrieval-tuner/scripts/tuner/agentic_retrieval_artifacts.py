@@ -7,9 +7,9 @@ from typing import Any, Mapping, Sequence
 from .io_utils import load_json, load_jsonl, sha256_file, stable_hash
 from .parameter_schema import production_parameter_metadata, validate_candidate_config
 
-PRODUCTION_AGENTIC_TRACE_SCHEMA = "production_agentic_trace_v2"
+PRODUCTION_AGENTIC_TRACE_SCHEMA = "production_agentic_trace_v3"
 PRODUCTION_AGENTIC_EXECUTION_CONTRACT = "Memory.run_agentic_retrieval"
-AGENTIC_PARENT_RETRIEVAL_IDENTITY_SCHEMA = "agentic_parent_retrieval_identity_v3"
+AGENTIC_PARENT_RETRIEVAL_IDENTITY_SCHEMA = "agentic_parent_retrieval_identity_v4"
 AGENTIC_FIXED_MAX_ITERATIONS = int(production_parameter_metadata("max_iterations").default)
 AGENTIC_FIXED_MAX_TOOL_CALLS = int(production_parameter_metadata("max_tool_calls").default)
 _VALID_STATUSES = frozenset({"supplemented", "not_needed", "no_relevant_memory", "degraded"})
@@ -58,16 +58,20 @@ _SOURCE_FIELDS = (
     "encoding_contract",
     "page_summary_prompt_hash",
     "session_merge_prompt_hash",
-    "fine_grained_longterm_extraction_prompt_hash",
-    "session_longterm_extraction_prompt_hash",
 )
-_LONGTERM_FIELDS = (
+_FINE_GRAINED_LONGTERM_FIELDS = (
     "longterm_top_k",
     "longterm_rag_threshold",
     "longterm_candidate_pool_multiplier",
     "longterm_hybrid_preset",
     "entity_similarity_threshold",
     "longterm_other_session_weight",
+    "fine_grained_longterm_extraction_prompt_hash",
+    "session_longterm_extraction_prompt_hash",
+)
+_PROMOTED_LONGTERM_FIELDS = (
+    "promoted_longterm_top_k",
+    "promoted_longterm_rag_threshold",
     "cross_session_longterm_rag_threshold",
     "cross_session_retention_half_life_hours",
     "cross_session_retention_floor",
@@ -101,7 +105,8 @@ _SEMANTIC_EFFECTIVE_MEMORY_CONFIG_FIELDS = (
     "embedder",
     "vector_store",
     "midterm",
-    *_LONGTERM_FIELDS,
+    "fine_grained_longterm",
+    "promoted_longterm",
 )
 
 
@@ -224,7 +229,8 @@ def build_agentic_parent_retrieval_identity(config: Mapping[str, Any]) -> dict[s
             "source_identity": source_identity,
             "source_identity_sha256": stable_hash(source_identity) if source_identity is not None else None,
         },
-        "fine_grained_longterm": _identity_values(config, _LONGTERM_FIELDS),
+        "fine_grained_longterm": _identity_values(config, _FINE_GRAINED_LONGTERM_FIELDS),
+        "promoted_longterm": _identity_values(config, _PROMOTED_LONGTERM_FIELDS),
     }
 
 

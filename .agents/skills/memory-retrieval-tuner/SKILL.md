@@ -34,7 +34,7 @@ Research 决策只允许使用当前 run 的 Tune 实验事实，以及从 Basel
 
 - `k`：Primary Metric `R@K` 使用的 Recall cutoff，默认：`5`。
 - `budget`：`quick | standard | deep`，默认：`standard`。
-- `target`：`midterm` 或 `all_memory`。完整评价固定使用 `Turn.required_context`，并联合 ShortTerm、MidTerm 与 Fine-grained cross-session LongTerm。
+- `target`：`midterm` 或 `all_memory`。完整评价固定使用 `Turn.required_context`，并联合 ShortTerm、MidTerm 与 Fine-grained LongTerm（`source="long_term"`）；Promoted LongTerm（`source="cross_session_long_term"`）不进入普通 Session winner 评价。
 - `sessions`：可选的 Session 子集。
 - `seed`：数据划分/搜索随机种子，默认从 `search_space.yaml` 读取。
 - `resume`：已有调参运行目录，用于恢复运行。
@@ -63,7 +63,7 @@ $memory-retrieval-tuner dataset=exp/my_dataset.xlsx k=3 target=midterm sessions=
 
 评价分母固定来自 `Turn.required_context`（没有该字段的 legacy ID-only workbook 才使用兼容逻辑），不会因 ShortTerm window/capacity 改变。required context 支持 `(A OR B) AND C`：OR group 命中任一成员，AND group 各自必须命中。数字、百分比、日期、金额、实体和单位先做确定性检查，普通文本才进入受控 Semantic Judge；Embedding similarity 不能单独构成 Gold hit。
 
-最终评价覆盖 ShortTerm + MidTerm + Fine-grained cross-session LongTerm union，并报告 fact/requirement Recall@K、macro session recall、MRR、candidate-pool recall、final-context recall、context precision、mean returned pages、每层 contribution、query completion、session stability、runtime、LLM/embedding calls。历史 artifact 中的 `session_longterm` 字段仅作为兼容名称。诊断 artifact 可记录 routed pool、global supplement、threshold 和 final visible hit，但这些 Gold 细节不会进入 Research LLM。
+最终评价覆盖 ShortTerm + MidTerm + Fine-grained LongTerm union，并报告 fact/requirement Recall@K、macro session recall、MRR、candidate-pool recall、final-context recall、context precision、mean returned pages、每层 contribution、query completion、session stability、runtime、LLM/embedding calls。历史 evaluator 中的 `session_longterm` 字段仅作为 Fine-grained LongTerm 兼容名称；`cross_session_longterm` 始终表示 Promoted LongTerm，并从普通 Session winner 评价中排除。诊断 artifact 可记录 routed pool、global supplement、threshold 和 final visible hit，但这些 Gold 细节不会进入 Research LLM。
 
 生产 `MemoryConfig` 是参数事实的唯一 authority。`scripts/tuner/parameter_schema.py` 只负责定位生产字段并读取其 Pydantic schema/field metadata，不维护参数分类、默认值、类型、`ge / gt / le / lt` 或 Literal/Enum 候选。候选通过生产 Pydantic 字段和最终 `MemoryConfig` 校验；生产约束变化后，tuner 自动采用新约束。具有完整整数上下界的字段直接生成完整合法整数候选；大范围整数与浮点字段只从搜索策略取得有限采样值，先自动丢弃不再符合 Production 约束的采样点，再由最终 `MemoryConfig` 校验 Candidate；Literal/Enum 候选直接从生产类型读取。
 
@@ -90,6 +90,8 @@ python .agents/skills/memory-retrieval-tuner/scripts/run_tuner.py \
 MidTerm 调参 Baseline 绝不能回退为 source-turn BM25 surrogate 或 production trace。它必须来自可重放的 `production_midterm_v1` checkpoint。如果 checkpoint 不存在，tuner 会启动按 Session 隔离的子进程，并运行真实的 `AsyncMemory.add -> MidTermUpdater -> MidTermMemory -> MidTermRetriever` 链路。完整 production trace 会独立发现，只用于最终 ShortTerm/LongTerm/All-memory regression。可通过 `source_run=<path>` 固定已有 source run；不完整的 source run 必须判定为 audit hard failure。
 
 `production_midterm_adapter` 会冻结 Query 时刻的生产 Page / Session payload、dense vector、query vector 和 source-job lineage。它不会使用工作簿中的答案构造 Page Summary。Cheap Candidate 会将这些 artifact 重新加载到 Candidate/Session 隔离的 Qdrant + SQLite runtime 中，并直接调用生产 `MidTermRetriever`。Source worker 的并发同时受到 `max_parallel_sessions` 和 `max_parallel_llm_calls` 限制。
+
+Production trace 必须按精确 `source` 写入 `fine_grained_longterm_retrieved_turn_ids` 与 `cross_session_valid_recall_ids`；禁止用“非 MidTerm”推断 LongTerm 类型。Promoted LongTerm 无可靠单一 source turn 时，`cross_session_valid_recall_ids` 保存真实 promoted memory ID。该 trace contract 由 `ADAPTER_SCHEMA` 隔离，旧的混合 `long_retrieved_turn_ids` artifact 不得复用。Agentic parent identity 也分别记录 `fine_grained_longterm` 与 `promoted_longterm`，schema 变化时旧 Agentic trace/cache 必须失效。
 
 ## 指标约定
 
@@ -360,7 +362,7 @@ split_manifest.json
 每个 Branch 必须声明名称、诊断 regime、cost level、required artifacts、candidate generation、execution adapter、provenance contract 和资源需求。当前 Registry 包含：
 
 - `RetrievalControl`；
-- `AgenticRetrieval`（仅消费 dataset、当前 Anchor retrieval/source/query/LongTerm semantic parent identity、固定 `max_tool_result_chars` 以及精确参数组合全部匹配的 `production_agentic_trace`；缺失或任一 mismatch 时明确 `UNAVAILABLE`）；
+- `AgenticRetrieval`（仅消费 dataset、当前 Anchor retrieval/source/query/Fine-grained LongTerm/Promoted LongTerm semantic parent identity、固定 `max_tool_result_chars` 以及精确参数组合全部匹配的 `production_agentic_trace`；缺失或任一 mismatch 时明确 `UNAVAILABLE`）；
 - `QueryRewritePrompt`（当前 Query Prompt 搜索的唯一可达 Branch；旧 `QueryRepresentation` 仅保留兼容 adapter，不进入默认 coverage）；
 - `PageRepresentation`；
 - `HybridRetrieval`；
