@@ -4,11 +4,13 @@ import json
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import get_args
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import pytest
 import yaml
+from mem0.configs.base import MidTermMemoryConfig
 from tuner.artifact_registry import ArtifactRegistry
 from tuner.evaluate_candidate import _eligible_requirements, _evaluate_session, _fact_rows_for_visible
 from tuner.experiment_branches import (
@@ -23,7 +25,9 @@ from tuner.io_utils import sha256_file
 from tuner.models import Candidate, CandidateResult, Dataset, Requirement, Turn
 from tuner.parameter_schema import (
     dynamic_turn_distance_candidates,
-    parameter_class,
+    production_integer_candidates,
+    production_literal_candidates,
+    production_parameter_metadata,
     promotion_threshold_candidates,
     validate_candidate_config,
 )
@@ -155,11 +159,11 @@ def test_new_branches_are_reachable_through_real_coverage_policy() -> None:
     assert "Promotion" not in policy["session_instability"]["relevant"]
     assert "Promotion" not in policy["balanced_or_plateau"]["relevant"]
     assert "Promotion" not in {branch.spec.name for branch in registry.ordered()}
-    assert space["search"]["stages"]["secondary"]["cross_session_temporal"]["tuning"] == "disabled"
-    assert (
-        space["search"]["stages"]["cheap"]["retrieval"]["midterm_evolution"]["promotion_min_recall_count"]
-        == "production_default_only"
-    )
+    cross_session = space["search"]["stages"]["secondary"]["cross_session_temporal"]
+    assert cross_session["tuning"] == "disabled"
+    assert cross_session["winner_selection"] == "disabled"
+    assert cross_session["production_config_policy"] == "unchanged_defaults"
+    assert "promotion_min_recall_count" not in space["search"]["stages"]["cheap"]["retrieval"]["midterm_evolution"]
     assert (
         next_branch(
             "candidate_coverage_bottleneck",
@@ -410,37 +414,44 @@ def test_ranking_loss_uses_diagnostic_depth_not_cache_depth() -> None:
     assert facts[0]["failure_class"] == "Ranking Loss"
 
 
-def test_max_total_pages_searches_every_legal_final_budget() -> None:
+def test_max_total_pages_search_uses_benchmark_budget_not_a_fake_production_range() -> None:
     space = yaml.safe_load((Path(__file__).resolve().parents[2] / "search_space.yaml").read_text())
     config = space["search"]["stages"]["cheap"]["retrieval"]["max_total_pages"]
-    assert config["values"] == [1, 2, 3, 4, 5]
+    assert config == {"mode": "benchmark_context_budget", "refine_step": 1}
 
 
-def test_hard_constraints_and_parameter_classes() -> None:
+def test_production_config_is_the_only_parameter_authority() -> None:
     space = yaml.safe_load((Path(__file__).resolve().parents[2] / "search_space.yaml").read_text())
-    classes = space["parameters"]["classes"]
-    constraints = space["parameters"]["hard_constraints"]
-    validate_candidate_config({"max_total_pages": 5, "longterm_top_k": 30, "midterm_candidate_pool_multiplier": 8})
+    assert "parameters" not in space
+    metadata = production_parameter_metadata("max_total_results")
+    assert metadata.annotation is int
+    assert metadata.default == 5
+    assert metadata.ge == 1
+    assert metadata.le == 5
+    assert production_integer_candidates("max_total_results") == [1, 2, 3, 4, 5]
+
+    page_values = production_literal_candidates("page_representation")
+    assert page_values == list(get_args(MidTermMemoryConfig.model_fields["page_representation"].annotation))
+    assert "production" in page_values
+    assert "P8" in page_values
+
+    rag_metadata = production_parameter_metadata("midterm_rag_threshold")
+    assert rag_metadata.annotation is float
+    assert rag_metadata.default == 0.1
+    assert rag_metadata.ge == 0
+    assert rag_metadata.le == 1
+    assert validate_candidate_config({"midterm_rag_threshold": 0.05})["midterm_rag_threshold"] == 0.05
     with pytest.raises(ValueError):
-        validate_candidate_config({"max_total_pages": 6})
+        validate_candidate_config({"midterm_rag_threshold": 1.01})
+    assert space["search"]["stages"]["cheap"]["retrieval"]["midterm_rag_threshold"]["coarse"]
+
+    validate_candidate_config({"max_total_pages": 6})
     for name in ("top_k_sessions", "top_k_pages", "max_total_pages"):
-        assert constraints[name]["min"] == 1
         validate_candidate_config({name: 1})
         with pytest.raises(ValueError):
             validate_candidate_config({name: 0})
     with pytest.raises(ValueError):
-        validate_candidate_config({"short_term_capacity": 5})
-    with pytest.raises(ValueError):
         validate_candidate_config({"fusion_method": "invented"})
-    assert parameter_class("top_k_sessions") == "query-time"
-    assert "top_k_sessions" in classes["query_time_retrieval_only"]
-    assert "top_k_sessions" not in classes["source_changing"]
-    assert "fusion_method" in classes["query_time_retrieval_only"]
-    assert constraints["fusion_method"]["allowed"] == ["normalized_score", "rrf"]
-    assert parameter_class("retention_half_life_turns") == "within-session-stateful"
-    assert parameter_class("cross_session_retention_half_life_hours") == "cross-session-temporal-stateful"
-    assert parameter_class("max_total_pages") == "query-time"
-    assert parameter_class("query_rewrite_prompt") == "query-time"
 
 
 def test_dynamic_turn_and_heat_threshold_candidates() -> None:
@@ -576,7 +587,7 @@ def _promotion_context(tmp_path: Path, heat_values: list[float]) -> BranchContex
         anchor=baseline,
         anchor_result=result,
         diagnostic={"regime": "session_instability"},
-        search_space={},
+        search_space=yaml.safe_load((Path(__file__).resolve().parents[2] / "search_space.yaml").read_text()),
         budget="deep",
         k=5,
         ranking_depth=20,
@@ -607,7 +618,8 @@ def test_promotion_without_heat_does_not_create_zero_threshold(tmp_path: Path) -
 
 def test_midterm_source_config_deep_generates_real_source_specs(tmp_path: Path) -> None:
     context = _promotion_context(tmp_path, [2.0])
-    outcome = MidtermSourceConfigBranch().generate(context)
+    branch = MidtermSourceConfigBranch()
+    outcome = BranchRegistry([branch]).generate(branch, context)
     assert outcome.status == "READY"
     changed = {
         key

@@ -286,10 +286,13 @@ class AgenticRetrievalConfig(BaseModel):
     max_queries: int = Field(3, ge=1, le=3)
     candidate_pool_size: int = Field(20, ge=5, le=100)
     max_total_results: int = Field(
-        6,
+        5,
         ge=1,
-        le=20,
-        description="最终返回给模型的完整中期记忆 Page 数量",
+        le=5,
+        description=(
+            "多个 Agentic Query 分别执行 MidTerm 检索后，对结果进行合并、去重、排序，"
+            "最终最多返回给模型的 MidTerm Page 数量"
+        ),
     )
     max_tool_result_chars: int = Field(30000, ge=1000)
     force_final_answer: bool = True

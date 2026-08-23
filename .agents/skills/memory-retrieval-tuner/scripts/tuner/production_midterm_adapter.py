@@ -19,7 +19,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from mem0.configs.query_prompts import QUERY_REFERENCE_RESOLUTION_PROMPT
 from mem0.memory.midterm_updater import PRODUCTION_PAGE_CONTEXT_CONTRACT
 from mem0.memory.query_resolver import QueryResolver
 
@@ -41,13 +40,20 @@ from .io_utils import (
     stable_hash,
     write_jsonl,
 )
-from .parameter_schema import production_overrides_from_candidate
+from .parameter_schema import (
+    production_literal_candidates,
+    production_parameter_metadata,
+    production_overrides_from_candidate,
+)
 from .production_runtime import create_production_memory
 
 ADAPTER_SCHEMA = 7  # isolates the per-QA LongTerm and fixed Page-context production contract
 PRODUCTION_BACKEND = "production_midterm"
 PRODUCTION_MEMORY_CONTRACT = "agent_memory_p0_query_fixed_page_context_per_qa_cross_session_longterm_v2"
-SUPPORTED_RETRIEVAL_METHODS = {"dense", "dense_bm25_fusion"}
+SUPPORTED_RETRIEVAL_METHODS = frozenset(production_literal_candidates("retrieval_method"))
+_DEFAULT_RETRIEVAL_METHOD = str(production_parameter_metadata("retrieval_method").default)
+_DEFAULT_PAGE_REPRESENTATION = str(production_parameter_metadata("page_representation").default)
+_DEFAULT_QUERY_REWRITE_PROMPT = str(production_parameter_metadata("query_rewrite_prompt").default)
 logger = logging.getLogger(__name__)
 
 
@@ -384,7 +390,7 @@ def _checkpoint(
     retrieval_query = asyncio.run(
         QueryResolver(
             memory.llm,
-            prompt=getattr(memory.config, "query_rewrite_prompt", None) or QUERY_REFERENCE_RESOLUTION_PROMPT,
+            prompt=getattr(memory.config, "query_rewrite_prompt", None) or _DEFAULT_QUERY_REWRITE_PROMPT,
         ).resolve_async(query, base_context.get("short_term_messages") or [])
     )
     query_vector = memory.embedding_model.embed(retrieval_query, "search")
@@ -1054,7 +1060,6 @@ def production_candidate_from_manifests(
     name: str = "baseline",
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     from mem0.configs.base import AgenticRetrievalConfig
-    from mem0.configs.query_prompts import QUERY_REFERENCE_RESOLUTION_PROMPT
 
     manifests = [load_json(path) for path in manifest_paths]
     if not manifests:
@@ -1124,15 +1129,15 @@ def production_candidate_from_manifests(
             "backend": PRODUCTION_BACKEND,
             "retrieval_contract": "production_midterm_v1",
             "production_memory_contract": PRODUCTION_MEMORY_CONTRACT,
-            "retrieval_method": str(config.get("retrieval_method") or "dense"),
+            "retrieval_method": str(config.get("retrieval_method") or _DEFAULT_RETRIEVAL_METHOD),
             "query_representation": "original",
             "query_prompt_text": str(
-                effective_memory_config.get("query_rewrite_prompt") or QUERY_REFERENCE_RESOLUTION_PROMPT
+                effective_memory_config.get("query_rewrite_prompt") or _DEFAULT_QUERY_REWRITE_PROMPT
             ),
             "query_prompt_hash": hashlib.sha256(
-                str(effective_memory_config.get("query_rewrite_prompt") or QUERY_REFERENCE_RESOLUTION_PROMPT).encode()
+                str(effective_memory_config.get("query_rewrite_prompt") or _DEFAULT_QUERY_REWRITE_PROMPT).encode()
             ).hexdigest(),
-            "page_representation": str(config.get("page_representation") or "production"),
+            "page_representation": str(config.get("page_representation") or _DEFAULT_PAGE_REPRESENTATION),
             "production_overrides": {},
             "benchmark_constraints": {
                 "context_budget": 5,
@@ -1177,11 +1182,13 @@ class ProductionMidtermAdapter:
     @staticmethod
     def supported(config: Mapping[str, Any]) -> None:
         overrides = production_overrides_from_candidate(config)
-        method = str((overrides.get("midterm") or {}).get("retrieval_method") or "dense")
+        method = str((overrides.get("midterm") or {}).get("retrieval_method") or _DEFAULT_RETRIEVAL_METHOD)
         if method not in SUPPORTED_RETRIEVAL_METHODS:
             raise ValueError(f"Unsupported production MidTerm retrieval method: {method}")
         has_derived = bool(config.get("derived_artifact_path"))
-        if str(config.get("page_representation") or "production") != "production" and not config.get("manifest_paths"):
+        if str(
+            config.get("page_representation") or _DEFAULT_PAGE_REPRESENTATION
+        ) != _DEFAULT_PAGE_REPRESENTATION and not config.get("manifest_paths"):
             raise ValueError("Page representation changes require regenerated production artifacts")
         if str(config.get("query_representation") or "original") != "original" and not has_derived:
             raise ValueError("Query representation requires a matching frozen query embedding artifact")

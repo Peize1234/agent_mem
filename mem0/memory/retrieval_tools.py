@@ -13,6 +13,8 @@ from mem0.configs.base import AgenticRetrievalConfig
 
 logger = logging.getLogger(__name__)
 
+_MAX_AGENTIC_QUERIES = int(AgenticRetrievalConfig.model_json_schema()["properties"]["max_queries"]["maximum"])
+
 SEARCH_MEMORY_TOOL = {
     "type": "function",
     "function": {
@@ -32,9 +34,10 @@ SEARCH_MEMORY_TOOL = {
                         "maxLength": 500,
                     },
                     "minItems": 1,
-                    "maxItems": 3,
+                    "maxItems": _MAX_AGENTIC_QUERIES,
                     "description": (
-                        "1到3个互补的中期记忆检索词；尽量包含分析主体、报告期间、分析任务、指标口径、"
+                        f"1到{_MAX_AGENTIC_QUERIES}个互补的中期记忆检索词；"
+                        "尽量包含分析主体、报告期间、分析任务、指标口径、"
                         "数据场景或版本，以及需要恢复的具体历史信息"
                     ),
                 }
@@ -53,7 +56,7 @@ QueryText = Annotated[str, Field(min_length=1, max_length=500)]
 class SearchMemoryArguments(BaseModel):
     model_config = {"extra": "forbid"}
 
-    queries: list[QueryText] = Field(min_length=1, max_length=3)
+    queries: list[QueryText] = Field(min_length=1, max_length=_MAX_AGENTIC_QUERIES)
 
     @field_validator("queries")
     @classmethod
@@ -265,9 +268,7 @@ class MemoryToolExecutor:
             payload.update(error="RetrievalUnavailable", message="记忆检索暂时不可用")
         fitted = self._fit_payload(payload)
         self._pending_valid_page_ids = (
-            self._page_ids_for_valid_recall(fitted.get("items") or [])
-            if fitted.get("ok") is True
-            else []
+            self._page_ids_for_valid_recall(fitted.get("items") or []) if fitted.get("ok") is True else []
         )
         return fitted
 

@@ -1,83 +1,27 @@
-"""Single source of truth for tuner parameter semantics and hard limits.
+"""Read tuner parameter facts from the production Pydantic configuration.
 
-The production config remains authoritative for formulas.  This module only
-describes which knobs are safe to search and validates candidates before a
-Research decision or an adapter can execute them.
+Search policy remains tuner-owned, but defaults, types, constraints, and
+Literal/Enum values are always discovered from the production config models.
 """
 
 from __future__ import annotations
 
 import math
 from copy import deepcopy
-from typing import Any, Mapping
+from dataclasses import dataclass
+from enum import Enum
+from typing import Annotated, Any, Literal, Mapping, get_args, get_origin
 
-SOURCE_CHANGING = frozenset(
-    {
-        "short_term_capacity",
-        "session_similarity_threshold",
-        "embedding_similarity_weight",
-        "keyword_overlap_weight",
-        "page_summary_prompt",
-        "session_merge_prompt",
-        "page_summary_request_options",
-        "session_merge_request_options",
-        "fine_grained_longterm_extraction_prompt",
-        "fine_grained_longterm_extraction_request_options",
-        "session_longterm_extraction_prompt",
-        "embedding_model_id",
-        "embedding_model_revision",
-        "page_representation",
-    }
+from pydantic import BaseModel, TypeAdapter
+
+from mem0.configs.base import (
+    AgenticRetrievalConfig,
+    FineGrainedLongTermConfig,
+    MemoryConfig,
+    MidTermMemoryConfig,
+    PromotedLongTermConfig,
+    RetrievalRerankerConfig,
 )
-WITHIN_SESSION_STATEFUL = frozenset(
-    {
-        "retention_half_life_turns",
-        "retention_floor",
-        "heat_alpha",
-        "heat_beta",
-        "heat_gamma",
-        "heat_recency_tau_turns",
-        "heat_modulation_min",
-        "heat_modulation_max",
-        "promotion_min_recall_count",
-        "promotion_heat_threshold",
-    }
-)
-CROSS_SESSION_TEMPORAL_STATEFUL = frozenset(
-    {
-        "cross_session_longterm_rag_threshold",
-        "cross_session_retention_half_life_hours",
-        "cross_session_retention_floor",
-        "cross_session_reinforcement_gain",
-    }
-)
-RETRIEVAL_ONLY = frozenset(
-    {
-        "top_k_pages",
-        "top_k_sessions",
-        "max_total_pages",
-        "midterm_candidate_pool_multiplier",
-        "midterm_rag_threshold",
-        "longterm_top_k",
-        "longterm_rag_threshold",
-        "longterm_candidate_pool_multiplier",
-        "longterm_hybrid_preset",
-        "entity_similarity_threshold",
-        "dense_weight",
-        "rerank_depth",
-        "candidate_depth",
-        "max_queries",
-        "max_total_results",
-        "query_rewrite_prompt",
-        "query_prompt_text",
-        "retrieval_method",
-        "fusion_method",
-        "reranker_method",
-        "longterm_reranker_method",
-        "longterm_rerank_depth",
-    }
-)
-PRODUCTION_FIXED = frozenset({"longterm_other_session_weight"})
 
 HEAT_PRESETS: dict[str, tuple[float, float, float]] = {
     "recall-heavy": (1.0, 0.25, 0.5),
@@ -91,6 +35,165 @@ HYBRID_PRESETS: dict[str, tuple[float, float, float]] = {
     "keyword-heavy": (0.25, 0.65, 0.10),
     "entity-aware": (0.50, 0.15, 0.35),
 }
+
+
+@dataclass(frozen=True)
+class ProductionParameterMetadata:
+    """Production-owned facts for one tuner-visible parameter."""
+
+    name: str
+    model: type[BaseModel]
+    field_name: str
+    annotation: Any
+    default: Any
+    ge: int | float | None
+    gt: int | float | None
+    le: int | float | None
+    lt: int | float | None
+    literal_values: tuple[Any, ...]
+
+
+# These routes describe how tuner labels are deployed; the referenced field
+# remains the sole owner of its type, default, constraints, and legal values.
+_PRODUCTION_FIELD_ROUTES: dict[str, tuple[type[BaseModel], str]] = {
+    **{
+        name: (MidTermMemoryConfig, name)
+        for name in (
+            "top_k_sessions",
+            "top_k_pages",
+            "max_total_pages",
+            "midterm_candidate_pool_multiplier",
+            "midterm_rag_threshold",
+            "short_term_capacity",
+            "session_similarity_threshold",
+            "embedding_similarity_weight",
+            "keyword_overlap_weight",
+            "retention_half_life_turns",
+            "retention_floor",
+            "heat_alpha",
+            "heat_beta",
+            "heat_gamma",
+            "heat_recency_tau_turns",
+            "heat_modulation_min",
+            "heat_modulation_max",
+            "promotion_min_recall_count",
+            "promotion_heat_threshold",
+            "page_representation",
+            "retrieval_method",
+            "fusion_method",
+            "dense_weight",
+            "rrf_rank_constant",
+            "page_summary_prompt",
+            "session_merge_prompt",
+            "page_summary_request_options",
+            "session_merge_request_options",
+        )
+    },
+    "longterm_top_k": (FineGrainedLongTermConfig, "top_k"),
+    "longterm_rag_threshold": (FineGrainedLongTermConfig, "rag_threshold"),
+    "longterm_candidate_pool_multiplier": (FineGrainedLongTermConfig, "candidate_pool_multiplier"),
+    "longterm_other_session_weight": (FineGrainedLongTermConfig, "other_session_weight"),
+    "entity_similarity_threshold": (FineGrainedLongTermConfig, "entity_similarity_threshold"),
+    "semantic_weight": (FineGrainedLongTermConfig, "semantic_weight"),
+    "bm25_weight": (FineGrainedLongTermConfig, "bm25_weight"),
+    "entity_weight": (FineGrainedLongTermConfig, "entity_weight"),
+    "candidate_depth": (RetrievalRerankerConfig, "rerank_depth"),
+    "rerank_depth": (RetrievalRerankerConfig, "rerank_depth"),
+    "reranker_method": (RetrievalRerankerConfig, "method"),
+    "longterm_rerank_depth": (RetrievalRerankerConfig, "rerank_depth"),
+    "longterm_reranker_method": (RetrievalRerankerConfig, "method"),
+    "fine_grained_longterm_extraction_prompt": (FineGrainedLongTermConfig, "extraction_prompt"),
+    "fine_grained_longterm_extraction_request_options": (
+        FineGrainedLongTermConfig,
+        "extraction_request_options",
+    ),
+    "session_longterm_extraction_prompt": (FineGrainedLongTermConfig, "extraction_prompt"),
+    "query_rewrite_prompt": (MemoryConfig, "query_rewrite_prompt"),
+    "query_prompt_text": (MemoryConfig, "query_rewrite_prompt"),
+    "max_iterations": (AgenticRetrievalConfig, "max_iterations"),
+    "max_tool_calls": (AgenticRetrievalConfig, "max_tool_calls"),
+    "max_queries": (AgenticRetrievalConfig, "max_queries"),
+    "max_total_results": (AgenticRetrievalConfig, "max_total_results"),
+    "max_tool_result_chars": (AgenticRetrievalConfig, "max_tool_result_chars"),
+    "cross_session_longterm_rag_threshold": (PromotedLongTermConfig, "rag_threshold"),
+    "cross_session_retention_half_life_hours": (PromotedLongTermConfig, "retention_half_life_hours"),
+    "cross_session_retention_floor": (PromotedLongTermConfig, "retention_floor"),
+    "cross_session_reinforcement_gain": (PromotedLongTermConfig, "reinforcement_gain"),
+    "promoted_longterm_top_k": (PromotedLongTermConfig, "top_k"),
+    "promoted_longterm_rag_threshold": (PromotedLongTermConfig, "rag_threshold"),
+}
+
+
+def _production_field(name: str) -> tuple[type[BaseModel], str]:
+    try:
+        return _PRODUCTION_FIELD_ROUTES[name]
+    except KeyError as exc:
+        raise KeyError(f"{name!r} is not backed by a tuner-routed production MemoryConfig field") from exc
+
+
+def _constraint(field: Any, attribute: str) -> int | float | None:
+    for item in field.metadata:
+        value = getattr(item, attribute, None)
+        if value is not None:
+            return value
+    return None
+
+
+def _literal_values(annotation: Any) -> tuple[Any, ...]:
+    if get_origin(annotation) is Literal:
+        return tuple(get_args(annotation))
+    if isinstance(annotation, type) and issubclass(annotation, Enum):
+        return tuple(item.value for item in annotation)
+    return ()
+
+
+def production_parameter_metadata(name: str) -> ProductionParameterMetadata:
+    """Return type/default/bounds/Literal values directly from Production."""
+
+    model, field_name = _production_field(name)
+    field = model.model_fields[field_name]
+    return ProductionParameterMetadata(
+        name=name,
+        model=model,
+        field_name=field_name,
+        annotation=field.annotation,
+        default=field.get_default(call_default_factory=True),
+        ge=_constraint(field, "ge"),
+        gt=_constraint(field, "gt"),
+        le=_constraint(field, "le"),
+        lt=_constraint(field, "lt"),
+        literal_values=_literal_values(field.annotation),
+    )
+
+
+def production_integer_candidates(name: str) -> list[int]:
+    """Enumerate a finite integer field range declared by Production."""
+
+    metadata = production_parameter_metadata(name)
+    if metadata.annotation is not int:
+        raise TypeError(f"{name} is not a production integer field")
+    if metadata.ge is not None:
+        lower = math.ceil(metadata.ge)
+    elif metadata.gt is not None:
+        lower = math.floor(metadata.gt) + 1
+    else:
+        raise ValueError(f"{name} has no production lower bound")
+    if metadata.le is not None:
+        upper = math.floor(metadata.le)
+    elif metadata.lt is not None:
+        upper = math.ceil(metadata.lt) - 1
+    else:
+        raise ValueError(f"{name} has no production upper bound")
+    return list(range(lower, upper + 1))
+
+
+def production_literal_candidates(name: str) -> list[Any]:
+    """Return Literal/Enum candidates declared by the production field type."""
+
+    values = production_parameter_metadata(name).literal_values
+    if not values:
+        raise TypeError(f"{name} is not a production Literal/Enum field")
+    return list(values)
 
 
 def _deep_merge(base: Mapping[str, Any], updates: Mapping[str, Any]) -> dict[str, Any]:
@@ -238,123 +341,39 @@ def production_overrides_from_candidate(config: Mapping[str, Any]) -> dict[str, 
     return overrides
 
 
-def parameter_class(name: str) -> str:
-    if name in SOURCE_CHANGING:
-        return "source-changing"
-    if name in WITHIN_SESSION_STATEFUL:
-        return "within-session-stateful"
-    if name in CROSS_SESSION_TEMPORAL_STATEFUL:
-        return "cross-session-temporal-stateful"
-    if name in PRODUCTION_FIXED:
-        return "production-fixed"
-    return "query-time" if name in RETRIEVAL_ONLY else "unknown"
-
-
 def validate_candidate_config(config: Mapping[str, Any], *, allow_unknown: bool = True) -> dict[str, Any]:
-    """Validate a candidate and return a normalized copy.
+    """Validate production-backed values with Production's Pydantic fields."""
 
-    This is deliberately stricter than YAML parsing so an LLM cannot bypass a
-    hard maximum by returning a hand-written JSON configuration.
-    """
     value = dict(config)
-    if not allow_unknown:
-        unknown = sorted(
-            set(value)
-            - (
-                SOURCE_CHANGING
-                | WITHIN_SESSION_STATEFUL
-                | CROSS_SESSION_TEMPORAL_STATEFUL
-                | RETRIEVAL_ONLY
-                | PRODUCTION_FIXED
-            )
+    unknown: list[str] = []
+    for name, raw_value in value.items():
+        try:
+            metadata = production_parameter_metadata(name)
+        except KeyError:
+            unknown.append(name)
+            continue
+        field_metadata = metadata.model.model_fields[metadata.field_name].metadata
+        annotation = (
+            Annotated.__class_getitem__((metadata.annotation, *field_metadata))
+            if field_metadata
+            else metadata.annotation
         )
-        if unknown:
-            raise ValueError(f"unknown tuner parameters: {', '.join(unknown)}")
+        normalized = TypeAdapter(annotation).validate_python(raw_value)
+        value[name] = normalized
+    if not allow_unknown and unknown:
+        raise ValueError(f"unknown tuner parameters: {', '.join(sorted(unknown))}")
 
-    def integer(name: str, minimum: int | None = None, maximum: int | None = None) -> None:
-        if name not in value:
-            return
-        item = value[name]
-        if isinstance(item, bool) or int(item) != item:
-            raise ValueError(f"{name} must be an integer")
-        item = int(item)
-        if minimum is not None and item < minimum:
-            raise ValueError(f"{name} must be >= {minimum}")
-        if maximum is not None and item > maximum:
-            raise ValueError(f"{name} must be <= {maximum}")
-        value[name] = item
-
-    def unit(name: str) -> None:
-        if name in value:
-            item = float(value[name])
-            if not math.isfinite(item) or not 0 <= item <= 1:
-                raise ValueError(f"{name} must be between 0 and 1")
-            value[name] = item
-
-    integer("max_total_pages", 1, 5)
-    integer("longterm_top_k", 1, 30)
-    integer("midterm_candidate_pool_multiplier", 1, 8)
-    integer("longterm_candidate_pool_multiplier", 1, 6)
-    integer("top_k_sessions", 1)
-    integer("top_k_pages", 1)
-    integer("short_term_capacity", 2)
-    if "short_term_capacity" in value and value["short_term_capacity"] % 2:
-        raise ValueError("short_term_capacity must be a positive even number")
-    integer("promotion_min_recall_count", 1)
-    integer("max_queries", 1, 3)
-    integer("max_total_results", 1, 20)
-    integer("longterm_rerank_depth", 1, 100)
-    integer("agentic_fixed_max_iterations", 2, 2)
-    integer("agentic_fixed_max_tool_calls", 1, 1)
-    integer("candidate_depth", 1, 100)
-    integer("rerank_depth", 1, 100)
-    for name in (
-        "session_similarity_threshold",
-        "midterm_rag_threshold",
-        "longterm_rag_threshold",
-        "cross_session_longterm_rag_threshold",
-        "retention_floor",
-        "cross_session_retention_floor",
-        "entity_similarity_threshold",
-        "dense_weight",
-        "embedding_similarity_weight",
-        "keyword_overlap_weight",
-        "longterm_other_session_weight",
-    ):
-        unit(name)
-    for name in ("retention_half_life_turns", "heat_recency_tau_turns", "cross_session_retention_half_life_hours"):
-        if name in value and (not math.isfinite(float(value[name])) or float(value[name]) <= 0):
-            raise ValueError(f"{name} must be > 0")
-    if "embedding_similarity_weight" in value or "keyword_overlap_weight" in value:
-        embedding = float(value.get("embedding_similarity_weight", 0.7))
-        keyword = float(value.get("keyword_overlap_weight", 0.3))
-        if not math.isclose(embedding + keyword, 1.0, abs_tol=1e-9):
-            raise ValueError("embedding_similarity_weight + keyword_overlap_weight must equal 1")
-    minimum = value.get("heat_modulation_min")
-    maximum = value.get("heat_modulation_max")
-    if minimum is not None or maximum is not None:
-        minimum = float(0.9 if minimum is None else minimum)
-        maximum = float(1.1 if maximum is None else maximum)
-        if not 0 < minimum < 1 < maximum or minimum >= maximum:
-            raise ValueError("heat modulation must satisfy 0 < min < 1 < max")
-    for name in (
-        "heat_alpha",
-        "heat_beta",
-        "heat_gamma",
-        "cross_session_reinforcement_gain",
-        "promotion_heat_threshold",
-    ):
-        if name in value and (not math.isfinite(float(value[name])) or float(value[name]) < 0):
-            raise ValueError(f"{name} must be >= 0")
+    # Hybrid presets are tuner-owned search strategies, not production field
+    # values. The selected weights are still validated by MemoryConfig below.
     if "longterm_hybrid_preset" in value and value["longterm_hybrid_preset"] not in HYBRID_PRESETS:
         raise ValueError("longterm_hybrid_preset must be a Python-defined preset")
-    if "fusion_method" in value:
-        from mem0.configs.base import MidTermMemoryConfig
 
-        try:
-            MidTermMemoryConfig(fusion_method=value["fusion_method"])
-        except ValueError as exc:
-            raise ValueError("fusion_method must be supported by Production MidTerm retrieval") from exc
+    # Model-level invariants also stay in Production. Build only the minimal
+    # override represented by this Candidate and let MemoryConfig validate it.
+    production_overrides = production_overrides_from_candidate(value)
+    if production_overrides:
+        resolved = _deep_merge(MemoryConfig().model_dump(mode="python", warnings=False), production_overrides)
+        MemoryConfig.model_validate(resolved)
     return value
 
 
@@ -382,7 +401,17 @@ def heat_modulation_candidates() -> list[dict[str, float]]:
 
 
 def promotion_threshold_candidates(heat_values: list[float] | tuple[float, ...]) -> list[float]:
-    values = sorted(float(value) for value in heat_values if math.isfinite(float(value)) and float(value) >= 0)
+    values = []
+    for raw_value in heat_values:
+        value = float(raw_value)
+        if not math.isfinite(value):
+            continue
+        try:
+            value = float(validate_candidate_config({"promotion_heat_threshold": value})["promotion_heat_threshold"])
+        except ValueError:
+            continue
+        values.append(value)
+    values.sort()
     if not values:
         return []
     n = len(values)

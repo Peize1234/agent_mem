@@ -163,13 +163,17 @@ def _executor(memory=None, *, record_midterm_visits=False, **overrides):
 
 def test_agentic_config_defaults_and_validates_low_latency_limits():
     config = AgenticRetrievalConfig()
+    max_total_schema = AgenticRetrievalConfig.model_json_schema()["properties"]["max_total_results"]
 
     assert MemoryConfig().agentic_retrieval.enabled is True
     assert config.max_iterations == 2
     assert config.max_tool_calls == 1
     assert config.max_queries == 3
     assert config.candidate_pool_size == 20
-    assert config.max_total_results == 6
+    assert config.max_total_results == 5
+    assert max_total_schema["default"] == 5
+    assert max_total_schema["minimum"] == 1
+    assert max_total_schema["maximum"] == 5
     assert config.max_tool_result_chars == 30000
     assert "max_chars_per_result" not in AgenticRetrievalConfig.model_fields
     assert "default_threshold" not in AgenticRetrievalConfig.model_fields
@@ -181,9 +185,9 @@ def test_agentic_config_defaults_and_validates_low_latency_limits():
         AgenticRetrievalConfig(max_queries=4)
     with pytest.raises(ValidationError):
         AgenticRetrievalConfig(max_tool_result_chars=999)
-    assert AgenticRetrievalConfig(max_total_results=20).max_total_results == 20
+    assert AgenticRetrievalConfig(max_total_results=5).max_total_results == 5
     with pytest.raises(ValidationError):
-        AgenticRetrievalConfig(max_total_results=21)
+        AgenticRetrievalConfig(max_total_results=6)
 
 
 def test_only_search_memory_tool_with_queries_is_exposed():
@@ -453,6 +457,26 @@ def test_multi_query_pages_are_deduplicated_by_id_and_keep_highest_score():
     assert result["items"][0]["session_summary"] == "亏损主题"
 
 
+def test_max_queries_and_max_total_results_control_distinct_agentic_stages():
+    memory = _FakeMemory(
+        {
+            "query-1": [_page("page-1", 0.6), _page("page-2", 0.9)],
+            "query-2": [_page("page-3", 0.8), _page("page-1", 0.7)],
+        }
+    )
+
+    result = _executor(memory, max_queries=2, max_total_results=2).execute(
+        "search_memory",
+        {"queries": ["query-1", "query-2"]},
+    )
+
+    assert {call[0] for call in memory.midterm_retriever.calls} == {"query-1", "query-2"}
+    assert [item["result_id"] for item in result["items"]] == [
+        "mid_term_page:page-2",
+        "mid_term_page:page-3",
+    ]
+
+
 def test_multi_query_candidate_retrieval_does_not_record_valid_recall():
     queries = ["风险偏好", "最大亏损", "投资限制"]
     memory = _FakeMemory({query: _default_results() for query in queries})
@@ -577,12 +601,12 @@ def test_agentic_production_page_budget_remains_config_owned():
         memory,
         user_id="user-1",
         run_id="run-1",
-        config=AgenticRetrievalConfig(max_total_results=6),
+        config=AgenticRetrievalConfig(max_total_results=5),
     )
 
     result = executor.execute("search_memory", {"queries": ["remaining"]})
 
-    assert len(result["items"]) == 6
+    assert len(result["items"]) == 5
 
 
 def test_global_tool_limit_drops_whole_low_score_pages_without_truncation():

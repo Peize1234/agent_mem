@@ -52,6 +52,7 @@ from tuner.experiment_branches import (  # noqa: E402
     FineGrainedLongtermExtractionPromptBranch,
     FineGrainedLongtermRetrievalBranch,
     HybridRetrievalBranch,
+    PageRepresentationBranch,
     QueryRepresentationBranch,
     RerankingBranch,
     RetrievalControlBranch,
@@ -87,7 +88,9 @@ from tuner.orchestrator import (  # noqa: E402
     _resolve_shortterm_window,
 )
 from tuner.parameter_schema import (  # noqa: E402
-    parameter_class,
+    production_integer_candidates,
+    production_literal_candidates,
+    production_parameter_metadata,
     production_overrides_from_candidate,
 )
 from tuner.production_midterm_adapter import (  # noqa: E402
@@ -642,7 +645,7 @@ def test_production_adapter_manifest_and_runtime_isolation(tmp_path: Path) -> No
                             "max_iterations": 2,
                             "max_tool_calls": 1,
                             "max_queries": 3,
-                            "max_total_results": 6,
+                            "max_total_results": 5,
                             "max_tool_result_chars": 23456,
                         },
                     },
@@ -659,13 +662,13 @@ def test_production_adapter_manifest_and_runtime_isolation(tmp_path: Path) -> No
     assert config["backend"] == "production_midterm"
     assert config["retrieval_method"] == "dense"
     assert config["bm25_language"] == "zh"
-    assert config["max_total_results"] == 6
+    assert config["max_total_results"] == 5
     assert config["benchmark_constraints"]["agentic_result_cap"] == 5
     assert config["agentic_fixed_max_tool_result_chars"] == 23456
     assert provenance["source"] == "real AsyncMemory Add/MidTerm pipeline"
     assert provenance["llm_calls"] == 3
     assert provenance["embedding_calls"] == 30
-    assert provenance["production_agentic_max_total_results"] == 6
+    assert provenance["production_agentic_max_total_results"] == 5
     assert provenance["production_agentic_max_tool_result_chars"] == 23456
     assert provenance["tuner_agentic_context_cap"] == 5
     ProductionMidtermAdapter.supported(config)
@@ -1194,16 +1197,14 @@ def test_other_session_weight_is_production_fixed_not_a_search_parameter() -> No
     import yaml
 
     space = yaml.safe_load((Path(__file__).resolve().parents[2] / "search_space.yaml").read_text())
-    classes = space["parameters"]["classes"]
-    all_searchable = {
-        value for name, values in classes.items() if name != "production_fixed_not_searched" for value in values
-    }
+    cross_session = space["search"]["stages"]["secondary"]["cross_session_temporal"]
 
-    assert parameter_class("longterm_other_session_weight") == "production-fixed"
-    assert "longterm_other_session_weight" not in all_searchable
-    assert "max_tool_result_chars" not in all_searchable
+    assert "parameters" not in space
+    assert cross_session["tuning"] == "disabled"
+    assert cross_session["winner_selection"] == "disabled"
+    assert cross_session["production_config_policy"] == "unchanged_defaults"
+    assert production_parameter_metadata("longterm_other_session_weight").default == 0.7
     assert AgenticRetrievalConfig().max_tool_result_chars == 30000
-    assert classes["production_fixed_not_searched"] == ["longterm_other_session_weight"]
 
 
 def test_production_adapter_exports_full_candidate_threshold_and_cap_trace(tmp_path: Path) -> None:
@@ -2353,6 +2354,8 @@ def test_agentic_branch_generates_real_parameter_candidates_and_keeps_fixed_limi
     outcome = BranchRegistry([branch]).generate(branch, context)
 
     assert outcome.status == "READY"
+    assert production_integer_candidates("max_queries") == [1, 2, 3]
+    assert production_integer_candidates("max_total_results") == [1, 2, 3, 4, 5]
     assert {candidate.config["max_queries"] for candidate in outcome.candidates} >= {1, 2}
     assert {candidate.config["max_total_results"] for candidate in outcome.candidates} >= {1, 2, 3, 4}
     assert all(candidate.config["agentic_trace_enabled"] is True for candidate in outcome.candidates)
@@ -3135,7 +3138,7 @@ def _production_branch_inputs(
                             "max_iterations": 2,
                             "max_tool_calls": 1,
                             "max_queries": 3,
-                            "max_total_results": 6,
+                            "max_total_results": 5,
                             "max_tool_result_chars": 30000,
                         },
                     },
@@ -3227,18 +3230,87 @@ def test_standard_retrieval_control_searches_top_k_sessions_without_source_regen
     space = yaml.safe_load((SCRIPTS.parent / "search_space.yaml").read_text(encoding="utf-8"))
     context = _branch_context(tmp_path, dataset, baseline, budget="standard", search_space=space)
 
-    outcome = RetrievalControlBranch().generate(context)
+    branch = RetrievalControlBranch()
+    outcome = BranchRegistry([branch]).generate(branch, context)
     session_candidates = [candidate for candidate in outcome.candidates if "top_k_sessions=" in candidate.name]
 
     assert {candidate.config["top_k_sessions"] for candidate in session_candidates} == {4, 6, 7}
     standard_limit = space["budget"]["profiles"]["standard"]["max_candidates_per_stage"]
     assert any("top_k_sessions=" in candidate.name for candidate in outcome.candidates[:standard_limit])
+    assert branch.requires_source_regeneration is False
     for candidate in session_candidates:
         assert candidate.config.get("source_generation_spec") is None
         assert candidate.config.get("source_config_overrides") is None
-        assert candidate.provenance.get("requires_source_regeneration") is not True
+        assert candidate.provenance["requires_source_regeneration"] is False
+        assert (
+            prepare_generated_source_candidate(
+                candidate,
+                sessions=list(dataset.sessions),
+                registry=context.registry,
+                run_dir=context.run_dir,
+                ranking_depth=context.ranking_depth,
+                max_parallel_sessions=1,
+                max_parallel_llm_calls=1,
+                gpu_count=0,
+            )
+            is candidate
+        )
         production = ProductionMidtermAdapter._validated_production_config(candidate.config)
         assert production.midterm.top_k_sessions == candidate.config["top_k_sessions"]
+
+
+def test_page_representation_branch_reads_literal_and_regenerates_source(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import tuner.generated_source_artifacts as generated_sources
+    import yaml
+
+    dataset = make_dataset(tmp_path, 1)
+    baseline, _ = _production_branch_inputs(tmp_path, dataset)
+    space = yaml.safe_load((SCRIPTS.parent / "search_space.yaml").read_text(encoding="utf-8"))
+    context = _branch_context(tmp_path, dataset, baseline, budget="standard", search_space=space)
+    branch = PageRepresentationBranch()
+    outcome = BranchRegistry([branch]).generate(branch, context)
+
+    assert outcome.status == "READY"
+    assert branch.requires_source_regeneration is True
+    assert outcome.candidates
+    legal_values = set(production_literal_candidates("page_representation"))
+    assert {candidate.config["page_representation"] for candidate in outcome.candidates} <= legal_values
+    assert all(candidate.provenance["requires_source_regeneration"] is True for candidate in outcome.candidates)
+
+    generation_calls: list[dict[str, Any]] = []
+
+    def fake_generate(**kwargs: Any) -> list[Path]:
+        generation_calls.append(kwargs)
+        paths = []
+        for session_id in kwargs["session_ids"]:
+            path = Path(kwargs["source_root"]) / session_id / "production_midterm_manifest.json"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps({"session_id": session_id}), encoding="utf-8")
+            paths.append(path)
+        return paths
+
+    monkeypatch.setattr(generated_sources, "generate_production_sources", fake_generate)
+    candidate = outcome.candidates[0]
+    prepared = prepare_generated_source_candidate(
+        candidate,
+        sessions=list(dataset.sessions),
+        registry=context.registry,
+        run_dir=context.run_dir,
+        ranking_depth=context.ranking_depth,
+        max_parallel_sessions=1,
+        max_parallel_llm_calls=1,
+        gpu_count=0,
+    )
+
+    assert prepared is not candidate
+    assert generation_calls
+    assert (
+        generation_calls[0]["config_overrides"]["midterm"]["page_representation"]
+        == candidate.config["page_representation"]
+    )
 
 
 def test_hybrid_branch_searches_production_fusion_methods_without_cartesian_weights(tmp_path: Path) -> None:
@@ -4581,7 +4653,7 @@ def test_embedding_branch_replays_real_production_sources_before_evaluation(
     assert len(outcome.candidates) == 1
     candidate = outcome.candidates[0]
     spec = candidate.config["source_generation_spec"]
-    assert parameter_class("embedding_model_id") == "source-changing"
+    assert branch.requires_source_regeneration is True
     assert candidate.provenance["requires_source_regeneration"] is True
     assert spec["source_identity"]["real_add_replay"] is True
     assert spec["embedding_model_revision"] == "immutable-revision"

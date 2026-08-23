@@ -20,6 +20,9 @@ from .io_utils import load_json, load_jsonl, sha256_file, stable_hash
 from .model_discovery import ModelDiscovery
 from .models import Candidate, CandidateResult, Dataset
 from .parameter_schema import (
+    production_integer_candidates,
+    production_literal_candidates,
+    production_parameter_metadata,
     production_overrides_from_candidate,
     validate_candidate_config,
 )
@@ -121,6 +124,7 @@ class BranchContext:
 
 class ExperimentBranch(Protocol):
     spec: BranchSpec
+    requires_source_regeneration: bool
 
     def generate(self, context: BranchContext) -> BranchOutcome: ...
 
@@ -270,6 +274,7 @@ def _stateful_source_spec(
 
 class BaseBranch:
     spec: BranchSpec
+    requires_source_regeneration = False
 
     def validate_provenance(self, candidate: Candidate, context: BranchContext) -> tuple[bool, str | None]:
         del context
@@ -308,13 +313,12 @@ class RetrievalControlBranch(BaseBranch):
             "retrieval"
         ) or {}
         candidates: list[Candidate] = []
-        axes = (
-            ("top_k_pages", context.k),
-            ("top_k_sessions", 1),
-            ("max_total_pages", 1),
-            ("midterm_candidate_pool_multiplier", 1),
-        )
-        for axis, minimum in axes:
+        axes = ("top_k_pages", "top_k_sessions", "max_total_pages", "midterm_candidate_pool_multiplier")
+        for axis in axes:
+            metadata = production_parameter_metadata(axis)
+            minimum = math.ceil(metadata.ge) if metadata.ge is not None else math.floor(metadata.gt) + 1
+            if axis == "top_k_pages":
+                minimum = max(minimum, context.k)
             baseline = int(context.anchor.config.get(axis) or minimum)
             axis_config = retrieval.get(axis) or {}
             if context.generation_round == 1:
@@ -323,11 +327,13 @@ class RetrievalControlBranch(BaseBranch):
                 step = max(1, int(axis_config.get("refine_step") or 1))
                 values = sorted({max(minimum, baseline - step), baseline, baseline + step})
             if axis == "max_total_pages":
-                configured = axis_config.get("values") or [1, 2, 3, 4, 5]
-                values = [int(value) for value in configured if 1 <= int(value) <= 5]
+                context_budget = int(
+                    (context.anchor.config.get("benchmark_constraints") or {}).get("context_budget")
+                    or max(context.k, baseline)
+                )
+                values = list(range(minimum, context_budget + 1))
             if axis == "midterm_candidate_pool_multiplier":
-                configured = axis_config.get("values") or [2, 4, 6, 8]
-                values = [int(value) for value in configured if 1 <= int(value) <= 8]
+                values = production_integer_candidates(axis)
             for value in values:
                 if value == baseline:
                     continue
@@ -342,9 +348,16 @@ class RetrievalControlBranch(BaseBranch):
                     )
                 )
         threshold_config = retrieval.get("midterm_rag_threshold") or {}
-        threshold_values = threshold_config.get("coarse") or [0.00, 0.05, 0.10, 0.15, 0.20, 0.30]
-        baseline_threshold = float(context.anchor.config.get("midterm_rag_threshold", 0.1))
-        for threshold in sorted({float(value) for value in threshold_values if 0 <= float(value) <= 1}):
+        threshold_values = threshold_config.get("coarse") or []
+        baseline_threshold = float(
+            context.anchor.config.get(
+                "midterm_rag_threshold", production_parameter_metadata("midterm_rag_threshold").default
+            )
+        )
+        for raw_threshold in sorted({float(value) for value in threshold_values}):
+            threshold = float(
+                validate_candidate_config({"midterm_rag_threshold": raw_threshold})["midterm_rag_threshold"]
+            )
             if threshold == baseline_threshold:
                 continue
             candidates.append(
@@ -418,22 +431,12 @@ class AgenticRetrievalBranch(BaseBranch):
                 "UNAVAILABLE",
                 reason="search_space.yaml has no agentic_retrieval search definition",
             )
-        fixed = settings.get("fixed") or {}
-        if (
-            int(fixed.get("max_iterations") or 0) != AGENTIC_FIXED_MAX_ITERATIONS
-            or int(fixed.get("max_tool_calls") or 0) != AGENTIC_FIXED_MAX_TOOL_CALLS
-        ):
-            return BranchOutcome(
-                self.spec.name,
-                "UNAVAILABLE",
-                reason="Agentic hard constraints must keep max_iterations=2 and max_tool_calls=1",
-            )
         raw_max_tool_result_chars = context.anchor.config.get("agentic_fixed_max_tool_result_chars")
         try:
-            max_tool_result_chars = int(raw_max_tool_result_chars)
+            max_tool_result_chars = int(
+                validate_candidate_config({"max_tool_result_chars": raw_max_tool_result_chars})["max_tool_result_chars"]
+            )
         except (TypeError, ValueError):
-            max_tool_result_chars = 0
-        if max_tool_result_chars < 1000:
             return BranchOutcome(
                 self.spec.name,
                 "UNAVAILABLE",
@@ -482,14 +485,14 @@ class AgenticRetrievalBranch(BaseBranch):
                 context,
             )
 
-        query_values = sorted({int(value) for value in settings.get("max_queries") or []})
-        result_values = sorted({int(value) for value in settings.get("max_total_results") or []})
-        for value in query_values:
-            validate_candidate_config({"max_queries": value})
-        for value in result_values:
-            validate_candidate_config({"max_total_results": value})
-        baseline_queries = int(context.anchor.config.get("max_queries") or max(query_values, default=3))
-        baseline_results = int(context.anchor.config.get("max_total_results") or max(result_values, default=5))
+        query_values = production_integer_candidates("max_queries")
+        result_values = production_integer_candidates("max_total_results")
+        baseline_queries = int(
+            context.anchor.config.get("max_queries") or production_parameter_metadata("max_queries").default
+        )
+        baseline_results = int(
+            context.anchor.config.get("max_total_results") or production_parameter_metadata("max_total_results").default
+        )
         available = set(trace.variants)
         variants = {
             *((value, baseline_results) for value in query_values if value != baseline_queries),
@@ -699,6 +702,7 @@ class QueryRepresentationBranch(BaseBranch):
 
 
 class PageRepresentationBranch(BaseBranch):
+    requires_source_regeneration = True
     spec = BranchSpec(
         name="PageRepresentation",
         diagnostic_regimes=frozenset({"candidate_coverage_bottleneck", "session_instability", "balanced_or_plateau"}),
@@ -711,16 +715,21 @@ class PageRepresentationBranch(BaseBranch):
     )
 
     def generate(self, context: BranchContext) -> BranchOutcome:
-        config = (((context.search_space.get("search") or {}).get("stages") or {}).get("secondary") or {}).get(
-            "page_representation"
-        ) or {}
-        variants = list(config.get("values") or ["summary", "summary_keywords", "user_summary"])
+        from mem0.memory.midterm import PAGE_REPRESENTATION_ALIASES
+
+        variants = list(
+            dict.fromkeys(
+                PAGE_REPRESENTATION_ALIASES.get(str(value), str(value))
+                for value in production_literal_candidates("page_representation")
+            )
+        )
+        production_default = str(production_parameter_metadata("page_representation").default)
         limit = 1 if context.budget == "quick" else 2 if context.budget == "standard" else len(variants)
         limit = min(limit, int(context.execution_settings.get("remaining_expensive_candidates") or limit))
         candidates: list[Candidate] = []
         failures: list[str] = []
         for variant in variants[:limit]:
-            if variant == "production":
+            if variant == production_default:
                 continue
             try:
                 source = _stateful_source_spec(
@@ -740,8 +749,6 @@ class PageRepresentationBranch(BaseBranch):
                         complexity=2,
                         provenance={
                             "source_identity": identity,
-                            "requires_source_regeneration": True,
-                            "source_parameter_class": "source-changing",
                             "provenance_validated": True,
                         },
                         page_representation=str(variant),
@@ -780,20 +787,7 @@ class HybridRetrievalBranch(BaseBranch):
         ) or {}
         if "dense_bm25_fusion" not in set(config.get("methods") or ["dense_bm25_fusion"]):
             return BranchOutcome(self.spec.name, "UNAVAILABLE", reason="dense_bm25_fusion is disabled")
-        fusion_config = config.get("fusion_method") or {}
-        fusion_methods = list(dict.fromkeys(fusion_config.get("values") or ["normalized_score", "rrf"]))
-        invalid_methods = []
-        for method in fusion_methods:
-            try:
-                validate_candidate_config({"fusion_method": method})
-            except ValueError:
-                invalid_methods.append(str(method))
-        if invalid_methods:
-            return BranchOutcome(
-                self.spec.name,
-                "UNAVAILABLE",
-                reason=f"unsupported production fusion methods: {', '.join(invalid_methods)}",
-            )
+        fusion_methods = production_literal_candidates("fusion_method")
         weight_config = config.get("dense_weight") or {}
         if context.generation_round == 1:
             weights = weight_config.get("coarse") or [0.7, 0.85]
@@ -801,19 +795,25 @@ class HybridRetrievalBranch(BaseBranch):
             center = float(context.anchor.config.get("dense_weight") or 0.7)
             step = float(weight_config.get("refine_step") or 0.05)
             weights = [center - 2 * step, center - step, center, center + step, center + 2 * step]
-        anchor_retrieval_method = str(context.anchor.config.get("retrieval_method") or "dense")
-        anchor_fusion_method = str(context.anchor.config.get("fusion_method") or "normalized_score")
-        anchor_dense_weight = float(context.anchor.config.get("dense_weight") or 0.7)
-        valid_weights = [
-            float(weight)
-            for weight in dict.fromkeys(weights)
-            if 0.0 <= float(weight) <= 1.0
-            and not (
+        anchor_retrieval_method = str(
+            context.anchor.config.get("retrieval_method") or production_parameter_metadata("retrieval_method").default
+        )
+        anchor_fusion_method = str(
+            context.anchor.config.get("fusion_method") or production_parameter_metadata("fusion_method").default
+        )
+        anchor_dense_weight = float(
+            context.anchor.config.get("dense_weight") or production_parameter_metadata("dense_weight").default
+        )
+        valid_weights = []
+        for raw_weight in dict.fromkeys(weights):
+            weight = float(validate_candidate_config({"dense_weight": raw_weight})["dense_weight"])
+            if (
                 anchor_retrieval_method == "dense_bm25_fusion"
                 and anchor_fusion_method == "normalized_score"
-                and math.isclose(float(weight), anchor_dense_weight)
-            )
-        ]
+                and math.isclose(weight, anchor_dense_weight)
+            ):
+                continue
+            valid_weights.append(weight)
         weight_limit = 1 if context.budget == "quick" else 2 if context.budget == "standard" else len(valid_weights)
         candidates: list[Candidate] = []
         if "normalized_score" in fusion_methods:
@@ -888,12 +888,19 @@ class RerankingBranch(BaseBranch):
             or MidTermMemoryConfig().reranker.rerank_depth
         )
         configured_depths = rerank_config.get("rerank_depth") or [reference_depth]
-        depths = sorted({int(depth) for depth in configured_depths if 1 <= int(depth) <= 100})
+        depths = []
+        for raw_depth in configured_depths:
+            try:
+                depth = int(validate_candidate_config({"rerank_depth": raw_depth})["rerank_depth"])
+            except ValueError:
+                continue
+            depths.append(depth)
+        depths = sorted(set(depths))
         if not depths:
             return BranchOutcome(
                 self.spec.name,
                 "UNAVAILABLE",
-                reason="rerank_depth has no values within the Production range 1..100",
+                reason="rerank_depth has no values accepted by Production",
             )
 
         if context.generation_round == 1:
@@ -931,8 +938,7 @@ class RerankingBranch(BaseBranch):
         else:
             applied_branches = set(context.anchor.config.get("applied_branches") or [])
             has_reranking_lineage = (
-                context.anchor.config.get("experiment_branch") == self.spec.name
-                or self.spec.name in applied_branches
+                context.anchor.config.get("experiment_branch") == self.spec.name or self.spec.name in applied_branches
             )
             prior_frontier_winner = any(bool(record.get("frontier_winner")) for record in context.branch_history)
             model_id = context.anchor.config.get("reranker_model_id")
@@ -980,6 +986,7 @@ class RerankingBranch(BaseBranch):
 
 
 class EmbeddingBranch(BaseBranch):
+    requires_source_regeneration = True
     spec = BranchSpec(
         name="Embedding",
         diagnostic_regimes=frozenset({"candidate_coverage_bottleneck"}),
@@ -1112,8 +1119,6 @@ class EmbeddingBranch(BaseBranch):
                         complexity=3,
                         provenance={
                             "model_discovery": model.serializable(),
-                            "requires_source_regeneration": True,
-                            "source_parameter_class": "source-changing",
                             "source_identity": identity,
                             "provenance_validated": True,
                         },
@@ -1141,6 +1146,7 @@ class EmbeddingBranch(BaseBranch):
 
 
 class FieldAwareMultiVectorBranch(BaseBranch):
+    requires_source_regeneration = True
     spec = BranchSpec(
         name="FieldAwareMultiVector",
         diagnostic_regimes=frozenset({"ranking_bottleneck", "candidate_coverage_bottleneck"}),
@@ -1187,8 +1193,6 @@ class FieldAwareMultiVectorBranch(BaseBranch):
                         complexity=4,
                         provenance={
                             "source_identity": identity,
-                            "requires_source_regeneration": True,
-                            "source_parameter_class": "source-changing",
                             "provenance_validated": True,
                         },
                         reranker_method="multi_vector_maxsim",
@@ -1224,6 +1228,7 @@ class FieldAwareMultiVectorBranch(BaseBranch):
 
 
 class SourcePromptBranch(BaseBranch):
+    requires_source_regeneration = True
     spec = BranchSpec(
         name="SourcePrompt",
         diagnostic_regimes=frozenset({"candidate_coverage_bottleneck", "session_instability"}),
@@ -1354,6 +1359,7 @@ class SourcePromptBranch(BaseBranch):
 
 
 class MidtermEvolutionBranch(BaseBranch):
+    requires_source_regeneration = True
     """Generate data-derived Evolution candidates for stateful replay."""
 
     spec = BranchSpec(
@@ -1422,7 +1428,6 @@ class MidtermEvolutionBranch(BaseBranch):
                     provenance={
                         "stateful_replay": True,
                         "source_identity": identity,
-                        "requires_source_regeneration": True,
                         "cartesian_grid": False,
                     },
                     source_generation_spec=spec,
@@ -1441,6 +1446,8 @@ class MidtermEvolutionBranch(BaseBranch):
 
 class PromotionBranch(BaseBranch):
     """Tune promotion thresholds only after a Heat preset replay."""
+
+    requires_source_regeneration = True
 
     spec = BranchSpec(
         name="Promotion",
@@ -1520,7 +1527,6 @@ class PromotionBranch(BaseBranch):
                     provenance={
                         "stateful_replay": True,
                         "source_identity": identity,
-                        "requires_source_regeneration": True,
                     },
                     source_generation_spec=spec,
                     source_config_overrides={"midterm": changes},
@@ -1543,6 +1549,8 @@ class PromotionBranch(BaseBranch):
 
 class MidtermSourceConfigBranch(BaseBranch):
     """Screen source-changing Mid-term config candidates with real Add replay."""
+
+    requires_source_regeneration = True
 
     spec = BranchSpec(
         name="MidtermSourceConfig",
@@ -1579,9 +1587,15 @@ class MidtermSourceConfigBranch(BaseBranch):
                 "session_order": sorted(context.dataset.sessions),
             }
         baseline_midterm = dict(manifest.get("production_config") or {})
+        retrieval_strategy = (((context.search_space.get("search") or {}).get("stages") or {}).get("cheap") or {}).get(
+            "retrieval"
+        ) or {}
         axes = [
-            ("short_term_capacity", [4, 6, 8]),
-            ("session_similarity_threshold", [0.5, 0.6, 0.7, 0.8, 0.9]),
+            ("short_term_capacity", (retrieval_strategy.get("short_term_capacity") or {}).get("values") or []),
+            (
+                "session_similarity_threshold",
+                (retrieval_strategy.get("session_similarity_threshold") or {}).get("values") or [],
+            ),
         ]
         candidates = []
         for axis, values in axes:
@@ -1612,9 +1626,7 @@ class MidtermSourceConfigBranch(BaseBranch):
                         cost_level=self.spec.cost_level,
                         complexity=5,
                         provenance={
-                            "source_changing": True,
                             "source_identity": identity,
-                            "requires_source_regeneration": True,
                         },
                         source_generation_spec=spec,
                         source_config_overrides=overrides,
@@ -1624,10 +1636,15 @@ class MidtermSourceConfigBranch(BaseBranch):
         # Session assignment weights are a paired preset, never an
         # independent Cartesian grid.  Each pair changes the generated
         # Session source and therefore receives its own source identity.
-        for embedding_weight, keyword_weight in ((0.5, 0.5), (0.6, 0.4), (0.7, 0.3), (0.8, 0.2), (0.9, 0.1)):
+        assignment_presets = (retrieval_strategy.get("session_assignment_weight_presets") or {}).get("values") or []
+        default_embedding_weight = production_parameter_metadata("embedding_similarity_weight").default
+        default_keyword_weight = production_parameter_metadata("keyword_overlap_weight").default
+        for embedding_weight, keyword_weight in assignment_presets:
             if math.isclose(
-                float(baseline_midterm.get("embedding_similarity_weight", 0.7)), embedding_weight
-            ) and math.isclose(float(baseline_midterm.get("keyword_overlap_weight", 0.3)), keyword_weight):
+                float(baseline_midterm.get("embedding_similarity_weight", default_embedding_weight)), embedding_weight
+            ) and math.isclose(
+                float(baseline_midterm.get("keyword_overlap_weight", default_keyword_weight)), keyword_weight
+            ):
                 continue
             overrides = {
                 "midterm": {
@@ -1658,9 +1675,7 @@ class MidtermSourceConfigBranch(BaseBranch):
                     cost_level=self.spec.cost_level,
                     complexity=5,
                     provenance={
-                        "source_changing": True,
                         "source_identity": identity,
-                        "requires_source_regeneration": True,
                     },
                     source_generation_spec=spec,
                     source_config_overrides=overrides,
@@ -1775,10 +1790,9 @@ class FineGrainedLongtermRetrievalBranch(BaseBranch):
 
             def legal_depth(value: Any) -> int | None:
                 try:
-                    depth = int(value)
+                    return int(validate_candidate_config({"longterm_rerank_depth": value})["longterm_rerank_depth"])
                 except (TypeError, ValueError):
                     return None
-                return depth if 1 <= depth <= 100 else None
 
             reference_depth = FineGrainedLongTermConfig().reranker.rerank_depth
             for value in (context.anchor.config.get("longterm_rerank_depth"), nested_reranker.get("rerank_depth")):
@@ -1797,8 +1811,7 @@ class FineGrainedLongtermRetrievalBranch(BaseBranch):
             if context.generation_round == 1:
                 allow_network = context.budget == "deep"
                 model_limit = int(
-                    settings.get("max_reranker_models_deep" if allow_network else "max_reranker_models_standard")
-                    or 1
+                    settings.get("max_reranker_models_deep" if allow_network else "max_reranker_models_standard") or 1
                 )
                 models = context.model_discovery.discover(
                     model_type="reranker",
@@ -1975,7 +1988,6 @@ def _split_source_prompt_outcome(
                     "prompt_hash": prompt_hash,
                     "prompt_kind": prompt_field,
                     "source_identity": identity,
-                    "requires_source_regeneration": True,
                     "tune_aggregate_only": True,
                     "provenance_validated": True,
                 },
@@ -2071,7 +2083,13 @@ class BranchRegistry:
         self._branches[branch.spec.name] = branch
 
     def describe(self) -> list[dict[str, Any]]:
-        return [branch.spec.serializable() for branch in self.ordered()]
+        return [
+            {
+                **branch.spec.serializable(),
+                "requires_source_regeneration": bool(getattr(branch, "requires_source_regeneration", False)),
+            }
+            for branch in self.ordered()
+        ]
 
     def ordered(self) -> list[ExperimentBranch]:
         return sorted(
@@ -2319,6 +2337,20 @@ class BranchRegistry:
         valid: list[Candidate] = []
         invalid: list[str] = []
         for candidate in outcome.candidates:
+            requires_source_regeneration = bool(getattr(branch, "requires_source_regeneration", False))
+            candidate.provenance["requires_source_regeneration"] = requires_source_regeneration
+            if requires_source_regeneration:
+                source_spec = candidate.config.get("source_generation_spec")
+                if not isinstance(source_spec, Mapping) or not isinstance(source_spec.get("source_identity"), Mapping):
+                    invalid.append(f"{candidate.name}: source-regenerating Branch did not create a source identity")
+                    continue
+                anchor_spec = context.anchor.config.get("source_generation_spec")
+                anchor_identity = anchor_spec.get("source_identity") if isinstance(anchor_spec, Mapping) else None
+                if anchor_identity is not None and stable_hash(source_spec["source_identity"]) == stable_hash(
+                    anchor_identity
+                ):
+                    invalid.append(f"{candidate.name}: source-regenerating Branch reused its parent source identity")
+                    continue
             is_valid, reason = branch.validate_provenance(candidate, context)
             if is_valid:
                 valid.append(candidate)

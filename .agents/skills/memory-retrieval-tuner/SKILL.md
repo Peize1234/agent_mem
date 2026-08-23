@@ -1,6 +1,6 @@
 ---
 name: memory-retrieval-tuner
-description: 自动审查记忆 Benchmark，基于生产一致的 MidTerm 检索链路进行调参，跨 Session 验证泛化能力，并推荐稳定配置。适用于数据集变更或 MidTerm 记忆检索调参场景。R@K 可配置，K 默认值为 5。
+description: 自动审查记忆 Benchmark，基于生产一致的 MidTerm 检索链路进行调参，在 held-out Sessions 上验证泛化能力，并推荐稳定配置。适用于数据集变更或 MidTerm 记忆检索调参场景。R@K 可配置，K 默认值为 5。
 ---
 
 # 记忆检索自动调参器
@@ -65,9 +65,13 @@ $memory-retrieval-tuner dataset=exp/my_dataset.xlsx k=3 target=midterm sessions=
 
 最终评价覆盖 ShortTerm + MidTerm + Fine-grained cross-session LongTerm union，并报告 fact/requirement Recall@K、macro session recall、MRR、candidate-pool recall、final-context recall、context precision、mean returned pages、每层 contribution、query completion、session stability、runtime、LLM/embedding calls。历史 artifact 中的 `session_longterm` 字段仅作为兼容名称。诊断 artifact 可记录 routed pool、global supplement、threshold 和 final visible hit，但这些 Gold 细节不会进入 Research LLM。
 
-参数由 `scripts/tuner/parameter_schema.py` 分为 query-time/retrieval-only、source-changing、within-session-stateful、cross-session-temporal-stateful 和 production-fixed。Source-changing 参数必须重新执行真实 Add/Mid-term source generation；Evolution/Heat 参数必须真实 replay；Promotion/Cross-session 参数当前仅保留 future schema，不能在本 Benchmark 调优；retrieval-only 才允许复用 source artifact。`longterm_other_session_weight` 从 Production 读取固定默认值 0.7，但因当前没有可靠 Cross-session Gold，明确不进入自动搜索空间。所有 hard constraint 同时由 YAML 与 Python 校验：Mid-term final `max_total_pages` 为 1..5，Fine-grained LongTerm `longterm_top_k` 为 1..30，Mid-term candidate multiplier 为 1..8，Agentic 固定 `max_iterations=2`、`max_tool_calls=1`；`max_tool_result_chars` 从 effective Production config 读取并作为 trace 固定执行条件校验，不参与调参；仅 `max_queries=1..3` 与 `max_total_results=1..5` 可调。生产 `MidTermRetriever` 当前忽略 `candidate_pool_size`，因此它不进入 search space 或 Agentic provenance。
+生产 `MemoryConfig` 是参数事实的唯一 authority。`scripts/tuner/parameter_schema.py` 只负责定位生产字段并读取其 Pydantic schema/field metadata，不维护参数分类、默认值、类型、`ge / gt / le / lt` 或 Literal/Enum 候选。候选通过生产 Pydantic 字段和最终 `MemoryConfig` 校验；生产约束变化后，tuner 自动采用新约束。具有完整整数上下界的字段直接生成完整合法整数候选；浮点字段只从搜索策略取得有限采样值，再交给生产约束校验；Literal/Enum 候选直接从生产类型读取。
 
-`WithinSessionStatefulReplay` 严格执行 `Search(Qn) -> valid recall/Heat update -> Add(Qn, An)`；搜索时不加入当前 turn，遗忘只使用 production `turn_index`，不使用 `page_sequence`。Fine-grained LongTerm source 在每个完整 QA 后立即生成，不再依赖 ShortTerm eviction；检索保留 Production 的 user hard filter、current/all-session 双路候选和 Session weight。当前 Benchmark 没有可靠 Cross-session Gold，因此不调优跨 Session 权重或 Promotion 参数。结构检查状态必须为 `CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD`，不能报告这些参数已 validated/tuned/optimized/selected。
+参数变化后的实验执行语义由负责该参数的 Experiment Branch 显式声明。`requires_source_regeneration = True` 的 Branch 必须创建新的 source identity，并通过真实 Add/Mid-term source generation 物化；`False` 的 query-time Branch 可复用已有 source，只重新执行 retrieval/evaluation。Evolution/Heat Branch 仍必须真实 replay。`max_tool_result_chars` 从 effective Production config 读取并作为 trace 固定执行条件校验，不参与调参。生产 `MidTermRetriever` 当前忽略 `candidate_pool_size`，因此它不进入搜索或 Agentic provenance。
+
+`WithinSessionStatefulReplay` 严格执行 `Search(Qn) -> valid recall/Heat update -> Add(Qn, An)`；搜索时不加入当前 turn，遗忘只使用 production `turn_index`，不使用 `page_sequence`。Fine-grained LongTerm source 在每个完整 QA 后立即生成，不再依赖 ShortTerm eviction；检索保留 Production 的 user hard filter、current/all-session 双路候选和 Session weight。
+
+当前 Benchmark 不包含可靠的跨 Session Gold 标注，因此跨 Session 长期记忆的沉淀、时间衰减、强化和检索参数暂不参与自动调参。当前相关生产能力保持生产默认配置，不参与 winner selection。待未来增加可靠的 Cross-session Gold 后，再开放对应的调参和评价分支。结构检查状态必须为 `CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD`，不能报告这些参数已 validated/tuned/optimized/selected。
 
 Query、Page、Session merge、Fine-grained LongTerm extraction prompt 是独立 branch。Query baseline 是 Production P0 reference-resolution Prompt，并直接复用 Production message builder/parser；Query candidate 只改变 query representation。所有 Page Prompt candidate 固定复用 Production `previous raw + current raw + following raw` context contract，不能再搜索是否启用上下文。Query Rewrite 每轮最多 3 variants、最多 3 rounds，以 Tune 当前最佳 parent 并始终保留 Production P0；prompt/source identity 变化会使 downstream artifact 失效。Research LLM 只能从 Python 生成的 legal action ID 中选择，永远看不到 Validation、Gold answer、required_context 原文或 future turns。
 
@@ -117,7 +121,7 @@ R@K = top K 内满足的 Gold requirement 数量
 
 不要每完成一个阶段就停下来询问下一步做什么，应按照下面的搜索策略继续执行。
 
-生产配置仍是公式与默认值的唯一来源。当前允许读取的配置包括 Mid-term 全局补充池倍率、Fine-grained LongTerm over-fetch 倍率、实体匹配阈值，以及固定为 `0.7` 且不自动搜索的 `longterm_other_session_weight`。Benchmark-only 诊断不得回写生产配置或把 Gold 带入生产分支。
+生产配置仍是公式与默认值的唯一来源。当前允许读取的配置包括 Mid-term 全局补充池倍率、Fine-grained LongTerm over-fetch 倍率、实体匹配阈值，以及保持生产默认且不自动搜索的 `longterm_other_session_weight`。Benchmark-only 诊断不得回写生产配置或把 Gold 带入生产分支。
 
 如果一个候选会改变最终检索结果、写入内容或 embedding，它必须先由 `mem0/` 的生产配置和生产类实现。Tuner 只通过 `production_overrides` 选择这些能力。Benchmark 评价、诊断记录、实验调度和报告优先使用：
 
@@ -125,7 +129,7 @@ R@K = top K 内满足的 Gold requirement 数量
 2. 实验 adapter / 配置覆盖；
 3. 本 Skill `scripts/` 下的新 adapter；`exp/benchmark/` 仅作为 legacy 参考，不得成为核心运行依赖。
 
-完整 candidate/threshold/ranking trace 由 Skill 内 `DiagnosticMidTermRetriever` 通过覆盖 production `_on_stage` hook 记录；它不得覆盖或复制 `search()`。Long-term hybrid preset 只映射为 production `semantic_weight` / `bm25_weight` / `entity_weight`，实际打分只调用 `mem0.utils.scoring.score_and_rank`。Source Prompt 必须写入 `MemoryConfig`，由真实 `QueryResolver`、`MidTermUpdater` 和 Fine-grained LongTerm extraction pipeline 执行。Agentic 与普通 Mid-term 合计 `<=5` 仅是 tuner evaluator 的 context constraint，不得据此改写 Production 的 `max_total_results` 或 `MemoryToolExecutor` 截断语义；Production 固定的 `max_tool_result_chars` 必须原样进入 Candidate 和 Agentic trace provenance。
+完整 candidate/threshold/ranking trace 由 Skill 内 `DiagnosticMidTermRetriever` 通过覆盖 production `_on_stage` hook 记录；它不得覆盖或复制 `search()`。Long-term hybrid preset 只映射为 production `semantic_weight` / `bm25_weight` / `entity_weight`，实际打分只调用 `mem0.utils.scoring.score_and_rank`。Source Prompt 必须写入 `MemoryConfig`，由真实 `QueryResolver`、`MidTermUpdater` 和 Fine-grained LongTerm extraction pipeline 执行。Agentic 与普通 Mid-term 合计 `<=5` 是 tuner evaluator 独立的 context constraint；Production `max_total_results` 的默认值、合法范围和 `MemoryToolExecutor` 截断语义只由 `AgenticRetrievalConfig` 决定。Production 固定的 `max_tool_result_chars` 必须原样进入 Candidate 和 Agentic trace provenance。
 
 任何会改变 source 的 LLM 请求选项也必须写入 production `midterm.*_request_options` 或 `fine_grained_longterm.extraction_request_options`。Tuner 的 LLM wrapper 只能记录诊断；历史 `benchmark_runtime.deepseek_*_non_thinking` flag 必须先迁移成上述可部署 Production 配置，不能在 wrapper 中私自改请求。
 
@@ -153,7 +157,28 @@ R@K = top K 内满足的 Gold requirement 数量
 - `benchmark_support.py` / `production_runtime.py`：自包含 benchmark schema 与生产 runtime wrapper；
 - `production_midterm_adapter.py`：生产 checkpoint 生成和隔离 replay。
 
-Skill 不维护独立的完整 Memory 默认配置。新 run 从仓库唯一入口 `mem0.configs.production.load_production_memory_config()` 取得部署 provider/model overrides，再由 `MemoryConfig` 解析 effective config；显式配置只覆盖其中声明的字段。effective config 会冻结到运行目录，resume 禁止重新读取今天的 Production 默认。`search_space.yaml` 只定义可调参数、搜索范围和 hard constraints，不承担 baseline 默认值。
+### 参数来源与职责边界
+
+Production Config 负责：
+
+- 参数默认值；
+- 参数类型；
+- `ge / gt / le / lt`；
+- Literal / Enum 合法值；
+- 生产默认行为。
+
+以上信息只从生产 `MemoryConfig` 及其嵌套 Pydantic Config 获取。新 run 从仓库唯一入口 `mem0.configs.production.load_production_memory_config()` 取得部署 provider/model overrides，再由 `MemoryConfig` 解析 effective config；显式配置只覆盖其中声明的字段。effective config 会冻结到运行目录，resume 禁止重新读取当前 Production 默认。
+
+Skill 负责：
+
+- 搜索策略与浮点候选采样；
+- 实验预算与 Branch 顺序；
+- Branch 的 `requires_source_regeneration` 执行声明；
+- stateful replay；
+- evaluation；
+- winner selection。
+
+`search_space.yaml` 保留，因为真实 orchestrator 会读取其中的预算、阶段、分支覆盖、浮点采样和停止策略；它不保存生产参数默认值、类型、合法范围、Literal/Enum 候选或参数分类名单。
 
 ## 工作流程
 

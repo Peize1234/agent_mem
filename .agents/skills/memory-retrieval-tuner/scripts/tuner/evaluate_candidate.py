@@ -17,12 +17,16 @@ from .artifact_registry import ArtifactRegistry
 from .fact_evaluator import FactRequirement, fact_member_hit, parse_required_context
 from .io_utils import atomic_write_json, load_jsonl, stable_hash
 from .models import Candidate, CandidateResult, Dataset, Requirement, Turn
-from .parameter_schema import validate_candidate_config
+from .parameter_schema import production_parameter_metadata, validate_candidate_config
 from .production_midterm_adapter import (
     PRODUCTION_BACKEND,
     ProductionMidtermAdapter,
     load_checkpoints,
 )
+
+_DEFAULT_MAX_TOTAL_PAGES = int(production_parameter_metadata("max_total_pages").default)
+_DEFAULT_AGENTIC_MAX_TOTAL_RESULTS = int(production_parameter_metadata("max_total_results").default)
+_DEFAULT_LONGTERM_TOP_K = int(production_parameter_metadata("longterm_top_k").default)
 
 
 def candidate_hash(dataset_sha256: str, candidate: Candidate) -> str:
@@ -136,12 +140,9 @@ def _ranking_layers(rankings: Mapping[str, Any], query_id: str) -> dict[str, lis
 
 
 def _row_text(row: Mapping[str, Any]) -> str:
-    identifiers = " ".join(
-        str(row.get(key) or "") for key in ("source_turn_id", "turn_id", "page_id", "id")
-    )
+    identifiers = " ".join(str(row.get(key) or "") for key in ("source_turn_id", "turn_id", "page_id", "id"))
     content = " ".join(
-        str(row.get(key) or "")
-        for key in ("raw_dialogue", "content", "memory", "summary", "text", "data")
+        str(row.get(key) or "") for key in ("raw_dialogue", "content", "memory", "summary", "text", "data")
     )
     return f"{identifiers} {content}".strip()
 
@@ -154,8 +155,7 @@ def _visible_midterm_rows(rows: Sequence[Mapping[str, Any]], context_budget: int
         return [
             dict(row)
             for row in diagnostic_rows
-            if row.get("final_visible") is True
-            and row.get("threshold_filtered") is not True
+            if row.get("final_visible") is True and row.get("threshold_filtered") is not True
         ][:budget]
     return [dict(row) for row in rows[:budget]]
 
@@ -175,9 +175,7 @@ def _fact_rows_for_visible(
     if not requirements:
         return [], []
     retrieval_candidate_rows = [
-        row
-        for row in candidate_rows
-        if str(row.get("source") or "").lower() != "production_agentic_supplement"
+        row for row in candidate_rows if str(row.get("source") or "").lower() != "production_agentic_supplement"
     ]
     pre_threshold_rows = [
         row
@@ -196,6 +194,7 @@ def _fact_rows_for_visible(
     final_text = "\n".join(_row_text(row) for row in visible_rows)
     output = []
     for index, requirement in enumerate(requirements, start=1):
+
         def hit(text: str) -> bool:
             return any(fact_member_hit(member, text) for member in requirement.members)
 
@@ -293,23 +292,17 @@ def _apply_retrieval_controls(
 ) -> list[dict[str, Any]]:
     rows = [dict(row) for row in ranking]
     all_midterm = [
-        row
-        for row in rows
-        if str(row.get("source") or "").lower() not in {"long_term", "cross_session_long_term"}
+        row for row in rows if str(row.get("source") or "").lower() not in {"long_term", "cross_session_long_term"}
     ]
     # A production diagnostic ranking contains the complete deduplicated
     # pre-threshold pool. Preserve it for candidate-pool recall; final context
     # selection is performed from explicit ``final_visible`` flags below.
-    has_diagnostic_pool = any(
-        row.get("in_candidate_pool") is True or "final_visible" in row for row in all_midterm
-    )
+    has_diagnostic_pool = any(row.get("in_candidate_pool") is True or "final_visible" in row for row in all_midterm)
     midterm = all_midterm if has_diagnostic_pool else all_midterm[:ranking_depth]
-    session_longterm = [
-        row for row in rows if str(row.get("source") or "").lower() == "long_term"
-    ][: min(30, max(1, int(config.get("longterm_top_k", 20))))]
-    cross_session = [
-        row for row in rows if str(row.get("source") or "").lower() == "cross_session_long_term"
+    session_longterm = [row for row in rows if str(row.get("source") or "").lower() == "long_term"][
+        : int(config.get("longterm_top_k", _DEFAULT_LONGTERM_TOP_K))
     ]
+    cross_session = [row for row in rows if str(row.get("source") or "").lower() == "cross_session_long_term"]
     rows = [*midterm, *session_longterm, *cross_session]
     for rank, row in enumerate(rows, start=1):
         row["rank"] = rank
@@ -336,7 +329,16 @@ def _load_frozen_rankings(config: Mapping[str, Any]) -> dict[str, list[dict[str,
                 "score": float(row.get("score") or 0.0),
                 **{
                     key: row[key]
-                    for key in ("source", "layer", "memory_layer", "memory", "summary", "raw_dialogue", "content", "text")
+                    for key in (
+                        "source",
+                        "layer",
+                        "memory_layer",
+                        "memory",
+                        "summary",
+                        "raw_dialogue",
+                        "content",
+                        "text",
+                    )
                     if key in row
                 },
             }
@@ -361,14 +363,14 @@ def _load_production_trace_rankings(config: Mapping[str, Any], target: str) -> d
             layered = [item for item in row.get("all_memory_results") or [] if isinstance(item, Mapping)]
             if target == "midterm":
                 layered = [
-                    item for item in layered if str(item.get("source") or "") in {"mid_term_page", "mid_term_session", "midterm"}
+                    item
+                    for item in layered
+                    if str(item.get("source") or "") in {"mid_term_page", "mid_term_session", "midterm"}
                 ]
             elif target == "longterm":
                 layered = [item for item in layered if str(item.get("source") or "") == "long_term"]
             else:
-                layered = [
-                    item for item in layered if "cross_session" not in str(item.get("source") or "").lower()
-                ]
+                layered = [item for item in layered if "cross_session" not in str(item.get("source") or "").lower()]
             if layered:
                 grouped[query_id] = [
                     {
@@ -416,7 +418,7 @@ def _rank_session(
     candidate_id: str,
 ) -> tuple[dict[str, list[dict[str, Any]]], bool]:
     ranking_config = _ranking_identity_config(candidate.config)
-    raw_depth = ranking_depth + min(30, max(1, int(candidate.config.get("longterm_top_k", 20))))
+    raw_depth = ranking_depth + int(candidate.config.get("longterm_top_k", _DEFAULT_LONGTERM_TOP_K))
     identity = {
         "schema": 1,
         "dataset_sha256": dataset.sha256,
@@ -485,10 +487,20 @@ def _evaluate_session(
     k: int,
     target: str,
     shortterm_window: int,
-    max_total_pages: int = 5,
-    agentic_max_total_results: int = 5,
-    longterm_top_k: int = 30,
+    max_total_pages: int = _DEFAULT_MAX_TOTAL_PAGES,
+    agentic_max_total_results: int = _DEFAULT_AGENTIC_MAX_TOTAL_RESULTS,
+    longterm_top_k: int = _DEFAULT_LONGTERM_TOP_K,
 ) -> dict[str, Any]:
+    validated_limits = validate_candidate_config(
+        {
+            "max_total_pages": max_total_pages,
+            "max_total_results": agentic_max_total_results,
+            "longterm_top_k": longterm_top_k,
+        }
+    )
+    max_total_pages = int(validated_limits["max_total_pages"])
+    agentic_max_total_results = int(validated_limits["max_total_results"])
+    longterm_top_k = int(validated_limits["longterm_top_k"])
     session_turns = dataset.sessions[session_id]
     requirement_rows: list[dict[str, Any]] = []
     shortterm_total = 0
@@ -538,15 +550,18 @@ def _evaluate_session(
             and item.get("in_candidate_pool", True) is not False
             and (item.get("page_id") or item.get("id"))
         }
-        context_budget = min(5, max(1, int(max_total_pages)))
+        context_budget = min(5, max_total_pages)
         # Candidate configs are not part of the evaluator API; callers may
         # pass a synthetic ``max_total_pages`` on the ranking mapping.
         if isinstance(rankings.get("__meta__"), Mapping):
-            context_budget = min(5, max(1, int(rankings["__meta__"].get("max_total_pages", context_budget))))
+            configured_budget = validate_candidate_config(
+                {"max_total_pages": rankings["__meta__"].get("max_total_pages", context_budget)}
+            )["max_total_pages"]
+            context_budget = min(5, int(configured_budget))
         visible_midterm = _visible_midterm_rows(midterm_rows, context_budget)
         remaining_agentic_budget = max(0, 5 - len(visible_midterm))
-        visible_agentic = agentic_rows[: min(5, max(1, int(agentic_max_total_results)), remaining_agentic_budget)]
-        visible_longterm = longterm_rows[: min(30, max(1, int(longterm_top_k)))]
+        visible_agentic = agentic_rows[: min(5, agentic_max_total_results, remaining_agentic_budget)]
+        visible_longterm = longterm_rows[:longterm_top_k]
         visible_rows = [*short_rows, *session_rows, *visible_midterm, *visible_agentic, *visible_longterm]
         returned_page_counts.append(len(visible_midterm) + len(visible_agentic) + len(visible_longterm))
         if context_mode and str(turn.required_context or "").strip():
@@ -565,9 +580,12 @@ def _evaluate_session(
                     {
                         "selected_session_count": len(session_rows),
                         "session_routed_page_count": max(
-                            [int(item.get("session_routed_page_count") or 0) for item in midterm_rows] or [len(midterm_rows)]
+                            [int(item.get("session_routed_page_count") or 0) for item in midterm_rows]
+                            or [len(midterm_rows)]
                         ),
-                        "global_supplement_page_count": sum(1 for item in midterm_rows if item.get("global_supplement")),
+                        "global_supplement_page_count": sum(
+                            1 for item in midterm_rows if item.get("global_supplement")
+                        ),
                         "dedup_candidate_count": len(candidate_page_ids),
                         "candidate_pool_count": len(candidate_page_ids),
                         "returned_page_count": len(visible_midterm),
@@ -639,24 +657,66 @@ def _evaluate_session(
         "shortterm_coverage": shortterm_hits / shortterm_total if shortterm_total else 0.0,
         "shortterm_requirement_count": shortterm_hits,
         "total_gold_requirement_count": shortterm_total,
-        "candidate_pool_recall": sum(bool(row.get("candidate_pool_hit", row.get("best_rank") is not None)) for row in requirement_rows) / total if total else 0.0,
-        "post_threshold_recall": sum(bool(row.get("post_threshold_hit")) for row in requirement_rows) / total if total else 0.0,
-        "midterm_final_context_recall": sum(bool(row.get("midterm_final_context_hit")) for row in requirement_rows) / total if total else 0.0,
-        "final_context_recall": sum(bool(row.get("final_context_hit", row.get("hit_at_k"))) for row in requirement_rows) / total if total else 0.0,
+        "candidate_pool_recall": sum(
+            bool(row.get("candidate_pool_hit", row.get("best_rank") is not None)) for row in requirement_rows
+        )
+        / total
+        if total
+        else 0.0,
+        "post_threshold_recall": sum(bool(row.get("post_threshold_hit")) for row in requirement_rows) / total
+        if total
+        else 0.0,
+        "midterm_final_context_recall": sum(bool(row.get("midterm_final_context_hit")) for row in requirement_rows)
+        / total
+        if total
+        else 0.0,
+        "final_context_recall": sum(bool(row.get("final_context_hit", row.get("hit_at_k"))) for row in requirement_rows)
+        / total
+        if total
+        else 0.0,
         "context_precision": statistics.fmean(precision_values) if precision_values else 0.0,
         "mean_returned_pages": statistics.fmean(returned_page_counts) if returned_page_counts else 0.0,
         "shortterm_contribution": contribution_counts["shortterm"] / total if total else 0.0,
         "midterm_contribution": contribution_counts["midterm"] / total if total else 0.0,
         "agentic_contribution": contribution_counts["agentic"] / total if total else 0.0,
         "session_longterm_contribution": contribution_counts["session_longterm"] / total if total else 0.0,
-        "short_mid_session_longterm_union": sum(bool(row.get("final_context_hit", row.get("hit_at_k"))) for row in requirement_rows) / total if total else 0.0,
+        "short_mid_session_longterm_union": sum(
+            bool(row.get("final_context_hit", row.get("hit_at_k"))) for row in requirement_rows
+        )
+        / total
+        if total
+        else 0.0,
         "required_context_evaluation": context_mode,
-        "selected_session_count": statistics.fmean([float(row.get("selected_session_count") or 0) for row in requirement_rows]) if requirement_rows else 0.0,
-        "session_routed_page_count": statistics.fmean([float(row.get("session_routed_page_count") or 0) for row in requirement_rows]) if requirement_rows else 0.0,
-        "global_supplement_page_count": statistics.fmean([float(row.get("global_supplement_page_count") or 0) for row in requirement_rows]) if requirement_rows else 0.0,
-        "dedup_candidate_count": statistics.fmean([float(row.get("dedup_candidate_count") or 0) for row in requirement_rows]) if requirement_rows else 0.0,
-        "candidate_pool_count": statistics.fmean([float(row.get("candidate_pool_count") or 0) for row in requirement_rows]) if requirement_rows else 0.0,
-        "returned_page_count": statistics.fmean([float(row.get("returned_page_count") or 0) for row in requirement_rows]) if requirement_rows else 0.0,
+        "selected_session_count": statistics.fmean(
+            [float(row.get("selected_session_count") or 0) for row in requirement_rows]
+        )
+        if requirement_rows
+        else 0.0,
+        "session_routed_page_count": statistics.fmean(
+            [float(row.get("session_routed_page_count") or 0) for row in requirement_rows]
+        )
+        if requirement_rows
+        else 0.0,
+        "global_supplement_page_count": statistics.fmean(
+            [float(row.get("global_supplement_page_count") or 0) for row in requirement_rows]
+        )
+        if requirement_rows
+        else 0.0,
+        "dedup_candidate_count": statistics.fmean(
+            [float(row.get("dedup_candidate_count") or 0) for row in requirement_rows]
+        )
+        if requirement_rows
+        else 0.0,
+        "candidate_pool_count": statistics.fmean(
+            [float(row.get("candidate_pool_count") or 0) for row in requirement_rows]
+        )
+        if requirement_rows
+        else 0.0,
+        "returned_page_count": statistics.fmean(
+            [float(row.get("returned_page_count") or 0) for row in requirement_rows]
+        )
+        if requirement_rows
+        else 0.0,
     }
     metrics["target_layer_union"] = (shortterm_hits + sum(row["hit_at_k"] for row in requirement_rows)) / max(
         shortterm_total, 1
@@ -827,8 +887,7 @@ def evaluate_candidate(
                 candidate.config,
                 dataset_sha256=dataset.sha256,
                 query_ids_by_session={
-                    session_id: [turn.query_id for turn in turns]
-                    for session_id, turns in dataset.sessions.items()
+                    session_id: [turn.query_id for turn in turns] for session_id, turns in dataset.sessions.items()
                 },
                 expected_parent_retrieval_identity=expected_parent_identity,
             )
@@ -912,9 +971,11 @@ def evaluate_candidate(
             k=k,
             target=target,
             shortterm_window=shortterm_window,
-            max_total_pages=min(5, max(1, int(candidate.config.get("max_total_pages", 5)))),
-            agentic_max_total_results=min(5, max(1, int(candidate.config.get("max_total_results", 5)))),
-            longterm_top_k=min(30, max(1, int(candidate.config.get("longterm_top_k", 30)))),
+            max_total_pages=int(candidate.config.get("max_total_pages", _DEFAULT_MAX_TOTAL_PAGES)),
+            agentic_max_total_results=int(
+                candidate.config.get("max_total_results", _DEFAULT_AGENTIC_MAX_TOTAL_RESULTS)
+            ),
+            longterm_top_k=int(candidate.config.get("longterm_top_k", _DEFAULT_LONGTERM_TOP_K)),
         )
         if int(result["metrics"]["evaluated_query_count"]) != expected_queries:
             raise RuntimeError(

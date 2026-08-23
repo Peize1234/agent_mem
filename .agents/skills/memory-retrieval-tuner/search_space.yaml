@@ -45,93 +45,6 @@ target:
     - midterm
     - all_memory
 
-parameters:
-  classes:
-    query_time_retrieval_only:
-      - top_k_pages
-      - top_k_sessions
-      - max_total_pages
-      - midterm_candidate_pool_multiplier
-      - midterm_rag_threshold
-      - longterm_top_k
-      - longterm_rag_threshold
-      - longterm_candidate_pool_multiplier
-      - longterm_hybrid_preset
-      - entity_similarity_threshold
-      - fusion_method
-      - dense_weight
-      - rerank_depth
-      - candidate_depth
-      - max_queries
-      - max_total_results
-      - query_rewrite_prompt
-    source_changing:
-      - short_term_capacity
-      - session_similarity_threshold
-      - embedding_similarity_weight
-      - keyword_overlap_weight
-      - page_summary_prompt
-      - session_merge_prompt
-      - fine_grained_longterm_extraction_prompt
-      - session_longterm_extraction_prompt
-      - embedding_model_id
-      - embedding_model_revision
-    within_session_stateful:
-      - retention_half_life_turns
-      - retention_floor
-      - heat_alpha
-      - heat_beta
-      - heat_gamma
-      - heat_recency_tau_turns
-      - heat_modulation_min
-      - heat_modulation_max
-      - promotion_min_recall_count
-      - promotion_heat_threshold
-    cross_session_temporal_stateful:
-      - cross_session_longterm_rag_threshold
-      - cross_session_retention_half_life_hours
-      - cross_session_retention_floor
-      - cross_session_reinforcement_gain
-    production_fixed_not_searched:
-      - longterm_other_session_weight
-  hard_constraints:
-    top_k_pages: {min: 1}
-    top_k_sessions: {min: 1}
-    max_total_pages: {min: 1, max: 5}
-    longterm_top_k: {min: 1, max: 30}
-    midterm_candidate_pool_multiplier: {min: 1, max: 8}
-    longterm_candidate_pool_multiplier: {min: 1, max: 6}
-    short_term_capacity: {positive_even: true}
-    session_similarity_threshold: {min: 0, max: 1}
-    embedding_similarity_weight: {min: 0, paired_sum_with: keyword_overlap_weight, sum: 1}
-    keyword_overlap_weight: {min: 0, paired_sum_with: embedding_similarity_weight, sum: 1}
-    midterm_rag_threshold: {min: 0, max: 1}
-    retention_half_life_turns: {exclusive_min: 0}
-    retention_floor: {min: 0, max: 1}
-    heat_alpha: {min: 0}
-    heat_beta: {min: 0}
-    heat_gamma: {min: 0}
-    heat_recency_tau_turns: {exclusive_min: 0}
-    heat_modulation_min: {exclusive_min: 0, exclusive_max: 1, less_than: heat_modulation_max}
-    heat_modulation_max: {exclusive_min: 1, greater_than: heat_modulation_min}
-    promotion_min_recall_count: {min: 1}
-    promotion_heat_threshold: {min: 0}
-    longterm_rag_threshold: {min: 0, max: 1}
-    longterm_hybrid_preset:
-      allowed: [semantic-heavy, balanced, keyword-heavy, entity-aware]
-    entity_similarity_threshold: {min: 0, max: 1}
-    fusion_method: {allowed: [normalized_score, rrf]}
-    dense_weight: {min: 0, max: 1}
-    candidate_depth: {min: 1, max: 100}
-    rerank_depth: {min: 1, max: 100}
-    max_queries: {min: 1, max: 3}
-    max_total_results: {min: 1, max: 5}
-    agentic_fixed: {max_iterations: 2, max_tool_calls: 1}
-    cross_session_longterm_rag_threshold: {min: 0, max: 1}
-    cross_session_retention_half_life_hours: {exclusive_min: 0}
-    cross_session_retention_floor: {min: 0, max: 1}
-    cross_session_reinforcement_gain: {min: 0}
-
 dataset:
   shortterm_qa_turns: 3
   fail_on:
@@ -358,31 +271,21 @@ search:
             - 0
             - 1
             - 2
-          min_value: 1
           refine_step: 1
 
         max_total_pages:
-          mode: bounded_values
-          values: [1, 2, 3, 4, 5]
-          min_value: 1
-          max_value: 5
+          mode: benchmark_context_budget
           refine_step: 1
 
         midterm_rag_threshold:
           mode: coarse_to_fine
           coarse: [0.00, 0.05, 0.10, 0.15, 0.20, 0.30]
-          min_value: 0.0
-          max_value: 1.0
 
         midterm_candidate_pool_multiplier:
-          values: [2, 4, 6, 8]
-          min_value: 1
-          max_value: 8
+          mode: production_integer_range
 
         agentic_retrieval:
-          max_queries: [1, 2, 3]
-          max_total_results: [1, 2, 3, 4, 5]
-          fixed: {max_iterations: 2, max_tool_calls: 1}
+          integer_candidates: production_integer_ranges
           activation: final_fallback_only
           required_artifact: production_agentic_trace
 
@@ -400,7 +303,6 @@ search:
 
         short_term_capacity:
           values: [4, 6, 8]
-          positive_even: true
         session_similarity_threshold:
           values: [0.5, 0.6, 0.7, 0.8, 0.9]
         session_assignment_weight_presets:
@@ -410,16 +312,8 @@ search:
           retention_half_life_turns: dynamic_from_dependency_distance
           heat_recency_tau_turns: dynamic_from_dependency_distance
           retention_floor: [0.05, 0.10, 0.20, 0.30, 0.40]
-          heat_presets:
-            recall-heavy: [1.0, 0.25, 0.5]
-            balanced: [1.0, 0.5, 1.0]
-            interaction-heavy: [0.75, 1.0, 0.5]
-            recency-heavy: [0.75, 0.25, 1.5]
-          heat_modulation_pairs: [[0.80, 1.20], [0.90, 1.10], [0.95, 1.05]]
-          # Cross-session Gold is unavailable; retain production defaults and
-          # do not materialize Promotion candidates in the current tuner.
-          promotion_min_recall_count: production_default_only
-          promotion_heat_threshold: production_default_only
+          # Heat presets and modulation pairs are tuner-owned strategies kept
+          # in parameter_schema.py and validated by Production before replay.
 
     secondary:
       query_representation:
@@ -427,10 +321,7 @@ search:
         variants_per_round: 3
 
       page_representation:
-        values:
-          - summary
-          - summary_keywords
-          - user_summary
+        candidates: production_literal
 
       embedding_models:
         discovery:
@@ -442,14 +333,7 @@ search:
       lexical_hybrid:
         methods:
           - dense_bm25_fusion
-        fusion_method:
-          values:
-            - normalized_score
-            - rrf
-        # RRF rank constant remains the effective Production value. The
-        # branch searches fusion semantics without adding another numeric
-        # axis to the staged screen.
-        rrf_rank_constant: production_default_only
+        fusion_method: production_literal
         dense_weight:
           mode: coarse_to_fine
           coarse:
@@ -467,7 +351,6 @@ search:
         max_methods_standard: 1
         max_models_standard: 2
         max_models_deep: 3
-        candidate_depth: {min: 1, max: 100}
 
       fine_grained_longterm:
         longterm_top_k: [5, 10, 15, 20, 25, 30]
@@ -485,12 +368,7 @@ search:
         status: CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD
         structural_replay: STRUCTURAL_ONLY_NOT_EVALUATED
         winner_selection: disabled
-        no_gold_status: CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD
-        cross_session_longterm_rag_threshold: production_default_only
-        cross_session_retention_half_life_hours: production_default_only
-        cross_session_retention_floor: production_default_only
-        cross_session_reinforcement_gain: production_default_only
-        longterm_other_session_weight: production_default_only_no_cross_session_gold
+        production_config_policy: unchanged_defaults
 
       advanced_representation:
         methods:

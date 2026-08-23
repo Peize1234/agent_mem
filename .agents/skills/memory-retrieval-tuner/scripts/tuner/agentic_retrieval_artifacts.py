@@ -5,13 +5,13 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from .io_utils import load_json, load_jsonl, sha256_file, stable_hash
-from .parameter_schema import validate_candidate_config
+from .parameter_schema import production_parameter_metadata, validate_candidate_config
 
 PRODUCTION_AGENTIC_TRACE_SCHEMA = "production_agentic_trace_v2"
 PRODUCTION_AGENTIC_EXECUTION_CONTRACT = "Memory.run_agentic_retrieval"
 AGENTIC_PARENT_RETRIEVAL_IDENTITY_SCHEMA = "agentic_parent_retrieval_identity_v3"
-AGENTIC_FIXED_MAX_ITERATIONS = 2
-AGENTIC_FIXED_MAX_TOOL_CALLS = 1
+AGENTIC_FIXED_MAX_ITERATIONS = int(production_parameter_metadata("max_iterations").default)
+AGENTIC_FIXED_MAX_TOOL_CALLS = int(production_parameter_metadata("max_tool_calls").default)
 _VALID_STATUSES = frozenset({"supplemented", "not_needed", "no_relevant_memory", "degraded"})
 
 _MIDTERM_RETRIEVAL_FIELDS = (
@@ -341,9 +341,12 @@ def load_production_agentic_trace(
     raw_max_tool_result_chars = config.get("agentic_fixed_max_tool_result_chars")
     if raw_max_tool_result_chars is None:
         raise ValueError("current Candidate is missing fixed Agentic max_tool_result_chars provenance")
-    expected_max_tool_result_chars = int(raw_max_tool_result_chars)
-    if expected_max_tool_result_chars < 1000:
-        raise ValueError("current Candidate has invalid fixed Agentic max_tool_result_chars")
+    try:
+        expected_max_tool_result_chars = int(
+            validate_candidate_config({"max_tool_result_chars": raw_max_tool_result_chars})["max_tool_result_chars"]
+        )
+    except (TypeError, ValueError) as exc:
+        raise ValueError("current Candidate has invalid fixed Agentic max_tool_result_chars") from exc
     expected_parent_sha256 = agentic_parent_retrieval_identity_sha256(expected_parent)
     paths = _trace_paths(config)
     if not paths:
