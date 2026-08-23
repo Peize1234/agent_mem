@@ -41,9 +41,11 @@ from .io_utils import (
     write_jsonl,
 )
 from .parameter_schema import (
+    production_integer_candidates,
     production_literal_candidates,
     production_parameter_metadata,
     production_overrides_from_candidate,
+    production_strategy_candidates,
 )
 from .production_runtime import create_production_memory
 
@@ -314,13 +316,18 @@ def _longterm_candidate_pool(
     filters: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Freeze signals through the production FineGrainedLongTerm retriever."""
-    pool_limit = max(30 * 6, 60)
+    pool_limit = max(
+        max(production_integer_candidates("longterm_top_k"))
+        * max(production_integer_candidates("longterm_candidate_pool_multiplier")),
+        60,
+    )
+    entity_thresholds = production_strategy_candidates("entity_similarity_threshold", (0.4, 0.5, 0.6, 0.7, 0.8))
     signals = memory.fine_grained_longterm_retriever.collect_candidate_signals(
         query,
         dict(filters),
         internal_limit=pool_limit,
         query_vector=query_vector,
-        entity_thresholds=(0.4, 0.5, 0.6, 0.7, 0.8),
+        entity_thresholds=entity_thresholds,
     )
     signals.pop("session_weights", None)
     return {"schema": 3, "pool_limit": pool_limit, **signals}

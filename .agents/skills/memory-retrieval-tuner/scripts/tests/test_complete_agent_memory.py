@@ -10,7 +10,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import pytest
 import yaml
-from mem0.configs.base import MidTermMemoryConfig
+from pydantic import BaseModel, Field
+
+import tuner.parameter_schema as parameter_schema
+from mem0.configs.base import FineGrainedLongTermConfig, MidTermMemoryConfig
 from tuner.artifact_registry import ArtifactRegistry
 from tuner.evaluate_candidate import _eligible_requirements, _evaluate_session, _fact_rows_for_visible
 from tuner.experiment_branches import (
@@ -28,6 +31,7 @@ from tuner.parameter_schema import (
     production_integer_candidates,
     production_literal_candidates,
     production_parameter_metadata,
+    production_strategy_candidates,
     promotion_threshold_candidates,
     validate_candidate_config,
 )
@@ -452,6 +456,53 @@ def test_production_config_is_the_only_parameter_authority() -> None:
             validate_candidate_config({name: 0})
     with pytest.raises(ValueError):
         validate_candidate_config({"fusion_method": "invented"})
+
+
+def test_fine_grained_longterm_integer_candidates_come_from_production_fields() -> None:
+    space = yaml.safe_load((Path(__file__).resolve().parents[2] / "search_space.yaml").read_text())
+    settings = space["search"]["stages"]["secondary"]["fine_grained_longterm"]
+    assert settings["longterm_top_k"] == {"mode": "production_integer_range"}
+    assert settings["longterm_candidate_pool_multiplier"] == {"mode": "production_integer_range"}
+
+    routes = {
+        "longterm_top_k": "top_k",
+        "longterm_candidate_pool_multiplier": "candidate_pool_multiplier",
+    }
+    for parameter, field_name in routes.items():
+        metadata = production_parameter_metadata(parameter)
+        assert metadata.model is FineGrainedLongTermConfig
+        assert metadata.field_name == field_name
+        assert FineGrainedLongTermConfig.model_fields[field_name] is metadata.model.model_fields[metadata.field_name]
+        assert production_integer_candidates(parameter) == list(range(int(metadata.ge), int(metadata.le) + 1))
+
+
+def test_production_integer_candidates_follow_a_changed_field_range(monkeypatch: pytest.MonkeyPatch) -> None:
+    class TemporaryIntegerConfig(BaseModel):
+        value: int = Field(6, ge=2, le=8)
+
+    monkeypatch.setitem(
+        parameter_schema._PRODUCTION_FIELD_ROUTES,
+        "longterm_top_k",
+        (TemporaryIntegerConfig, "value"),
+    )
+
+    assert production_integer_candidates("longterm_top_k") == [2, 3, 4, 5, 6, 7, 8]
+
+
+def test_tuner_strategy_candidates_drop_values_outside_production_bounds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class RestrictedRerankerConfig(BaseModel):
+        depth: int = Field(20, ge=5, le=25)
+
+    monkeypatch.setitem(
+        parameter_schema._PRODUCTION_FIELD_ROUTES,
+        "rerank_depth",
+        (RestrictedRerankerConfig, "depth"),
+    )
+
+    assert production_strategy_candidates("rerank_depth", [10, 20, 30, 50]) == [10, 20]
+    assert production_strategy_candidates("midterm_rag_threshold", [-0.1, 0.05, 1.1]) == [0.05]
 
 
 def test_dynamic_turn_and_heat_threshold_candidates() -> None:

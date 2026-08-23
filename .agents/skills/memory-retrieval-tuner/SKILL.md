@@ -65,7 +65,7 @@ $memory-retrieval-tuner dataset=exp/my_dataset.xlsx k=3 target=midterm sessions=
 
 最终评价覆盖 ShortTerm + MidTerm + Fine-grained cross-session LongTerm union，并报告 fact/requirement Recall@K、macro session recall、MRR、candidate-pool recall、final-context recall、context precision、mean returned pages、每层 contribution、query completion、session stability、runtime、LLM/embedding calls。历史 artifact 中的 `session_longterm` 字段仅作为兼容名称。诊断 artifact 可记录 routed pool、global supplement、threshold 和 final visible hit，但这些 Gold 细节不会进入 Research LLM。
 
-生产 `MemoryConfig` 是参数事实的唯一 authority。`scripts/tuner/parameter_schema.py` 只负责定位生产字段并读取其 Pydantic schema/field metadata，不维护参数分类、默认值、类型、`ge / gt / le / lt` 或 Literal/Enum 候选。候选通过生产 Pydantic 字段和最终 `MemoryConfig` 校验；生产约束变化后，tuner 自动采用新约束。具有完整整数上下界的字段直接生成完整合法整数候选；浮点字段只从搜索策略取得有限采样值，再交给生产约束校验；Literal/Enum 候选直接从生产类型读取。
+生产 `MemoryConfig` 是参数事实的唯一 authority。`scripts/tuner/parameter_schema.py` 只负责定位生产字段并读取其 Pydantic schema/field metadata，不维护参数分类、默认值、类型、`ge / gt / le / lt` 或 Literal/Enum 候选。候选通过生产 Pydantic 字段和最终 `MemoryConfig` 校验；生产约束变化后，tuner 自动采用新约束。具有完整整数上下界的字段直接生成完整合法整数候选；大范围整数与浮点字段只从搜索策略取得有限采样值，先自动丢弃不再符合 Production 约束的采样点，再由最终 `MemoryConfig` 校验 Candidate；Literal/Enum 候选直接从生产类型读取。
 
 参数变化后的实验执行语义由负责该参数的 Experiment Branch 显式声明。`requires_source_regeneration = True` 的 Branch 必须创建新的 source identity，并通过真实 Add/Mid-term source generation 物化；`False` 的 query-time Branch 可复用已有 source，只重新执行 retrieval/evaluation。Evolution/Heat Branch 仍必须真实 replay。`max_tool_result_chars` 从 effective Production config 读取并作为 trace 固定执行条件校验，不参与调参。生产 `MidTermRetriever` 当前忽略 `candidate_pool_size`，因此它不进入搜索或 Agentic provenance。
 

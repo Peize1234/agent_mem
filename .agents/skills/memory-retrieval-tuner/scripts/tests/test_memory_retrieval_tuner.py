@@ -11,6 +11,7 @@ from typing import Any
 
 import pytest
 from openpyxl import Workbook, load_workbook
+from pydantic import BaseModel, Field
 
 SCRIPTS = Path(__file__).resolve().parents[1]
 REPO_ROOT = next(path for path in Path(__file__).resolve().parents if (path / "pyproject.toml").exists())
@@ -18,6 +19,7 @@ sys.path.insert(0, str(SCRIPTS))
 sys.path.insert(0, str(REPO_ROOT))
 
 import tuner.orchestrator as orchestrator  # noqa: E402
+import tuner.parameter_schema as parameter_schema  # noqa: E402
 import tuner.production_midterm_adapter as production_adapter  # noqa: E402
 from tuner.agentic_retrieval_artifacts import (  # noqa: E402
     PRODUCTION_AGENTIC_EXECUTION_CONTRACT,
@@ -4209,6 +4211,60 @@ def test_midterm_reranking_refines_only_the_evaluated_frontier_model_depth(tmp_p
         assert production.midterm.reranker.rerank_depth == candidate.config["rerank_depth"]
 
 
+def test_midterm_reranking_filters_strategy_depths_against_changed_production_bounds(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import yaml
+
+    class RestrictedRerankerConfig(BaseModel):
+        rerank_depth: int = Field(20, ge=5, le=25)
+
+    monkeypatch.setitem(
+        parameter_schema._PRODUCTION_FIELD_ROUTES,
+        "rerank_depth",
+        (RestrictedRerankerConfig, "rerank_depth"),
+    )
+    dataset = make_dataset(tmp_path, 1)
+    baseline, _ = _production_branch_inputs(tmp_path, dataset)
+    model_provenance = {
+        "model_id": "local/reranker",
+        "revision": "revision",
+        "local_path": "/tmp/local-reranker",
+    }
+    winning_anchor = Candidate(
+        name="reranking-winner",
+        stage="stage_1_Reranking",
+        config={
+            **baseline.config,
+            "experiment_branch": "Reranking",
+            "reranker_method": "cross_encoder",
+            "reranker_model_id": model_provenance["model_id"],
+            "reranker_model_revision": model_provenance["revision"],
+            "reranker_model_path": model_provenance["local_path"],
+            "rerank_depth": 20,
+        },
+        provenance={**baseline.provenance, "model_discovery": model_provenance},
+        complexity=baseline.complexity + 1,
+    )
+    space = yaml.safe_load((SCRIPTS.parent / "search_space.yaml").read_text(encoding="utf-8"))
+    context = _branch_context(
+        tmp_path,
+        dataset,
+        baseline,
+        anchor=winning_anchor,
+        generation_round=2,
+        branch_history=({"generation_round": 1, "frontier_winner": True},),
+        search_space=space,
+    )
+
+    outcome = RerankingBranch().generate(context)
+
+    assert space["search"]["stages"]["secondary"]["reranking"]["rerank_depth"] == [10, 20, 30, 50]
+    assert outcome.status == "READY"
+    assert {candidate.config["rerank_depth"] for candidate in outcome.candidates} == {10}
+
+
 def test_midterm_reranking_does_not_refine_depth_without_a_winning_reranking_anchor(tmp_path: Path) -> None:
     import yaml
 
@@ -4280,6 +4336,29 @@ def _assert_fine_grained_reranker_production_mapping(candidate: Candidate) -> No
     assert reranker.backend.config["model"] == candidate.config["longterm_reranker_model_path"]
     assert reranker.backend.config["revision"] == candidate.config["longterm_reranker_model_revision"]
     assert reranker.backend.config["local_files_only"] is True
+
+
+def test_fine_grained_longterm_branch_uses_complete_production_integer_ranges(tmp_path: Path) -> None:
+    import yaml
+
+    dataset = make_dataset(tmp_path, 1)
+    baseline, _ = _production_branch_inputs(tmp_path, dataset)
+    space = yaml.safe_load((SCRIPTS.parent / "search_space.yaml").read_text(encoding="utf-8"))
+    context = _branch_context(tmp_path, dataset, baseline, budget="quick", search_space=space)
+    context.execution_settings["max_candidates_per_stage"] = 100
+
+    outcome = FineGrainedLongtermRetrievalBranch().generate(context)
+
+    top_k_values = {
+        candidate.config["longterm_top_k"] for candidate in outcome.candidates if ":top_k=" in candidate.name
+    }
+    multiplier_values = {
+        candidate.config["longterm_candidate_pool_multiplier"]
+        for candidate in outcome.candidates
+        if ":candidate_multiplier=" in candidate.name
+    }
+    assert top_k_values == set(production_integer_candidates("longterm_top_k"))
+    assert multiplier_values == set(production_integer_candidates("longterm_candidate_pool_multiplier"))
 
 
 def test_fine_grained_longterm_reranker_screens_each_model_once_at_production_depth(tmp_path: Path) -> None:

@@ -24,6 +24,7 @@ from .parameter_schema import (
     production_literal_candidates,
     production_parameter_metadata,
     production_overrides_from_candidate,
+    production_strategy_candidates,
     validate_candidate_config,
 )
 from .prompt_artifacts import (
@@ -334,6 +335,8 @@ class RetrievalControlBranch(BaseBranch):
                 values = list(range(minimum, context_budget + 1))
             if axis == "midterm_candidate_pool_multiplier":
                 values = production_integer_candidates(axis)
+            else:
+                values = production_strategy_candidates(axis, values)
             for value in values:
                 if value == baseline:
                     continue
@@ -354,10 +357,8 @@ class RetrievalControlBranch(BaseBranch):
                 "midterm_rag_threshold", production_parameter_metadata("midterm_rag_threshold").default
             )
         )
-        for raw_threshold in sorted({float(value) for value in threshold_values}):
-            threshold = float(
-                validate_candidate_config({"midterm_rag_threshold": raw_threshold})["midterm_rag_threshold"]
-            )
+        for raw_threshold in production_strategy_candidates("midterm_rag_threshold", threshold_values):
+            threshold = float(raw_threshold)
             if threshold == baseline_threshold:
                 continue
             candidates.append(
@@ -789,10 +790,11 @@ class HybridRetrievalBranch(BaseBranch):
             return BranchOutcome(self.spec.name, "UNAVAILABLE", reason="dense_bm25_fusion is disabled")
         fusion_methods = production_literal_candidates("fusion_method")
         weight_config = config.get("dense_weight") or {}
+        production_weight = float(production_parameter_metadata("dense_weight").default)
         if context.generation_round == 1:
-            weights = weight_config.get("coarse") or [0.7, 0.85]
+            weights = weight_config.get("coarse") or [production_weight]
         else:
-            center = float(context.anchor.config.get("dense_weight") or 0.7)
+            center = float(context.anchor.config.get("dense_weight") or production_weight)
             step = float(weight_config.get("refine_step") or 0.05)
             weights = [center - 2 * step, center - step, center, center + step, center + 2 * step]
         anchor_retrieval_method = str(
@@ -805,8 +807,8 @@ class HybridRetrievalBranch(BaseBranch):
             context.anchor.config.get("dense_weight") or production_parameter_metadata("dense_weight").default
         )
         valid_weights = []
-        for raw_weight in dict.fromkeys(weights):
-            weight = float(validate_candidate_config({"dense_weight": raw_weight})["dense_weight"])
+        for raw_weight in production_strategy_candidates("dense_weight", weights):
+            weight = float(raw_weight)
             if (
                 anchor_retrieval_method == "dense_bm25_fusion"
                 and anchor_fusion_method == "normalized_score"
@@ -888,14 +890,7 @@ class RerankingBranch(BaseBranch):
             or MidTermMemoryConfig().reranker.rerank_depth
         )
         configured_depths = rerank_config.get("rerank_depth") or [reference_depth]
-        depths = []
-        for raw_depth in configured_depths:
-            try:
-                depth = int(validate_candidate_config({"rerank_depth": raw_depth})["rerank_depth"])
-            except ValueError:
-                continue
-            depths.append(depth)
-        depths = sorted(set(depths))
+        depths = sorted(int(value) for value in production_strategy_candidates("rerank_depth", configured_depths))
         if not depths:
             return BranchOutcome(
                 self.spec.name,
@@ -1388,12 +1383,23 @@ class MidtermEvolutionBranch(BaseBranch):
                     for member in requirement.members:
                         if member in positions and positions[member] < turn.turn_index:
                             distances.append(turn.turn_index - positions[member])
-        half_lives = dynamic_turn_distance_candidates(distances)
-        tau_values = dynamic_turn_distance_candidates(distances)
+        retrieval_strategy = (((context.search_space.get("search") or {}).get("stages") or {}).get("cheap") or {}).get(
+            "retrieval"
+        ) or {}
+        evolution_strategy = retrieval_strategy.get("midterm_evolution") or {}
+        half_lives = production_strategy_candidates(
+            "retention_half_life_turns", dynamic_turn_distance_candidates(distances)
+        )
+        tau_values = production_strategy_candidates(
+            "heat_recency_tau_turns", dynamic_turn_distance_candidates(distances)
+        )
+        retention_floors = production_strategy_candidates(
+            "retention_floor", evolution_strategy.get("retention_floor") or []
+        )
         groups: list[list[tuple[str, dict[str, float]]]] = [
             [(f"half-life={value}", {"retention_half_life_turns": value}) for value in half_lives[:5]],
             [(f"recency-tau={value}", {"heat_recency_tau_turns": value}) for value in tau_values[:5]],
-            [(f"retention-floor={value:.2f}", {"retention_floor": value}) for value in (0.05, 0.10, 0.20, 0.30, 0.40)],
+            [(f"retention-floor={value:.2f}", {"retention_floor": value}) for value in retention_floors],
             [(f"heat-preset={index + 1}", preset) for index, preset in enumerate(heat_preset_candidates())],
             [(f"heat-modulation={index + 1}", preset) for index, preset in enumerate(heat_modulation_candidates())],
         ]
@@ -1408,6 +1414,10 @@ class MidtermEvolutionBranch(BaseBranch):
 
         candidates = []
         for label, changes in changesets:
+            try:
+                changes = validate_candidate_config(changes, allow_unknown=False)
+            except (TypeError, ValueError):
+                continue
             if all(context.anchor.config.get(key) == value for key, value in changes.items()):
                 continue
             source = _stateful_source_spec(
@@ -1599,7 +1609,7 @@ class MidtermSourceConfigBranch(BaseBranch):
         ]
         candidates = []
         for axis, values in axes:
-            for value in dict.fromkeys(values):
+            for value in production_strategy_candidates(axis, values):
                 if value == baseline_midterm.get(axis):
                     continue
                 overrides = {"midterm": {axis: value}}
@@ -1639,7 +1649,13 @@ class MidtermSourceConfigBranch(BaseBranch):
         assignment_presets = (retrieval_strategy.get("session_assignment_weight_presets") or {}).get("values") or []
         default_embedding_weight = production_parameter_metadata("embedding_similarity_weight").default
         default_keyword_weight = production_parameter_metadata("keyword_overlap_weight").default
-        for embedding_weight, keyword_weight in assignment_presets:
+        for raw_embedding_weight, raw_keyword_weight in assignment_presets:
+            embedding_values = production_strategy_candidates("embedding_similarity_weight", [raw_embedding_weight])
+            keyword_values = production_strategy_candidates("keyword_overlap_weight", [raw_keyword_weight])
+            if not embedding_values or not keyword_values:
+                continue
+            embedding_weight = float(embedding_values[0])
+            keyword_weight = float(keyword_values[0])
             if math.isclose(
                 float(baseline_midterm.get("embedding_similarity_weight", default_embedding_weight)), embedding_weight
             ) and math.isclose(
@@ -1707,7 +1723,7 @@ class FineGrainedLongtermRetrievalBranch(BaseBranch):
         settings = secondary.get("fine_grained_longterm") or secondary.get("session_longterm") or {}
         groups: list[list[Candidate]] = []
         top_k_candidates = []
-        for top_k in settings.get("longterm_top_k") or [5, 10, 15, 20, 25, 30]:
+        for top_k in production_integer_candidates("longterm_top_k"):
             top_k_candidates.append(
                 _candidate(
                     context,
@@ -1720,7 +1736,9 @@ class FineGrainedLongtermRetrievalBranch(BaseBranch):
             )
         groups.append(top_k_candidates)
         threshold_candidates = []
-        for threshold in settings.get("longterm_rag_threshold") or [0.05, 0.1, 0.2, 0.3, 0.4, 0.5]:
+        for threshold in production_strategy_candidates(
+            "longterm_rag_threshold", settings.get("longterm_rag_threshold") or []
+        ):
             threshold_candidates.append(
                 _candidate(
                     context,
@@ -1733,7 +1751,7 @@ class FineGrainedLongtermRetrievalBranch(BaseBranch):
             )
         groups.append(threshold_candidates)
         multiplier_candidates = []
-        for multiplier in settings.get("longterm_candidate_pool_multiplier") or [2, 4, 6]:
+        for multiplier in production_integer_candidates("longterm_candidate_pool_multiplier"):
             multiplier_candidates.append(
                 _candidate(
                     context,
@@ -1752,6 +1770,10 @@ class FineGrainedLongtermRetrievalBranch(BaseBranch):
             "keyword-heavy",
             "entity-aware",
         ]:
+            try:
+                validate_candidate_config({"longterm_hybrid_preset": preset})
+            except (TypeError, ValueError):
+                continue
             preset_candidates.append(
                 _candidate(
                     context,
@@ -1764,7 +1786,9 @@ class FineGrainedLongtermRetrievalBranch(BaseBranch):
             )
         groups.append(preset_candidates)
         entity_candidates = []
-        for threshold in settings.get("entity_similarity_threshold") or [0.4, 0.5, 0.6, 0.7, 0.8]:
+        for threshold in production_strategy_candidates(
+            "entity_similarity_threshold", settings.get("entity_similarity_threshold") or []
+        ):
             entity_candidates.append(
                 _candidate(
                     context,
@@ -1789,10 +1813,8 @@ class FineGrainedLongtermRetrievalBranch(BaseBranch):
             nested_reranker = dict(anchor_fine.get("reranker") or override_fine.get("reranker") or {})
 
             def legal_depth(value: Any) -> int | None:
-                try:
-                    return int(validate_candidate_config({"longterm_rerank_depth": value})["longterm_rerank_depth"])
-                except (TypeError, ValueError):
-                    return None
+                values = production_strategy_candidates("longterm_rerank_depth", [] if value is None else [value])
+                return int(values[0]) if values else None
 
             reference_depth = FineGrainedLongTermConfig().reranker.rerank_depth
             for value in (context.anchor.config.get("longterm_rerank_depth"), nested_reranker.get("rerank_depth")):
@@ -1801,11 +1823,10 @@ class FineGrainedLongtermRetrievalBranch(BaseBranch):
                     reference_depth = candidate_depth
                     break
             depths = sorted(
-                {
-                    depth
-                    for value in settings.get("rerank_depth") or [reference_depth]
-                    if (depth := legal_depth(value)) is not None
-                }
+                int(value)
+                for value in production_strategy_candidates(
+                    "longterm_rerank_depth", settings.get("rerank_depth") or [reference_depth]
+                )
             )
 
             if context.generation_round == 1:

@@ -10,7 +10,7 @@ import math
 from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum
-from typing import Annotated, Any, Literal, Mapping, get_args, get_origin
+from typing import Annotated, Any, Iterable, Literal, Mapping, get_args, get_origin
 
 from pydantic import BaseModel, TypeAdapter
 
@@ -254,7 +254,11 @@ def production_overrides_from_candidate(config: Mapping[str, Any]) -> dict[str, 
         midterm_reranker.update(
             {
                 "method": str(reranker_method),
-                "rerank_depth": int(config.get("rerank_depth") or config.get("candidate_depth") or 30),
+                "rerank_depth": int(
+                    config.get("rerank_depth")
+                    or config.get("candidate_depth")
+                    or production_parameter_metadata("rerank_depth").default
+                ),
             }
         )
         if str(reranker_method) == "cross_encoder":
@@ -301,7 +305,10 @@ def production_overrides_from_candidate(config: Mapping[str, Any]) -> dict[str, 
         fine_reranker.update(
             {
                 "method": str(fine_reranker_method),
-                "rerank_depth": int(config.get("longterm_rerank_depth") or 30),
+                "rerank_depth": int(
+                    config.get("longterm_rerank_depth")
+                    or production_parameter_metadata("longterm_rerank_depth").default
+                ),
             }
         )
         if str(fine_reranker_method) == "cross_encoder":
@@ -375,6 +382,26 @@ def validate_candidate_config(config: Mapping[str, Any], *, allow_unknown: bool 
         resolved = _deep_merge(MemoryConfig().model_dump(mode="python", warnings=False), production_overrides)
         MemoryConfig.model_validate(resolved)
     return value
+
+
+def production_strategy_candidates(name: str, candidates: Iterable[Any]) -> list[Any]:
+    """Filter tuner-owned sample points through Production validation.
+
+    Unlike :func:`production_integer_candidates`, this helper does not invent
+    or enumerate values. It preserves the tuner strategy's order, drops
+    samples rejected by the production Pydantic field/model, and returns the
+    normalized production values.
+    """
+
+    values: list[Any] = []
+    for candidate in candidates:
+        try:
+            normalized = validate_candidate_config({name: candidate}, allow_unknown=False)[name]
+        except (TypeError, ValueError):
+            continue
+        if normalized not in values:
+            values.append(normalized)
+    return values
 
 
 def dynamic_turn_distance_candidates(distances: list[int] | tuple[int, ...]) -> list[int]:

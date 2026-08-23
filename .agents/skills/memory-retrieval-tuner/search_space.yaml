@@ -353,9 +353,11 @@ search:
         max_models_deep: 3
 
       fine_grained_longterm:
-        longterm_top_k: [5, 10, 15, 20, 25, 30]
+        longterm_top_k:
+          mode: production_integer_range
         longterm_rag_threshold: [0.05, 0.10, 0.15, 0.20, 0.30, 0.40, 0.50]
-        longterm_candidate_pool_multiplier: [2, 4, 6]
+        longterm_candidate_pool_multiplier:
+          mode: production_integer_range
         hybrid_presets: [semantic-heavy, balanced, keyword-heavy, entity-aware]
         entity_similarity_threshold: [0.4, 0.5, 0.6, 0.7, 0.8]
         reranker_methods: [auto_discovered_cross_encoder]
