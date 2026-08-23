@@ -50,6 +50,7 @@ from tuner.experiment_branches import (  # noqa: E402
     EmbeddingBranch,
     FieldAwareMultiVectorBranch,
     FineGrainedLongtermExtractionPromptBranch,
+    FineGrainedLongtermRetrievalBranch,
     HybridRetrievalBranch,
     QueryRepresentationBranch,
     RerankingBranch,
@@ -113,6 +114,7 @@ from tuner.staged_search import candidate_config_hash, run_staged_search  # noqa
 
 from mem0.configs.base import (  # noqa: E402
     AgenticRetrievalConfig,
+    FineGrainedLongTermConfig,
     MemoryConfig,
     MidTermMemoryConfig,
 )
@@ -4154,6 +4156,220 @@ def test_midterm_reranking_does_not_refine_depth_without_a_winning_reranking_anc
 
     assert outcome.status == "NOT_TRIGGERED"
     assert outcome.candidates == []
+
+
+class _FineGrainedRerankerDiscovery:
+    resources = SimpleNamespace(gpu_count=0)
+
+    def __init__(self) -> None:
+        self.discover_calls = 0
+        self.refining = False
+
+    def discover(self, **_: Any) -> list[ModelCandidate]:
+        if self.refining:
+            raise AssertionError("Long-term depth refinement must inherit the winning model without rediscovery")
+        self.discover_calls += 1
+        return [
+            ModelCandidate(
+                "local/longterm-reranker-a",
+                "reranker",
+                "local_huggingface_cache",
+                revision="longterm-revision-a",
+            ),
+            ModelCandidate(
+                "local/longterm-reranker-b",
+                "reranker",
+                "local_huggingface_cache",
+                revision="longterm-revision-b",
+            ),
+        ]
+
+    def ensure_available(self, candidate: ModelCandidate, **_: Any) -> ModelCandidate:
+        candidate.status = "AVAILABLE"
+        candidate.local_path = f"/tmp/{candidate.model_id.rsplit('/', 1)[-1]}"
+        return candidate
+
+    def smoke_test(self, candidate: ModelCandidate, **_: Any) -> ModelCandidate:
+        candidate.status = "SMOKE_PASSED"
+        return candidate
+
+
+def _fine_grained_reranker_candidates(outcome: BranchOutcome) -> list[Candidate]:
+    return [candidate for candidate in outcome.candidates if ":reranker=" in candidate.name]
+
+
+def _assert_fine_grained_reranker_production_mapping(candidate: Candidate) -> None:
+    production = ProductionMidtermAdapter._validated_production_config(candidate.config)
+    reranker = production.fine_grained_longterm.reranker
+    assert reranker.method == "cross_encoder"
+    assert reranker.rerank_depth == candidate.config["longterm_rerank_depth"]
+    assert reranker.backend is not None
+    assert reranker.backend.provider == "sentence_transformer"
+    assert reranker.backend.config["model"] == candidate.config["longterm_reranker_model_path"]
+    assert reranker.backend.config["revision"] == candidate.config["longterm_reranker_model_revision"]
+    assert reranker.backend.config["local_files_only"] is True
+
+
+def test_fine_grained_longterm_reranker_screens_each_model_once_at_production_depth(tmp_path: Path) -> None:
+    import yaml
+
+    dataset = make_dataset(tmp_path, 1)
+    baseline, _ = _production_branch_inputs(tmp_path, dataset)
+    space = yaml.safe_load((SCRIPTS.parent / "search_space.yaml").read_text(encoding="utf-8"))
+    discovery = _FineGrainedRerankerDiscovery()
+    context = _branch_context(
+        tmp_path,
+        dataset,
+        baseline,
+        budget="deep",
+        model_discovery=discovery,
+        search_space=space,
+    )
+
+    outcome = FineGrainedLongtermRetrievalBranch().generate(context)
+    reranker_candidates = _fine_grained_reranker_candidates(outcome)
+    reference_depth = FineGrainedLongTermConfig().reranker.rerank_depth
+
+    assert discovery.discover_calls == 1
+    assert len(reranker_candidates) == 2
+    assert {candidate.config["longterm_reranker_model_id"] for candidate in reranker_candidates} == {
+        "local/longterm-reranker-a",
+        "local/longterm-reranker-b",
+    }
+    assert {candidate.config["longterm_rerank_depth"] for candidate in reranker_candidates} == {reference_depth}
+    assert reference_depth == 30
+    assert any("longterm_top_k" in candidate.config for candidate in outcome.candidates)
+    for candidate in reranker_candidates:
+        _assert_fine_grained_reranker_production_mapping(candidate)
+
+
+def test_fine_grained_longterm_reranker_refines_only_the_frontier_winner_depth(tmp_path: Path) -> None:
+    import yaml
+
+    dataset = make_dataset(tmp_path, 1)
+    baseline, _ = _production_branch_inputs(tmp_path, dataset)
+    space = yaml.safe_load((SCRIPTS.parent / "search_space.yaml").read_text(encoding="utf-8"))
+    discovery = _FineGrainedRerankerDiscovery()
+    screening = FineGrainedLongtermRetrievalBranch().generate(
+        _branch_context(
+            tmp_path,
+            dataset,
+            baseline,
+            budget="deep",
+            model_discovery=discovery,
+            search_space=space,
+        )
+    )
+    winning_anchor = next(
+        candidate
+        for candidate in _fine_grained_reranker_candidates(screening)
+        if candidate.config["longterm_reranker_model_id"] == "local/longterm-reranker-b"
+    )
+    discovery.refining = True
+    context = _branch_context(
+        tmp_path,
+        dataset,
+        baseline,
+        anchor=winning_anchor,
+        budget="deep",
+        generation_round=2,
+        branch_history=(
+            {
+                "generation_round": 1,
+                "best_candidate": winning_anchor.name,
+                "frontier_winner": True,
+            },
+        ),
+        model_discovery=discovery,
+        search_space=space,
+    )
+
+    outcome = FineGrainedLongtermRetrievalBranch().generate(context)
+    reranker_candidates = _fine_grained_reranker_candidates(outcome)
+
+    assert discovery.discover_calls == 1
+    assert {candidate.config["longterm_rerank_depth"] for candidate in reranker_candidates} == {20, 50}
+    assert {candidate.config["longterm_reranker_model_id"] for candidate in reranker_candidates} == {
+        winning_anchor.config["longterm_reranker_model_id"]
+    }
+    assert {candidate.config["longterm_reranker_model_revision"] for candidate in reranker_candidates} == {
+        winning_anchor.config["longterm_reranker_model_revision"]
+    }
+    assert {candidate.config["longterm_reranker_model_path"] for candidate in reranker_candidates} == {
+        winning_anchor.config["longterm_reranker_model_path"]
+    }
+    for candidate in reranker_candidates:
+        assert candidate.provenance["model_discovery"] == winning_anchor.provenance["model_discovery"]
+        _assert_fine_grained_reranker_production_mapping(candidate)
+
+
+@pytest.mark.parametrize("invalid_winner", ["wrong_lineage", "no_frontier", "missing_revision", "missing_path"])
+def test_fine_grained_longterm_reranker_does_not_refine_without_a_valid_winner(
+    tmp_path: Path,
+    invalid_winner: str,
+) -> None:
+    import yaml
+
+    dataset = make_dataset(tmp_path, 1)
+    baseline, _ = _production_branch_inputs(tmp_path, dataset)
+    space = yaml.safe_load((SCRIPTS.parent / "search_space.yaml").read_text(encoding="utf-8"))
+    discovery = _FineGrainedRerankerDiscovery()
+    screening = FineGrainedLongtermRetrievalBranch().generate(
+        _branch_context(
+            tmp_path,
+            dataset,
+            baseline,
+            budget="deep",
+            model_discovery=discovery,
+            search_space=space,
+        )
+    )
+    winner = next(
+        candidate
+        for candidate in _fine_grained_reranker_candidates(screening)
+        if candidate.config["longterm_reranker_model_id"] == "local/longterm-reranker-b"
+    )
+    invalid_config = dict(winner.config)
+    if invalid_winner == "wrong_lineage":
+        invalid_config["experiment_branch"] = "RetrievalControl"
+    elif invalid_winner == "missing_revision":
+        invalid_config.pop("longterm_reranker_model_revision")
+    elif invalid_winner == "missing_path":
+        invalid_config.pop("longterm_reranker_model_path")
+    invalid_anchor = Candidate(
+        name=f"invalid-{invalid_winner}",
+        stage=winner.stage,
+        config=invalid_config,
+        provenance=dict(winner.provenance),
+        complexity=winner.complexity,
+    )
+    history = ()
+    if invalid_winner != "no_frontier":
+        history = (
+            {
+                "generation_round": 1,
+                "best_candidate": invalid_anchor.name,
+                "frontier_winner": True,
+            },
+        )
+    discovery.refining = True
+    context = _branch_context(
+        tmp_path,
+        dataset,
+        baseline,
+        anchor=invalid_anchor,
+        budget="deep",
+        generation_round=2,
+        branch_history=history,
+        model_discovery=discovery,
+        search_space=space,
+    )
+
+    outcome = FineGrainedLongtermRetrievalBranch().generate(context)
+
+    assert discovery.discover_calls == 1
+    assert _fine_grained_reranker_candidates(outcome) == []
+    assert any("longterm_top_k" in candidate.config for candidate in outcome.candidates)
 
 
 def test_removed_field_aware_method_cannot_generate_a_tuner_candidate(tmp_path: Path) -> None:

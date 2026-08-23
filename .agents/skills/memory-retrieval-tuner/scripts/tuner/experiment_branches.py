@@ -1766,31 +1766,59 @@ class FineGrainedLongtermRetrievalBranch(BaseBranch):
         if context.budget in {"standard", "deep"} and "auto_discovered_cross_encoder" in set(
             settings.get("reranker_methods") or []
         ):
-            allow_network = context.budget == "deep"
-            model_limit = int(
-                settings.get("max_reranker_models_deep" if allow_network else "max_reranker_models_standard") or 1
+            from mem0.configs.base import FineGrainedLongTermConfig
+
+            anchor_fine = dict(context.anchor.config.get("fine_grained_longterm") or {})
+            production_overrides = dict(context.anchor.config.get("production_overrides") or {})
+            override_fine = dict(production_overrides.get("fine_grained_longterm") or {})
+            nested_reranker = dict(anchor_fine.get("reranker") or override_fine.get("reranker") or {})
+
+            def legal_depth(value: Any) -> int | None:
+                try:
+                    depth = int(value)
+                except (TypeError, ValueError):
+                    return None
+                return depth if 1 <= depth <= 100 else None
+
+            reference_depth = FineGrainedLongTermConfig().reranker.rerank_depth
+            for value in (context.anchor.config.get("longterm_rerank_depth"), nested_reranker.get("rerank_depth")):
+                candidate_depth = legal_depth(value)
+                if candidate_depth is not None:
+                    reference_depth = candidate_depth
+                    break
+            depths = sorted(
+                {
+                    depth
+                    for value in settings.get("rerank_depth") or [reference_depth]
+                    if (depth := legal_depth(value)) is not None
+                }
             )
-            depths = [int(value) for value in settings.get("rerank_depth") or [30]]
-            models = context.model_discovery.discover(
-                model_type="reranker",
-                allow_network=allow_network,
-                general_limit=model_limit,
-                finance_limit=1 if allow_network else 0,
-            )
-            for model in models[:model_limit]:
-                model = context.model_discovery.ensure_available(model, allow_download=allow_network)
-                model = context.model_discovery.smoke_test(
-                    model,
-                    device="cuda" if context.model_discovery.resources.gpu_count else "cpu",
+
+            if context.generation_round == 1:
+                allow_network = context.budget == "deep"
+                model_limit = int(
+                    settings.get("max_reranker_models_deep" if allow_network else "max_reranker_models_standard")
+                    or 1
                 )
-                if model.status != "SMOKE_PASSED":
-                    continue
-                for depth in depths:
+                models = context.model_discovery.discover(
+                    model_type="reranker",
+                    allow_network=allow_network,
+                    general_limit=model_limit,
+                    finance_limit=1 if allow_network else 0,
+                )
+                for model in models[:model_limit]:
+                    model = context.model_discovery.ensure_available(model, allow_download=allow_network)
+                    model = context.model_discovery.smoke_test(
+                        model,
+                        device="cuda" if context.model_discovery.resources.gpu_count else "cpu",
+                    )
+                    if model.status != "SMOKE_PASSED":
+                        continue
                     fine_reranker_candidates.append(
                         _candidate(
                             context,
                             branch=self.spec.name,
-                            label=f"reranker={model.model_id.replace('/', '--')}@{depth}",
+                            label=f"reranker={model.model_id.replace('/', '--')}@{reference_depth}",
                             cost_level="high",
                             complexity=3,
                             provenance={
@@ -1801,11 +1829,49 @@ class FineGrainedLongtermRetrievalBranch(BaseBranch):
                             longterm_reranker_model_id=model.model_id,
                             longterm_reranker_model_revision=model.revision,
                             longterm_reranker_model_path=model.local_path,
-                            longterm_rerank_depth=depth,
+                            longterm_rerank_depth=reference_depth,
                         )
                     )
+            else:
+                previous_round = context.branch_history[-1] if context.branch_history else {}
+                model_id = context.anchor.config.get("longterm_reranker_model_id")
+                model_revision = context.anchor.config.get("longterm_reranker_model_revision")
+                model_path = context.anchor.config.get("longterm_reranker_model_path")
+                model_provenance = context.anchor.provenance.get("model_discovery")
+                current_depth = legal_depth(context.anchor.config.get("longterm_rerank_depth"))
+                valid_winner = (
+                    context.anchor.config.get("experiment_branch") == self.spec.name
+                    and previous_round.get("generation_round") == context.generation_round - 1
+                    and bool(previous_round.get("frontier_winner"))
+                    and previous_round.get("best_candidate") == context.anchor.name
+                    and context.anchor.config.get("longterm_reranker_method") == "cross_encoder"
+                    and bool(model_id)
+                    and bool(model_revision)
+                    and bool(model_path)
+                    and current_depth is not None
+                    and isinstance(model_provenance, Mapping)
+                    and model_provenance.get("model_id") == model_id
+                    and model_provenance.get("revision") == model_revision
+                    and model_provenance.get("local_path") == model_path
+                )
+                if valid_winner:
+                    for depth in depths:
+                        if depth == current_depth:
+                            continue
+                        fine_reranker_candidates.append(
+                            _candidate(
+                                context,
+                                branch=self.spec.name,
+                                label=f"reranker={str(model_id).replace('/', '--')}@{depth}",
+                                cost_level="high",
+                                complexity=1,
+                                longterm_rerank_depth=depth,
+                            )
+                        )
         if fine_reranker_candidates:
-            groups.append(fine_reranker_candidates)
+            # Reranker model/depth screening must survive the branch-wide
+            # candidate cap while the other Long-term axes remain available.
+            groups.insert(0, fine_reranker_candidates)
 
         # Put one candidate from every high-level Long-term axis into the
         # minimum screen before spending depth on any one axis.
