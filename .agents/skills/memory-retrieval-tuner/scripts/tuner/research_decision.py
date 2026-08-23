@@ -15,22 +15,22 @@ from .research_evidence import ResearchEvidence
 from .research_policy import LegalAction, legal_actions_hash
 
 RESEARCH_DECISION_SCHEMA = "research_branch_decision_v1"
-RESEARCH_SYSTEM_PROMPT = """You are the research decision layer for a Memory Retrieval tuner.
-Choose only from the Python-provided legal_actions. Return one strict JSON object with this schema:
-{"action_ids":["A01"],"rationale":"evidence-based reason","deprioritized":[{"action_id":"A02","reason":"temporary reason"}]}
+RESEARCH_SYSTEM_PROMPT = """你是 Memory Retrieval 自动调参器中的研究决策层。
+只能从 Python 提供的 legal_actions 中选择下一步动作。只返回一个严格 JSON 对象，结构如下：
+{"action_ids":["A01"],"rationale":"基于当前实验事实的选择理由","deprioritized":[{"action_id":"A02","reason":"本轮暂不选择的理由"}]}
 
-Rules:
-- action_ids and deprioritized.action_id must be IDs present in legal_actions.
-- Never invent a Branch, parameter, prompt, model, or action ID.
-- Never modify the search space, budgets, max rounds, resource gates, or production code.
-- A stop action must be selected alone. Select at most max_actions branch actions.
-- Every required_now action must be selected.
-- Every legal branch action that is not selected must appear in deprioritized with a concrete research reason.
-- A stop action does not require a deprioritized entry and must not be used to skip a required branch reason.
-- Selected actions cannot also be deprioritized.
-- DEPRIORITIZED is temporary; do not claim a Branch is EXHAUSTED or BLOCKED.
-- Use only the supplied Tune evidence. Held-out Validation, Gold dependencies, benchmark answers, and future turns are unavailable and must not be inferred.
-- Prefer the smallest experiment set that best distinguishes the diagnosed failure regime.
+规则：
+- action_ids 和 deprioritized.action_id 必须是 legal_actions 中已经存在的 ID。
+- 不得自行创造 Branch、参数、Prompt、模型或 action ID。
+- 不得修改搜索空间、实验预算、最大轮数、资源门槛或生产代码。
+- stop 动作必须单独选择；branch 动作最多选择 max_actions 个。
+- 所有 required_now=true 的动作都必须被选择。
+- 每个没有被选择的合法 branch 动作，都必须出现在 deprioritized 中，并给出具体的研究理由。
+- stop 动作不需要写入 deprioritized，也不得利用 stop 跳过对必选 branch 的处理。
+- 已选择的动作不能同时出现在 deprioritized 中。
+- DEPRIORITIZED 只表示本轮暂缓，不得声称某个 Branch 已经 EXHAUSTED 或 BLOCKED。
+- 只能使用提供给你的当前 Tune 实验事实。你无法看到 held-out Validation、Gold 依赖、Benchmark 答案和未来轮次，也不得推断这些信息。
+- 优先选择规模最小、但最能够区分当前诊断失败原因的一组实验。
 """
 
 
@@ -250,9 +250,9 @@ class ResearchDecisionEngine:
                 if previous_error:
                     retry_payload["previous_validation_error"] = previous_error
                     retry_payload["correction_instruction"] = (
-                        "Return corrected strict JSON using only legal action_id values. "
-                        "Every unselected branch action must include a deprioritized reason. "
-                        "A stop action does not require a deprioritized entry."
+                        "请只使用合法的 action_id 值，重新返回符合要求的严格 JSON。"
+                        "每个未选择的 branch 动作都必须在 deprioritized 中给出暂缓理由。"
+                        "stop 动作不需要写入 deprioritized。"
                     )
                 user_prompt = json.dumps(retry_payload, ensure_ascii=False, sort_keys=True)
                 prompt_hash = stable_hash({"system": RESEARCH_SYSTEM_PROMPT, "user": user_prompt})
