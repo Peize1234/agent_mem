@@ -417,12 +417,20 @@ def test_max_total_pages_searches_every_legal_final_budget() -> None:
 
 
 def test_hard_constraints_and_parameter_classes() -> None:
+    space = yaml.safe_load((Path(__file__).resolve().parents[2] / "search_space.yaml").read_text())
+    classes = space["parameters"]["classes"]
     validate_candidate_config({"max_total_pages": 5, "longterm_top_k": 30, "midterm_candidate_pool_multiplier": 8})
     with pytest.raises(ValueError):
         validate_candidate_config({"max_total_pages": 6})
     with pytest.raises(ValueError):
         validate_candidate_config({"short_term_capacity": 5})
+    with pytest.raises(ValueError):
+        validate_candidate_config({"fusion_method": "invented"})
     assert parameter_class("top_k_sessions") == "query-time"
+    assert "top_k_sessions" in classes["query_time_retrieval_only"]
+    assert "top_k_sessions" not in classes["source_changing"]
+    assert "fusion_method" in classes["query_time_retrieval_only"]
+    assert space["parameters"]["hard_constraints"]["fusion_method"]["allowed"] == ["normalized_score", "rrf"]
     assert parameter_class("retention_half_life_turns") == "within-session-stateful"
     assert parameter_class("cross_session_retention_half_life_hours") == "cross-session-temporal-stateful"
     assert parameter_class("max_total_pages") == "query-time"
@@ -600,7 +608,8 @@ def test_midterm_source_config_deep_generates_real_source_specs(tmp_path: Path) 
         for candidate in outcome.candidates
         for key in candidate.config.get("source_config_overrides", {}).get("midterm", {})
     }
-    assert {"short_term_capacity", "session_similarity_threshold", "top_k_sessions"} <= changed
+    assert {"short_term_capacity", "session_similarity_threshold"} <= changed
+    assert "top_k_sessions" not in changed
     assert all(candidate.config.get("source_generation_spec") for candidate in outcome.candidates)
     assert all(candidate.provenance.get("requires_source_regeneration") for candidate in outcome.candidates)
 

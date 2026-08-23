@@ -50,6 +50,7 @@ from tuner.experiment_branches import (  # noqa: E402
     EmbeddingBranch,
     FieldAwareMultiVectorBranch,
     FineGrainedLongtermExtractionPromptBranch,
+    HybridRetrievalBranch,
     QueryRepresentationBranch,
     RerankingBranch,
     RetrievalControlBranch,
@@ -1570,7 +1571,8 @@ def test_trace_does_not_replace_midterm_checkpoints_and_regression_is_separate(
     assert best["config"]["top_k_pages"] == 10
     assert best["validation_metrics"]["recall_at_k"] == pytest.approx(0.70)
     cheap_configs = [value for scope, _, _, value in observed if scope == "stage_1_tune"]
-    assert all(value.get("top_k_sessions") == 5 for value in cheap_configs)
+    assert any(value.get("top_k_sessions") != 5 for value in cheap_configs)
+    assert all(value.get("source_generation_spec") is None for value in cheap_configs)
     assert any(value.get("top_k_pages") != 5 for value in cheap_configs)
     assert any(value.get("max_total_pages") != 5 for value in cheap_configs)
     assert all(scope == "full_memory_regression" for scope, _, backend, _ in observed if backend == "production_trace")
@@ -1957,6 +1959,8 @@ def test_agentic_trace_accepts_exact_parent_retrieval_identity(tmp_path: Path) -
         "midterm_candidate_pool_multiplier": 4,
         "midterm_rag_threshold": 0.1,
         "retrieval_method": "dense",
+        "fusion_method": "normalized_score",
+        "rrf_rank_constant": 60,
         "query_representation": "original",
         "manifest_sha256": {"/mutable/runtime/manifest.json": "manifest-a"},
         **_synthetic_agentic_source(),
@@ -2027,6 +2031,8 @@ def test_agentic_parent_identity_covers_effective_inputs_but_excludes_bookkeepin
     assert build_agentic_parent_retrieval_identity(path_and_bookkeeping_only) == identity
     for field, value in (
         ("top_k_pages", 9),
+        ("fusion_method", "rrf"),
+        ("rrf_rank_constant", 30),
         ("query_artifact_sha256", "query-b"),
         ("page_representation", "summary"),
         ("longterm_rag_threshold", 0.2),
@@ -3207,6 +3213,59 @@ def _branch_context(
     )
 
 
+def test_standard_retrieval_control_searches_top_k_sessions_without_source_regeneration(tmp_path: Path) -> None:
+    import yaml
+
+    dataset = make_dataset(tmp_path, 1)
+    baseline, _ = _production_branch_inputs(tmp_path, dataset)
+    space = yaml.safe_load((SCRIPTS.parent / "search_space.yaml").read_text(encoding="utf-8"))
+    context = _branch_context(tmp_path, dataset, baseline, budget="standard", search_space=space)
+
+    outcome = RetrievalControlBranch().generate(context)
+    session_candidates = [candidate for candidate in outcome.candidates if "top_k_sessions=" in candidate.name]
+
+    assert {candidate.config["top_k_sessions"] for candidate in session_candidates} == {4, 6, 7}
+    standard_limit = space["budget"]["profiles"]["standard"]["max_candidates_per_stage"]
+    assert any("top_k_sessions=" in candidate.name for candidate in outcome.candidates[:standard_limit])
+    for candidate in session_candidates:
+        assert candidate.config.get("source_generation_spec") is None
+        assert candidate.config.get("source_config_overrides") is None
+        assert candidate.provenance.get("requires_source_regeneration") is not True
+        production = ProductionMidtermAdapter._validated_production_config(candidate.config)
+        assert production.midterm.top_k_sessions == candidate.config["top_k_sessions"]
+
+
+def test_hybrid_branch_searches_production_fusion_methods_without_cartesian_weights(tmp_path: Path) -> None:
+    import yaml
+
+    dataset = make_dataset(tmp_path, 1)
+    baseline, _ = _production_branch_inputs(tmp_path, dataset)
+    space = yaml.safe_load((SCRIPTS.parent / "search_space.yaml").read_text(encoding="utf-8"))
+    context = _branch_context(tmp_path, dataset, baseline, budget="standard", search_space=space)
+
+    outcome = HybridRetrievalBranch().generate(context)
+    methods = {candidate.config.get("fusion_method") for candidate in outcome.candidates}
+
+    assert outcome.status == "READY"
+    assert methods == {"normalized_score", "rrf"}
+    assert all(
+        "dense_weight" in candidate.config
+        for candidate in outcome.candidates
+        if candidate.config["fusion_method"] == "normalized_score"
+    )
+    rrf_candidates = [candidate for candidate in outcome.candidates if candidate.config["fusion_method"] == "rrf"]
+    assert len(rrf_candidates) == 1
+    assert rrf_candidates[0].config.get("dense_weight") == baseline.config.get("dense_weight")
+    for candidate in outcome.candidates:
+        production = ProductionMidtermAdapter._validated_production_config(candidate.config)
+        assert production.midterm.retrieval_method == "dense_bm25_fusion"
+        assert production.midterm.fusion_method == candidate.config["fusion_method"]
+        if candidate.config["fusion_method"] == "normalized_score":
+            assert production.midterm.dense_weight == pytest.approx(candidate.config["dense_weight"])
+        else:
+            assert production.midterm.rrf_rank_constant == MidTermMemoryConfig().rrf_rank_constant
+
+
 def test_fine_grained_longterm_prompt_candidates_change_real_extraction_and_source_identity(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -3943,6 +4002,56 @@ def test_reranker_budget_uses_local_first_and_network_only_for_deep(
     assert any(candidate.config.get("reranker_method") == "cross_encoder" for candidate in outcome.candidates)
     removed_method = "_".join(("field", "lexical"))
     assert all(candidate.config.get("reranker_method") != removed_method for candidate in outcome.candidates)
+
+
+def test_midterm_reranking_searches_explicit_depths_without_model_depth_cartesian_product(tmp_path: Path) -> None:
+    import yaml
+
+    dataset = make_dataset(tmp_path, 1)
+    baseline, _ = _production_branch_inputs(tmp_path, dataset)
+
+    class FakeDiscovery:
+        resources = SimpleNamespace(gpu_count=0)
+
+        def discover(self, **_: Any) -> list[ModelCandidate]:
+            return [
+                ModelCandidate("local/reranker-a", "reranker", "local_huggingface_cache"),
+                ModelCandidate("local/reranker-b", "reranker", "local_huggingface_cache"),
+            ]
+
+        def ensure_available(self, candidate: ModelCandidate, **_: Any) -> ModelCandidate:
+            candidate.status = "AVAILABLE"
+            candidate.local_path = f"/tmp/{candidate.model_id.rsplit('/', 1)[-1]}"
+            return candidate
+
+        def smoke_test(self, candidate: ModelCandidate, **_: Any) -> ModelCandidate:
+            candidate.status = "SMOKE_PASSED"
+            return candidate
+
+    space = yaml.safe_load((SCRIPTS.parent / "search_space.yaml").read_text(encoding="utf-8"))
+    configured_depths = set(space["search"]["stages"]["secondary"]["reranking"]["rerank_depth"])
+    context = _branch_context(
+        tmp_path,
+        dataset,
+        baseline,
+        budget="standard",
+        model_discovery=FakeDiscovery(),
+        search_space=space,
+    )
+
+    outcome = RerankingBranch().generate(context)
+    by_model: dict[str, set[int]] = {}
+    for candidate in outcome.candidates:
+        by_model.setdefault(candidate.config["reranker_model_id"], set()).add(candidate.config["rerank_depth"])
+        production = ProductionMidtermAdapter._validated_production_config(candidate.config)
+        assert production.midterm.reranker.method == "cross_encoder"
+        assert production.midterm.reranker.rerank_depth == candidate.config["rerank_depth"]
+
+    assert {candidate.config["rerank_depth"] for candidate in outcome.candidates} == configured_depths
+    assert set(by_model) == {"local/reranker-a", "local/reranker-b"}
+    assert by_model["local/reranker-a"] == configured_depths
+    assert by_model["local/reranker-b"] == {MidTermMemoryConfig().reranker.rerank_depth}
+    assert len(outcome.candidates) == len(configured_depths) + len(by_model) - 1
 
 
 def test_removed_field_aware_method_cannot_generate_a_tuner_candidate(tmp_path: Path) -> None:

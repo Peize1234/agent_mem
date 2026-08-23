@@ -9,7 +9,7 @@ from .parameter_schema import validate_candidate_config
 
 PRODUCTION_AGENTIC_TRACE_SCHEMA = "production_agentic_trace_v2"
 PRODUCTION_AGENTIC_EXECUTION_CONTRACT = "Memory.run_agentic_retrieval"
-AGENTIC_PARENT_RETRIEVAL_IDENTITY_SCHEMA = "agentic_parent_retrieval_identity_v2"
+AGENTIC_PARENT_RETRIEVAL_IDENTITY_SCHEMA = "agentic_parent_retrieval_identity_v3"
 AGENTIC_FIXED_MAX_ITERATIONS = 2
 AGENTIC_FIXED_MAX_TOOL_CALLS = 1
 _VALID_STATUSES = frozenset({"supplemented", "not_needed", "no_relevant_memory", "degraded"})
@@ -23,7 +23,9 @@ _MIDTERM_RETRIEVAL_FIELDS = (
     "midterm_candidate_pool_multiplier",
     "midterm_rag_threshold",
     "retrieval_method",
+    "fusion_method",
     "dense_weight",
+    "rrf_rank_constant",
     "bm25_language",
     "reranker_method",
     "rerank_depth",

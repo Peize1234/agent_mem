@@ -310,6 +310,7 @@ class RetrievalControlBranch(BaseBranch):
         candidates: list[Candidate] = []
         axes = (
             ("top_k_pages", context.k),
+            ("top_k_sessions", 1),
             ("max_total_pages", 1),
             ("midterm_candidate_pool_multiplier", 1),
         )
@@ -779,6 +780,20 @@ class HybridRetrievalBranch(BaseBranch):
         ) or {}
         if "dense_bm25_fusion" not in set(config.get("methods") or ["dense_bm25_fusion"]):
             return BranchOutcome(self.spec.name, "UNAVAILABLE", reason="dense_bm25_fusion is disabled")
+        fusion_config = config.get("fusion_method") or {}
+        fusion_methods = list(dict.fromkeys(fusion_config.get("values") or ["normalized_score", "rrf"]))
+        invalid_methods = []
+        for method in fusion_methods:
+            try:
+                validate_candidate_config({"fusion_method": method})
+            except ValueError:
+                invalid_methods.append(str(method))
+        if invalid_methods:
+            return BranchOutcome(
+                self.spec.name,
+                "UNAVAILABLE",
+                reason=f"unsupported production fusion methods: {', '.join(invalid_methods)}",
+            )
         weight_config = config.get("dense_weight") or {}
         if context.generation_round == 1:
             weights = weight_config.get("coarse") or [0.7, 0.85]
@@ -786,20 +801,49 @@ class HybridRetrievalBranch(BaseBranch):
             center = float(context.anchor.config.get("dense_weight") or 0.7)
             step = float(weight_config.get("refine_step") or 0.05)
             weights = [center - 2 * step, center - step, center, center + step, center + 2 * step]
-        limit = 1 if context.budget == "quick" else 2 if context.budget == "standard" else len(weights)
-        candidates = [
-            _candidate(
-                context,
-                branch=self.spec.name,
-                label=f"dense_weight={float(weight):.2f}",
-                cost_level=self.spec.cost_level,
-                complexity=2,
-                retrieval_method="dense_bm25_fusion",
-                dense_weight=float(weight),
+        anchor_retrieval_method = str(context.anchor.config.get("retrieval_method") or "dense")
+        anchor_fusion_method = str(context.anchor.config.get("fusion_method") or "normalized_score")
+        anchor_dense_weight = float(context.anchor.config.get("dense_weight") or 0.7)
+        valid_weights = [
+            float(weight)
+            for weight in dict.fromkeys(weights)
+            if 0.0 <= float(weight) <= 1.0
+            and not (
+                anchor_retrieval_method == "dense_bm25_fusion"
+                and anchor_fusion_method == "normalized_score"
+                and math.isclose(float(weight), anchor_dense_weight)
             )
-            for weight in weights[:limit]
-            if 0.0 <= float(weight) <= 1.0 and float(weight) != float(context.anchor.config.get("dense_weight") or -1)
         ]
+        weight_limit = 1 if context.budget == "quick" else 2 if context.budget == "standard" else len(valid_weights)
+        candidates: list[Candidate] = []
+        if "normalized_score" in fusion_methods:
+            candidates.extend(
+                _candidate(
+                    context,
+                    branch=self.spec.name,
+                    label=f"fusion=normalized_score,dense_weight={weight:.2f}",
+                    cost_level=self.spec.cost_level,
+                    complexity=2,
+                    retrieval_method="dense_bm25_fusion",
+                    fusion_method="normalized_score",
+                    dense_weight=weight,
+                )
+                for weight in valid_weights[:weight_limit]
+            )
+        if "rrf" in fusion_methods and not (
+            anchor_retrieval_method == "dense_bm25_fusion" and anchor_fusion_method == "rrf"
+        ):
+            candidates.append(
+                _candidate(
+                    context,
+                    branch=self.spec.name,
+                    label="fusion=rrf",
+                    cost_level=self.spec.cost_level,
+                    complexity=2,
+                    retrieval_method="dense_bm25_fusion",
+                    fusion_method="rrf",
+                )
+            )
         return BranchOutcome(self.spec.name, "READY", candidates=candidates)
 
 
@@ -830,7 +874,7 @@ class RerankingBranch(BaseBranch):
         candidates = []
         unavailable: list[str] = []
         method_limit = int(rerank_config.get("max_methods_standard") or 1) if context.budget == "standard" else 99
-        if context.budget in {"standard", "deep"} and "auto_discovered_cross_encoder" in methods:
+        if context.budget in {"standard", "deep"} and method_limit > 0 and "auto_discovered_cross_encoder" in methods:
             allow_network = context.budget == "deep"
             model_limit = int(rerank_config.get("max_models_deep" if allow_network else "max_models_standard") or 2)
             models = context.model_discovery.discover(
@@ -839,7 +883,8 @@ class RerankingBranch(BaseBranch):
                 general_limit=model_limit,
                 finance_limit=1 if allow_network else 0,
             )
-            for model in models[: max(0, min(model_limit, method_limit - len(candidates)))]:
+            available_models = []
+            for model in models[: max(0, model_limit)]:
                 model = context.model_discovery.ensure_available(model, allow_download=allow_network)
                 model = context.model_discovery.smoke_test(
                     model, device="cuda" if context.model_discovery.resources.gpu_count else "cpu"
@@ -847,21 +892,48 @@ class RerankingBranch(BaseBranch):
                 if model.status != "SMOKE_PASSED":
                     unavailable.append(f"{model.model_id}: {model.status}")
                     continue
-                candidates.append(
-                    _candidate(
-                        context,
-                        branch=self.spec.name,
-                        label=f"cross_encoder={model.model_id.replace('/', '--')}",
-                        cost_level=self.spec.cost_level,
-                        complexity=3,
-                        provenance={"model_discovery": model.serializable(), "provenance_validated": True},
-                        reranker_method="cross_encoder",
-                        reranker_model_id=model.model_id,
-                        reranker_model_revision=model.revision,
-                        reranker_model_path=model.local_path,
-                        rerank_depth=context.ranking_depth,
-                    )
+                available_models.append(model)
+
+            from mem0.configs.base import MidTermMemoryConfig
+
+            anchor_reranker = dict(context.anchor.config.get("reranker") or {})
+            reference_depth = int(
+                context.anchor.config.get("rerank_depth")
+                or anchor_reranker.get("rerank_depth")
+                or MidTermMemoryConfig().reranker.rerank_depth
+            )
+            configured_depths = rerank_config.get("rerank_depth") or [reference_depth]
+            depths = sorted({int(depth) for depth in configured_depths if 1 <= int(depth) <= 100})
+            if not depths:
+                return BranchOutcome(
+                    self.spec.name,
+                    "UNAVAILABLE",
+                    reason="rerank_depth has no values within the Production range 1..100",
                 )
+
+            # Stage model selection at one Production reference depth, then
+            # scan depth only for the first viable model. This exposes both
+            # dimensions without constructing the full model x depth grid.
+            for model_index, model in enumerate(available_models):
+                model_depths = [reference_depth]
+                if model_index == 0:
+                    model_depths.extend(depth for depth in depths if depth != reference_depth)
+                for depth in model_depths:
+                    candidates.append(
+                        _candidate(
+                            context,
+                            branch=self.spec.name,
+                            label=f"cross_encoder={model.model_id.replace('/', '--')},depth={depth}",
+                            cost_level=self.spec.cost_level,
+                            complexity=3,
+                            provenance={"model_discovery": model.serializable(), "provenance_validated": True},
+                            reranker_method="cross_encoder",
+                            reranker_model_id=model.model_id,
+                            reranker_model_revision=model.revision,
+                            reranker_model_path=model.local_path,
+                            rerank_depth=depth,
+                        )
+                    )
         return BranchOutcome(
             self.spec.name,
             "READY",
@@ -1475,15 +1547,6 @@ class MidtermSourceConfigBranch(BaseBranch):
         axes = [
             ("short_term_capacity", [4, 6, 8]),
             ("session_similarity_threshold", [0.5, 0.6, 0.7, 0.8, 0.9]),
-            (
-                "top_k_sessions",
-                [
-                    max(1, int(baseline_midterm.get("top_k_sessions", 5)) - 1),
-                    int(baseline_midterm.get("top_k_sessions", 5)),
-                    int(baseline_midterm.get("top_k_sessions", 5)) + 1,
-                    int(baseline_midterm.get("top_k_sessions", 5)) + 2,
-                ],
-            ),
         ]
         candidates = []
         for axis, values in axes:

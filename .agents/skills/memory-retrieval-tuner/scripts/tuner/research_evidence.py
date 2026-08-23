@@ -19,6 +19,7 @@ RESEARCH_CONFIG_KEYS = frozenset(
         "top_k_pages",
         "max_total_pages",
         "bm25_language",
+        "fusion_method",
         "dense_weight",
         "query_representation",
         "query_prompt_text",
@@ -34,6 +35,7 @@ RESEARCH_CONFIG_KEYS = frozenset(
         "reranker_method",
         "reranker_model_id",
         "reranker_model_revision",
+        "rerank_depth",
         "page_summary_prompt_hash",
         "source_variant",
         "page_context_contract",
@@ -61,7 +63,6 @@ RESEARCH_CONFIG_KEYS = frozenset(
         "session_similarity_threshold",
         "embedding_similarity_weight",
         "keyword_overlap_weight",
-        "top_k_sessions",
     }
 )
 RESEARCH_BUDGET_KEYS = frozenset(

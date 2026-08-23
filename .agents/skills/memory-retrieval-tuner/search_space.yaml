@@ -49,6 +49,7 @@ parameters:
   classes:
     query_time_retrieval_only:
       - top_k_pages
+      - top_k_sessions
       - max_total_pages
       - midterm_candidate_pool_multiplier
       - midterm_rag_threshold
@@ -57,6 +58,7 @@ parameters:
       - longterm_candidate_pool_multiplier
       - longterm_hybrid_preset
       - entity_similarity_threshold
+      - fusion_method
       - dense_weight
       - rerank_depth
       - candidate_depth
@@ -68,7 +70,6 @@ parameters:
       - session_similarity_threshold
       - embedding_similarity_weight
       - keyword_overlap_weight
-      - top_k_sessions
       - page_summary_prompt
       - session_merge_prompt
       - fine_grained_longterm_extraction_prompt
@@ -119,6 +120,7 @@ parameters:
     longterm_hybrid_preset:
       allowed: [semantic-heavy, balanced, keyword-heavy, entity-aware]
     entity_similarity_threshold: {min: 0, max: 1}
+    fusion_method: {allowed: [normalized_score, rrf]}
     dense_weight: {min: 0, max: 1}
     candidate_depth: {min: 1, max: 100}
     rerank_depth: {min: 1, max: 100}
@@ -440,6 +442,14 @@ search:
       lexical_hybrid:
         methods:
           - dense_bm25_fusion
+        fusion_method:
+          values:
+            - normalized_score
+            - rrf
+        # RRF rank constant remains the effective Production value. The
+        # branch searches fusion semantics without adding another numeric
+        # axis to the staged screen.
+        rrf_rank_constant: production_default_only
         dense_weight:
           mode: coarse_to_fine
           coarse:
@@ -453,6 +463,7 @@ search:
         min_deep_recall_gap_pp: 15.0
         methods:
           - auto_discovered_cross_encoder
+        rerank_depth: [10, 20, 30, 50]
         max_methods_standard: 1
         max_models_standard: 2
         max_models_deep: 3

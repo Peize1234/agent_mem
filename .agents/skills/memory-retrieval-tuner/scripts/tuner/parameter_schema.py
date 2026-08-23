@@ -348,6 +348,13 @@ def validate_candidate_config(config: Mapping[str, Any], *, allow_unknown: bool 
             raise ValueError(f"{name} must be >= 0")
     if "longterm_hybrid_preset" in value and value["longterm_hybrid_preset"] not in HYBRID_PRESETS:
         raise ValueError("longterm_hybrid_preset must be a Python-defined preset")
+    if "fusion_method" in value:
+        from mem0.configs.base import MidTermMemoryConfig
+
+        try:
+            MidTermMemoryConfig(fusion_method=value["fusion_method"])
+        except ValueError as exc:
+            raise ValueError("fusion_method must be supported by Production MidTerm retrieval") from exc
     return value
 
 
