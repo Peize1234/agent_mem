@@ -27,6 +27,9 @@ class BenchmarkArtifacts:
     manifest_path: Path
     dataset_hash: str
     valid_dependency_samples: int
+    retrieval_required_samples: int
+    retrieval_required_sessions: int
+    shortterm_only_dependency_samples: int
     filtered_samples: int
 
 
@@ -56,6 +59,42 @@ def _max_lookback(turn: AnnotatedTurn) -> int:
     return max((current - position for position in positions), default=0)
 
 
+def _question_number(benchmark_id: str) -> int:
+    return int(benchmark_id.rsplit("Q", 1)[1])
+
+
+def requirement_is_satisfied_by_shortterm(
+    requirement: DependencyRequirement,
+    *,
+    current_question_number: int,
+    shortterm_qa_turns: int,
+) -> bool:
+    """Return whether any equivalent OR source is visible in ShortTerm."""
+
+    return any(
+        current_question_number - _question_number(dependency_id) <= shortterm_qa_turns
+        for dependency_id in requirement.dependency_ids
+    )
+
+
+def turn_requires_memory_retrieval(turn: AnnotatedTurn, *, shortterm_qa_turns: int) -> bool:
+    """Return whether an accepted Gold query has an unsatisfied AND requirement."""
+
+    if shortterm_qa_turns < 0:
+        raise ValueError("shortterm_qa_turns must be non-negative")
+    if turn.status != "VALID" or not turn.label.needs_history:
+        return False
+    current_question_number = _question_number(turn.benchmark_id)
+    return any(
+        not requirement_is_satisfied_by_shortterm(
+            requirement,
+            current_question_number=current_question_number,
+            shortterm_qa_turns=shortterm_qa_turns,
+        )
+        for requirement in turn.label.requirements
+    )
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as source:
@@ -69,6 +108,7 @@ def build_benchmark(
     *,
     output_dir: str | Path,
     history_db_path: str | Path,
+    shortterm_qa_turns: int,
 ) -> BenchmarkArtifacts:
     destination = Path(output_dir).expanduser().resolve()
     destination.mkdir(parents=True, exist_ok=True)
@@ -78,12 +118,25 @@ def build_benchmark(
     workbook = Workbook()
     workbook.remove(workbook.active)
     manifest_sessions = []
+    retrieval_required_samples = 0
+    retrieval_required_sessions = 0
+    shortterm_only_dependency_samples = 0
     for session in annotations.sessions:
         sheet = workbook.create_sheet(session.benchmark_session_id)
         sheet.append(BENCHMARK_HEADERS)
         manifest_turns = []
+        session_requires_retrieval = False
         for turn in session.turns:
             accepted = turn.status == "VALID" and turn.label.needs_history
+            retrieval_required = turn_requires_memory_retrieval(
+                turn,
+                shortterm_qa_turns=shortterm_qa_turns,
+            )
+            if retrieval_required:
+                retrieval_required_samples += 1
+                session_requires_retrieval = True
+            elif accepted:
+                shortterm_only_dependency_samples += 1
             requirements = turn.label.requirements if accepted else ()
             sheet.append(
                 (
@@ -104,8 +157,12 @@ def build_benchmark(
                     "label_status": turn.status,
                     "validation_issues": list(turn.validation_issues),
                     "included_as_gold": accepted,
+                    "retrieval_required": retrieval_required,
+                    "shortterm_only_dependency": accepted and not retrieval_required,
                 }
             )
+        if session_requires_retrieval:
+            retrieval_required_sessions += 1
         manifest_sessions.append(
             {
                 "benchmark_session_id": session.benchmark_session_id,
@@ -130,6 +187,10 @@ def build_benchmark(
         "session_count": len(annotations.sessions),
         "qa_turn_count": annotations.qa_turn_count,
         "valid_dependency_samples": annotations.valid_dependency_samples,
+        "shortterm_qa_turns": shortterm_qa_turns,
+        "retrieval_required_samples": retrieval_required_samples,
+        "retrieval_required_sessions": retrieval_required_sessions,
+        "shortterm_only_dependency_samples": shortterm_only_dependency_samples,
         "filtered_samples": annotations.filtered_samples,
         "cross_session_tuning_status": "CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD",
         "sessions": manifest_sessions,
@@ -143,5 +204,8 @@ def build_benchmark(
         manifest_path=manifest_path,
         dataset_hash=dataset_hash,
         valid_dependency_samples=annotations.valid_dependency_samples,
+        retrieval_required_samples=retrieval_required_samples,
+        retrieval_required_sessions=retrieval_required_sessions,
+        shortterm_only_dependency_samples=shortterm_only_dependency_samples,
         filtered_samples=annotations.filtered_samples,
     )

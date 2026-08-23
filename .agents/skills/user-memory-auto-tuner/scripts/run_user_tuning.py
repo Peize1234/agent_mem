@@ -56,6 +56,8 @@ class UserTuningRequest:
     min_sessions: int = 3
     min_gold_sessions: int = 3
     min_valid_dependency_samples: int = 3
+    min_retrieval_required_samples: int = 3
+    min_retrieval_required_sessions: int = 3
     label_min_confidence: float = 0.75
     verifier_min_confidence: float = 0.75
 
@@ -101,6 +103,10 @@ def _base_result(request: UserTuningRequest) -> dict[str, Any]:
         "extracted_session_count": 0,
         "qa_turn_count": 0,
         "valid_dependency_samples": 0,
+        "retrieval_required_samples": 0,
+        "retrieval_required_sessions": 0,
+        "shortterm_only_dependency_samples": 0,
+        "shortterm_qa_turns": None,
         "filtered_samples": 0,
         "generated_benchmark_path": None,
         "benchmark_manifest_path": None,
@@ -111,14 +117,18 @@ def _base_result(request: UserTuningRequest) -> dict[str, Any]:
         "best_validation_metrics": {},
         "production_overrides": {},
         "rebuild_required": {},
+        "future_apply_notes": {},
         "unsupported_overrides": {},
+        "override_classification_reasons": {},
         "override_exclusion_reasons": {},
         "config_version": None,
         "status": "failed",
         "reason": None,
         "cross_session_tuning_status": "CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD",
-        "deployment_scope": "SQLITE_CONFIG_TABLE_ONLY_NOT_LIVE_MEMORY",
+        "deployment_scope": "SQLITE_RECOMMENDATION_TABLE_ONLY_NOT_LIVE_MEMORY",
+        "saved": False,
         "deployed": False,
+        "deployed_meaning": "recommended config saved to SQLite; not active in live Memory",
     }
 
 
@@ -156,7 +166,35 @@ def _not_enough_data_reason(
     }
 
 
-def _deployment_gate_failure(summary: Any) -> str | None:
+def _not_enough_retrieval_data_reason(
+    *,
+    retrieval_required_samples: int,
+    retrieval_required_sessions: int,
+    shortterm_only_dependency_samples: int,
+    shortterm_qa_turns: int,
+    request: UserTuningRequest,
+) -> dict[str, Any] | None:
+    if (
+        retrieval_required_samples >= request.min_retrieval_required_samples
+        and retrieval_required_sessions >= request.min_retrieval_required_sessions
+    ):
+        return None
+    return {
+        "code": "NOT_ENOUGH_RETRIEVAL_DATA",
+        "actual": {
+            "retrieval_required_samples": retrieval_required_samples,
+            "retrieval_required_sessions": retrieval_required_sessions,
+            "shortterm_only_dependency_samples": shortterm_only_dependency_samples,
+            "shortterm_qa_turns": shortterm_qa_turns,
+        },
+        "required": {
+            "retrieval_required_samples": request.min_retrieval_required_samples,
+            "retrieval_required_sessions": request.min_retrieval_required_sessions,
+        },
+    }
+
+
+def _save_gate_failure(summary: Any) -> str | None:
     if not summary.audit_succeeded:
         return "DATASET_AUDIT_NOT_SUCCESSFUL"
     if not summary.validation_sufficient:
@@ -191,8 +229,13 @@ def run_user_tuning(
     try:
         active = store.get_active(request.user_id)
         active_overrides = active.config_overrides if active is not None else {}
-        active_safe_overrides = partition_production_overrides(active_overrides).deployable
         result["config_version"] = active.config_version if active is not None else None
+
+        from mem0.configs.production import load_production_memory_config
+
+        baseline = load_production_memory_config(active_overrides or None, resolve_environment=False)
+        shortterm_qa_turns = int(baseline.midterm.short_term_capacity) // 2
+        result["shortterm_qa_turns"] = shortterm_qa_turns
         history = extract_user_history(
             user_id=request.user_id,
             history_db_path=request.history_db_path,
@@ -206,10 +249,14 @@ def run_user_tuning(
             annotations,
             output_dir=request.output_dir,
             history_db_path=request.history_db_path,
+            shortterm_qa_turns=shortterm_qa_turns,
         )
         result.update(
             {
                 "valid_dependency_samples": artifacts.valid_dependency_samples,
+                "retrieval_required_samples": artifacts.retrieval_required_samples,
+                "retrieval_required_sessions": artifacts.retrieval_required_sessions,
+                "shortterm_only_dependency_samples": artifacts.shortterm_only_dependency_samples,
                 "filtered_samples": artifacts.filtered_samples,
                 "generated_benchmark_path": str(artifacts.benchmark_path),
                 "benchmark_manifest_path": str(artifacts.manifest_path),
@@ -229,11 +276,17 @@ def run_user_tuning(
         if not_enough is not None:
             result.update({"status": "skipped", "reason": not_enough})
             return _finish(request, result)
+        not_enough_retrieval = _not_enough_retrieval_data_reason(
+            retrieval_required_samples=artifacts.retrieval_required_samples,
+            retrieval_required_sessions=artifacts.retrieval_required_sessions,
+            shortterm_only_dependency_samples=artifacts.shortterm_only_dependency_samples,
+            shortterm_qa_turns=shortterm_qa_turns,
+            request=request,
+        )
+        if not_enough_retrieval is not None:
+            result.update({"status": "skipped", "reason": not_enough_retrieval})
+            return _finish(request, result)
 
-        from mem0.configs.production import load_production_memory_config
-
-        baseline = load_production_memory_config(active_overrides or None, resolve_environment=False)
-        shortterm_qa_turns = int(baseline.midterm.short_term_capacity) // 2
         audit = audit_generated_benchmark(
             artifacts.benchmark_path,
             output_dir=request.output_dir / "benchmark_audit",
@@ -257,7 +310,7 @@ def run_user_tuning(
         summary = inspect_tuner_run(tuner_run_dir)
         result["baseline_metrics"] = summary.baseline_metrics
         result["best_validation_metrics"] = summary.best_validation_metrics
-        gate_failure = _deployment_gate_failure(summary)
+        gate_failure = _save_gate_failure(summary)
         if gate_failure is not None:
             result.update({"status": "skipped", "reason": {"code": gate_failure}})
             return _finish(request, result)
@@ -269,11 +322,7 @@ def run_user_tuning(
                 candidate_overrides,
                 _read_json_object(frozen_config_path),
             )
-        partition = partition_production_overrides(candidate_overrides)
-        result["rebuild_required"] = partition.rebuild_required
-        result["unsupported_overrides"] = partition.unsupported
-        result["override_exclusion_reasons"] = partition.exclusion_reasons
-        final_overrides = deep_merge(active_safe_overrides, partition.deployable)
+        final_overrides = deep_merge(active_overrides, candidate_overrides)
         try:
             final_overrides = validate_production_overrides(final_overrides)
         except Exception as exc:
@@ -287,8 +336,28 @@ def run_user_tuning(
                 }
             )
             return _finish(request, result)
+        partition = partition_production_overrides(final_overrides)
+        result["rebuild_required"] = partition.rebuild_required
+        result["unsupported_overrides"] = partition.unsupported
+        result["override_classification_reasons"] = partition.exclusion_reasons
+        result["override_exclusion_reasons"] = {
+            path: reason
+            for path, reason in partition.exclusion_reasons.items()
+            if reason == "CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD"
+        }
+        result["future_apply_notes"] = {
+            path: reason for path, reason in partition.exclusion_reasons.items() if reason == "REBUILD_REQUIRED"
+        }
+        if partition.unsupported:
+            result.update(
+                {
+                    "status": "skipped",
+                    "reason": {"code": "CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD"},
+                }
+            )
+            return _finish(request, result)
         if not final_overrides:
-            result.update({"status": "skipped", "reason": {"code": "NO_DEPLOYABLE_RETRIEVAL_OVERRIDES"}})
+            result.update({"status": "skipped", "reason": {"code": "NO_RECOMMENDED_OVERRIDES"}})
             return _finish(request, result)
         if active is not None and final_overrides == active.config_overrides:
             result["production_overrides"] = final_overrides
@@ -306,8 +375,9 @@ def run_user_tuning(
             {
                 "production_overrides": saved.config_overrides,
                 "config_version": saved.config_version,
-                "status": "deployed",
+                "status": "saved",
                 "reason": None,
+                "saved": True,
                 "deployed": True,
             }
         )
@@ -350,6 +420,8 @@ def parse_args(argv: list[str] | None = None) -> UserTuningRequest:
     parser.add_argument("--min-sessions", type=int)
     parser.add_argument("--min-gold-sessions", type=int)
     parser.add_argument("--min-valid-dependency-samples", type=int)
+    parser.add_argument("--min-retrieval-required-samples", type=int)
+    parser.add_argument("--min-retrieval-required-sessions", type=int)
     parser.add_argument("--label-min-confidence", type=float)
     parser.add_argument("--verifier-min-confidence", type=float)
     namespace = parser.parse_args(argv)
@@ -381,6 +453,8 @@ def parse_args(argv: list[str] | None = None) -> UserTuningRequest:
         "min_sessions",
         "min_gold_sessions",
         "min_valid_dependency_samples",
+        "min_retrieval_required_samples",
+        "min_retrieval_required_sessions",
         "label_min_confidence",
         "verifier_min_confidence",
     ):
@@ -412,9 +486,11 @@ def parse_args(argv: list[str] | None = None) -> UserTuningRequest:
         target=str(values.get("target") or "midterm"),
         seed=int(values["seed"]) if values.get("seed") is not None else None,
         llm_mode=str(values.get("llm_mode") or "real"),
-        min_sessions=int(values.get("min_sessions") or 3),
-        min_gold_sessions=int(values.get("min_gold_sessions") or 3),
-        min_valid_dependency_samples=int(values.get("min_valid_dependency_samples") or 3),
+        min_sessions=int(values.get("min_sessions", 3)),
+        min_gold_sessions=int(values.get("min_gold_sessions", 3)),
+        min_valid_dependency_samples=int(values.get("min_valid_dependency_samples", 3)),
+        min_retrieval_required_samples=int(values.get("min_retrieval_required_samples", 3)),
+        min_retrieval_required_sessions=int(values.get("min_retrieval_required_sessions", 3)),
         label_min_confidence=float(values.get("label_min_confidence") or 0.75),
         verifier_min_confidence=float(values.get("verifier_min_confidence") or 0.75),
     )
@@ -424,7 +500,7 @@ def main(argv: list[str] | None = None) -> int:
     request = parse_args(argv)
     result = run_user_tuning(request)
     print(json.dumps(result, ensure_ascii=False, indent=2))
-    return 0 if result["status"] in {"deployed", "skipped"} else 1
+    return 0 if result["status"] in {"saved", "deployed", "skipped"} else 1
 
 
 if __name__ == "__main__":

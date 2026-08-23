@@ -18,12 +18,14 @@ for path in (REPO_ROOT, SCRIPTS_ROOT):
         sys.path.insert(0, str(path))
 
 from auto_tuner_models import (  # noqa: E402
+    AnnotatedTurn,
     ConversationTurn,
+    DependencyLabel,
     ExtractedHistory,
     ExtractedSession,
     RawMessage,
 )
-from build_benchmark import build_benchmark  # noqa: E402
+from build_benchmark import build_benchmark, turn_requires_memory_retrieval  # noqa: E402
 from config_store import UserTuningConfigStore, production_override_delta  # noqa: E402
 from extract_user_history import extract_user_history, parse_session_scope  # noqa: E402
 from label_dependencies import TwoStageDependencyAnnotator, annotate_history  # noqa: E402
@@ -204,6 +206,49 @@ def _three_session_db(path: Path, user_id: str = "u1") -> None:
             answer="额度100万元",
             day=session_number,
         )
+        for turn_index in range(2, 7):
+            _add_qa(
+                path,
+                scope=scope,
+                prefix=f"s{session_number}",
+                turn_index=turn_index,
+                question=f"无关问题 {turn_index}",
+                answer=f"无关回答 {turn_index}",
+                day=session_number,
+            )
+        _add_qa(
+            path,
+            scope=scope,
+            prefix=f"s{session_number}",
+            turn_index=7,
+            question="最早提到的额度适合吗？",
+            answer="适合，因为额度是100万元。",
+            day=session_number,
+        )
+
+
+def _three_session_annotator() -> TwoStageDependencyAnnotator:
+    responses = []
+    for session_number in range(1, 4):
+        for _ in range(5):
+            responses.extend([_independent_label(), _valid_verifier()])
+        responses.extend([_dependent_label(f"S{session_number:03d}-Q001"), _valid_verifier()])
+    return TwoStageDependencyAnnotator(ScriptedLLM(responses))
+
+
+def _three_shortterm_session_db(path: Path) -> None:
+    _create_history_db(path)
+    for session_number in range(1, 4):
+        scope = f"run_id=r{session_number}&user_id=u1"
+        _add_qa(
+            path,
+            scope=scope,
+            prefix=f"s{session_number}",
+            turn_index=1,
+            question="本次额度是多少？",
+            answer="额度100万元",
+            day=session_number,
+        )
         _add_qa(
             path,
             scope=scope,
@@ -215,11 +260,35 @@ def _three_session_db(path: Path, user_id: str = "u1") -> None:
         )
 
 
-def _three_session_annotator() -> TwoStageDependencyAnnotator:
+def _three_shortterm_session_annotator() -> TwoStageDependencyAnnotator:
     responses = []
     for session_number in range(1, 4):
         responses.extend([_dependent_label(f"S{session_number:03d}-Q001"), _valid_verifier()])
     return TwoStageDependencyAnnotator(ScriptedLLM(responses))
+
+
+def _annotated_turn(benchmark_id: str, dependency_groups: list[list[str]]) -> AnnotatedTurn:
+    return AnnotatedTurn(
+        benchmark_id=benchmark_id,
+        source_turn_index=int(benchmark_id.rsplit("Q", 1)[1]),
+        question="当前问题",
+        answer="最终回答",
+        label=DependencyLabel.model_validate(
+            {
+                "needs_history": True,
+                "requirements": [
+                    {
+                        "dependency_ids": dependency_ids,
+                        "required_contexts": [f"证据 {dependency_id}" for dependency_id in dependency_ids],
+                    }
+                    for dependency_ids in dependency_groups
+                ],
+                "dependency_type": "测试",
+                "confidence": 1.0,
+            }
+        ),
+        status="VALID",
+    )
 
 
 def _write_fake_tuner_run(
@@ -439,7 +508,12 @@ def test_and_or_gold_generation_passes_existing_dataset_audit(tmp_path: Path) ->
         ]
     )
     annotations = annotate_history(history, TwoStageDependencyAnnotator(llm))
-    artifacts = build_benchmark(annotations, output_dir=tmp_path, history_db_path=tmp_path / "history.db")
+    artifacts = build_benchmark(
+        annotations,
+        output_dir=tmp_path,
+        history_db_path=tmp_path / "history.db",
+        shortterm_qa_turns=3,
+    )
 
     workbook = load_workbook(artifacts.benchmark_path, read_only=True, data_only=True)
     try:
@@ -506,7 +580,56 @@ def test_not_enough_data_skips_tuner(tmp_path: Path) -> None:
     assert Path(result["generated_benchmark_path"]).exists()
 
 
-def test_pipeline_reuses_existing_tuner_and_saves_only_safe_production_overrides(tmp_path: Path) -> None:
+def test_gold_inside_shortterm_returns_not_enough_retrieval_data_and_skips_tuner(tmp_path: Path) -> None:
+    database = tmp_path / "history.db"
+    _three_shortterm_session_db(database)
+    called = False
+
+    def tuner_runner(*_: Any, **__: Any) -> Path:
+        nonlocal called
+        called = True
+        raise AssertionError("tuner must not run")
+
+    result = run_user_tuning(
+        UserTuningRequest(user_id="u1", history_db_path=database, output_dir=tmp_path / "run"),
+        annotator=_three_shortterm_session_annotator(),
+        tuner_runner=tuner_runner,
+    )
+
+    assert result["valid_dependency_samples"] == 3
+    assert result["retrieval_required_samples"] == 0
+    assert result["retrieval_required_sessions"] == 0
+    assert result["shortterm_only_dependency_samples"] == 3
+    assert result["status"] == "skipped"
+    assert result["reason"]["code"] == "NOT_ENOUGH_RETRIEVAL_DATA"
+    assert not called
+    manifest = json.loads(Path(result["benchmark_manifest_path"]).read_text(encoding="utf-8"))
+    assert manifest["retrieval_required_samples"] == 0
+    assert manifest["retrieval_required_sessions"] == 0
+    assert manifest["shortterm_only_dependency_samples"] == 3
+
+
+def test_dependency_outside_shortterm_is_retrieval_required() -> None:
+    turn = _annotated_turn("S001-Q006", [["S001-Q001"]])
+
+    assert turn_requires_memory_retrieval(turn, shortterm_qa_turns=3)
+
+
+def test_or_requirement_is_retrieval_required_only_when_all_sources_are_outside_shortterm() -> None:
+    shortterm_alternative = _annotated_turn("S001-Q006", [["S001-Q002", "S001-Q005"]])
+    all_outside = _annotated_turn("S001-Q006", [["S001-Q001", "S001-Q002"]])
+
+    assert not turn_requires_memory_retrieval(shortterm_alternative, shortterm_qa_turns=3)
+    assert turn_requires_memory_retrieval(all_outside, shortterm_qa_turns=3)
+
+
+def test_and_requirement_needs_retrieval_when_any_fact_is_outside_shortterm() -> None:
+    turn = _annotated_turn("S001-Q006", [["S001-Q005"], ["S001-Q001"]])
+
+    assert turn_requires_memory_retrieval(turn, shortterm_qa_turns=3)
+
+
+def test_pipeline_reuses_existing_tuner_and_saves_complete_production_overrides(tmp_path: Path) -> None:
     database = tmp_path / "history.db"
     _three_session_db(database)
     captured: dict[str, Any] = {}
@@ -524,7 +647,6 @@ def test_pipeline_reuses_existing_tuner_and_saves_only_safe_production_overrides
                         "page_representation": "summary",
                         "page_summary_prompt": "source-changing prompt",
                     },
-                    "promoted_longterm": {"top_k": 9},
                 },
                 "experiment_metadata": {"must_not_be_saved": True},
             },
@@ -540,10 +662,18 @@ def test_pipeline_reuses_existing_tuner_and_saves_only_safe_production_overrides
     assert run_tuning.__module__ == "tuner.orchestrator"
     assert captured["config"].__class__.__module__ == "tuner.orchestrator"
     assert captured["skill_root"] == TUNER_SKILL_ROOT
-    assert result["status"] == "deployed"
+    assert result["status"] == "saved"
+    assert result["saved"] is True
+    assert result["retrieval_required_samples"] == 3
+    assert result["retrieval_required_sessions"] == 3
+    assert result["shortterm_only_dependency_samples"] == 0
     assert result["production_overrides"] == {
         "query_rewrite_prompt": "safe query-time prompt",
-        "midterm": {"top_k_pages": 7},
+        "midterm": {
+            "top_k_pages": 7,
+            "page_representation": "summary",
+            "page_summary_prompt": "source-changing prompt",
+        },
     }
     assert result["rebuild_required"] == {
         "midterm": {
@@ -551,12 +681,64 @@ def test_pipeline_reuses_existing_tuner_and_saves_only_safe_production_overrides
             "page_summary_prompt": "source-changing prompt",
         }
     }
-    assert result["unsupported_overrides"] == {"promoted_longterm": {"top_k": 9}}
+    assert result["future_apply_notes"] == {
+        "midterm.page_representation": "REBUILD_REQUIRED",
+        "midterm.page_summary_prompt": "REBUILD_REQUIRED",
+    }
+    assert result["override_exclusion_reasons"] == {}
+    assert result["unsupported_overrides"] == {}
     store = UserTuningConfigStore(database)
     active = store.get_active("u1")
     assert active is not None
     assert active.config_overrides == result["production_overrides"]
     assert "candidate" not in active.config_overrides
+    manifest = json.loads(Path(result["benchmark_manifest_path"]).read_text(encoding="utf-8"))
+    assert manifest["retrieval_required_samples"] == 3
+    assert manifest["retrieval_required_sessions"] == 3
+
+
+def test_saved_winner_preserves_unchanged_fields_from_previous_recommendation(tmp_path: Path) -> None:
+    database = tmp_path / "history.db"
+    _three_session_db(database)
+    store = UserTuningConfigStore(database)
+    previous = store.save_active(
+        user_id="u1",
+        config_overrides={"midterm": {"short_term_capacity": 6, "page_representation": "raw_dialogue"}},
+        source_run_dir=tmp_path / "old-run",
+        dataset_hash="old-dataset",
+        validation_metrics={"recall_at_k": 0.5},
+    )
+
+    def tuner_runner(config: Any, *, skill_root: Path) -> Path:
+        assert skill_root == TUNER_SKILL_ROOT
+        assert json.loads(Path(config.memory_config).read_text(encoding="utf-8")) == previous.config_overrides
+        return _write_fake_tuner_run(
+            config,
+            candidate_config={"production_overrides": {"midterm": {"top_k_pages": 7}}},
+        )
+
+    result = run_user_tuning(
+        UserTuningRequest(user_id="u1", history_db_path=database, output_dir=tmp_path / "run"),
+        annotator=_three_session_annotator(),
+        tuner_runner=tuner_runner,
+    )
+
+    assert result["status"] == "saved"
+    assert result["production_overrides"] == {
+        "midterm": {
+            "short_term_capacity": 6,
+            "page_representation": "raw_dialogue",
+            "top_k_pages": 7,
+        }
+    }
+    assert result["future_apply_notes"] == {
+        "midterm.page_representation": "REBUILD_REQUIRED",
+        "midterm.short_term_capacity": "REBUILD_REQUIRED",
+    }
+    latest = store.get_active("u1")
+    assert latest is not None
+    assert latest.config_version == 2
+    assert latest.config_overrides == result["production_overrides"]
 
 
 def test_candidate_delta_does_not_mark_unchanged_source_fields_for_rebuild() -> None:

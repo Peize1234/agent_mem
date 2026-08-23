@@ -92,7 +92,13 @@ def _matches_prefix(path: str, prefixes: set[str]) -> bool:
 
 
 def partition_production_overrides(overrides: Mapping[str, Any]) -> OverridePartition:
-    """Allow only retrieval/query-time fields into the active user config."""
+    """Classify future-application notes without deciding what is persisted.
+
+    ``deployable`` retains its compatibility name and means that applying the
+    field later should not require rebuilding memory sources. Source-changing
+    fields remain in ``rebuild_required`` as metadata, not as a persistence
+    denylist.
+    """
 
     deployable: dict[str, Any] = {}
     rebuild_required: dict[str, Any] = {}
