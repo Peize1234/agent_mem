@@ -13,7 +13,6 @@ from memory_monitor.components.llm_call_formatter import (
     split_mixed_text_and_json,
 )
 from memory_monitor.models import (
-    FOREGROUND_STEPS,
     MEMORY_STEPS,
     PIPELINE_STEPS,
     TERMINAL_STEP_STATUSES,
@@ -23,9 +22,20 @@ from memory_monitor.models import (
     StepStatus,
 )
 
+QUERY_REWRITE_NODE = "query_rewrite"
+DISPLAY_FOREGROUND_STEPS = (
+    PipelineStep.CAPTURE_INPUT,
+    QUERY_REWRITE_NODE,
+    PipelineStep.RETRIEVE_CONTEXT,
+    PipelineStep.AGENTIC_RETRIEVAL,
+    PipelineStep.BUILD_PROMPT,
+    PipelineStep.GENERATE_RESPONSE,
+)
+
 _STEP_LABELS = {
     PipelineStep.CAPTURE_INPUT: "捕获输入",
-    PipelineStep.RETRIEVE_CONTEXT: "检索上下文",
+    QUERY_REWRITE_NODE: "问题重写",
+    PipelineStep.RETRIEVE_CONTEXT: "分层检索",
     PipelineStep.AGENTIC_RETRIEVAL: "Agentic 检索",
     PipelineStep.BUILD_PROMPT: "构建 Prompt",
     PipelineStep.GENERATE_RESPONSE: "模型回答",
@@ -48,7 +58,7 @@ _FENCED_CODE_START = re.compile(r"^ {0,3}(?:(?P<backticks>`{3,})[^`\r\n]*|(?P<ti
 
 @dataclass(frozen=True)
 class PipelineNode:
-    step: PipelineStep
+    step: PipelineStep | str
     label: str
     status: str
     attempts: int
@@ -60,12 +70,13 @@ class PipelineNode:
     detail: str | None = None
     llm_calls: tuple[dict[str, Any], ...] = ()
     tool_calls: tuple[dict[str, Any], ...] = ()
+    virtual: bool = False
 
 
 def build_nodes(
     steps: list[dict[str, Any]],
     background_config: BackgroundStepConfig | Mapping[str, object] | None,
-) -> dict[PipelineStep, PipelineNode]:
+) -> dict[PipelineStep | str, PipelineNode]:
     # Retain the argument for callers that still load legacy per-turn config;
     # current memory controls derive exclusively from persisted step holds.
     del background_config
@@ -95,9 +106,31 @@ def build_nodes(
             current=step is current_step,
             held=bool(item.get("is_held")),
             detail=_node_detail(step, item, step_map),
-            llm_calls=tuple(llm_calls),
+            # QueryResolver runs inside RETRIEVE_CONTEXT. Its calls are shown
+            # on the derived rewrite node below, never duplicated here.
+            llm_calls=() if step is PipelineStep.RETRIEVE_CONTEXT else tuple(llm_calls),
             tool_calls=tuple(tool_calls),
         )
+    retrieve_item = step_map[PipelineStep.RETRIEVE_CONTEXT]
+    retrieve_output = (
+        retrieve_item.get("output") if isinstance(retrieve_item.get("output"), dict) else {}
+    )
+    retrieve_llm_calls = (
+        retrieve_output.get("llm_calls") if isinstance(retrieve_output.get("llm_calls"), list) else []
+    )
+    nodes[QUERY_REWRITE_NODE] = PipelineNode(
+        step=QUERY_REWRITE_NODE,
+        label=_STEP_LABELS[QUERY_REWRITE_NODE],
+        status=retrieve_item["status"],
+        attempts=int(retrieve_item.get("attempts") or 0),
+        duration_ms=None,
+        error=retrieve_item.get("error_message"),
+        enabled=True,
+        current=PipelineStep.RETRIEVE_CONTEXT is current_step,
+        detail=_query_rewrite_detail(retrieve_item, retrieve_output),
+        llm_calls=tuple(retrieve_llm_calls),
+        virtual=True,
+    )
     return nodes
 
 
@@ -135,7 +168,9 @@ def render_html(
 ) -> str:
     nodes = build_nodes(steps, background_config)
     completed, total, _ratio = progress(steps, background_config)
-    foreground = '<div class="demo-arrow">→</div>'.join(_node_html(nodes[step]) for step in FOREGROUND_STEPS)
+    foreground = '<div class="demo-arrow">→</div>'.join(
+        _node_html(nodes[step]) for step in DISPLAY_FOREGROUND_STEPS
+    )
     branches = "".join(f'<div class="demo-memory-branch">{_node_html(nodes[step])}</div>' for step in MEMORY_STEPS)
     return (
         '<div class="demo-pipeline">'
@@ -208,6 +243,8 @@ def _render_merge_svg() -> str:
 
 def _node_html(node: PipelineNode) -> str:
     classes = ["demo-node", node.status]
+    if node.virtual:
+        classes.append("virtual")
     if node.step is PipelineStep.AGENTIC_RETRIEVAL:
         classes.append("agentic-retrieval")
     if node.current:
@@ -228,7 +265,12 @@ def _node_html(node: PipelineNode) -> str:
         if node.detail and not hide_repeated_detail
         else ""
     )
-    attempts = "" if node.step is PipelineStep.COMPLETE_TURN else f"{node.attempts} 次{duration}"
+    if node.step is PipelineStep.COMPLETE_TURN:
+        attempts = ""
+    elif node.virtual:
+        attempts = "展示派生"
+    else:
+        attempts = f"{node.attempts} 次{duration}"
     show_agentic_call_stats = (
         node.step is PipelineStep.AGENTIC_RETRIEVAL
         and node.status in {StepStatus.SUCCEEDED.value, StepStatus.FAILED.value}
@@ -463,6 +505,20 @@ def _node_detail(
         if shortterm_status != StepStatus.SUCCEEDED.value:
             return "等待短期记忆完成"
     return None
+
+
+def _query_rewrite_detail(item: dict[str, Any], output: dict[str, Any]) -> str:
+    if "retrieval_query" not in output:
+        if item["status"] in {
+            StepStatus.PENDING.value,
+            StepStatus.QUEUED.value,
+            StepStatus.RUNNING.value,
+        }:
+            return "等待分层检索结果"
+        return "历史数据未记录检索问题"
+    query = str(output.get("query") or "")
+    retrieval_query = str(output.get("retrieval_query") or query)
+    return "已改写" if retrieval_query != query else "未发生改写"
 
 
 def _node_status_label(node: PipelineNode) -> str:

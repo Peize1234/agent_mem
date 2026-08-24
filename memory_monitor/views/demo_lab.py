@@ -43,7 +43,7 @@ _EMPTY_SNAPSHOT = {
 }
 _WORKSPACE_SECTIONS = (
     ("执行流程", "pipeline"),
-    ("检索上下文", "context"),
+    ("分层检索", "context"),
     ("最终 Prompt", "prompt"),
     ("模型调用", "generation"),
     ("数据库和任务", "database"),

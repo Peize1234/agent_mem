@@ -179,6 +179,11 @@ class DemoMemory(Memory):
     def _validated_frozen_context(self, context: Dict[str, Any]) -> Dict[str, Any]:
         frozen_context = deepcopy(context)
         expected_hash = frozen_context.pop("context_hash", None)
+        # Step-level trace data is monitor metadata added after retrieval. It
+        # must remain visible in the persisted output without entering the
+        # production prompt/Agentic context or invalidating the frozen hash.
+        frozen_context.pop("llm_calls", None)
+        frozen_context.pop("tool_calls", None)
         actual_hash = self.context_hash(frozen_context)
         if expected_hash is not None and expected_hash != actual_hash:
             raise ValueError("Frozen demo context no longer matches its context_hash")
@@ -240,6 +245,8 @@ class DemoMemory(Memory):
     def context_hash(context: Dict[str, Any]) -> str:
         payload = deepcopy(context)
         payload.pop("context_hash", None)
+        payload.pop("llm_calls", None)
+        payload.pop("tool_calls", None)
         encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
         return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 

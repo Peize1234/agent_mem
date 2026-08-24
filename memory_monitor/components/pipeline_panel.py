@@ -24,7 +24,7 @@ _MEMORY_GATE_CONTROLS = (
 
 _STEP_LABELS = {
     PipelineStep.CAPTURE_INPUT.value: "捕获输入",
-    PipelineStep.RETRIEVE_CONTEXT.value: "检索上下文",
+    PipelineStep.RETRIEVE_CONTEXT.value: "分层检索",
     PipelineStep.AGENTIC_RETRIEVAL.value: "Agentic 检索",
     PipelineStep.BUILD_PROMPT.value: "构建 Prompt",
     PipelineStep.GENERATE_RESPONSE.value: "模型回答",

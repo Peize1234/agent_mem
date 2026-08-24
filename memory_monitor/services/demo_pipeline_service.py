@@ -48,7 +48,7 @@ STEP_SNAPSHOT_SECTIONS = {
 
 STEP_LLM_PURPOSES = {
     PipelineStep.CAPTURE_INPUT: "捕获输入",
-    PipelineStep.RETRIEVE_CONTEXT: "检索上下文",
+    PipelineStep.RETRIEVE_CONTEXT: "问题重写",
     PipelineStep.AGENTIC_RETRIEVAL: "Agentic 检索",
     PipelineStep.BUILD_PROMPT: "构建最终 Prompt",
     PipelineStep.GENERATE_RESPONSE: "生成最终回答",

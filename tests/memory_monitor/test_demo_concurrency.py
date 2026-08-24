@@ -114,8 +114,10 @@ def test_dag_has_four_visible_branches_and_derived_completion_only():
     for center in ("12.5", "37.5", "62.5", "87.5"):
         assert f'y1="{center}"' in rendered
     assert "完成本轮" in rendered
-    foreground_labels = ("捕获输入", "检索上下文", "Agentic 检索", "构建 Prompt", "模型回答")
-    assert [rendered.index(label) for label in foreground_labels] == sorted(rendered.index(label) for label in foreground_labels)
+    foreground_labels = ("捕获输入", "问题重写", "分层检索", "Agentic 检索", "构建 Prompt", "模型回答")
+    assert [rendered.index(label) for label in foreground_labels] == sorted(
+        rendered.index(label) for label in foreground_labels
+    )
     ordered_classes = (
         "demo-foreground-chain",
         "demo-parallel-arrow",

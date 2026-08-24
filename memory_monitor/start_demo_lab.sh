@@ -11,9 +11,14 @@ cd "${repository_root}"
 
 default_simulation_root="${repository_root}/.memory_monitor_runs/demo-lab-v3"
 simulation_root="${MEMORY_MONITOR_SIMULATION_ROOT:-${default_simulation_root}}"
-server_address="${MEMORY_MONITOR_ADDRESS:-127.0.0.1}"
+server_address="${MEMORY_MONITOR_ADDRESS:-0.0.0.0}"
 server_port="${MEMORY_MONITOR_PORT:-8501}"
 conda_environment="${MEMORY_MONITOR_CONDA_ENV:-MemoryOS}"
+
+browser_address="${server_address}"
+if [[ "${browser_address}" == "0.0.0.0" ]]; then
+    browser_address="localhost"
+fi
 
 if [[ "${CONDA_DEFAULT_ENV:-}" == "${conda_environment}" ]]; then
     python_command=(python)
@@ -118,7 +123,7 @@ export STREAMLIT_SERVER_HEADLESS=true
 export STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
 
 echo "正在启动 Agent Memory Demo Lab..."
-echo "访问地址：http://${server_address}:${server_port}"
+echo "访问地址：http://${browser_address}:${server_port}"
 echo "Conda 环境：${conda_environment}"
 echo "沙盒目录：${MEMORY_MONITOR_SIMULATION_ROOT}"
 echo "配置来源：${MEMORY_MONITOR_MEMORY_CONFIG:-mem0.configs.production.load_production_memory_config}"

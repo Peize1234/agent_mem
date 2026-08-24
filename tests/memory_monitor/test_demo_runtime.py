@@ -258,6 +258,25 @@ def test_demo_retrieval_freezes_grouped_context_without_generation():
     memory.llm.generate_response.assert_not_called()
 
 
+def test_demo_frozen_context_excludes_monitor_trace_metadata():
+    memory = DemoMemory.__new__(DemoMemory)
+    context = {
+        "query": "它有哪些风险？",
+        "retrieval_query": "华辰智能装备有哪些供应链风险？",
+        "short_term_messages": [],
+        "retrieved_memories": [],
+    }
+    context["context_hash"] = memory.context_hash(context)
+    context["llm_calls"] = [{"purpose": "问题重写"}]
+    context["tool_calls"] = []
+
+    frozen = memory._validated_frozen_context(context)
+
+    assert frozen["retrieval_query"] == "华辰智能装备有哪些供应链风险？"
+    assert "llm_calls" not in frozen
+    assert "tool_calls" not in frozen
+
+
 def test_demo_retrieval_does_not_write_sqlite(tmp_path):
     db = SQLiteManager(str(tmp_path / "history.db"))
     db.save_messages(

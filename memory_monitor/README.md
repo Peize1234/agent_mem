@@ -49,8 +49,13 @@ temporary v2 core databases that predate the `midterm_status` /
 `longterm_status` task columns. Set `MEMORY_MONITOR_SIMULATION_ROOT`
 explicitly only when you deliberately want another root.
 
+By default the server listens on `0.0.0.0`, while the launcher prints the
+browser address `http://localhost:8501`. This makes the plain launcher command
+reachable from Windows through WSL's localhost forwarding without presenting
+the non-browsable wildcard listening address. Set `MEMORY_MONITOR_ADDRESS` to
+override the listening address when needed.
+
 ```bash
-conda activate MemoryOS
 ./memory_monitor/start_demo_lab.sh
 ```
 
@@ -113,10 +118,20 @@ work.
 
 ## Pipeline and concurrency
 
-The displayed pipeline is a DAG rather than an ordered table:
+The displayed foreground flow exposes the production query rewrite as a
+derived node:
 
 ```text
-capture_input → retrieve_context → build_prompt → generate_response
+捕获输入 → 问题重写 → 分层检索 → Agentic 检索 → 构建 Prompt → 模型回答
+```
+
+“问题重写” is not a persisted or executable Demo step. Its status, original
+query, retrieval query, and LLM trace are derived from the existing
+`retrieve_context` output, so displaying it does not call `QueryResolver`
+again. The persisted pipeline remains a DAG rather than an ordered table:
+
+```text
+capture_input → retrieve_context → agentic_retrieval → build_prompt → generate_response
                                                     ├── run_shortterm ─┐
                                                     ├── run_midterm ───┤
                                                     ├── run_longterm ──┤

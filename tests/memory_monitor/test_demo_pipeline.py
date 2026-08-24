@@ -16,7 +16,15 @@ import pytest
 
 from mem0.configs.base import MemoryConfig
 from mem0.memory.storage import SQLiteManager
-from memory_monitor.components import chat_panel, common, memory_panel, pipeline_graph, pipeline_panel, styles
+from memory_monitor.components import (
+    chat_panel,
+    common,
+    context_panel,
+    memory_panel,
+    pipeline_graph,
+    pipeline_panel,
+    styles,
+)
 from memory_monitor.config import DemoLabConfig
 from memory_monitor.models import PIPELINE_STEPS, BackgroundStepConfig, PipelineStep, StepStatus
 from memory_monitor.runtime import DemoBackgroundCoordinator, DemoMemory
@@ -375,6 +383,162 @@ def test_non_agentic_badges_keep_record_driven_behavior_and_popover():
     assert 'class="demo-node-popover"' in rendered
     assert "answer prompt" in rendered
     assert "model answer" in rendered
+
+
+@pytest.mark.parametrize(
+    "retrieval_query,changed,status_label,node_detail",
+    [
+        ("华辰智能装备上一轮提到的供应链风险", True, "已改写", "已改写"),
+        (
+            "它有哪些风险？",
+            False,
+            "未发生改写 / 原始问题直接用于检索",
+            "未发生改写",
+        ),
+    ],
+)
+def test_query_rewrite_ui_distinguishes_original_and_retrieval_queries(
+    retrieval_query,
+    changed,
+    status_label,
+    node_detail,
+):
+    query = "它有哪些风险？"
+    context = {
+        "query": query,
+        "retrieval_query": retrieval_query,
+        "context_hash": "context-hash",
+        "short_term_messages": [],
+        "retrieved_memories": [],
+        "profile": {},
+    }
+    summary = context_panel.query_rewrite_summary(context)
+
+    assert summary.query == query
+    assert summary.retrieval_query == retrieval_query
+    assert summary.changed is changed
+    assert summary.status_label == status_label
+
+    codes = []
+    captions = []
+
+    class _Streamlit:
+        @staticmethod
+        def caption(value):
+            captions.append(value)
+
+        @staticmethod
+        def markdown(value):
+            return None
+
+        @staticmethod
+        def code(value, **kwargs):
+            codes.append(value)
+
+    context_panel.render(_Streamlit(), context, key_prefix="rewrite")
+
+    assert codes[:2] == [query, retrieval_query]
+    assert any(status_label in caption for caption in captions)
+
+    steps = _steps_with_agentic_state(StepStatus.PENDING.value)
+    retrieve = next(step for step in steps if step["step"] == PipelineStep.RETRIEVE_CONTEXT.value)
+    rewrite_trace = {
+        "sequence": 1,
+        "purpose": "问题重写",
+        "messages": [{"role": "user", "content": "resolver prompt"}],
+        "response": retrieval_query,
+        "status": "succeeded",
+    }
+    retrieve.update(
+        status=StepStatus.SUCCEEDED.value,
+        attempts=1,
+        output={**context, "llm_calls": [rewrite_trace]},
+    )
+    nodes = pipeline_graph.build_nodes(steps, BackgroundStepConfig())
+
+    rewrite_node = nodes[pipeline_graph.QUERY_REWRITE_NODE]
+    layered_node = nodes[PipelineStep.RETRIEVE_CONTEXT]
+    assert rewrite_node.status == layered_node.status == StepStatus.SUCCEEDED.value
+    assert rewrite_node.detail == node_detail
+    assert rewrite_node.llm_calls == (rewrite_trace,)
+    assert layered_node.label == "分层检索"
+    assert layered_node.llm_calls == ()
+
+    rendered = pipeline_graph.render_html(steps, BackgroundStepConfig())
+    labels = ("捕获输入", "问题重写", "分层检索", "Agentic 检索", "构建 Prompt", "模型回答")
+    node_titles = [f'<div class="demo-node-title">{label}</div>' for label in labels]
+    assert [rendered.index(title) for title in node_titles] == sorted(
+        rendered.index(title) for title in node_titles
+    )
+    assert rendered.count("resolver prompt") == 1
+
+
+def test_legacy_context_without_retrieval_query_uses_original_query_for_display():
+    summary = context_panel.query_rewrite_summary({"query": "旧问题"})
+
+    assert summary.retrieval_query == "旧问题"
+    assert summary.changed is False
+    assert summary.retrieval_query_recorded is False
+
+
+def test_query_rewrite_display_does_not_add_an_llm_call_or_persisted_step(tmp_path):
+    class _CountingLLM:
+        def __init__(self):
+            self.call_count = 0
+
+        def generate_response(self, *args, **kwargs):
+            self.call_count += 1
+            return "已解析的检索问题"
+
+    class _RewriteMemory(_FakeDemoMemory):
+        def __init__(self):
+            super().__init__()
+            self.resolver_llm = _CountingLLM()
+            self.llm = self.resolver_llm
+
+        def retrieve_context_for_demo(self, query, *, user_id, session_id):
+            self.retrieve_calls += 1
+            retrieval_query = self.llm.generate_response(
+                messages=[{"role": "user", "content": query}],
+                response_format={"type": "json_object"},
+            )
+            context = {
+                "query": query,
+                "retrieval_query": retrieval_query,
+                "user_id": user_id,
+                "session_id": session_id,
+                "profile": {},
+                "short_term_messages": [],
+                "retrieved_memories": [],
+            }
+            context["context_hash"] = self.context_hash(context)
+            return context
+
+    memory = _RewriteMemory()
+    pipeline, repository, _, session, turn = _pipeline(tmp_path, memory=memory)
+    coordinator = _coordinator(pipeline, repository, "query-rewrite-display")
+    try:
+        pipeline.run_next_step(turn["turn_id"], session_id=session["session_id"])
+        assert coordinator.wait_for_idle(3)
+        pipeline.run_next_step(turn["turn_id"], session_id=session["session_id"])
+        assert coordinator.wait_for_idle(3)
+
+        retrieve = repository.get_step(turn["turn_id"], PipelineStep.RETRIEVE_CONTEXT)
+        assert memory.resolver_llm.call_count == 1
+        assert len(retrieve["output"]["llm_calls"]) == 1
+        assert retrieve["output"]["llm_calls"][0]["purpose"] == "问题重写"
+        assert len(repository.list_steps(turn["turn_id"])) == len(PIPELINE_STEPS)
+        assert all(
+            step["step"] != pipeline_graph.QUERY_REWRITE_NODE
+            for step in repository.list_steps(turn["turn_id"])
+        )
+
+        pipeline_graph.render_html(repository.list_steps(turn["turn_id"]), BackgroundStepConfig())
+        context_panel.query_rewrite_summary(retrieve["output"])
+
+        assert memory.resolver_llm.call_count == 1
+    finally:
+        coordinator.shutdown(wait=True)
 
 
 def test_turn_selection_clears_stale_id_for_empty_session_and_uses_latest_for_existing_session():
@@ -1630,6 +1794,10 @@ def test_monitor_disables_telemetry_before_mem0_import_and_rejects_user_site_dep
         assert f'"{module}"' in launcher
     assert "getusersitepackages" in launcher
     assert '"/.local/lib/"' in launcher
+    assert 'server_address="${MEMORY_MONITOR_ADDRESS:-0.0.0.0}"' in launcher
+    assert 'browser_address="localhost"' in launcher
+    assert 'echo "访问地址：http://${browser_address}:${server_port}"' in launcher
+    assert 'echo "访问地址：http://${server_address}:${server_port}"' not in launcher
 
     environment = os.environ.copy()
     environment.pop("MEM0_TELEMETRY", None)
