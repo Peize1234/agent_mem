@@ -1947,7 +1947,12 @@ def test_held_steps_stay_pending_while_unheld_memory_snapshot_diff_is_persisted(
 
         shortterm = repository.get_step(turn["turn_id"], PipelineStep.RUN_SHORTTERM)
         assert len(shortterm["diff"]["short_term"]["added"]) == 2
-        assert set(shortterm["diff"]) == {"short_term"}
+        assert set(shortterm["diff"]) == {
+            "short_term",
+            "migration_jobs",
+            "longterm_extraction_jobs",
+            "profile_jobs",
+        }
         midterm = repository.get_step(turn["turn_id"], PipelineStep.RUN_MIDTERM)
         longterm = repository.get_step(turn["turn_id"], PipelineStep.RUN_LONGTERM)
         assert (midterm["status"], midterm["is_held"]) == ("pending", True)
@@ -2661,10 +2666,14 @@ def test_memory_state_partial_compare_only_reports_requested_sections():
     assert missing_after["midterm_pages"]["deleted"] == []
 
 
-def test_pipeline_snapshot_section_mapping_excludes_shared_job_rows():
+def test_pipeline_snapshot_section_mapping_tracks_core_outputs():
     assert STEP_SNAPSHOT_SECTIONS == {
-        PipelineStep.RUN_SHORTTERM: frozenset({"short_term"}),
-        PipelineStep.RUN_MIDTERM: frozenset({"midterm_sessions", "midterm_pages"}),
-        PipelineStep.RUN_LONGTERM: frozenset({"long_term"}),
+        PipelineStep.RUN_SHORTTERM: frozenset(
+            {"short_term", "migration_jobs", "longterm_extraction_jobs", "profile_jobs"}
+        ),
+        PipelineStep.RUN_MIDTERM: frozenset(
+            {"midterm_sessions", "midterm_pages", "promotion_jobs", "promoted_longterm"}
+        ),
+        PipelineStep.RUN_LONGTERM: frozenset({"fine_grained_longterm", "longterm_extraction_jobs"}),
         PipelineStep.RUN_PROFILE: frozenset({"profile"}),
     }
