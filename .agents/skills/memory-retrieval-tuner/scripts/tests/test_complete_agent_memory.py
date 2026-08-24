@@ -372,6 +372,33 @@ def test_adapter_candidate_pool_recall_is_pre_threshold_and_capped_final() -> No
     assert metrics["candidate_pool_recall"] == 1.0
 
 
+def test_diagnostic_rows_restore_page_payload_for_fact_evaluation() -> None:
+    rows = _diagnostic_rows_from_pages(
+        [
+            {
+                "id": "page-1",
+                "source": "mid_term_page",
+                "source_job_id": "job-1",
+                "rank_before_threshold": 1,
+                "threshold_passed": True,
+                "final_visible": True,
+            }
+        ],
+        {"job-1": ["S001-Q001"]},
+        page_payloads={"page-1": {"raw_dialogue": "目标事实", "summary": "目标事实"}},
+    )
+    result = _evaluate_session(
+        _dataset("目标事实"),
+        "S001",
+        {"S001-Q002": {"midterm": rows, "session_longterm": []}},
+        k=1,
+        target="midterm",
+        shortterm_window=0,
+    )
+    assert result["metrics"]["candidate_pool_recall"] == 1.0
+    assert result["requirements"][0]["failure_class"] is None
+
+
 def test_diagnostic_only_pages_do_not_inflate_candidate_pool_count() -> None:
     result = _evaluate_session(
         dataset=_dataset("目标事实"),

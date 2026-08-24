@@ -1,0 +1,3072 @@
+{
+  "status": "FOUND",
+  "candidate_count": 10,
+  "top_1": {
+    "candidate_id": "Q-PARTIAL-S007",
+    "presentation_score": 64.4,
+    "why_good_for_ppt": "可确认该 Session 有 96 条基准 QA、92 条历史依赖 Query；但目标运行不是 user-memory-auto-tuner 完整链路，未产生最终配置。",
+    "session_id": "S007_美的集团_授信",
+    "query_id": null,
+    "memory_id": null,
+    "job_id": null,
+    "display_data": {
+      "title": "Benchmark 数据存在；个性化配置链路未完成",
+      "current_question": "S007_美的集团_授信",
+      "input": "QA 96 / 标注 Query 92 / dependency 304",
+      "process": "目标运行 aggregate baseline Recall@K=0.48441926345609065",
+      "output": "Final metrics / 用户配置：NOT_PRODUCED",
+      "key_number": "链路确认至 Benchmark + 部分调参，共 96 QA",
+      "conclusion": "不是可宣称的真实用户级闭环案例。"
+    },
+    "raw_data": {
+      "raw_qa_count": 96,
+      "annotated_query_count": 92,
+      "dependency_count": 304,
+      "requirement_count": 304,
+      "baseline_metrics": {
+        "scope": "aggregate tune split, not this session",
+        "recall_at_k": 0.48441926345609065,
+        "recall_at_2k": 0.6430594900849859,
+        "recall_at_4k": 0.7535410764872521,
+        "mrr": 0.32435673643088153,
+        "macro_session_recall_at_k": 0.5290129580976496,
+        "worst_session_recall_at_k": 0.3364485981308411,
+        "session_stddev": 0.10728692751586379,
+        "candidate_pool_recall": 1.0,
+        "final_context_recall": 0.5290129580976496
+      },
+      "final_metrics": "NOT_PRODUCED",
+      "final_user_config": "NOT_PRODUCED",
+      "changed_parameters_vs_default": [],
+      "confirmed_chain": [
+        "curated multi-session QA workbook exists",
+        "dependency annotations audited",
+        "production source replay persisted to read-only-inspected SQLite",
+        "baseline and stage-1/stage-2 aggregate candidate evaluations exist"
+      ],
+      "missing_chain": [
+        "not proven to originate from a raw real-user SQLite history extraction",
+        "no completed held-out final selection in target run",
+        "no user_memory_tuning_configs saved row",
+        "no online application of a user config"
+      ],
+      "chain_status": "PARTIAL_ONLY_NOT_PERSONALIZED_CLOSED_LOOP"
+    },
+    "evidence": [
+      {
+        "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+        "table / collection": "S007_美的集团_授信 worksheet",
+        "record_id": "S007",
+        "field": "编号"
+      },
+      {
+        "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+        "table / collection": "S007_美的集团_授信 worksheet",
+        "record_id": "S007",
+        "field": "关联前序对话"
+      },
+      {
+        "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+        "table / collection": "S007_美的集团_授信 worksheet",
+        "record_id": "S007",
+        "field": "当前问题"
+      },
+      {
+        "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+        "table / collection": "S007_美的集团_授信 worksheet",
+        "record_id": "S007",
+        "field": "最终回答"
+      },
+      {
+        "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+        "table / collection": "dataset audit",
+        "record_id": "S007",
+        "field": "session_count"
+      },
+      {
+        "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+        "table / collection": "dataset audit",
+        "record_id": "S007",
+        "field": "query_count"
+      },
+      {
+        "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+        "table / collection": "dataset audit",
+        "record_id": "S007",
+        "field": "gold_bearing_query_count"
+      },
+      {
+        "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+        "table / collection": "dataset audit",
+        "record_id": "S007",
+        "field": "gold_requirement_count"
+      },
+      {
+        "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+        "table / collection": "search_trace.jsonl",
+        "record_id": "aggregate baseline",
+        "field": "metrics"
+      },
+      {
+        "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+        "table / collection": "search_trace.jsonl",
+        "record_id": "aggregate baseline",
+        "field": "stage"
+      },
+      {
+        "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+        "table / collection": "search_trace.jsonl",
+        "record_id": "aggregate baseline",
+        "field": "scope"
+      },
+      {
+        "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S007/history.db",
+        "table / collection": "SQLite schema scan",
+        "record_id": "S007",
+        "field": "user_memory_tuning_configs absent"
+      }
+    ]
+  },
+  "top_3": [
+    {
+      "candidate_id": "Q-PARTIAL-S007",
+      "presentation_score": 64.4,
+      "why_good_for_ppt": "可确认该 Session 有 96 条基准 QA、92 条历史依赖 Query；但目标运行不是 user-memory-auto-tuner 完整链路，未产生最终配置。",
+      "session_id": "S007_美的集团_授信",
+      "query_id": null,
+      "memory_id": null,
+      "job_id": null,
+      "display_data": {
+        "title": "Benchmark 数据存在；个性化配置链路未完成",
+        "current_question": "S007_美的集团_授信",
+        "input": "QA 96 / 标注 Query 92 / dependency 304",
+        "process": "目标运行 aggregate baseline Recall@K=0.48441926345609065",
+        "output": "Final metrics / 用户配置：NOT_PRODUCED",
+        "key_number": "链路确认至 Benchmark + 部分调参，共 96 QA",
+        "conclusion": "不是可宣称的真实用户级闭环案例。"
+      },
+      "raw_data": {
+        "raw_qa_count": 96,
+        "annotated_query_count": 92,
+        "dependency_count": 304,
+        "requirement_count": 304,
+        "baseline_metrics": {
+          "scope": "aggregate tune split, not this session",
+          "recall_at_k": 0.48441926345609065,
+          "recall_at_2k": 0.6430594900849859,
+          "recall_at_4k": 0.7535410764872521,
+          "mrr": 0.32435673643088153,
+          "macro_session_recall_at_k": 0.5290129580976496,
+          "worst_session_recall_at_k": 0.3364485981308411,
+          "session_stddev": 0.10728692751586379,
+          "candidate_pool_recall": 1.0,
+          "final_context_recall": 0.5290129580976496
+        },
+        "final_metrics": "NOT_PRODUCED",
+        "final_user_config": "NOT_PRODUCED",
+        "changed_parameters_vs_default": [],
+        "confirmed_chain": [
+          "curated multi-session QA workbook exists",
+          "dependency annotations audited",
+          "production source replay persisted to read-only-inspected SQLite",
+          "baseline and stage-1/stage-2 aggregate candidate evaluations exist"
+        ],
+        "missing_chain": [
+          "not proven to originate from a raw real-user SQLite history extraction",
+          "no completed held-out final selection in target run",
+          "no user_memory_tuning_configs saved row",
+          "no online application of a user config"
+        ],
+        "chain_status": "PARTIAL_ONLY_NOT_PERSONALIZED_CLOSED_LOOP"
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S007_美的集团_授信 worksheet",
+          "record_id": "S007",
+          "field": "编号"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S007_美的集团_授信 worksheet",
+          "record_id": "S007",
+          "field": "关联前序对话"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S007_美的集团_授信 worksheet",
+          "record_id": "S007",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S007_美的集团_授信 worksheet",
+          "record_id": "S007",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S007",
+          "field": "session_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S007",
+          "field": "query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S007",
+          "field": "gold_bearing_query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S007",
+          "field": "gold_requirement_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "metrics"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "stage"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "scope"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S007/history.db",
+          "table / collection": "SQLite schema scan",
+          "record_id": "S007",
+          "field": "user_memory_tuning_configs absent"
+        }
+      ]
+    },
+    {
+      "candidate_id": "Q-PARTIAL-S001",
+      "presentation_score": 63.6,
+      "why_good_for_ppt": "可确认该 Session 有 50 条基准 QA、48 条历史依赖 Query；但目标运行不是 user-memory-auto-tuner 完整链路，未产生最终配置。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": null,
+      "memory_id": null,
+      "job_id": null,
+      "display_data": {
+        "title": "Benchmark 数据存在；个性化配置链路未完成",
+        "current_question": "S001_贵州茅台_投研",
+        "input": "QA 50 / 标注 Query 48 / dependency 126",
+        "process": "目标运行 aggregate baseline Recall@K=0.48441926345609065",
+        "output": "Final metrics / 用户配置：NOT_PRODUCED",
+        "key_number": "链路确认至 Benchmark + 部分调参，共 50 QA",
+        "conclusion": "不是可宣称的真实用户级闭环案例。"
+      },
+      "raw_data": {
+        "raw_qa_count": 50,
+        "annotated_query_count": 48,
+        "dependency_count": 126,
+        "requirement_count": 126,
+        "baseline_metrics": {
+          "scope": "aggregate tune split, not this session",
+          "recall_at_k": 0.48441926345609065,
+          "recall_at_2k": 0.6430594900849859,
+          "recall_at_4k": 0.7535410764872521,
+          "mrr": 0.32435673643088153,
+          "macro_session_recall_at_k": 0.5290129580976496,
+          "worst_session_recall_at_k": 0.3364485981308411,
+          "session_stddev": 0.10728692751586379,
+          "candidate_pool_recall": 1.0,
+          "final_context_recall": 0.5290129580976496
+        },
+        "final_metrics": "NOT_PRODUCED",
+        "final_user_config": "NOT_PRODUCED",
+        "changed_parameters_vs_default": [],
+        "confirmed_chain": [
+          "curated multi-session QA workbook exists",
+          "dependency annotations audited",
+          "production source replay persisted to read-only-inspected SQLite",
+          "baseline and stage-1/stage-2 aggregate candidate evaluations exist"
+        ],
+        "missing_chain": [
+          "not proven to originate from a raw real-user SQLite history extraction",
+          "no completed held-out final selection in target run",
+          "no user_memory_tuning_configs saved row",
+          "no online application of a user config"
+        ],
+        "chain_status": "PARTIAL_ONLY_NOT_PERSONALIZED_CLOSED_LOOP"
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001_贵州茅台_投研 worksheet",
+          "record_id": "S001",
+          "field": "编号"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001_贵州茅台_投研 worksheet",
+          "record_id": "S001",
+          "field": "关联前序对话"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001_贵州茅台_投研 worksheet",
+          "record_id": "S001",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001_贵州茅台_投研 worksheet",
+          "record_id": "S001",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S001",
+          "field": "session_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S001",
+          "field": "query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S001",
+          "field": "gold_bearing_query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S001",
+          "field": "gold_requirement_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "metrics"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "stage"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "scope"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S001/history.db",
+          "table / collection": "SQLite schema scan",
+          "record_id": "S001",
+          "field": "user_memory_tuning_configs absent"
+        }
+      ]
+    },
+    {
+      "candidate_id": "Q-PARTIAL-S003",
+      "presentation_score": 63.6,
+      "why_good_for_ppt": "可确认该 Session 有 93 条基准 QA、88 条历史依赖 Query；但目标运行不是 user-memory-auto-tuner 完整链路，未产生最终配置。",
+      "session_id": "S003_比亚迪_风委",
+      "query_id": null,
+      "memory_id": null,
+      "job_id": null,
+      "display_data": {
+        "title": "Benchmark 数据存在；个性化配置链路未完成",
+        "current_question": "S003_比亚迪_风委",
+        "input": "QA 93 / 标注 Query 88 / dependency 340",
+        "process": "目标运行 aggregate baseline Recall@K=0.48441926345609065",
+        "output": "Final metrics / 用户配置：NOT_PRODUCED",
+        "key_number": "链路确认至 Benchmark + 部分调参，共 93 QA",
+        "conclusion": "不是可宣称的真实用户级闭环案例。"
+      },
+      "raw_data": {
+        "raw_qa_count": 93,
+        "annotated_query_count": 88,
+        "dependency_count": 340,
+        "requirement_count": 340,
+        "baseline_metrics": {
+          "scope": "aggregate tune split, not this session",
+          "recall_at_k": 0.48441926345609065,
+          "recall_at_2k": 0.6430594900849859,
+          "recall_at_4k": 0.7535410764872521,
+          "mrr": 0.32435673643088153,
+          "macro_session_recall_at_k": 0.5290129580976496,
+          "worst_session_recall_at_k": 0.3364485981308411,
+          "session_stddev": 0.10728692751586379,
+          "candidate_pool_recall": 1.0,
+          "final_context_recall": 0.5290129580976496
+        },
+        "final_metrics": "NOT_PRODUCED",
+        "final_user_config": "NOT_PRODUCED",
+        "changed_parameters_vs_default": [],
+        "confirmed_chain": [
+          "curated multi-session QA workbook exists",
+          "dependency annotations audited",
+          "production source replay persisted to read-only-inspected SQLite",
+          "baseline and stage-1/stage-2 aggregate candidate evaluations exist"
+        ],
+        "missing_chain": [
+          "not proven to originate from a raw real-user SQLite history extraction",
+          "no completed held-out final selection in target run",
+          "no user_memory_tuning_configs saved row",
+          "no online application of a user config"
+        ],
+        "chain_status": "PARTIAL_ONLY_NOT_PERSONALIZED_CLOSED_LOOP"
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S003_比亚迪_风委 worksheet",
+          "record_id": "S003",
+          "field": "编号"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S003_比亚迪_风委 worksheet",
+          "record_id": "S003",
+          "field": "关联前序对话"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S003_比亚迪_风委 worksheet",
+          "record_id": "S003",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S003_比亚迪_风委 worksheet",
+          "record_id": "S003",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S003",
+          "field": "session_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S003",
+          "field": "query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S003",
+          "field": "gold_bearing_query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S003",
+          "field": "gold_requirement_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "metrics"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "stage"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "scope"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S003/history.db",
+          "table / collection": "SQLite schema scan",
+          "record_id": "S003",
+          "field": "user_memory_tuning_configs absent"
+        }
+      ]
+    }
+  ],
+  "top_10": [
+    {
+      "candidate_id": "Q-PARTIAL-S007",
+      "presentation_score": 64.4,
+      "why_good_for_ppt": "可确认该 Session 有 96 条基准 QA、92 条历史依赖 Query；但目标运行不是 user-memory-auto-tuner 完整链路，未产生最终配置。",
+      "session_id": "S007_美的集团_授信",
+      "query_id": null,
+      "memory_id": null,
+      "job_id": null,
+      "display_data": {
+        "title": "Benchmark 数据存在；个性化配置链路未完成",
+        "current_question": "S007_美的集团_授信",
+        "input": "QA 96 / 标注 Query 92 / dependency 304",
+        "process": "目标运行 aggregate baseline Recall@K=0.48441926345609065",
+        "output": "Final metrics / 用户配置：NOT_PRODUCED",
+        "key_number": "链路确认至 Benchmark + 部分调参，共 96 QA",
+        "conclusion": "不是可宣称的真实用户级闭环案例。"
+      },
+      "raw_data": {
+        "raw_qa_count": 96,
+        "annotated_query_count": 92,
+        "dependency_count": 304,
+        "requirement_count": 304,
+        "baseline_metrics": {
+          "scope": "aggregate tune split, not this session",
+          "recall_at_k": 0.48441926345609065,
+          "recall_at_2k": 0.6430594900849859,
+          "recall_at_4k": 0.7535410764872521,
+          "mrr": 0.32435673643088153,
+          "macro_session_recall_at_k": 0.5290129580976496,
+          "worst_session_recall_at_k": 0.3364485981308411,
+          "session_stddev": 0.10728692751586379,
+          "candidate_pool_recall": 1.0,
+          "final_context_recall": 0.5290129580976496
+        },
+        "final_metrics": "NOT_PRODUCED",
+        "final_user_config": "NOT_PRODUCED",
+        "changed_parameters_vs_default": [],
+        "confirmed_chain": [
+          "curated multi-session QA workbook exists",
+          "dependency annotations audited",
+          "production source replay persisted to read-only-inspected SQLite",
+          "baseline and stage-1/stage-2 aggregate candidate evaluations exist"
+        ],
+        "missing_chain": [
+          "not proven to originate from a raw real-user SQLite history extraction",
+          "no completed held-out final selection in target run",
+          "no user_memory_tuning_configs saved row",
+          "no online application of a user config"
+        ],
+        "chain_status": "PARTIAL_ONLY_NOT_PERSONALIZED_CLOSED_LOOP"
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S007_美的集团_授信 worksheet",
+          "record_id": "S007",
+          "field": "编号"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S007_美的集团_授信 worksheet",
+          "record_id": "S007",
+          "field": "关联前序对话"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S007_美的集团_授信 worksheet",
+          "record_id": "S007",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S007_美的集团_授信 worksheet",
+          "record_id": "S007",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S007",
+          "field": "session_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S007",
+          "field": "query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S007",
+          "field": "gold_bearing_query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S007",
+          "field": "gold_requirement_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "metrics"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "stage"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "scope"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S007/history.db",
+          "table / collection": "SQLite schema scan",
+          "record_id": "S007",
+          "field": "user_memory_tuning_configs absent"
+        }
+      ]
+    },
+    {
+      "candidate_id": "Q-PARTIAL-S001",
+      "presentation_score": 63.6,
+      "why_good_for_ppt": "可确认该 Session 有 50 条基准 QA、48 条历史依赖 Query；但目标运行不是 user-memory-auto-tuner 完整链路，未产生最终配置。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": null,
+      "memory_id": null,
+      "job_id": null,
+      "display_data": {
+        "title": "Benchmark 数据存在；个性化配置链路未完成",
+        "current_question": "S001_贵州茅台_投研",
+        "input": "QA 50 / 标注 Query 48 / dependency 126",
+        "process": "目标运行 aggregate baseline Recall@K=0.48441926345609065",
+        "output": "Final metrics / 用户配置：NOT_PRODUCED",
+        "key_number": "链路确认至 Benchmark + 部分调参，共 50 QA",
+        "conclusion": "不是可宣称的真实用户级闭环案例。"
+      },
+      "raw_data": {
+        "raw_qa_count": 50,
+        "annotated_query_count": 48,
+        "dependency_count": 126,
+        "requirement_count": 126,
+        "baseline_metrics": {
+          "scope": "aggregate tune split, not this session",
+          "recall_at_k": 0.48441926345609065,
+          "recall_at_2k": 0.6430594900849859,
+          "recall_at_4k": 0.7535410764872521,
+          "mrr": 0.32435673643088153,
+          "macro_session_recall_at_k": 0.5290129580976496,
+          "worst_session_recall_at_k": 0.3364485981308411,
+          "session_stddev": 0.10728692751586379,
+          "candidate_pool_recall": 1.0,
+          "final_context_recall": 0.5290129580976496
+        },
+        "final_metrics": "NOT_PRODUCED",
+        "final_user_config": "NOT_PRODUCED",
+        "changed_parameters_vs_default": [],
+        "confirmed_chain": [
+          "curated multi-session QA workbook exists",
+          "dependency annotations audited",
+          "production source replay persisted to read-only-inspected SQLite",
+          "baseline and stage-1/stage-2 aggregate candidate evaluations exist"
+        ],
+        "missing_chain": [
+          "not proven to originate from a raw real-user SQLite history extraction",
+          "no completed held-out final selection in target run",
+          "no user_memory_tuning_configs saved row",
+          "no online application of a user config"
+        ],
+        "chain_status": "PARTIAL_ONLY_NOT_PERSONALIZED_CLOSED_LOOP"
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001_贵州茅台_投研 worksheet",
+          "record_id": "S001",
+          "field": "编号"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001_贵州茅台_投研 worksheet",
+          "record_id": "S001",
+          "field": "关联前序对话"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001_贵州茅台_投研 worksheet",
+          "record_id": "S001",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001_贵州茅台_投研 worksheet",
+          "record_id": "S001",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S001",
+          "field": "session_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S001",
+          "field": "query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S001",
+          "field": "gold_bearing_query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S001",
+          "field": "gold_requirement_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "metrics"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "stage"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "scope"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S001/history.db",
+          "table / collection": "SQLite schema scan",
+          "record_id": "S001",
+          "field": "user_memory_tuning_configs absent"
+        }
+      ]
+    },
+    {
+      "candidate_id": "Q-PARTIAL-S003",
+      "presentation_score": 63.6,
+      "why_good_for_ppt": "可确认该 Session 有 93 条基准 QA、88 条历史依赖 Query；但目标运行不是 user-memory-auto-tuner 完整链路，未产生最终配置。",
+      "session_id": "S003_比亚迪_风委",
+      "query_id": null,
+      "memory_id": null,
+      "job_id": null,
+      "display_data": {
+        "title": "Benchmark 数据存在；个性化配置链路未完成",
+        "current_question": "S003_比亚迪_风委",
+        "input": "QA 93 / 标注 Query 88 / dependency 340",
+        "process": "目标运行 aggregate baseline Recall@K=0.48441926345609065",
+        "output": "Final metrics / 用户配置：NOT_PRODUCED",
+        "key_number": "链路确认至 Benchmark + 部分调参，共 93 QA",
+        "conclusion": "不是可宣称的真实用户级闭环案例。"
+      },
+      "raw_data": {
+        "raw_qa_count": 93,
+        "annotated_query_count": 88,
+        "dependency_count": 340,
+        "requirement_count": 340,
+        "baseline_metrics": {
+          "scope": "aggregate tune split, not this session",
+          "recall_at_k": 0.48441926345609065,
+          "recall_at_2k": 0.6430594900849859,
+          "recall_at_4k": 0.7535410764872521,
+          "mrr": 0.32435673643088153,
+          "macro_session_recall_at_k": 0.5290129580976496,
+          "worst_session_recall_at_k": 0.3364485981308411,
+          "session_stddev": 0.10728692751586379,
+          "candidate_pool_recall": 1.0,
+          "final_context_recall": 0.5290129580976496
+        },
+        "final_metrics": "NOT_PRODUCED",
+        "final_user_config": "NOT_PRODUCED",
+        "changed_parameters_vs_default": [],
+        "confirmed_chain": [
+          "curated multi-session QA workbook exists",
+          "dependency annotations audited",
+          "production source replay persisted to read-only-inspected SQLite",
+          "baseline and stage-1/stage-2 aggregate candidate evaluations exist"
+        ],
+        "missing_chain": [
+          "not proven to originate from a raw real-user SQLite history extraction",
+          "no completed held-out final selection in target run",
+          "no user_memory_tuning_configs saved row",
+          "no online application of a user config"
+        ],
+        "chain_status": "PARTIAL_ONLY_NOT_PERSONALIZED_CLOSED_LOOP"
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S003_比亚迪_风委 worksheet",
+          "record_id": "S003",
+          "field": "编号"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S003_比亚迪_风委 worksheet",
+          "record_id": "S003",
+          "field": "关联前序对话"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S003_比亚迪_风委 worksheet",
+          "record_id": "S003",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S003_比亚迪_风委 worksheet",
+          "record_id": "S003",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S003",
+          "field": "session_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S003",
+          "field": "query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S003",
+          "field": "gold_bearing_query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S003",
+          "field": "gold_requirement_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "metrics"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "stage"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "scope"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S003/history.db",
+          "table / collection": "SQLite schema scan",
+          "record_id": "S003",
+          "field": "user_memory_tuning_configs absent"
+        }
+      ]
+    },
+    {
+      "candidate_id": "Q-PARTIAL-S006",
+      "presentation_score": 61.6,
+      "why_good_for_ppt": "可确认该 Session 有 80 条基准 QA、78 条历史依赖 Query；但目标运行不是 user-memory-auto-tuner 完整链路，未产生最终配置。",
+      "session_id": "S006_宁德时代_审委",
+      "query_id": null,
+      "memory_id": null,
+      "job_id": null,
+      "display_data": {
+        "title": "Benchmark 数据存在；个性化配置链路未完成",
+        "current_question": "S006_宁德时代_审委",
+        "input": "QA 80 / 标注 Query 78 / dependency 249",
+        "process": "目标运行 aggregate baseline Recall@K=0.48441926345609065",
+        "output": "Final metrics / 用户配置：NOT_PRODUCED",
+        "key_number": "链路确认至 Benchmark + 部分调参，共 80 QA",
+        "conclusion": "不是可宣称的真实用户级闭环案例。"
+      },
+      "raw_data": {
+        "raw_qa_count": 80,
+        "annotated_query_count": 78,
+        "dependency_count": 249,
+        "requirement_count": 249,
+        "baseline_metrics": {
+          "scope": "aggregate tune split, not this session",
+          "recall_at_k": 0.48441926345609065,
+          "recall_at_2k": 0.6430594900849859,
+          "recall_at_4k": 0.7535410764872521,
+          "mrr": 0.32435673643088153,
+          "macro_session_recall_at_k": 0.5290129580976496,
+          "worst_session_recall_at_k": 0.3364485981308411,
+          "session_stddev": 0.10728692751586379,
+          "candidate_pool_recall": 1.0,
+          "final_context_recall": 0.5290129580976496
+        },
+        "final_metrics": "NOT_PRODUCED",
+        "final_user_config": "NOT_PRODUCED",
+        "changed_parameters_vs_default": [],
+        "confirmed_chain": [
+          "curated multi-session QA workbook exists",
+          "dependency annotations audited",
+          "production source replay persisted to read-only-inspected SQLite",
+          "baseline and stage-1/stage-2 aggregate candidate evaluations exist"
+        ],
+        "missing_chain": [
+          "not proven to originate from a raw real-user SQLite history extraction",
+          "no completed held-out final selection in target run",
+          "no user_memory_tuning_configs saved row",
+          "no online application of a user config"
+        ],
+        "chain_status": "PARTIAL_ONLY_NOT_PERSONALIZED_CLOSED_LOOP"
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S006_宁德时代_审委 worksheet",
+          "record_id": "S006",
+          "field": "编号"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S006_宁德时代_审委 worksheet",
+          "record_id": "S006",
+          "field": "关联前序对话"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S006_宁德时代_审委 worksheet",
+          "record_id": "S006",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S006_宁德时代_审委 worksheet",
+          "record_id": "S006",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S006",
+          "field": "session_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S006",
+          "field": "query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S006",
+          "field": "gold_bearing_query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S006",
+          "field": "gold_requirement_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "metrics"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "stage"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "scope"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S006/history.db",
+          "table / collection": "SQLite schema scan",
+          "record_id": "S006",
+          "field": "user_memory_tuning_configs absent"
+        }
+      ]
+    },
+    {
+      "candidate_id": "Q-PARTIAL-S004",
+      "presentation_score": 60.0,
+      "why_good_for_ppt": "可确认该 Session 有 74 条基准 QA、70 条历史依赖 Query；但目标运行不是 user-memory-auto-tuner 完整链路，未产生最终配置。",
+      "session_id": "S004_比亚迪_IR",
+      "query_id": null,
+      "memory_id": null,
+      "job_id": null,
+      "display_data": {
+        "title": "Benchmark 数据存在；个性化配置链路未完成",
+        "current_question": "S004_比亚迪_IR",
+        "input": "QA 74 / 标注 Query 70 / dependency 309",
+        "process": "目标运行 aggregate baseline Recall@K=0.48441926345609065",
+        "output": "Final metrics / 用户配置：NOT_PRODUCED",
+        "key_number": "链路确认至 Benchmark + 部分调参，共 74 QA",
+        "conclusion": "不是可宣称的真实用户级闭环案例。"
+      },
+      "raw_data": {
+        "raw_qa_count": 74,
+        "annotated_query_count": 70,
+        "dependency_count": 309,
+        "requirement_count": 309,
+        "baseline_metrics": {
+          "scope": "aggregate tune split, not this session",
+          "recall_at_k": 0.48441926345609065,
+          "recall_at_2k": 0.6430594900849859,
+          "recall_at_4k": 0.7535410764872521,
+          "mrr": 0.32435673643088153,
+          "macro_session_recall_at_k": 0.5290129580976496,
+          "worst_session_recall_at_k": 0.3364485981308411,
+          "session_stddev": 0.10728692751586379,
+          "candidate_pool_recall": 1.0,
+          "final_context_recall": 0.5290129580976496
+        },
+        "final_metrics": "NOT_PRODUCED",
+        "final_user_config": "NOT_PRODUCED",
+        "changed_parameters_vs_default": [],
+        "confirmed_chain": [
+          "curated multi-session QA workbook exists",
+          "dependency annotations audited",
+          "production source replay persisted to read-only-inspected SQLite",
+          "baseline and stage-1/stage-2 aggregate candidate evaluations exist"
+        ],
+        "missing_chain": [
+          "not proven to originate from a raw real-user SQLite history extraction",
+          "no completed held-out final selection in target run",
+          "no user_memory_tuning_configs saved row",
+          "no online application of a user config"
+        ],
+        "chain_status": "PARTIAL_ONLY_NOT_PERSONALIZED_CLOSED_LOOP"
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S004_比亚迪_IR worksheet",
+          "record_id": "S004",
+          "field": "编号"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S004_比亚迪_IR worksheet",
+          "record_id": "S004",
+          "field": "关联前序对话"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S004_比亚迪_IR worksheet",
+          "record_id": "S004",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S004_比亚迪_IR worksheet",
+          "record_id": "S004",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S004",
+          "field": "session_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S004",
+          "field": "query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S004",
+          "field": "gold_bearing_query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S004",
+          "field": "gold_requirement_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "metrics"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "stage"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "scope"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S004___IR/history.db",
+          "table / collection": "SQLite schema scan",
+          "record_id": "S004",
+          "field": "user_memory_tuning_configs absent"
+        }
+      ]
+    },
+    {
+      "candidate_id": "Q-PARTIAL-S002",
+      "presentation_score": 59.6,
+      "why_good_for_ppt": "可确认该 Session 有 73 条基准 QA、68 条历史依赖 Query；但目标运行不是 user-memory-auto-tuner 完整链路，未产生最终配置。",
+      "session_id": "S002_贵州茅台_内审",
+      "query_id": null,
+      "memory_id": null,
+      "job_id": null,
+      "display_data": {
+        "title": "Benchmark 数据存在；个性化配置链路未完成",
+        "current_question": "S002_贵州茅台_内审",
+        "input": "QA 73 / 标注 Query 68 / dependency 201",
+        "process": "目标运行 aggregate baseline Recall@K=0.48441926345609065",
+        "output": "Final metrics / 用户配置：NOT_PRODUCED",
+        "key_number": "链路确认至 Benchmark + 部分调参，共 73 QA",
+        "conclusion": "不是可宣称的真实用户级闭环案例。"
+      },
+      "raw_data": {
+        "raw_qa_count": 73,
+        "annotated_query_count": 68,
+        "dependency_count": 201,
+        "requirement_count": 201,
+        "baseline_metrics": {
+          "scope": "aggregate tune split, not this session",
+          "recall_at_k": 0.48441926345609065,
+          "recall_at_2k": 0.6430594900849859,
+          "recall_at_4k": 0.7535410764872521,
+          "mrr": 0.32435673643088153,
+          "macro_session_recall_at_k": 0.5290129580976496,
+          "worst_session_recall_at_k": 0.3364485981308411,
+          "session_stddev": 0.10728692751586379,
+          "candidate_pool_recall": 1.0,
+          "final_context_recall": 0.5290129580976496
+        },
+        "final_metrics": "NOT_PRODUCED",
+        "final_user_config": "NOT_PRODUCED",
+        "changed_parameters_vs_default": [],
+        "confirmed_chain": [
+          "curated multi-session QA workbook exists",
+          "dependency annotations audited",
+          "production source replay persisted to read-only-inspected SQLite",
+          "baseline and stage-1/stage-2 aggregate candidate evaluations exist"
+        ],
+        "missing_chain": [
+          "not proven to originate from a raw real-user SQLite history extraction",
+          "no completed held-out final selection in target run",
+          "no user_memory_tuning_configs saved row",
+          "no online application of a user config"
+        ],
+        "chain_status": "PARTIAL_ONLY_NOT_PERSONALIZED_CLOSED_LOOP"
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S002_贵州茅台_内审 worksheet",
+          "record_id": "S002",
+          "field": "编号"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S002_贵州茅台_内审 worksheet",
+          "record_id": "S002",
+          "field": "关联前序对话"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S002_贵州茅台_内审 worksheet",
+          "record_id": "S002",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S002_贵州茅台_内审 worksheet",
+          "record_id": "S002",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S002",
+          "field": "session_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S002",
+          "field": "query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S002",
+          "field": "gold_bearing_query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S002",
+          "field": "gold_requirement_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "metrics"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "stage"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "scope"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S002/history.db",
+          "table / collection": "SQLite schema scan",
+          "record_id": "S002",
+          "field": "user_memory_tuning_configs absent"
+        }
+      ]
+    },
+    {
+      "candidate_id": "Q-PARTIAL-S008",
+      "presentation_score": 57.8,
+      "why_good_for_ppt": "可确认该 Session 有 61 条基准 QA、59 条历史依赖 Query；但目标运行不是 user-memory-auto-tuner 完整链路，未产生最终配置。",
+      "session_id": "S008_美的集团_供应链",
+      "query_id": null,
+      "memory_id": null,
+      "job_id": null,
+      "display_data": {
+        "title": "Benchmark 数据存在；个性化配置链路未完成",
+        "current_question": "S008_美的集团_供应链",
+        "input": "QA 61 / 标注 Query 59 / dependency 222",
+        "process": "目标运行 aggregate baseline Recall@K=0.48441926345609065",
+        "output": "Final metrics / 用户配置：NOT_PRODUCED",
+        "key_number": "链路确认至 Benchmark + 部分调参，共 61 QA",
+        "conclusion": "不是可宣称的真实用户级闭环案例。"
+      },
+      "raw_data": {
+        "raw_qa_count": 61,
+        "annotated_query_count": 59,
+        "dependency_count": 222,
+        "requirement_count": 222,
+        "baseline_metrics": {
+          "scope": "aggregate tune split, not this session",
+          "recall_at_k": 0.48441926345609065,
+          "recall_at_2k": 0.6430594900849859,
+          "recall_at_4k": 0.7535410764872521,
+          "mrr": 0.32435673643088153,
+          "macro_session_recall_at_k": 0.5290129580976496,
+          "worst_session_recall_at_k": 0.3364485981308411,
+          "session_stddev": 0.10728692751586379,
+          "candidate_pool_recall": 1.0,
+          "final_context_recall": 0.5290129580976496
+        },
+        "final_metrics": "NOT_PRODUCED",
+        "final_user_config": "NOT_PRODUCED",
+        "changed_parameters_vs_default": [],
+        "confirmed_chain": [
+          "curated multi-session QA workbook exists",
+          "dependency annotations audited",
+          "production source replay persisted to read-only-inspected SQLite",
+          "baseline and stage-1/stage-2 aggregate candidate evaluations exist"
+        ],
+        "missing_chain": [
+          "not proven to originate from a raw real-user SQLite history extraction",
+          "no completed held-out final selection in target run",
+          "no user_memory_tuning_configs saved row",
+          "no online application of a user config"
+        ],
+        "chain_status": "PARTIAL_ONLY_NOT_PERSONALIZED_CLOSED_LOOP"
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S008_美的集团_供应链 worksheet",
+          "record_id": "S008",
+          "field": "编号"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S008_美的集团_供应链 worksheet",
+          "record_id": "S008",
+          "field": "关联前序对话"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S008_美的集团_供应链 worksheet",
+          "record_id": "S008",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S008_美的集团_供应链 worksheet",
+          "record_id": "S008",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S008",
+          "field": "session_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S008",
+          "field": "query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S008",
+          "field": "gold_bearing_query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S008",
+          "field": "gold_requirement_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "metrics"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "stage"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "scope"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S008/history.db",
+          "table / collection": "SQLite schema scan",
+          "record_id": "S008",
+          "field": "user_memory_tuning_configs absent"
+        }
+      ]
+    },
+    {
+      "candidate_id": "Q-PARTIAL-S005",
+      "presentation_score": 57.0,
+      "why_good_for_ppt": "可确认该 Session 有 58 条基准 QA、55 条历史依赖 Query；但目标运行不是 user-memory-auto-tuner 完整链路，未产生最终配置。",
+      "session_id": "S005_宁德时代_合规",
+      "query_id": null,
+      "memory_id": null,
+      "job_id": null,
+      "display_data": {
+        "title": "Benchmark 数据存在；个性化配置链路未完成",
+        "current_question": "S005_宁德时代_合规",
+        "input": "QA 58 / 标注 Query 55 / dependency 154",
+        "process": "目标运行 aggregate baseline Recall@K=0.48441926345609065",
+        "output": "Final metrics / 用户配置：NOT_PRODUCED",
+        "key_number": "链路确认至 Benchmark + 部分调参，共 58 QA",
+        "conclusion": "不是可宣称的真实用户级闭环案例。"
+      },
+      "raw_data": {
+        "raw_qa_count": 58,
+        "annotated_query_count": 55,
+        "dependency_count": 154,
+        "requirement_count": 154,
+        "baseline_metrics": {
+          "scope": "aggregate tune split, not this session",
+          "recall_at_k": 0.48441926345609065,
+          "recall_at_2k": 0.6430594900849859,
+          "recall_at_4k": 0.7535410764872521,
+          "mrr": 0.32435673643088153,
+          "macro_session_recall_at_k": 0.5290129580976496,
+          "worst_session_recall_at_k": 0.3364485981308411,
+          "session_stddev": 0.10728692751586379,
+          "candidate_pool_recall": 1.0,
+          "final_context_recall": 0.5290129580976496
+        },
+        "final_metrics": "NOT_PRODUCED",
+        "final_user_config": "NOT_PRODUCED",
+        "changed_parameters_vs_default": [],
+        "confirmed_chain": [
+          "curated multi-session QA workbook exists",
+          "dependency annotations audited",
+          "production source replay persisted to read-only-inspected SQLite",
+          "baseline and stage-1/stage-2 aggregate candidate evaluations exist"
+        ],
+        "missing_chain": [
+          "not proven to originate from a raw real-user SQLite history extraction",
+          "no completed held-out final selection in target run",
+          "no user_memory_tuning_configs saved row",
+          "no online application of a user config"
+        ],
+        "chain_status": "PARTIAL_ONLY_NOT_PERSONALIZED_CLOSED_LOOP"
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S005_宁德时代_合规 worksheet",
+          "record_id": "S005",
+          "field": "编号"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S005_宁德时代_合规 worksheet",
+          "record_id": "S005",
+          "field": "关联前序对话"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S005_宁德时代_合规 worksheet",
+          "record_id": "S005",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S005_宁德时代_合规 worksheet",
+          "record_id": "S005",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S005",
+          "field": "session_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S005",
+          "field": "query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S005",
+          "field": "gold_bearing_query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S005",
+          "field": "gold_requirement_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "metrics"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "stage"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "scope"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S005/history.db",
+          "table / collection": "SQLite schema scan",
+          "record_id": "S005",
+          "field": "user_memory_tuning_configs absent"
+        }
+      ]
+    },
+    {
+      "candidate_id": "Q-PARTIAL-S009",
+      "presentation_score": 52.6,
+      "why_good_for_ppt": "可确认该 Session 有 37 条基准 QA、33 条历史依赖 Query；但目标运行不是 user-memory-auto-tuner 完整链路，未产生最终配置。",
+      "session_id": "S009_招商银行_并购",
+      "query_id": null,
+      "memory_id": null,
+      "job_id": null,
+      "display_data": {
+        "title": "Benchmark 数据存在；个性化配置链路未完成",
+        "current_question": "S009_招商银行_并购",
+        "input": "QA 37 / 标注 Query 33 / dependency 82",
+        "process": "目标运行 aggregate baseline Recall@K=0.48441926345609065",
+        "output": "Final metrics / 用户配置：NOT_PRODUCED",
+        "key_number": "链路确认至 Benchmark + 部分调参，共 37 QA",
+        "conclusion": "不是可宣称的真实用户级闭环案例。"
+      },
+      "raw_data": {
+        "raw_qa_count": 37,
+        "annotated_query_count": 33,
+        "dependency_count": 82,
+        "requirement_count": 82,
+        "baseline_metrics": {
+          "scope": "aggregate tune split, not this session",
+          "recall_at_k": 0.48441926345609065,
+          "recall_at_2k": 0.6430594900849859,
+          "recall_at_4k": 0.7535410764872521,
+          "mrr": 0.32435673643088153,
+          "macro_session_recall_at_k": 0.5290129580976496,
+          "worst_session_recall_at_k": 0.3364485981308411,
+          "session_stddev": 0.10728692751586379,
+          "candidate_pool_recall": 1.0,
+          "final_context_recall": 0.5290129580976496
+        },
+        "final_metrics": "NOT_PRODUCED",
+        "final_user_config": "NOT_PRODUCED",
+        "changed_parameters_vs_default": [],
+        "confirmed_chain": [
+          "curated multi-session QA workbook exists",
+          "dependency annotations audited",
+          "production source replay persisted to read-only-inspected SQLite",
+          "baseline and stage-1/stage-2 aggregate candidate evaluations exist"
+        ],
+        "missing_chain": [
+          "not proven to originate from a raw real-user SQLite history extraction",
+          "no completed held-out final selection in target run",
+          "no user_memory_tuning_configs saved row",
+          "no online application of a user config"
+        ],
+        "chain_status": "PARTIAL_ONLY_NOT_PERSONALIZED_CLOSED_LOOP"
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S009_招商银行_并购 worksheet",
+          "record_id": "S009",
+          "field": "编号"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S009_招商银行_并购 worksheet",
+          "record_id": "S009",
+          "field": "关联前序对话"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S009_招商银行_并购 worksheet",
+          "record_id": "S009",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S009_招商银行_并购 worksheet",
+          "record_id": "S009",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S009",
+          "field": "session_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S009",
+          "field": "query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S009",
+          "field": "gold_bearing_query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S009",
+          "field": "gold_requirement_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "metrics"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "stage"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "scope"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S009/history.db",
+          "table / collection": "SQLite schema scan",
+          "record_id": "S009",
+          "field": "user_memory_tuning_configs absent"
+        }
+      ]
+    },
+    {
+      "candidate_id": "Q-PARTIAL-S010",
+      "presentation_score": 50.2,
+      "why_good_for_ppt": "可确认该 Session 有 30 条基准 QA、21 条历史依赖 Query；但目标运行不是 user-memory-auto-tuner 完整链路，未产生最终配置。",
+      "session_id": "S010_招商银行_采购",
+      "query_id": null,
+      "memory_id": null,
+      "job_id": null,
+      "display_data": {
+        "title": "Benchmark 数据存在；个性化配置链路未完成",
+        "current_question": "S010_招商银行_采购",
+        "input": "QA 30 / 标注 Query 21 / dependency 53",
+        "process": "目标运行 aggregate baseline Recall@K=0.48441926345609065",
+        "output": "Final metrics / 用户配置：NOT_PRODUCED",
+        "key_number": "链路确认至 Benchmark + 部分调参，共 30 QA",
+        "conclusion": "不是可宣称的真实用户级闭环案例。"
+      },
+      "raw_data": {
+        "raw_qa_count": 30,
+        "annotated_query_count": 21,
+        "dependency_count": 53,
+        "requirement_count": 53,
+        "baseline_metrics": {
+          "scope": "aggregate tune split, not this session",
+          "recall_at_k": 0.48441926345609065,
+          "recall_at_2k": 0.6430594900849859,
+          "recall_at_4k": 0.7535410764872521,
+          "mrr": 0.32435673643088153,
+          "macro_session_recall_at_k": 0.5290129580976496,
+          "worst_session_recall_at_k": 0.3364485981308411,
+          "session_stddev": 0.10728692751586379,
+          "candidate_pool_recall": 1.0,
+          "final_context_recall": 0.5290129580976496
+        },
+        "final_metrics": "NOT_PRODUCED",
+        "final_user_config": "NOT_PRODUCED",
+        "changed_parameters_vs_default": [],
+        "confirmed_chain": [
+          "curated multi-session QA workbook exists",
+          "dependency annotations audited",
+          "production source replay persisted to read-only-inspected SQLite",
+          "baseline and stage-1/stage-2 aggregate candidate evaluations exist"
+        ],
+        "missing_chain": [
+          "not proven to originate from a raw real-user SQLite history extraction",
+          "no completed held-out final selection in target run",
+          "no user_memory_tuning_configs saved row",
+          "no online application of a user config"
+        ],
+        "chain_status": "PARTIAL_ONLY_NOT_PERSONALIZED_CLOSED_LOOP"
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S010_招商银行_采购 worksheet",
+          "record_id": "S010",
+          "field": "编号"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S010_招商银行_采购 worksheet",
+          "record_id": "S010",
+          "field": "关联前序对话"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S010_招商银行_采购 worksheet",
+          "record_id": "S010",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S010_招商银行_采购 worksheet",
+          "record_id": "S010",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S010",
+          "field": "session_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S010",
+          "field": "query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S010",
+          "field": "gold_bearing_query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S010",
+          "field": "gold_requirement_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "metrics"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "stage"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "scope"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S010/history.db",
+          "table / collection": "SQLite schema scan",
+          "record_id": "S010",
+          "field": "user_memory_tuning_configs absent"
+        }
+      ]
+    }
+  ],
+  "all_candidates": [
+    {
+      "candidate_id": "Q-PARTIAL-S007",
+      "presentation_score": 64.4,
+      "why_good_for_ppt": "可确认该 Session 有 96 条基准 QA、92 条历史依赖 Query；但目标运行不是 user-memory-auto-tuner 完整链路，未产生最终配置。",
+      "session_id": "S007_美的集团_授信",
+      "query_id": null,
+      "memory_id": null,
+      "job_id": null,
+      "display_data": {
+        "title": "Benchmark 数据存在；个性化配置链路未完成",
+        "current_question": "S007_美的集团_授信",
+        "input": "QA 96 / 标注 Query 92 / dependency 304",
+        "process": "目标运行 aggregate baseline Recall@K=0.48441926345609065",
+        "output": "Final metrics / 用户配置：NOT_PRODUCED",
+        "key_number": "链路确认至 Benchmark + 部分调参，共 96 QA",
+        "conclusion": "不是可宣称的真实用户级闭环案例。"
+      },
+      "raw_data": {
+        "raw_qa_count": 96,
+        "annotated_query_count": 92,
+        "dependency_count": 304,
+        "requirement_count": 304,
+        "baseline_metrics": {
+          "scope": "aggregate tune split, not this session",
+          "recall_at_k": 0.48441926345609065,
+          "recall_at_2k": 0.6430594900849859,
+          "recall_at_4k": 0.7535410764872521,
+          "mrr": 0.32435673643088153,
+          "macro_session_recall_at_k": 0.5290129580976496,
+          "worst_session_recall_at_k": 0.3364485981308411,
+          "session_stddev": 0.10728692751586379,
+          "candidate_pool_recall": 1.0,
+          "final_context_recall": 0.5290129580976496
+        },
+        "final_metrics": "NOT_PRODUCED",
+        "final_user_config": "NOT_PRODUCED",
+        "changed_parameters_vs_default": [],
+        "confirmed_chain": [
+          "curated multi-session QA workbook exists",
+          "dependency annotations audited",
+          "production source replay persisted to read-only-inspected SQLite",
+          "baseline and stage-1/stage-2 aggregate candidate evaluations exist"
+        ],
+        "missing_chain": [
+          "not proven to originate from a raw real-user SQLite history extraction",
+          "no completed held-out final selection in target run",
+          "no user_memory_tuning_configs saved row",
+          "no online application of a user config"
+        ],
+        "chain_status": "PARTIAL_ONLY_NOT_PERSONALIZED_CLOSED_LOOP"
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S007_美的集团_授信 worksheet",
+          "record_id": "S007",
+          "field": "编号"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S007_美的集团_授信 worksheet",
+          "record_id": "S007",
+          "field": "关联前序对话"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S007_美的集团_授信 worksheet",
+          "record_id": "S007",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S007_美的集团_授信 worksheet",
+          "record_id": "S007",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S007",
+          "field": "session_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S007",
+          "field": "query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S007",
+          "field": "gold_bearing_query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S007",
+          "field": "gold_requirement_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "metrics"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "stage"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "scope"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S007/history.db",
+          "table / collection": "SQLite schema scan",
+          "record_id": "S007",
+          "field": "user_memory_tuning_configs absent"
+        }
+      ]
+    },
+    {
+      "candidate_id": "Q-PARTIAL-S001",
+      "presentation_score": 63.6,
+      "why_good_for_ppt": "可确认该 Session 有 50 条基准 QA、48 条历史依赖 Query；但目标运行不是 user-memory-auto-tuner 完整链路，未产生最终配置。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": null,
+      "memory_id": null,
+      "job_id": null,
+      "display_data": {
+        "title": "Benchmark 数据存在；个性化配置链路未完成",
+        "current_question": "S001_贵州茅台_投研",
+        "input": "QA 50 / 标注 Query 48 / dependency 126",
+        "process": "目标运行 aggregate baseline Recall@K=0.48441926345609065",
+        "output": "Final metrics / 用户配置：NOT_PRODUCED",
+        "key_number": "链路确认至 Benchmark + 部分调参，共 50 QA",
+        "conclusion": "不是可宣称的真实用户级闭环案例。"
+      },
+      "raw_data": {
+        "raw_qa_count": 50,
+        "annotated_query_count": 48,
+        "dependency_count": 126,
+        "requirement_count": 126,
+        "baseline_metrics": {
+          "scope": "aggregate tune split, not this session",
+          "recall_at_k": 0.48441926345609065,
+          "recall_at_2k": 0.6430594900849859,
+          "recall_at_4k": 0.7535410764872521,
+          "mrr": 0.32435673643088153,
+          "macro_session_recall_at_k": 0.5290129580976496,
+          "worst_session_recall_at_k": 0.3364485981308411,
+          "session_stddev": 0.10728692751586379,
+          "candidate_pool_recall": 1.0,
+          "final_context_recall": 0.5290129580976496
+        },
+        "final_metrics": "NOT_PRODUCED",
+        "final_user_config": "NOT_PRODUCED",
+        "changed_parameters_vs_default": [],
+        "confirmed_chain": [
+          "curated multi-session QA workbook exists",
+          "dependency annotations audited",
+          "production source replay persisted to read-only-inspected SQLite",
+          "baseline and stage-1/stage-2 aggregate candidate evaluations exist"
+        ],
+        "missing_chain": [
+          "not proven to originate from a raw real-user SQLite history extraction",
+          "no completed held-out final selection in target run",
+          "no user_memory_tuning_configs saved row",
+          "no online application of a user config"
+        ],
+        "chain_status": "PARTIAL_ONLY_NOT_PERSONALIZED_CLOSED_LOOP"
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001_贵州茅台_投研 worksheet",
+          "record_id": "S001",
+          "field": "编号"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001_贵州茅台_投研 worksheet",
+          "record_id": "S001",
+          "field": "关联前序对话"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001_贵州茅台_投研 worksheet",
+          "record_id": "S001",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001_贵州茅台_投研 worksheet",
+          "record_id": "S001",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S001",
+          "field": "session_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S001",
+          "field": "query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S001",
+          "field": "gold_bearing_query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S001",
+          "field": "gold_requirement_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "metrics"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "stage"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "scope"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S001/history.db",
+          "table / collection": "SQLite schema scan",
+          "record_id": "S001",
+          "field": "user_memory_tuning_configs absent"
+        }
+      ]
+    },
+    {
+      "candidate_id": "Q-PARTIAL-S003",
+      "presentation_score": 63.6,
+      "why_good_for_ppt": "可确认该 Session 有 93 条基准 QA、88 条历史依赖 Query；但目标运行不是 user-memory-auto-tuner 完整链路，未产生最终配置。",
+      "session_id": "S003_比亚迪_风委",
+      "query_id": null,
+      "memory_id": null,
+      "job_id": null,
+      "display_data": {
+        "title": "Benchmark 数据存在；个性化配置链路未完成",
+        "current_question": "S003_比亚迪_风委",
+        "input": "QA 93 / 标注 Query 88 / dependency 340",
+        "process": "目标运行 aggregate baseline Recall@K=0.48441926345609065",
+        "output": "Final metrics / 用户配置：NOT_PRODUCED",
+        "key_number": "链路确认至 Benchmark + 部分调参，共 93 QA",
+        "conclusion": "不是可宣称的真实用户级闭环案例。"
+      },
+      "raw_data": {
+        "raw_qa_count": 93,
+        "annotated_query_count": 88,
+        "dependency_count": 340,
+        "requirement_count": 340,
+        "baseline_metrics": {
+          "scope": "aggregate tune split, not this session",
+          "recall_at_k": 0.48441926345609065,
+          "recall_at_2k": 0.6430594900849859,
+          "recall_at_4k": 0.7535410764872521,
+          "mrr": 0.32435673643088153,
+          "macro_session_recall_at_k": 0.5290129580976496,
+          "worst_session_recall_at_k": 0.3364485981308411,
+          "session_stddev": 0.10728692751586379,
+          "candidate_pool_recall": 1.0,
+          "final_context_recall": 0.5290129580976496
+        },
+        "final_metrics": "NOT_PRODUCED",
+        "final_user_config": "NOT_PRODUCED",
+        "changed_parameters_vs_default": [],
+        "confirmed_chain": [
+          "curated multi-session QA workbook exists",
+          "dependency annotations audited",
+          "production source replay persisted to read-only-inspected SQLite",
+          "baseline and stage-1/stage-2 aggregate candidate evaluations exist"
+        ],
+        "missing_chain": [
+          "not proven to originate from a raw real-user SQLite history extraction",
+          "no completed held-out final selection in target run",
+          "no user_memory_tuning_configs saved row",
+          "no online application of a user config"
+        ],
+        "chain_status": "PARTIAL_ONLY_NOT_PERSONALIZED_CLOSED_LOOP"
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S003_比亚迪_风委 worksheet",
+          "record_id": "S003",
+          "field": "编号"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S003_比亚迪_风委 worksheet",
+          "record_id": "S003",
+          "field": "关联前序对话"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S003_比亚迪_风委 worksheet",
+          "record_id": "S003",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S003_比亚迪_风委 worksheet",
+          "record_id": "S003",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S003",
+          "field": "session_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S003",
+          "field": "query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S003",
+          "field": "gold_bearing_query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S003",
+          "field": "gold_requirement_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "metrics"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "stage"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "scope"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S003/history.db",
+          "table / collection": "SQLite schema scan",
+          "record_id": "S003",
+          "field": "user_memory_tuning_configs absent"
+        }
+      ]
+    },
+    {
+      "candidate_id": "Q-PARTIAL-S006",
+      "presentation_score": 61.6,
+      "why_good_for_ppt": "可确认该 Session 有 80 条基准 QA、78 条历史依赖 Query；但目标运行不是 user-memory-auto-tuner 完整链路，未产生最终配置。",
+      "session_id": "S006_宁德时代_审委",
+      "query_id": null,
+      "memory_id": null,
+      "job_id": null,
+      "display_data": {
+        "title": "Benchmark 数据存在；个性化配置链路未完成",
+        "current_question": "S006_宁德时代_审委",
+        "input": "QA 80 / 标注 Query 78 / dependency 249",
+        "process": "目标运行 aggregate baseline Recall@K=0.48441926345609065",
+        "output": "Final metrics / 用户配置：NOT_PRODUCED",
+        "key_number": "链路确认至 Benchmark + 部分调参，共 80 QA",
+        "conclusion": "不是可宣称的真实用户级闭环案例。"
+      },
+      "raw_data": {
+        "raw_qa_count": 80,
+        "annotated_query_count": 78,
+        "dependency_count": 249,
+        "requirement_count": 249,
+        "baseline_metrics": {
+          "scope": "aggregate tune split, not this session",
+          "recall_at_k": 0.48441926345609065,
+          "recall_at_2k": 0.6430594900849859,
+          "recall_at_4k": 0.7535410764872521,
+          "mrr": 0.32435673643088153,
+          "macro_session_recall_at_k": 0.5290129580976496,
+          "worst_session_recall_at_k": 0.3364485981308411,
+          "session_stddev": 0.10728692751586379,
+          "candidate_pool_recall": 1.0,
+          "final_context_recall": 0.5290129580976496
+        },
+        "final_metrics": "NOT_PRODUCED",
+        "final_user_config": "NOT_PRODUCED",
+        "changed_parameters_vs_default": [],
+        "confirmed_chain": [
+          "curated multi-session QA workbook exists",
+          "dependency annotations audited",
+          "production source replay persisted to read-only-inspected SQLite",
+          "baseline and stage-1/stage-2 aggregate candidate evaluations exist"
+        ],
+        "missing_chain": [
+          "not proven to originate from a raw real-user SQLite history extraction",
+          "no completed held-out final selection in target run",
+          "no user_memory_tuning_configs saved row",
+          "no online application of a user config"
+        ],
+        "chain_status": "PARTIAL_ONLY_NOT_PERSONALIZED_CLOSED_LOOP"
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S006_宁德时代_审委 worksheet",
+          "record_id": "S006",
+          "field": "编号"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S006_宁德时代_审委 worksheet",
+          "record_id": "S006",
+          "field": "关联前序对话"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S006_宁德时代_审委 worksheet",
+          "record_id": "S006",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S006_宁德时代_审委 worksheet",
+          "record_id": "S006",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S006",
+          "field": "session_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S006",
+          "field": "query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S006",
+          "field": "gold_bearing_query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S006",
+          "field": "gold_requirement_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "metrics"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "stage"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "scope"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S006/history.db",
+          "table / collection": "SQLite schema scan",
+          "record_id": "S006",
+          "field": "user_memory_tuning_configs absent"
+        }
+      ]
+    },
+    {
+      "candidate_id": "Q-PARTIAL-S004",
+      "presentation_score": 60.0,
+      "why_good_for_ppt": "可确认该 Session 有 74 条基准 QA、70 条历史依赖 Query；但目标运行不是 user-memory-auto-tuner 完整链路，未产生最终配置。",
+      "session_id": "S004_比亚迪_IR",
+      "query_id": null,
+      "memory_id": null,
+      "job_id": null,
+      "display_data": {
+        "title": "Benchmark 数据存在；个性化配置链路未完成",
+        "current_question": "S004_比亚迪_IR",
+        "input": "QA 74 / 标注 Query 70 / dependency 309",
+        "process": "目标运行 aggregate baseline Recall@K=0.48441926345609065",
+        "output": "Final metrics / 用户配置：NOT_PRODUCED",
+        "key_number": "链路确认至 Benchmark + 部分调参，共 74 QA",
+        "conclusion": "不是可宣称的真实用户级闭环案例。"
+      },
+      "raw_data": {
+        "raw_qa_count": 74,
+        "annotated_query_count": 70,
+        "dependency_count": 309,
+        "requirement_count": 309,
+        "baseline_metrics": {
+          "scope": "aggregate tune split, not this session",
+          "recall_at_k": 0.48441926345609065,
+          "recall_at_2k": 0.6430594900849859,
+          "recall_at_4k": 0.7535410764872521,
+          "mrr": 0.32435673643088153,
+          "macro_session_recall_at_k": 0.5290129580976496,
+          "worst_session_recall_at_k": 0.3364485981308411,
+          "session_stddev": 0.10728692751586379,
+          "candidate_pool_recall": 1.0,
+          "final_context_recall": 0.5290129580976496
+        },
+        "final_metrics": "NOT_PRODUCED",
+        "final_user_config": "NOT_PRODUCED",
+        "changed_parameters_vs_default": [],
+        "confirmed_chain": [
+          "curated multi-session QA workbook exists",
+          "dependency annotations audited",
+          "production source replay persisted to read-only-inspected SQLite",
+          "baseline and stage-1/stage-2 aggregate candidate evaluations exist"
+        ],
+        "missing_chain": [
+          "not proven to originate from a raw real-user SQLite history extraction",
+          "no completed held-out final selection in target run",
+          "no user_memory_tuning_configs saved row",
+          "no online application of a user config"
+        ],
+        "chain_status": "PARTIAL_ONLY_NOT_PERSONALIZED_CLOSED_LOOP"
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S004_比亚迪_IR worksheet",
+          "record_id": "S004",
+          "field": "编号"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S004_比亚迪_IR worksheet",
+          "record_id": "S004",
+          "field": "关联前序对话"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S004_比亚迪_IR worksheet",
+          "record_id": "S004",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S004_比亚迪_IR worksheet",
+          "record_id": "S004",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S004",
+          "field": "session_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S004",
+          "field": "query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S004",
+          "field": "gold_bearing_query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S004",
+          "field": "gold_requirement_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "metrics"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "stage"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "scope"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S004___IR/history.db",
+          "table / collection": "SQLite schema scan",
+          "record_id": "S004",
+          "field": "user_memory_tuning_configs absent"
+        }
+      ]
+    },
+    {
+      "candidate_id": "Q-PARTIAL-S002",
+      "presentation_score": 59.6,
+      "why_good_for_ppt": "可确认该 Session 有 73 条基准 QA、68 条历史依赖 Query；但目标运行不是 user-memory-auto-tuner 完整链路，未产生最终配置。",
+      "session_id": "S002_贵州茅台_内审",
+      "query_id": null,
+      "memory_id": null,
+      "job_id": null,
+      "display_data": {
+        "title": "Benchmark 数据存在；个性化配置链路未完成",
+        "current_question": "S002_贵州茅台_内审",
+        "input": "QA 73 / 标注 Query 68 / dependency 201",
+        "process": "目标运行 aggregate baseline Recall@K=0.48441926345609065",
+        "output": "Final metrics / 用户配置：NOT_PRODUCED",
+        "key_number": "链路确认至 Benchmark + 部分调参，共 73 QA",
+        "conclusion": "不是可宣称的真实用户级闭环案例。"
+      },
+      "raw_data": {
+        "raw_qa_count": 73,
+        "annotated_query_count": 68,
+        "dependency_count": 201,
+        "requirement_count": 201,
+        "baseline_metrics": {
+          "scope": "aggregate tune split, not this session",
+          "recall_at_k": 0.48441926345609065,
+          "recall_at_2k": 0.6430594900849859,
+          "recall_at_4k": 0.7535410764872521,
+          "mrr": 0.32435673643088153,
+          "macro_session_recall_at_k": 0.5290129580976496,
+          "worst_session_recall_at_k": 0.3364485981308411,
+          "session_stddev": 0.10728692751586379,
+          "candidate_pool_recall": 1.0,
+          "final_context_recall": 0.5290129580976496
+        },
+        "final_metrics": "NOT_PRODUCED",
+        "final_user_config": "NOT_PRODUCED",
+        "changed_parameters_vs_default": [],
+        "confirmed_chain": [
+          "curated multi-session QA workbook exists",
+          "dependency annotations audited",
+          "production source replay persisted to read-only-inspected SQLite",
+          "baseline and stage-1/stage-2 aggregate candidate evaluations exist"
+        ],
+        "missing_chain": [
+          "not proven to originate from a raw real-user SQLite history extraction",
+          "no completed held-out final selection in target run",
+          "no user_memory_tuning_configs saved row",
+          "no online application of a user config"
+        ],
+        "chain_status": "PARTIAL_ONLY_NOT_PERSONALIZED_CLOSED_LOOP"
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S002_贵州茅台_内审 worksheet",
+          "record_id": "S002",
+          "field": "编号"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S002_贵州茅台_内审 worksheet",
+          "record_id": "S002",
+          "field": "关联前序对话"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S002_贵州茅台_内审 worksheet",
+          "record_id": "S002",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S002_贵州茅台_内审 worksheet",
+          "record_id": "S002",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S002",
+          "field": "session_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S002",
+          "field": "query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S002",
+          "field": "gold_bearing_query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S002",
+          "field": "gold_requirement_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "metrics"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "stage"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "scope"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S002/history.db",
+          "table / collection": "SQLite schema scan",
+          "record_id": "S002",
+          "field": "user_memory_tuning_configs absent"
+        }
+      ]
+    },
+    {
+      "candidate_id": "Q-PARTIAL-S008",
+      "presentation_score": 57.8,
+      "why_good_for_ppt": "可确认该 Session 有 61 条基准 QA、59 条历史依赖 Query；但目标运行不是 user-memory-auto-tuner 完整链路，未产生最终配置。",
+      "session_id": "S008_美的集团_供应链",
+      "query_id": null,
+      "memory_id": null,
+      "job_id": null,
+      "display_data": {
+        "title": "Benchmark 数据存在；个性化配置链路未完成",
+        "current_question": "S008_美的集团_供应链",
+        "input": "QA 61 / 标注 Query 59 / dependency 222",
+        "process": "目标运行 aggregate baseline Recall@K=0.48441926345609065",
+        "output": "Final metrics / 用户配置：NOT_PRODUCED",
+        "key_number": "链路确认至 Benchmark + 部分调参，共 61 QA",
+        "conclusion": "不是可宣称的真实用户级闭环案例。"
+      },
+      "raw_data": {
+        "raw_qa_count": 61,
+        "annotated_query_count": 59,
+        "dependency_count": 222,
+        "requirement_count": 222,
+        "baseline_metrics": {
+          "scope": "aggregate tune split, not this session",
+          "recall_at_k": 0.48441926345609065,
+          "recall_at_2k": 0.6430594900849859,
+          "recall_at_4k": 0.7535410764872521,
+          "mrr": 0.32435673643088153,
+          "macro_session_recall_at_k": 0.5290129580976496,
+          "worst_session_recall_at_k": 0.3364485981308411,
+          "session_stddev": 0.10728692751586379,
+          "candidate_pool_recall": 1.0,
+          "final_context_recall": 0.5290129580976496
+        },
+        "final_metrics": "NOT_PRODUCED",
+        "final_user_config": "NOT_PRODUCED",
+        "changed_parameters_vs_default": [],
+        "confirmed_chain": [
+          "curated multi-session QA workbook exists",
+          "dependency annotations audited",
+          "production source replay persisted to read-only-inspected SQLite",
+          "baseline and stage-1/stage-2 aggregate candidate evaluations exist"
+        ],
+        "missing_chain": [
+          "not proven to originate from a raw real-user SQLite history extraction",
+          "no completed held-out final selection in target run",
+          "no user_memory_tuning_configs saved row",
+          "no online application of a user config"
+        ],
+        "chain_status": "PARTIAL_ONLY_NOT_PERSONALIZED_CLOSED_LOOP"
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S008_美的集团_供应链 worksheet",
+          "record_id": "S008",
+          "field": "编号"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S008_美的集团_供应链 worksheet",
+          "record_id": "S008",
+          "field": "关联前序对话"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S008_美的集团_供应链 worksheet",
+          "record_id": "S008",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S008_美的集团_供应链 worksheet",
+          "record_id": "S008",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S008",
+          "field": "session_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S008",
+          "field": "query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S008",
+          "field": "gold_bearing_query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S008",
+          "field": "gold_requirement_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "metrics"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "stage"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "scope"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S008/history.db",
+          "table / collection": "SQLite schema scan",
+          "record_id": "S008",
+          "field": "user_memory_tuning_configs absent"
+        }
+      ]
+    },
+    {
+      "candidate_id": "Q-PARTIAL-S005",
+      "presentation_score": 57.0,
+      "why_good_for_ppt": "可确认该 Session 有 58 条基准 QA、55 条历史依赖 Query；但目标运行不是 user-memory-auto-tuner 完整链路，未产生最终配置。",
+      "session_id": "S005_宁德时代_合规",
+      "query_id": null,
+      "memory_id": null,
+      "job_id": null,
+      "display_data": {
+        "title": "Benchmark 数据存在；个性化配置链路未完成",
+        "current_question": "S005_宁德时代_合规",
+        "input": "QA 58 / 标注 Query 55 / dependency 154",
+        "process": "目标运行 aggregate baseline Recall@K=0.48441926345609065",
+        "output": "Final metrics / 用户配置：NOT_PRODUCED",
+        "key_number": "链路确认至 Benchmark + 部分调参，共 58 QA",
+        "conclusion": "不是可宣称的真实用户级闭环案例。"
+      },
+      "raw_data": {
+        "raw_qa_count": 58,
+        "annotated_query_count": 55,
+        "dependency_count": 154,
+        "requirement_count": 154,
+        "baseline_metrics": {
+          "scope": "aggregate tune split, not this session",
+          "recall_at_k": 0.48441926345609065,
+          "recall_at_2k": 0.6430594900849859,
+          "recall_at_4k": 0.7535410764872521,
+          "mrr": 0.32435673643088153,
+          "macro_session_recall_at_k": 0.5290129580976496,
+          "worst_session_recall_at_k": 0.3364485981308411,
+          "session_stddev": 0.10728692751586379,
+          "candidate_pool_recall": 1.0,
+          "final_context_recall": 0.5290129580976496
+        },
+        "final_metrics": "NOT_PRODUCED",
+        "final_user_config": "NOT_PRODUCED",
+        "changed_parameters_vs_default": [],
+        "confirmed_chain": [
+          "curated multi-session QA workbook exists",
+          "dependency annotations audited",
+          "production source replay persisted to read-only-inspected SQLite",
+          "baseline and stage-1/stage-2 aggregate candidate evaluations exist"
+        ],
+        "missing_chain": [
+          "not proven to originate from a raw real-user SQLite history extraction",
+          "no completed held-out final selection in target run",
+          "no user_memory_tuning_configs saved row",
+          "no online application of a user config"
+        ],
+        "chain_status": "PARTIAL_ONLY_NOT_PERSONALIZED_CLOSED_LOOP"
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S005_宁德时代_合规 worksheet",
+          "record_id": "S005",
+          "field": "编号"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S005_宁德时代_合规 worksheet",
+          "record_id": "S005",
+          "field": "关联前序对话"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S005_宁德时代_合规 worksheet",
+          "record_id": "S005",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S005_宁德时代_合规 worksheet",
+          "record_id": "S005",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S005",
+          "field": "session_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S005",
+          "field": "query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S005",
+          "field": "gold_bearing_query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S005",
+          "field": "gold_requirement_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "metrics"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "stage"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "scope"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S005/history.db",
+          "table / collection": "SQLite schema scan",
+          "record_id": "S005",
+          "field": "user_memory_tuning_configs absent"
+        }
+      ]
+    },
+    {
+      "candidate_id": "Q-PARTIAL-S009",
+      "presentation_score": 52.6,
+      "why_good_for_ppt": "可确认该 Session 有 37 条基准 QA、33 条历史依赖 Query；但目标运行不是 user-memory-auto-tuner 完整链路，未产生最终配置。",
+      "session_id": "S009_招商银行_并购",
+      "query_id": null,
+      "memory_id": null,
+      "job_id": null,
+      "display_data": {
+        "title": "Benchmark 数据存在；个性化配置链路未完成",
+        "current_question": "S009_招商银行_并购",
+        "input": "QA 37 / 标注 Query 33 / dependency 82",
+        "process": "目标运行 aggregate baseline Recall@K=0.48441926345609065",
+        "output": "Final metrics / 用户配置：NOT_PRODUCED",
+        "key_number": "链路确认至 Benchmark + 部分调参，共 37 QA",
+        "conclusion": "不是可宣称的真实用户级闭环案例。"
+      },
+      "raw_data": {
+        "raw_qa_count": 37,
+        "annotated_query_count": 33,
+        "dependency_count": 82,
+        "requirement_count": 82,
+        "baseline_metrics": {
+          "scope": "aggregate tune split, not this session",
+          "recall_at_k": 0.48441926345609065,
+          "recall_at_2k": 0.6430594900849859,
+          "recall_at_4k": 0.7535410764872521,
+          "mrr": 0.32435673643088153,
+          "macro_session_recall_at_k": 0.5290129580976496,
+          "worst_session_recall_at_k": 0.3364485981308411,
+          "session_stddev": 0.10728692751586379,
+          "candidate_pool_recall": 1.0,
+          "final_context_recall": 0.5290129580976496
+        },
+        "final_metrics": "NOT_PRODUCED",
+        "final_user_config": "NOT_PRODUCED",
+        "changed_parameters_vs_default": [],
+        "confirmed_chain": [
+          "curated multi-session QA workbook exists",
+          "dependency annotations audited",
+          "production source replay persisted to read-only-inspected SQLite",
+          "baseline and stage-1/stage-2 aggregate candidate evaluations exist"
+        ],
+        "missing_chain": [
+          "not proven to originate from a raw real-user SQLite history extraction",
+          "no completed held-out final selection in target run",
+          "no user_memory_tuning_configs saved row",
+          "no online application of a user config"
+        ],
+        "chain_status": "PARTIAL_ONLY_NOT_PERSONALIZED_CLOSED_LOOP"
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S009_招商银行_并购 worksheet",
+          "record_id": "S009",
+          "field": "编号"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S009_招商银行_并购 worksheet",
+          "record_id": "S009",
+          "field": "关联前序对话"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S009_招商银行_并购 worksheet",
+          "record_id": "S009",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S009_招商银行_并购 worksheet",
+          "record_id": "S009",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S009",
+          "field": "session_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S009",
+          "field": "query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S009",
+          "field": "gold_bearing_query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S009",
+          "field": "gold_requirement_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "metrics"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "stage"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "scope"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S009/history.db",
+          "table / collection": "SQLite schema scan",
+          "record_id": "S009",
+          "field": "user_memory_tuning_configs absent"
+        }
+      ]
+    },
+    {
+      "candidate_id": "Q-PARTIAL-S010",
+      "presentation_score": 50.2,
+      "why_good_for_ppt": "可确认该 Session 有 30 条基准 QA、21 条历史依赖 Query；但目标运行不是 user-memory-auto-tuner 完整链路，未产生最终配置。",
+      "session_id": "S010_招商银行_采购",
+      "query_id": null,
+      "memory_id": null,
+      "job_id": null,
+      "display_data": {
+        "title": "Benchmark 数据存在；个性化配置链路未完成",
+        "current_question": "S010_招商银行_采购",
+        "input": "QA 30 / 标注 Query 21 / dependency 53",
+        "process": "目标运行 aggregate baseline Recall@K=0.48441926345609065",
+        "output": "Final metrics / 用户配置：NOT_PRODUCED",
+        "key_number": "链路确认至 Benchmark + 部分调参，共 30 QA",
+        "conclusion": "不是可宣称的真实用户级闭环案例。"
+      },
+      "raw_data": {
+        "raw_qa_count": 30,
+        "annotated_query_count": 21,
+        "dependency_count": 53,
+        "requirement_count": 53,
+        "baseline_metrics": {
+          "scope": "aggregate tune split, not this session",
+          "recall_at_k": 0.48441926345609065,
+          "recall_at_2k": 0.6430594900849859,
+          "recall_at_4k": 0.7535410764872521,
+          "mrr": 0.32435673643088153,
+          "macro_session_recall_at_k": 0.5290129580976496,
+          "worst_session_recall_at_k": 0.3364485981308411,
+          "session_stddev": 0.10728692751586379,
+          "candidate_pool_recall": 1.0,
+          "final_context_recall": 0.5290129580976496
+        },
+        "final_metrics": "NOT_PRODUCED",
+        "final_user_config": "NOT_PRODUCED",
+        "changed_parameters_vs_default": [],
+        "confirmed_chain": [
+          "curated multi-session QA workbook exists",
+          "dependency annotations audited",
+          "production source replay persisted to read-only-inspected SQLite",
+          "baseline and stage-1/stage-2 aggregate candidate evaluations exist"
+        ],
+        "missing_chain": [
+          "not proven to originate from a raw real-user SQLite history extraction",
+          "no completed held-out final selection in target run",
+          "no user_memory_tuning_configs saved row",
+          "no online application of a user config"
+        ],
+        "chain_status": "PARTIAL_ONLY_NOT_PERSONALIZED_CLOSED_LOOP"
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S010_招商银行_采购 worksheet",
+          "record_id": "S010",
+          "field": "编号"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S010_招商银行_采购 worksheet",
+          "record_id": "S010",
+          "field": "关联前序对话"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S010_招商银行_采购 worksheet",
+          "record_id": "S010",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S010_招商银行_采购 worksheet",
+          "record_id": "S010",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S010",
+          "field": "session_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S010",
+          "field": "query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S010",
+          "field": "gold_bearing_query_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+          "table / collection": "dataset audit",
+          "record_id": "S010",
+          "field": "gold_requirement_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "metrics"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "stage"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+          "table / collection": "search_trace.jsonl",
+          "record_id": "aggregate baseline",
+          "field": "scope"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S010/history.db",
+          "table / collection": "SQLite schema scan",
+          "record_id": "S010",
+          "field": "user_memory_tuning_configs absent"
+        }
+      ]
+    }
+  ],
+  "selection_criteria": {
+    "score_range": "0-100",
+    "dimensions": {
+      "change_magnitude": "排序/指标/状态变化是否明显",
+      "comprehensibility": "金融问题是否自然、非技术人员是否容易理解",
+      "evidence_completeness": "Input / Process / Output / Source 是否齐全",
+      "ppt_fit": "能否压缩成半页 PPT 的 Before/After、流程或时间轴"
+    },
+    "tie_breaker": "优先 S001_贵州茅台_投研，其次证据链更完整、文字更短"
+  },
+  "source_files": [
+    ".agents/skills/user-memory-auto-tuner/SKILL.md",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/dataset_audit.json",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S001/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S004___IR/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S006/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/search_trace.jsonl",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/split_manifest.json",
+    "exp/金融分析数据集_S001-S010高质量重构.xlsx"
+  ],
+  "note": "找到 10 个 Benchmark Session 的部分链路，但完整用户历史→Benchmark→held-out final→saved config 链路为 0。",
+  "chain_status": "PARTIAL_ONLY",
+  "complete_chain_count": 0,
+  "partial_session_count": 10,
+  "database_config_table_scan": {
+    "database_count": 222,
+    "user_memory_tuning_configs_table_count": 0,
+    "saved_config_row_count": 0
+  },
+  "cross_session_tuning_status": "CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD",
+  "deployment_note": "即便保存推荐配置也不等于线上 Memory 已生效；本目标运行连 saved config 都未产生。"
+}

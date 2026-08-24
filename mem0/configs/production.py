@@ -8,6 +8,9 @@ from mem0.configs.base import MemoryConfig
 
 DEEPSEEK_API_KEY_ENV = "DEEPSEEK_API_KEY"
 DEEPSEEK_API_KEY_PLACEHOLDER = "${DEEPSEEK_API_KEY}"
+DEEPSEEK_JSON_REQUEST_OPTIONS: dict[str, Any] = {
+    "extra_body": {"thinking": {"type": "disabled"}},
+}
 
 _PRODUCTION_MEMORY_OVERRIDES: dict[str, Any] = {
     "llm": {
@@ -34,6 +37,14 @@ _PRODUCTION_MEMORY_OVERRIDES: dict[str, Any] = {
             "bm25_language": "zh",
             "on_disk": True,
         },
+    },
+    "query_rewrite_request_options": deepcopy(DEEPSEEK_JSON_REQUEST_OPTIONS),
+    "midterm": {
+        "page_summary_request_options": deepcopy(DEEPSEEK_JSON_REQUEST_OPTIONS),
+        "session_merge_request_options": deepcopy(DEEPSEEK_JSON_REQUEST_OPTIONS),
+    },
+    "fine_grained_longterm": {
+        "extraction_request_options": deepcopy(DEEPSEEK_JSON_REQUEST_OPTIONS),
     },
 }
 

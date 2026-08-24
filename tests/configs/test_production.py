@@ -1,5 +1,6 @@
 from mem0.configs.production import (
     DEEPSEEK_API_KEY_PLACEHOLDER,
+    DEEPSEEK_JSON_REQUEST_OPTIONS,
     load_production_memory_config,
 )
 
@@ -19,6 +20,10 @@ def test_repository_production_memory_config_owns_provider_and_model_choices(mon
     assert live.embedder.config["embedding_dims"] == 512
     assert live.vector_store.config.embedding_model_dims == 512
     assert live.agentic_retrieval.max_tool_result_chars == 30000
+    assert live.query_rewrite_request_options == DEEPSEEK_JSON_REQUEST_OPTIONS
+    assert live.midterm.page_summary_request_options == DEEPSEEK_JSON_REQUEST_OPTIONS
+    assert live.midterm.session_merge_request_options == DEEPSEEK_JSON_REQUEST_OPTIONS
+    assert live.fine_grained_longterm.extraction_request_options == DEEPSEEK_JSON_REQUEST_OPTIONS
 
 
 def test_repository_production_config_deep_merges_partial_overrides():

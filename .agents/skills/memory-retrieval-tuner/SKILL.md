@@ -34,7 +34,7 @@ Research 决策只允许使用当前 run 的 Tune 实验事实，以及从 Basel
 
 - `k`：Primary Metric `R@K` 使用的 Recall cutoff，默认：`5`。
 - `budget`：`quick | standard | deep`，默认：`standard`。
-- `target`：`midterm` 或 `all_memory`。完整评价固定使用 `Turn.required_context`，并联合 ShortTerm、MidTerm 与 Fine-grained LongTerm（`source="long_term"`）；Promoted LongTerm（`source="cross_session_long_term"`）不进入普通 Session winner 评价。
+- `target`：`midterm` 或 `all_memory`。当前重构工作簿固定使用 `关联前序对话` 的 source-ID Gold；只有 ID-less legacy/context-only workbook 才使用 `Turn.required_context`，并联合 ShortTerm、MidTerm 与 Fine-grained LongTerm（`source="long_term"`）；Promoted LongTerm（`source="cross_session_long_term"`）不进入普通 Session winner 评价。
 - `sessions`：可选的 Session 子集。
 - `seed`：数据划分/搜索随机种子，默认从 `search_space.yaml` 读取。
 - `resume`：已有调参运行目录，用于恢复运行。
@@ -61,7 +61,7 @@ $memory-retrieval-tuner dataset=exp/my_dataset.xlsx k=3 target=midterm sessions=
 
 ## Complete Agent Memory contract
 
-评价分母固定来自 `Turn.required_context`（没有该字段的 legacy ID-only workbook 才使用兼容逻辑），不会因 ShortTerm window/capacity 改变。required context 支持 `(A OR B) AND C`：OR group 命中任一成员，AND group 各自必须命中。数字、百分比、日期、金额、实体和单位先做确定性检查，普通文本才进入受控 Semantic Judge；Embedding similarity 不能单独构成 Gold hit。
+评价分母固定来自 `关联前序对话` 的 source-ID requirements（没有 ID Gold 的 legacy/context-only workbook 才使用 `Turn.required_context`），不会因 ShortTerm window/capacity 改变。ID Gold 支持 `(A OR B) AND C`；legacy required context 支持 `(A OR B) AND C`，其中 OR group 命中任一成员，AND group 各自必须命中。数字、百分比、日期、金额、实体和单位先做确定性检查，普通文本才进入受控 Semantic Judge；Embedding similarity 不能单独构成 Gold hit。
 
 最终评价覆盖 ShortTerm + MidTerm + Fine-grained LongTerm union，并报告 fact/requirement Recall@K、macro session recall、MRR、candidate-pool recall、final-context recall、context precision、mean returned pages、每层 contribution、query completion、session stability、runtime、LLM/embedding calls。历史 evaluator 中的 `session_longterm` 字段仅作为 Fine-grained LongTerm 兼容名称；`cross_session_longterm` 始终表示 Promoted LongTerm，并从普通 Session winner 评价中排除。诊断 artifact 可记录 routed pool、global supplement、threshold 和 final visible hit，但这些 Gold 细节不会进入 Research LLM。
 
@@ -112,7 +112,7 @@ R@K = top K 内满足的 Gold requirement 数量
 - `k` 可配置，默认值为 `5`。
 - evaluator、报告、文件名或停止逻辑中禁止硬编码 `R@5`。
 - 其他 cutoff 尽量从 `k` 推导，例如 `R@(2K)`、`R@(4K)`。
-- Gold denominator 固定使用 `Turn.required_context`，与 ShortTerm capacity/window 无关；ShortTerm、MidTerm、Fine-grained LongTerm 的可见 union 共同决定 hit。
+- Gold denominator 固定使用工作簿 `关联前序对话` 的 source IDs，与 ShortTerm capacity/window 无关；ShortTerm、MidTerm、Fine-grained LongTerm 的可见 union 共同决定 hit。ID-less legacy/context-only workbook 才使用 `Turn.required_context`。
 - ShortTerm coverage 单独报告。
 - 同时报告端到端 union/completion 指标，避免把局部 MidTerm 提升误认为整体 Memory 提升。
 - Micro requirement-level R@K 与 Macro/session-level 指标必须分开报告。

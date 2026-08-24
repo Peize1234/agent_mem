@@ -386,7 +386,11 @@ class QueryPromptArtifactGenerator:
 
                 def call() -> dict[str, Any]:
                     history = history_by_query[turn.query_id]
-                    resolved = QueryResolver(get_llm(), prompt=variant.prompt_text).resolve(
+                    resolved = QueryResolver(
+                        get_llm(),
+                        prompt=variant.prompt_text,
+                        request_options=memory_config.get("query_rewrite_request_options") or {},
+                    ).resolve(
                         turn.question,
                         history,
                     )

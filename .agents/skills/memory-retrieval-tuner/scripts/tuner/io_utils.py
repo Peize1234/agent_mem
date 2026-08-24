@@ -6,7 +6,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Iterator, Mapping
 
 
 def stable_hash(value: Any) -> str:
@@ -27,8 +27,7 @@ def load_json(path: Path) -> Any:
         return json.load(handle)
 
 
-def load_jsonl(path: Path) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
+def iter_jsonl(path: Path) -> Iterator[dict[str, Any]]:
     with path.open(encoding="utf-8") as handle:
         for line_number, line in enumerate(handle, start=1):
             if not line.strip():
@@ -36,8 +35,11 @@ def load_jsonl(path: Path) -> list[dict[str, Any]]:
             value = json.loads(line)
             if not isinstance(value, dict):
                 raise ValueError(f"{path}:{line_number} is not a JSON object")
-            rows.append(value)
-    return rows
+            yield value
+
+
+def load_jsonl(path: Path) -> list[dict[str, Any]]:
+    return list(iter_jsonl(path))
 
 
 def atomic_write_text(path: Path, text: str) -> None:

@@ -341,6 +341,10 @@ class MemoryConfig(BaseModel):
         min_length=1,
         description="Production ShortTerm-aware query rewrite prompt",
     )
+    query_rewrite_request_options: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Provider request options for Production ShortTerm-aware query rewriting",
+    )
     longterm_top_k: int = Field(
         20,
         ge=1,
@@ -429,6 +433,11 @@ class MemoryConfig(BaseModel):
         description="Configuration for optional model-directed mid-term retrieval",
         default_factory=AgenticRetrievalConfig,
     )
+
+    @field_validator("query_rewrite_request_options")
+    @classmethod
+    def validate_query_rewrite_request_options(cls, options: Dict[str, Any]) -> Dict[str, Any]:
+        return _validate_llm_request_options(options, field_name="query_rewrite_request_options")
 
     @model_validator(mode="after")
     def synchronize_longterm_compatibility_fields(self):

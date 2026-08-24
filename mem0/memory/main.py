@@ -1041,6 +1041,12 @@ def _configured_query_rewrite_prompt(memory: Any) -> str:
     return prompt if isinstance(prompt, str) and prompt.strip() else QUERY_REFERENCE_RESOLUTION_PROMPT
 
 
+def _configured_query_rewrite_request_options(memory: Any) -> Dict[str, Any]:
+    config = getattr(memory, "config", None)
+    options = getattr(config, "query_rewrite_request_options", None)
+    return dict(options) if isinstance(options, dict) else {}
+
+
 def _configured_fine_grained_extraction_prompt(memory: Any) -> str:
     config = getattr(memory, "config", None)
     fine_config = getattr(config, "fine_grained_longterm", None)
@@ -2468,7 +2474,11 @@ class Memory(_BackgroundMemoryMixin, MemoryBase):
         }
         resolver_llm = getattr(self, "llm", None)
         retrieval_query = (
-            QueryResolver(resolver_llm, prompt=_configured_query_rewrite_prompt(self)).resolve(
+            QueryResolver(
+                resolver_llm,
+                prompt=_configured_query_rewrite_prompt(self),
+                request_options=_configured_query_rewrite_request_options(self),
+            ).resolve(
                 context["query"],
                 context.get("short_term_messages"),
             )
@@ -4846,7 +4856,11 @@ class AsyncMemory(_BackgroundMemoryMixin, MemoryBase):
         )
         resolver_llm = getattr(self, "llm", None)
         retrieval_query = (
-            await QueryResolver(resolver_llm, prompt=_configured_query_rewrite_prompt(self)).resolve_async(
+            await QueryResolver(
+                resolver_llm,
+                prompt=_configured_query_rewrite_prompt(self),
+                request_options=_configured_query_rewrite_request_options(self),
+            ).resolve_async(
                 context["query"],
                 context.get("short_term_messages"),
             )

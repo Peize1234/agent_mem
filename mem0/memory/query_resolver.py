@@ -71,9 +71,19 @@ def parse_resolved_query(value: Any, original_query: str) -> str:
 class QueryResolver:
     """Resolve a query against visible ShortTerm with fail-closed original fallback."""
 
-    def __init__(self, llm: Any, *, prompt: str = QUERY_REFERENCE_RESOLUTION_PROMPT):
+    def __init__(
+        self,
+        llm: Any,
+        *,
+        prompt: str = QUERY_REFERENCE_RESOLUTION_PROMPT,
+        request_options: Mapping[str, Any] | None = None,
+    ):
         self.llm = llm
         self.prompt = prompt
+        self.request_options = dict(request_options or {})
+        conflicts = sorted({"messages", "response_format"} & set(self.request_options))
+        if conflicts:
+            raise ValueError(f"query resolver request options cannot override: {', '.join(conflicts)}")
 
     def resolve(self, query: str, visible_messages: Sequence[Mapping[str, Any]] | None) -> str:
         history = visible_query_history(visible_messages)
@@ -83,6 +93,7 @@ class QueryResolver:
             response = self.llm.generate_response(
                 messages=build_query_resolution_messages(query, history, prompt=self.prompt),
                 response_format={"type": "json_object"},
+                **self.request_options,
             )
             return parse_resolved_query(response, query)
         except Exception as exc:
@@ -100,6 +111,7 @@ class QueryResolver:
         request = {
             "messages": build_query_resolution_messages(query, history, prompt=self.prompt),
             "response_format": {"type": "json_object"},
+            **self.request_options,
         }
         try:
             async_generate = getattr(self.llm, "generate_response_async", None)

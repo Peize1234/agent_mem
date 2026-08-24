@@ -1,0 +1,2797 @@
+{
+  "status": "SIMULATED",
+  "candidate_count": 12,
+  "top_1": {
+    "candidate_id": "J-SIM-S001-S001-Q001",
+    "presentation_score": 84,
+    "why_good_for_ppt": "用真实用户表达演示画像从 before 到 after 的单字段更新；LLM Plan、校验和 DB 操作均为模拟并单独标注。",
+    "session_id": "S001_贵州茅台_投研",
+    "query_id": "S001-Q001",
+    "memory_id": null,
+    "job_id": "SIMULATED-PROFILE-01",
+    "display_data": {
+      "title": "用户新行为 → Profile 增量更新",
+      "current_question": "先帮我梳理一下贵州茅台2023—2025年的主要财务变化。",
+      "input": {
+        "work_role": null
+      },
+      "process": "SIMULATED replace: 权益研究员",
+      "output": {
+        "work_role": "权益研究员"
+      },
+      "key_number": "changed_fields = [work_role]",
+      "conclusion": "画像链路未真实触发；用户表达与会话角色来自真实数据。",
+      "simulation_label": "SIMULATED"
+    },
+    "raw_data": {
+      "observed_input": {
+        "user_expression": "先帮我梳理一下贵州茅台2023—2025年的主要财务变化。",
+        "declared_role": "权益研究员"
+      },
+      "simulated_process": {
+        "before_profile": {
+          "work_role": null,
+          "professional_level": "金融分析专业用户",
+          "output_preferences": [],
+          "evidence_requirements": [],
+          "analysis_habits": [],
+          "common_tasks": []
+        },
+        "llm_update_plan": {
+          "operation": "replace",
+          "field": "work_role",
+          "value": "权益研究员",
+          "reason": "derived from the current observed user expression"
+        },
+        "validated_modification": {
+          "changed_fields": [
+            "work_role"
+          ],
+          "operation_type": "replace",
+          "before": null,
+          "after": "权益研究员"
+        },
+        "db_operation": "SIMULATED UPSERT profile.work_role"
+      },
+      "simulated_output": {
+        "after_profile": {
+          "work_role": "权益研究员",
+          "professional_level": "金融分析专业用户",
+          "output_preferences": [],
+          "evidence_requirements": [],
+          "analysis_habits": [],
+          "common_tasks": []
+        }
+      },
+      "simulation_boundary": "No profile_update_jobs or user_profiles rows exist in the target source databases. Plan, validation, DB operation, and resulting profile are hypothetical."
+    },
+    "evidence": [
+      {
+        "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+        "table / collection": "S001 worksheet",
+        "record_id": "S001-Q001",
+        "field": "当前问题"
+      },
+      {
+        "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+        "table / collection": "S001 worksheet",
+        "record_id": "S001-Q001",
+        "field": "当前角色"
+      },
+      {
+        "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+        "table / collection": "S001 worksheet",
+        "record_id": "S001-Q001",
+        "field": "最终回答"
+      }
+    ]
+  },
+  "top_3": [
+    {
+      "candidate_id": "J-SIM-S001-S001-Q001",
+      "presentation_score": 84,
+      "why_good_for_ppt": "用真实用户表达演示画像从 before 到 after 的单字段更新；LLM Plan、校验和 DB 操作均为模拟并单独标注。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q001",
+      "memory_id": null,
+      "job_id": "SIMULATED-PROFILE-01",
+      "display_data": {
+        "title": "用户新行为 → Profile 增量更新",
+        "current_question": "先帮我梳理一下贵州茅台2023—2025年的主要财务变化。",
+        "input": {
+          "work_role": null
+        },
+        "process": "SIMULATED replace: 权益研究员",
+        "output": {
+          "work_role": "权益研究员"
+        },
+        "key_number": "changed_fields = [work_role]",
+        "conclusion": "画像链路未真实触发；用户表达与会话角色来自真实数据。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "user_expression": "先帮我梳理一下贵州茅台2023—2025年的主要财务变化。",
+          "declared_role": "权益研究员"
+        },
+        "simulated_process": {
+          "before_profile": {
+            "work_role": null,
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [],
+            "analysis_habits": [],
+            "common_tasks": []
+          },
+          "llm_update_plan": {
+            "operation": "replace",
+            "field": "work_role",
+            "value": "权益研究员",
+            "reason": "derived from the current observed user expression"
+          },
+          "validated_modification": {
+            "changed_fields": [
+              "work_role"
+            ],
+            "operation_type": "replace",
+            "before": null,
+            "after": "权益研究员"
+          },
+          "db_operation": "SIMULATED UPSERT profile.work_role"
+        },
+        "simulated_output": {
+          "after_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [],
+            "analysis_habits": [],
+            "common_tasks": []
+          }
+        },
+        "simulation_boundary": "No profile_update_jobs or user_profiles rows exist in the target source databases. Plan, validation, DB operation, and resulting profile are hypothetical."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q001",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q001",
+          "field": "当前角色"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q001",
+          "field": "最终回答"
+        }
+      ]
+    },
+    {
+      "candidate_id": "J-SIM-S001-S001-Q002",
+      "presentation_score": 84,
+      "why_good_for_ppt": "用真实用户表达演示画像从 before 到 after 的单字段更新；LLM Plan、校验和 DB 操作均为模拟并单独标注。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q002",
+      "memory_id": null,
+      "job_id": "SIMULATED-PROFILE-02",
+      "display_data": {
+        "title": "用户新行为 → Profile 增量更新",
+        "current_question": "刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+        "input": {
+          "evidence_requirements": []
+        },
+        "process": "SIMULATED append_unique: 证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+        "output": {
+          "evidence_requirements": [
+            "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？"
+          ]
+        },
+        "key_number": "changed_fields = [evidence_requirements]",
+        "conclusion": "画像链路未真实触发；用户表达与会话角色来自真实数据。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "user_expression": "刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+          "declared_role": "权益研究员"
+        },
+        "simulated_process": {
+          "before_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [],
+            "analysis_habits": [],
+            "common_tasks": []
+          },
+          "llm_update_plan": {
+            "operation": "append_unique",
+            "field": "evidence_requirements",
+            "value": "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+            "reason": "derived from the current observed user expression"
+          },
+          "validated_modification": {
+            "changed_fields": [
+              "evidence_requirements"
+            ],
+            "operation_type": "append_unique",
+            "before": [],
+            "after": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？"
+            ]
+          },
+          "db_operation": "SIMULATED UPSERT profile.evidence_requirements"
+        },
+        "simulated_output": {
+          "after_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？"
+            ],
+            "analysis_habits": [],
+            "common_tasks": []
+          }
+        },
+        "simulation_boundary": "No profile_update_jobs or user_profiles rows exist in the target source databases. Plan, validation, DB operation, and resulting profile are hypothetical."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q002",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q002",
+          "field": "当前角色"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q002",
+          "field": "最终回答"
+        }
+      ]
+    },
+    {
+      "candidate_id": "J-SIM-S001-S001-Q003",
+      "presentation_score": 84,
+      "why_good_for_ppt": "用真实用户表达演示画像从 before 到 after 的单字段更新；LLM Plan、校验和 DB 操作均为模拟并单独标注。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q003",
+      "memory_id": null,
+      "job_id": "SIMULATED-PROFILE-03",
+      "display_data": {
+        "title": "用户新行为 → Profile 增量更新",
+        "current_question": "口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质…",
+        "input": {
+          "evidence_requirements": [
+            "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？"
+          ]
+        },
+        "process": "SIMULATED append_unique: 证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+        "output": {
+          "evidence_requirements": [
+            "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+            "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。"
+          ]
+        },
+        "key_number": "changed_fields = [evidence_requirements]",
+        "conclusion": "画像链路未真实触发；用户表达与会话角色来自真实数据。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "user_expression": "口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+          "declared_role": "权益研究员"
+        },
+        "simulated_process": {
+          "before_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？"
+            ],
+            "analysis_habits": [],
+            "common_tasks": []
+          },
+          "llm_update_plan": {
+            "operation": "append_unique",
+            "field": "evidence_requirements",
+            "value": "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+            "reason": "derived from the current observed user expression"
+          },
+          "validated_modification": {
+            "changed_fields": [
+              "evidence_requirements"
+            ],
+            "operation_type": "append_unique",
+            "before": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？"
+            ],
+            "after": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。"
+            ]
+          },
+          "db_operation": "SIMULATED UPSERT profile.evidence_requirements"
+        },
+        "simulated_output": {
+          "after_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。"
+            ],
+            "analysis_habits": [],
+            "common_tasks": []
+          }
+        },
+        "simulation_boundary": "No profile_update_jobs or user_profiles rows exist in the target source databases. Plan, validation, DB operation, and resulting profile are hypothetical."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q003",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q003",
+          "field": "当前角色"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q003",
+          "field": "最终回答"
+        }
+      ]
+    }
+  ],
+  "top_10": [
+    {
+      "candidate_id": "J-SIM-S001-S001-Q001",
+      "presentation_score": 84,
+      "why_good_for_ppt": "用真实用户表达演示画像从 before 到 after 的单字段更新；LLM Plan、校验和 DB 操作均为模拟并单独标注。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q001",
+      "memory_id": null,
+      "job_id": "SIMULATED-PROFILE-01",
+      "display_data": {
+        "title": "用户新行为 → Profile 增量更新",
+        "current_question": "先帮我梳理一下贵州茅台2023—2025年的主要财务变化。",
+        "input": {
+          "work_role": null
+        },
+        "process": "SIMULATED replace: 权益研究员",
+        "output": {
+          "work_role": "权益研究员"
+        },
+        "key_number": "changed_fields = [work_role]",
+        "conclusion": "画像链路未真实触发；用户表达与会话角色来自真实数据。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "user_expression": "先帮我梳理一下贵州茅台2023—2025年的主要财务变化。",
+          "declared_role": "权益研究员"
+        },
+        "simulated_process": {
+          "before_profile": {
+            "work_role": null,
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [],
+            "analysis_habits": [],
+            "common_tasks": []
+          },
+          "llm_update_plan": {
+            "operation": "replace",
+            "field": "work_role",
+            "value": "权益研究员",
+            "reason": "derived from the current observed user expression"
+          },
+          "validated_modification": {
+            "changed_fields": [
+              "work_role"
+            ],
+            "operation_type": "replace",
+            "before": null,
+            "after": "权益研究员"
+          },
+          "db_operation": "SIMULATED UPSERT profile.work_role"
+        },
+        "simulated_output": {
+          "after_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [],
+            "analysis_habits": [],
+            "common_tasks": []
+          }
+        },
+        "simulation_boundary": "No profile_update_jobs or user_profiles rows exist in the target source databases. Plan, validation, DB operation, and resulting profile are hypothetical."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q001",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q001",
+          "field": "当前角色"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q001",
+          "field": "最终回答"
+        }
+      ]
+    },
+    {
+      "candidate_id": "J-SIM-S001-S001-Q002",
+      "presentation_score": 84,
+      "why_good_for_ppt": "用真实用户表达演示画像从 before 到 after 的单字段更新；LLM Plan、校验和 DB 操作均为模拟并单独标注。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q002",
+      "memory_id": null,
+      "job_id": "SIMULATED-PROFILE-02",
+      "display_data": {
+        "title": "用户新行为 → Profile 增量更新",
+        "current_question": "刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+        "input": {
+          "evidence_requirements": []
+        },
+        "process": "SIMULATED append_unique: 证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+        "output": {
+          "evidence_requirements": [
+            "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？"
+          ]
+        },
+        "key_number": "changed_fields = [evidence_requirements]",
+        "conclusion": "画像链路未真实触发；用户表达与会话角色来自真实数据。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "user_expression": "刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+          "declared_role": "权益研究员"
+        },
+        "simulated_process": {
+          "before_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [],
+            "analysis_habits": [],
+            "common_tasks": []
+          },
+          "llm_update_plan": {
+            "operation": "append_unique",
+            "field": "evidence_requirements",
+            "value": "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+            "reason": "derived from the current observed user expression"
+          },
+          "validated_modification": {
+            "changed_fields": [
+              "evidence_requirements"
+            ],
+            "operation_type": "append_unique",
+            "before": [],
+            "after": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？"
+            ]
+          },
+          "db_operation": "SIMULATED UPSERT profile.evidence_requirements"
+        },
+        "simulated_output": {
+          "after_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？"
+            ],
+            "analysis_habits": [],
+            "common_tasks": []
+          }
+        },
+        "simulation_boundary": "No profile_update_jobs or user_profiles rows exist in the target source databases. Plan, validation, DB operation, and resulting profile are hypothetical."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q002",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q002",
+          "field": "当前角色"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q002",
+          "field": "最终回答"
+        }
+      ]
+    },
+    {
+      "candidate_id": "J-SIM-S001-S001-Q003",
+      "presentation_score": 84,
+      "why_good_for_ppt": "用真实用户表达演示画像从 before 到 after 的单字段更新；LLM Plan、校验和 DB 操作均为模拟并单独标注。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q003",
+      "memory_id": null,
+      "job_id": "SIMULATED-PROFILE-03",
+      "display_data": {
+        "title": "用户新行为 → Profile 增量更新",
+        "current_question": "口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质…",
+        "input": {
+          "evidence_requirements": [
+            "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？"
+          ]
+        },
+        "process": "SIMULATED append_unique: 证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+        "output": {
+          "evidence_requirements": [
+            "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+            "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。"
+          ]
+        },
+        "key_number": "changed_fields = [evidence_requirements]",
+        "conclusion": "画像链路未真实触发；用户表达与会话角色来自真实数据。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "user_expression": "口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+          "declared_role": "权益研究员"
+        },
+        "simulated_process": {
+          "before_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？"
+            ],
+            "analysis_habits": [],
+            "common_tasks": []
+          },
+          "llm_update_plan": {
+            "operation": "append_unique",
+            "field": "evidence_requirements",
+            "value": "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+            "reason": "derived from the current observed user expression"
+          },
+          "validated_modification": {
+            "changed_fields": [
+              "evidence_requirements"
+            ],
+            "operation_type": "append_unique",
+            "before": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？"
+            ],
+            "after": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。"
+            ]
+          },
+          "db_operation": "SIMULATED UPSERT profile.evidence_requirements"
+        },
+        "simulated_output": {
+          "after_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。"
+            ],
+            "analysis_habits": [],
+            "common_tasks": []
+          }
+        },
+        "simulation_boundary": "No profile_update_jobs or user_profiles rows exist in the target source databases. Plan, validation, DB operation, and resulting profile are hypothetical."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q003",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q003",
+          "field": "当前角色"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q003",
+          "field": "最终回答"
+        }
+      ]
+    },
+    {
+      "candidate_id": "J-SIM-S001-S001-Q004",
+      "presentation_score": 76,
+      "why_good_for_ppt": "用真实用户表达演示画像从 before 到 after 的单字段更新；LLM Plan、校验和 DB 操作均为模拟并单独标注。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q004",
+      "memory_id": null,
+      "job_id": "SIMULATED-PROFILE-04",
+      "display_data": {
+        "title": "用户新行为 → Profile 增量更新",
+        "current_question": "刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资…",
+        "input": {
+          "analysis_habits": []
+        },
+        "process": "SIMULATED append_unique: 分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+        "output": {
+          "analysis_habits": [
+            "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…"
+          ]
+        },
+        "key_number": "changed_fields = [analysis_habits]",
+        "conclusion": "画像链路未真实触发；用户表达与会话角色来自真实数据。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "user_expression": "刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有得到收入增长的支撑？",
+          "declared_role": "权益研究员"
+        },
+        "simulated_process": {
+          "before_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。"
+            ],
+            "analysis_habits": [],
+            "common_tasks": []
+          },
+          "llm_update_plan": {
+            "operation": "append_unique",
+            "field": "analysis_habits",
+            "value": "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+            "reason": "derived from the current observed user expression"
+          },
+          "validated_modification": {
+            "changed_fields": [
+              "analysis_habits"
+            ],
+            "operation_type": "append_unique",
+            "before": [],
+            "after": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…"
+            ]
+          },
+          "db_operation": "SIMULATED UPSERT profile.analysis_habits"
+        },
+        "simulated_output": {
+          "after_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…"
+            ],
+            "common_tasks": []
+          }
+        },
+        "simulation_boundary": "No profile_update_jobs or user_profiles rows exist in the target source databases. Plan, validation, DB operation, and resulting profile are hypothetical."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q004",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q004",
+          "field": "当前角色"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q004",
+          "field": "最终回答"
+        }
+      ]
+    },
+    {
+      "candidate_id": "J-SIM-S001-S001-Q005",
+      "presentation_score": 76,
+      "why_good_for_ppt": "用真实用户表达演示画像从 before 到 after 的单字段更新；LLM Plan、校验和 DB 操作均为模拟并单独标注。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q005",
+      "memory_id": null,
+      "job_id": "SIMULATED-PROFILE-05",
+      "display_data": {
+        "title": "用户新行为 → Profile 增量更新",
+        "current_question": "沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅…",
+        "input": {
+          "analysis_habits": [
+            "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…"
+          ]
+        },
+        "process": "SIMULATED append_unique: 分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+        "output": {
+          "analysis_habits": [
+            "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+            "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…"
+          ]
+        },
+        "key_number": "changed_fields = [analysis_habits]",
+        "conclusion": "画像链路未真实触发；用户表达与会话角色来自真实数据。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "user_expression": "沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原因解释，只看哪一段摆动更剧烈、四个指标各摆了多少个百分点；再把 2024 高基数对 2025 同比的影响单独量化一下，看到底占多少。",
+          "declared_role": "权益研究员"
+        },
+        "simulated_process": {
+          "before_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…"
+            ],
+            "common_tasks": []
+          },
+          "llm_update_plan": {
+            "operation": "append_unique",
+            "field": "analysis_habits",
+            "value": "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+            "reason": "derived from the current observed user expression"
+          },
+          "validated_modification": {
+            "changed_fields": [
+              "analysis_habits"
+            ],
+            "operation_type": "append_unique",
+            "before": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…"
+            ],
+            "after": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…"
+            ]
+          },
+          "db_operation": "SIMULATED UPSERT profile.analysis_habits"
+        },
+        "simulated_output": {
+          "after_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…"
+            ],
+            "common_tasks": []
+          }
+        },
+        "simulation_boundary": "No profile_update_jobs or user_profiles rows exist in the target source databases. Plan, validation, DB operation, and resulting profile are hypothetical."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q005",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q005",
+          "field": "当前角色"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q005",
+          "field": "最终回答"
+        }
+      ]
+    },
+    {
+      "candidate_id": "J-SIM-S001-S001-Q006",
+      "presentation_score": 76,
+      "why_good_for_ppt": "用真实用户表达演示画像从 before 到 after 的单字段更新；LLM Plan、校验和 DB 操作均为模拟并单独标注。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q006",
+      "memory_id": null,
+      "job_id": "SIMULATED-PROFILE-06",
+      "display_data": {
+        "title": "用户新行为 → Profile 增量更新",
+        "current_question": "两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近…",
+        "input": {
+          "analysis_habits": [
+            "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+            "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…"
+          ]
+        },
+        "process": "SIMULATED append_unique: 分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+        "output": {
+          "analysis_habits": [
+            "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+            "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+            "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…"
+          ]
+        },
+        "key_number": "changed_fields = [analysis_habits]",
+        "conclusion": "画像链路未真实触发；用户表达与会话角色来自真实数据。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "user_expression": "两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三年算一遍，先算后判断——2025 年利润比收入跌得深，有多少是净利率回落造成的，这个比率能不能支撑前面的判断？",
+          "declared_role": "权益研究员"
+        },
+        "simulated_process": {
+          "before_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…"
+            ],
+            "common_tasks": []
+          },
+          "llm_update_plan": {
+            "operation": "append_unique",
+            "field": "analysis_habits",
+            "value": "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+            "reason": "derived from the current observed user expression"
+          },
+          "validated_modification": {
+            "changed_fields": [
+              "analysis_habits"
+            ],
+            "operation_type": "append_unique",
+            "before": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…"
+            ],
+            "after": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…"
+            ]
+          },
+          "db_operation": "SIMULATED UPSERT profile.analysis_habits"
+        },
+        "simulated_output": {
+          "after_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…"
+            ],
+            "common_tasks": []
+          }
+        },
+        "simulation_boundary": "No profile_update_jobs or user_profiles rows exist in the target source databases. Plan, validation, DB operation, and resulting profile are hypothetical."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q006",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q006",
+          "field": "当前角色"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q006",
+          "field": "最终回答"
+        }
+      ]
+    },
+    {
+      "candidate_id": "J-SIM-S001-S001-Q007",
+      "presentation_score": 76,
+      "why_good_for_ppt": "用真实用户表达演示画像从 before 到 after 的单字段更新；LLM Plan、校验和 DB 操作均为模拟并单独标注。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q007",
+      "memory_id": null,
+      "job_id": "SIMULATED-PROFILE-07",
+      "display_data": {
+        "title": "用户新行为 → Profile 增量更新",
+        "current_question": "资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。",
+        "input": {
+          "evidence_requirements": [
+            "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+            "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。"
+          ]
+        },
+        "process": "SIMULATED append_unique: 证据要求：资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。",
+        "output": {
+          "evidence_requirements": [
+            "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+            "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+            "证据要求：资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。"
+          ]
+        },
+        "key_number": "changed_fields = [evidence_requirements]",
+        "conclusion": "画像链路未真实触发；用户表达与会话角色来自真实数据。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "user_expression": "资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。",
+          "declared_role": "权益研究员"
+        },
+        "simulated_process": {
+          "before_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…"
+            ],
+            "common_tasks": []
+          },
+          "llm_update_plan": {
+            "operation": "append_unique",
+            "field": "evidence_requirements",
+            "value": "证据要求：资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。",
+            "reason": "derived from the current observed user expression"
+          },
+          "validated_modification": {
+            "changed_fields": [
+              "evidence_requirements"
+            ],
+            "operation_type": "append_unique",
+            "before": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。"
+            ],
+            "after": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "证据要求：资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。"
+            ]
+          },
+          "db_operation": "SIMULATED UPSERT profile.evidence_requirements"
+        },
+        "simulated_output": {
+          "after_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "证据要求：资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…"
+            ],
+            "common_tasks": []
+          }
+        },
+        "simulation_boundary": "No profile_update_jobs or user_profiles rows exist in the target source databases. Plan, validation, DB operation, and resulting profile are hypothetical."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q007",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q007",
+          "field": "当前角色"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q007",
+          "field": "最终回答"
+        }
+      ]
+    },
+    {
+      "candidate_id": "J-SIM-S001-S001-Q008",
+      "presentation_score": 76,
+      "why_good_for_ppt": "用真实用户表达演示画像从 before 到 after 的单字段更新；LLM Plan、校验和 DB 操作均为模拟并单独标注。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q008",
+      "memory_id": null,
+      "job_id": "SIMULATED-PROFILE-08",
+      "display_data": {
+        "title": "用户新行为 → Profile 增量更新",
+        "current_question": "归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算…",
+        "input": {
+          "analysis_habits": [
+            "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+            "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+            "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…"
+          ]
+        },
+        "process": "SIMULATED append_unique: 分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+        "output": {
+          "analysis_habits": [
+            "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+            "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+            "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+            "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。"
+          ]
+        },
+        "key_number": "changed_fields = [analysis_habits]",
+        "conclusion": "画像链路未真实触发；用户表达与会话角色来自真实数据。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "user_expression": "归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+          "declared_role": "权益研究员"
+        },
+        "simulated_process": {
+          "before_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "证据要求：资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…"
+            ],
+            "common_tasks": []
+          },
+          "llm_update_plan": {
+            "operation": "append_unique",
+            "field": "analysis_habits",
+            "value": "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+            "reason": "derived from the current observed user expression"
+          },
+          "validated_modification": {
+            "changed_fields": [
+              "analysis_habits"
+            ],
+            "operation_type": "append_unique",
+            "before": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…"
+            ],
+            "after": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+              "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。"
+            ]
+          },
+          "db_operation": "SIMULATED UPSERT profile.analysis_habits"
+        },
+        "simulated_output": {
+          "after_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "证据要求：资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+              "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。"
+            ],
+            "common_tasks": []
+          }
+        },
+        "simulation_boundary": "No profile_update_jobs or user_profiles rows exist in the target source databases. Plan, validation, DB operation, and resulting profile are hypothetical."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q008",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q008",
+          "field": "当前角色"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q008",
+          "field": "最终回答"
+        }
+      ]
+    },
+    {
+      "candidate_id": "J-SIM-S001-S001-Q009",
+      "presentation_score": 76,
+      "why_good_for_ppt": "用真实用户表达演示画像从 before 到 after 的单字段更新；LLM Plan、校验和 DB 操作均为模拟并单独标注。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q009",
+      "memory_id": null,
+      "job_id": "SIMULATED-PROFILE-09",
+      "display_data": {
+        "title": "用户新行为 → Profile 增量更新",
+        "current_question": "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完…",
+        "input": {
+          "common_tasks": []
+        },
+        "process": "SIMULATED append_unique: 收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画…",
+        "output": {
+          "common_tasks": [
+            "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画…"
+          ]
+        },
+        "key_number": "changed_fields = [common_tasks]",
+        "conclusion": "画像链路未真实触发；用户表达与会话角色来自真实数据。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "user_expression": "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画像该怎么下？",
+          "declared_role": "权益研究员"
+        },
+        "simulated_process": {
+          "before_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "证据要求：资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+              "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。"
+            ],
+            "common_tasks": []
+          },
+          "llm_update_plan": {
+            "operation": "append_unique",
+            "field": "common_tasks",
+            "value": "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画…",
+            "reason": "derived from the current observed user expression"
+          },
+          "validated_modification": {
+            "changed_fields": [
+              "common_tasks"
+            ],
+            "operation_type": "append_unique",
+            "before": [],
+            "after": [
+              "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画…"
+            ]
+          },
+          "db_operation": "SIMULATED UPSERT profile.common_tasks"
+        },
+        "simulated_output": {
+          "after_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "证据要求：资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+              "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。"
+            ],
+            "common_tasks": [
+              "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画…"
+            ]
+          }
+        },
+        "simulation_boundary": "No profile_update_jobs or user_profiles rows exist in the target source databases. Plan, validation, DB operation, and resulting profile are hypothetical."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q009",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q009",
+          "field": "当前角色"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q009",
+          "field": "最终回答"
+        }
+      ]
+    },
+    {
+      "candidate_id": "J-SIM-S001-S001-Q010",
+      "presentation_score": 76,
+      "why_good_for_ppt": "用真实用户表达演示画像从 before 到 after 的单字段更新；LLM Plan、校验和 DB 操作均为模拟并单独标注。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q010",
+      "memory_id": null,
+      "job_id": "SIMULATED-PROFILE-10",
+      "display_data": {
+        "title": "用户新行为 → Profile 增量更新",
+        "current_question": "整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？…",
+        "input": {
+          "analysis_habits": [
+            "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+            "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+            "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+            "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。"
+          ]
+        },
+        "process": "SIMULATED append_unique: 分析习惯：整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡…",
+        "output": {
+          "analysis_habits": [
+            "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+            "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+            "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+            "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+            "分析习惯：整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡…"
+          ]
+        },
+        "key_number": "changed_fields = [analysis_habits]",
+        "conclusion": "画像链路未真实触发；用户表达与会话角色来自真实数据。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "user_expression": "整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡住后续哪些分析？",
+          "declared_role": "权益研究员"
+        },
+        "simulated_process": {
+          "before_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "证据要求：资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+              "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。"
+            ],
+            "common_tasks": [
+              "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画…"
+            ]
+          },
+          "llm_update_plan": {
+            "operation": "append_unique",
+            "field": "analysis_habits",
+            "value": "分析习惯：整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡…",
+            "reason": "derived from the current observed user expression"
+          },
+          "validated_modification": {
+            "changed_fields": [
+              "analysis_habits"
+            ],
+            "operation_type": "append_unique",
+            "before": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+              "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。"
+            ],
+            "after": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+              "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+              "分析习惯：整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡…"
+            ]
+          },
+          "db_operation": "SIMULATED UPSERT profile.analysis_habits"
+        },
+        "simulated_output": {
+          "after_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "证据要求：资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+              "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+              "分析习惯：整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡…"
+            ],
+            "common_tasks": [
+              "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画…"
+            ]
+          }
+        },
+        "simulation_boundary": "No profile_update_jobs or user_profiles rows exist in the target source databases. Plan, validation, DB operation, and resulting profile are hypothetical."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q010",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q010",
+          "field": "当前角色"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q010",
+          "field": "最终回答"
+        }
+      ]
+    }
+  ],
+  "all_candidates": [
+    {
+      "candidate_id": "J-SIM-S001-S001-Q001",
+      "presentation_score": 84,
+      "why_good_for_ppt": "用真实用户表达演示画像从 before 到 after 的单字段更新；LLM Plan、校验和 DB 操作均为模拟并单独标注。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q001",
+      "memory_id": null,
+      "job_id": "SIMULATED-PROFILE-01",
+      "display_data": {
+        "title": "用户新行为 → Profile 增量更新",
+        "current_question": "先帮我梳理一下贵州茅台2023—2025年的主要财务变化。",
+        "input": {
+          "work_role": null
+        },
+        "process": "SIMULATED replace: 权益研究员",
+        "output": {
+          "work_role": "权益研究员"
+        },
+        "key_number": "changed_fields = [work_role]",
+        "conclusion": "画像链路未真实触发；用户表达与会话角色来自真实数据。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "user_expression": "先帮我梳理一下贵州茅台2023—2025年的主要财务变化。",
+          "declared_role": "权益研究员"
+        },
+        "simulated_process": {
+          "before_profile": {
+            "work_role": null,
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [],
+            "analysis_habits": [],
+            "common_tasks": []
+          },
+          "llm_update_plan": {
+            "operation": "replace",
+            "field": "work_role",
+            "value": "权益研究员",
+            "reason": "derived from the current observed user expression"
+          },
+          "validated_modification": {
+            "changed_fields": [
+              "work_role"
+            ],
+            "operation_type": "replace",
+            "before": null,
+            "after": "权益研究员"
+          },
+          "db_operation": "SIMULATED UPSERT profile.work_role"
+        },
+        "simulated_output": {
+          "after_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [],
+            "analysis_habits": [],
+            "common_tasks": []
+          }
+        },
+        "simulation_boundary": "No profile_update_jobs or user_profiles rows exist in the target source databases. Plan, validation, DB operation, and resulting profile are hypothetical."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q001",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q001",
+          "field": "当前角色"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q001",
+          "field": "最终回答"
+        }
+      ]
+    },
+    {
+      "candidate_id": "J-SIM-S001-S001-Q002",
+      "presentation_score": 84,
+      "why_good_for_ppt": "用真实用户表达演示画像从 before 到 after 的单字段更新；LLM Plan、校验和 DB 操作均为模拟并单独标注。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q002",
+      "memory_id": null,
+      "job_id": "SIMULATED-PROFILE-02",
+      "display_data": {
+        "title": "用户新行为 → Profile 增量更新",
+        "current_question": "刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+        "input": {
+          "evidence_requirements": []
+        },
+        "process": "SIMULATED append_unique: 证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+        "output": {
+          "evidence_requirements": [
+            "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？"
+          ]
+        },
+        "key_number": "changed_fields = [evidence_requirements]",
+        "conclusion": "画像链路未真实触发；用户表达与会话角色来自真实数据。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "user_expression": "刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+          "declared_role": "权益研究员"
+        },
+        "simulated_process": {
+          "before_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [],
+            "analysis_habits": [],
+            "common_tasks": []
+          },
+          "llm_update_plan": {
+            "operation": "append_unique",
+            "field": "evidence_requirements",
+            "value": "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+            "reason": "derived from the current observed user expression"
+          },
+          "validated_modification": {
+            "changed_fields": [
+              "evidence_requirements"
+            ],
+            "operation_type": "append_unique",
+            "before": [],
+            "after": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？"
+            ]
+          },
+          "db_operation": "SIMULATED UPSERT profile.evidence_requirements"
+        },
+        "simulated_output": {
+          "after_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？"
+            ],
+            "analysis_habits": [],
+            "common_tasks": []
+          }
+        },
+        "simulation_boundary": "No profile_update_jobs or user_profiles rows exist in the target source databases. Plan, validation, DB operation, and resulting profile are hypothetical."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q002",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q002",
+          "field": "当前角色"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q002",
+          "field": "最终回答"
+        }
+      ]
+    },
+    {
+      "candidate_id": "J-SIM-S001-S001-Q003",
+      "presentation_score": 84,
+      "why_good_for_ppt": "用真实用户表达演示画像从 before 到 after 的单字段更新；LLM Plan、校验和 DB 操作均为模拟并单独标注。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q003",
+      "memory_id": null,
+      "job_id": "SIMULATED-PROFILE-03",
+      "display_data": {
+        "title": "用户新行为 → Profile 增量更新",
+        "current_question": "口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质…",
+        "input": {
+          "evidence_requirements": [
+            "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？"
+          ]
+        },
+        "process": "SIMULATED append_unique: 证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+        "output": {
+          "evidence_requirements": [
+            "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+            "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。"
+          ]
+        },
+        "key_number": "changed_fields = [evidence_requirements]",
+        "conclusion": "画像链路未真实触发；用户表达与会话角色来自真实数据。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "user_expression": "口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+          "declared_role": "权益研究员"
+        },
+        "simulated_process": {
+          "before_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？"
+            ],
+            "analysis_habits": [],
+            "common_tasks": []
+          },
+          "llm_update_plan": {
+            "operation": "append_unique",
+            "field": "evidence_requirements",
+            "value": "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+            "reason": "derived from the current observed user expression"
+          },
+          "validated_modification": {
+            "changed_fields": [
+              "evidence_requirements"
+            ],
+            "operation_type": "append_unique",
+            "before": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？"
+            ],
+            "after": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。"
+            ]
+          },
+          "db_operation": "SIMULATED UPSERT profile.evidence_requirements"
+        },
+        "simulated_output": {
+          "after_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。"
+            ],
+            "analysis_habits": [],
+            "common_tasks": []
+          }
+        },
+        "simulation_boundary": "No profile_update_jobs or user_profiles rows exist in the target source databases. Plan, validation, DB operation, and resulting profile are hypothetical."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q003",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q003",
+          "field": "当前角色"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q003",
+          "field": "最终回答"
+        }
+      ]
+    },
+    {
+      "candidate_id": "J-SIM-S001-S001-Q004",
+      "presentation_score": 76,
+      "why_good_for_ppt": "用真实用户表达演示画像从 before 到 after 的单字段更新；LLM Plan、校验和 DB 操作均为模拟并单独标注。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q004",
+      "memory_id": null,
+      "job_id": "SIMULATED-PROFILE-04",
+      "display_data": {
+        "title": "用户新行为 → Profile 增量更新",
+        "current_question": "刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资…",
+        "input": {
+          "analysis_habits": []
+        },
+        "process": "SIMULATED append_unique: 分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+        "output": {
+          "analysis_habits": [
+            "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…"
+          ]
+        },
+        "key_number": "changed_fields = [analysis_habits]",
+        "conclusion": "画像链路未真实触发；用户表达与会话角色来自真实数据。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "user_expression": "刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有得到收入增长的支撑？",
+          "declared_role": "权益研究员"
+        },
+        "simulated_process": {
+          "before_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。"
+            ],
+            "analysis_habits": [],
+            "common_tasks": []
+          },
+          "llm_update_plan": {
+            "operation": "append_unique",
+            "field": "analysis_habits",
+            "value": "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+            "reason": "derived from the current observed user expression"
+          },
+          "validated_modification": {
+            "changed_fields": [
+              "analysis_habits"
+            ],
+            "operation_type": "append_unique",
+            "before": [],
+            "after": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…"
+            ]
+          },
+          "db_operation": "SIMULATED UPSERT profile.analysis_habits"
+        },
+        "simulated_output": {
+          "after_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…"
+            ],
+            "common_tasks": []
+          }
+        },
+        "simulation_boundary": "No profile_update_jobs or user_profiles rows exist in the target source databases. Plan, validation, DB operation, and resulting profile are hypothetical."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q004",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q004",
+          "field": "当前角色"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q004",
+          "field": "最终回答"
+        }
+      ]
+    },
+    {
+      "candidate_id": "J-SIM-S001-S001-Q005",
+      "presentation_score": 76,
+      "why_good_for_ppt": "用真实用户表达演示画像从 before 到 after 的单字段更新；LLM Plan、校验和 DB 操作均为模拟并单独标注。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q005",
+      "memory_id": null,
+      "job_id": "SIMULATED-PROFILE-05",
+      "display_data": {
+        "title": "用户新行为 → Profile 增量更新",
+        "current_question": "沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅…",
+        "input": {
+          "analysis_habits": [
+            "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…"
+          ]
+        },
+        "process": "SIMULATED append_unique: 分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+        "output": {
+          "analysis_habits": [
+            "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+            "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…"
+          ]
+        },
+        "key_number": "changed_fields = [analysis_habits]",
+        "conclusion": "画像链路未真实触发；用户表达与会话角色来自真实数据。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "user_expression": "沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原因解释，只看哪一段摆动更剧烈、四个指标各摆了多少个百分点；再把 2024 高基数对 2025 同比的影响单独量化一下，看到底占多少。",
+          "declared_role": "权益研究员"
+        },
+        "simulated_process": {
+          "before_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…"
+            ],
+            "common_tasks": []
+          },
+          "llm_update_plan": {
+            "operation": "append_unique",
+            "field": "analysis_habits",
+            "value": "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+            "reason": "derived from the current observed user expression"
+          },
+          "validated_modification": {
+            "changed_fields": [
+              "analysis_habits"
+            ],
+            "operation_type": "append_unique",
+            "before": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…"
+            ],
+            "after": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…"
+            ]
+          },
+          "db_operation": "SIMULATED UPSERT profile.analysis_habits"
+        },
+        "simulated_output": {
+          "after_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…"
+            ],
+            "common_tasks": []
+          }
+        },
+        "simulation_boundary": "No profile_update_jobs or user_profiles rows exist in the target source databases. Plan, validation, DB operation, and resulting profile are hypothetical."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q005",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q005",
+          "field": "当前角色"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q005",
+          "field": "最终回答"
+        }
+      ]
+    },
+    {
+      "candidate_id": "J-SIM-S001-S001-Q006",
+      "presentation_score": 76,
+      "why_good_for_ppt": "用真实用户表达演示画像从 before 到 after 的单字段更新；LLM Plan、校验和 DB 操作均为模拟并单独标注。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q006",
+      "memory_id": null,
+      "job_id": "SIMULATED-PROFILE-06",
+      "display_data": {
+        "title": "用户新行为 → Profile 增量更新",
+        "current_question": "两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近…",
+        "input": {
+          "analysis_habits": [
+            "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+            "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…"
+          ]
+        },
+        "process": "SIMULATED append_unique: 分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+        "output": {
+          "analysis_habits": [
+            "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+            "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+            "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…"
+          ]
+        },
+        "key_number": "changed_fields = [analysis_habits]",
+        "conclusion": "画像链路未真实触发；用户表达与会话角色来自真实数据。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "user_expression": "两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三年算一遍，先算后判断——2025 年利润比收入跌得深，有多少是净利率回落造成的，这个比率能不能支撑前面的判断？",
+          "declared_role": "权益研究员"
+        },
+        "simulated_process": {
+          "before_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…"
+            ],
+            "common_tasks": []
+          },
+          "llm_update_plan": {
+            "operation": "append_unique",
+            "field": "analysis_habits",
+            "value": "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+            "reason": "derived from the current observed user expression"
+          },
+          "validated_modification": {
+            "changed_fields": [
+              "analysis_habits"
+            ],
+            "operation_type": "append_unique",
+            "before": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…"
+            ],
+            "after": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…"
+            ]
+          },
+          "db_operation": "SIMULATED UPSERT profile.analysis_habits"
+        },
+        "simulated_output": {
+          "after_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…"
+            ],
+            "common_tasks": []
+          }
+        },
+        "simulation_boundary": "No profile_update_jobs or user_profiles rows exist in the target source databases. Plan, validation, DB operation, and resulting profile are hypothetical."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q006",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q006",
+          "field": "当前角色"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q006",
+          "field": "最终回答"
+        }
+      ]
+    },
+    {
+      "candidate_id": "J-SIM-S001-S001-Q007",
+      "presentation_score": 76,
+      "why_good_for_ppt": "用真实用户表达演示画像从 before 到 after 的单字段更新；LLM Plan、校验和 DB 操作均为模拟并单独标注。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q007",
+      "memory_id": null,
+      "job_id": "SIMULATED-PROFILE-07",
+      "display_data": {
+        "title": "用户新行为 → Profile 增量更新",
+        "current_question": "资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。",
+        "input": {
+          "evidence_requirements": [
+            "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+            "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。"
+          ]
+        },
+        "process": "SIMULATED append_unique: 证据要求：资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。",
+        "output": {
+          "evidence_requirements": [
+            "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+            "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+            "证据要求：资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。"
+          ]
+        },
+        "key_number": "changed_fields = [evidence_requirements]",
+        "conclusion": "画像链路未真实触发；用户表达与会话角色来自真实数据。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "user_expression": "资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。",
+          "declared_role": "权益研究员"
+        },
+        "simulated_process": {
+          "before_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…"
+            ],
+            "common_tasks": []
+          },
+          "llm_update_plan": {
+            "operation": "append_unique",
+            "field": "evidence_requirements",
+            "value": "证据要求：资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。",
+            "reason": "derived from the current observed user expression"
+          },
+          "validated_modification": {
+            "changed_fields": [
+              "evidence_requirements"
+            ],
+            "operation_type": "append_unique",
+            "before": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。"
+            ],
+            "after": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "证据要求：资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。"
+            ]
+          },
+          "db_operation": "SIMULATED UPSERT profile.evidence_requirements"
+        },
+        "simulated_output": {
+          "after_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "证据要求：资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…"
+            ],
+            "common_tasks": []
+          }
+        },
+        "simulation_boundary": "No profile_update_jobs or user_profiles rows exist in the target source databases. Plan, validation, DB operation, and resulting profile are hypothetical."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q007",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q007",
+          "field": "当前角色"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q007",
+          "field": "最终回答"
+        }
+      ]
+    },
+    {
+      "candidate_id": "J-SIM-S001-S001-Q008",
+      "presentation_score": 76,
+      "why_good_for_ppt": "用真实用户表达演示画像从 before 到 after 的单字段更新；LLM Plan、校验和 DB 操作均为模拟并单独标注。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q008",
+      "memory_id": null,
+      "job_id": "SIMULATED-PROFILE-08",
+      "display_data": {
+        "title": "用户新行为 → Profile 增量更新",
+        "current_question": "归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算…",
+        "input": {
+          "analysis_habits": [
+            "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+            "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+            "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…"
+          ]
+        },
+        "process": "SIMULATED append_unique: 分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+        "output": {
+          "analysis_habits": [
+            "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+            "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+            "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+            "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。"
+          ]
+        },
+        "key_number": "changed_fields = [analysis_habits]",
+        "conclusion": "画像链路未真实触发；用户表达与会话角色来自真实数据。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "user_expression": "归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+          "declared_role": "权益研究员"
+        },
+        "simulated_process": {
+          "before_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "证据要求：资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…"
+            ],
+            "common_tasks": []
+          },
+          "llm_update_plan": {
+            "operation": "append_unique",
+            "field": "analysis_habits",
+            "value": "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+            "reason": "derived from the current observed user expression"
+          },
+          "validated_modification": {
+            "changed_fields": [
+              "analysis_habits"
+            ],
+            "operation_type": "append_unique",
+            "before": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…"
+            ],
+            "after": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+              "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。"
+            ]
+          },
+          "db_operation": "SIMULATED UPSERT profile.analysis_habits"
+        },
+        "simulated_output": {
+          "after_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "证据要求：资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+              "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。"
+            ],
+            "common_tasks": []
+          }
+        },
+        "simulation_boundary": "No profile_update_jobs or user_profiles rows exist in the target source databases. Plan, validation, DB operation, and resulting profile are hypothetical."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q008",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q008",
+          "field": "当前角色"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q008",
+          "field": "最终回答"
+        }
+      ]
+    },
+    {
+      "candidate_id": "J-SIM-S001-S001-Q009",
+      "presentation_score": 76,
+      "why_good_for_ppt": "用真实用户表达演示画像从 before 到 after 的单字段更新；LLM Plan、校验和 DB 操作均为模拟并单独标注。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q009",
+      "memory_id": null,
+      "job_id": "SIMULATED-PROFILE-09",
+      "display_data": {
+        "title": "用户新行为 → Profile 增量更新",
+        "current_question": "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完…",
+        "input": {
+          "common_tasks": []
+        },
+        "process": "SIMULATED append_unique: 收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画…",
+        "output": {
+          "common_tasks": [
+            "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画…"
+          ]
+        },
+        "key_number": "changed_fields = [common_tasks]",
+        "conclusion": "画像链路未真实触发；用户表达与会话角色来自真实数据。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "user_expression": "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画像该怎么下？",
+          "declared_role": "权益研究员"
+        },
+        "simulated_process": {
+          "before_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "证据要求：资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+              "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。"
+            ],
+            "common_tasks": []
+          },
+          "llm_update_plan": {
+            "operation": "append_unique",
+            "field": "common_tasks",
+            "value": "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画…",
+            "reason": "derived from the current observed user expression"
+          },
+          "validated_modification": {
+            "changed_fields": [
+              "common_tasks"
+            ],
+            "operation_type": "append_unique",
+            "before": [],
+            "after": [
+              "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画…"
+            ]
+          },
+          "db_operation": "SIMULATED UPSERT profile.common_tasks"
+        },
+        "simulated_output": {
+          "after_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "证据要求：资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+              "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。"
+            ],
+            "common_tasks": [
+              "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画…"
+            ]
+          }
+        },
+        "simulation_boundary": "No profile_update_jobs or user_profiles rows exist in the target source databases. Plan, validation, DB operation, and resulting profile are hypothetical."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q009",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q009",
+          "field": "当前角色"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q009",
+          "field": "最终回答"
+        }
+      ]
+    },
+    {
+      "candidate_id": "J-SIM-S001-S001-Q010",
+      "presentation_score": 76,
+      "why_good_for_ppt": "用真实用户表达演示画像从 before 到 after 的单字段更新；LLM Plan、校验和 DB 操作均为模拟并单独标注。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q010",
+      "memory_id": null,
+      "job_id": "SIMULATED-PROFILE-10",
+      "display_data": {
+        "title": "用户新行为 → Profile 增量更新",
+        "current_question": "整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？…",
+        "input": {
+          "analysis_habits": [
+            "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+            "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+            "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+            "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。"
+          ]
+        },
+        "process": "SIMULATED append_unique: 分析习惯：整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡…",
+        "output": {
+          "analysis_habits": [
+            "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+            "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+            "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+            "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+            "分析习惯：整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡…"
+          ]
+        },
+        "key_number": "changed_fields = [analysis_habits]",
+        "conclusion": "画像链路未真实触发；用户表达与会话角色来自真实数据。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "user_expression": "整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡住后续哪些分析？",
+          "declared_role": "权益研究员"
+        },
+        "simulated_process": {
+          "before_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "证据要求：资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+              "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。"
+            ],
+            "common_tasks": [
+              "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画…"
+            ]
+          },
+          "llm_update_plan": {
+            "operation": "append_unique",
+            "field": "analysis_habits",
+            "value": "分析习惯：整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡…",
+            "reason": "derived from the current observed user expression"
+          },
+          "validated_modification": {
+            "changed_fields": [
+              "analysis_habits"
+            ],
+            "operation_type": "append_unique",
+            "before": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+              "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。"
+            ],
+            "after": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+              "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+              "分析习惯：整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡…"
+            ]
+          },
+          "db_operation": "SIMULATED UPSERT profile.analysis_habits"
+        },
+        "simulated_output": {
+          "after_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "证据要求：资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+              "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+              "分析习惯：整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡…"
+            ],
+            "common_tasks": [
+              "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画…"
+            ]
+          }
+        },
+        "simulation_boundary": "No profile_update_jobs or user_profiles rows exist in the target source databases. Plan, validation, DB operation, and resulting profile are hypothetical."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q010",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q010",
+          "field": "当前角色"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q010",
+          "field": "最终回答"
+        }
+      ]
+    },
+    {
+      "candidate_id": "J-SIM-S001-S001-Q011",
+      "presentation_score": 76,
+      "why_good_for_ppt": "用真实用户表达演示画像从 before 到 after 的单字段更新；LLM Plan、校验和 DB 操作均为模拟并单独标注。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q011",
+      "memory_id": null,
+      "job_id": "SIMULATED-PROFILE-11",
+      "display_data": {
+        "title": "用户新行为 → Profile 增量更新",
+        "current_question": "整体画像把总量形态和拐点都定下来了，现在把盈利这条线单独拉出来：沿营业收入把三…",
+        "input": {
+          "analysis_habits": [
+            "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+            "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+            "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+            "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+            "分析习惯：整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡…"
+          ]
+        },
+        "process": "SIMULATED append_unique: 分析习惯：整体画像把总量形态和拐点都定下来了，现在把盈利这条线单独拉出来：沿营业收入把三年利润路径逐…",
+        "output": {
+          "analysis_habits": [
+            "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+            "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+            "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+            "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+            "分析习惯：整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡…",
+            "分析习惯：整体画像把总量形态和拐点都定下来了，现在把盈利这条线单独拉出来：沿营业收入把三年利润路径逐…"
+          ]
+        },
+        "key_number": "changed_fields = [analysis_habits]",
+        "conclusion": "画像链路未真实触发；用户表达与会话角色来自真实数据。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "user_expression": "整体画像把总量形态和拐点都定下来了，现在把盈利这条线单独拉出来：沿营业收入把三年利润路径逐年拆开，拐点落在哪一年、幅度有多大？收入与利润两条序列对齐着看，节奏是同步还是错位？",
+          "declared_role": "权益研究员"
+        },
+        "simulated_process": {
+          "before_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "证据要求：资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+              "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+              "分析习惯：整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡…"
+            ],
+            "common_tasks": [
+              "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画…"
+            ]
+          },
+          "llm_update_plan": {
+            "operation": "append_unique",
+            "field": "analysis_habits",
+            "value": "分析习惯：整体画像把总量形态和拐点都定下来了，现在把盈利这条线单独拉出来：沿营业收入把三年利润路径逐…",
+            "reason": "derived from the current observed user expression"
+          },
+          "validated_modification": {
+            "changed_fields": [
+              "analysis_habits"
+            ],
+            "operation_type": "append_unique",
+            "before": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+              "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+              "分析习惯：整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡…"
+            ],
+            "after": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+              "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+              "分析习惯：整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡…",
+              "分析习惯：整体画像把总量形态和拐点都定下来了，现在把盈利这条线单独拉出来：沿营业收入把三年利润路径逐…"
+            ]
+          },
+          "db_operation": "SIMULATED UPSERT profile.analysis_habits"
+        },
+        "simulated_output": {
+          "after_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "证据要求：资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+              "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+              "分析习惯：整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡…",
+              "分析习惯：整体画像把总量形态和拐点都定下来了，现在把盈利这条线单独拉出来：沿营业收入把三年利润路径逐…"
+            ],
+            "common_tasks": [
+              "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画…"
+            ]
+          }
+        },
+        "simulation_boundary": "No profile_update_jobs or user_profiles rows exist in the target source databases. Plan, validation, DB operation, and resulting profile are hypothetical."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q011",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q011",
+          "field": "当前角色"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q011",
+          "field": "最终回答"
+        }
+      ]
+    },
+    {
+      "candidate_id": "J-SIM-S001-S001-Q012",
+      "presentation_score": 76,
+      "why_good_for_ppt": "用真实用户表达演示画像从 before 到 after 的单字段更新；LLM Plan、校验和 DB 操作均为模拟并单独标注。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q012",
+      "memory_id": null,
+      "job_id": "SIMULATED-PROFILE-12",
+      "display_data": {
+        "title": "用户新行为 → Profile 增量更新",
+        "current_question": "路径拆完了，把两段同比并排对照一下：盈利增速和收入增速到底匹不匹配？2024年…",
+        "input": {
+          "analysis_habits": [
+            "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+            "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+            "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+            "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+            "分析习惯：整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡…",
+            "分析习惯：整体画像把总量形态和拐点都定下来了，现在把盈利这条线单独拉出来：沿营业收入把三年利润路径逐…"
+          ]
+        },
+        "process": "SIMULATED append_unique: 分析习惯：路径拆完了，把两段同比并排对照一下：盈利增速和收入增速到底匹不匹配？2024年几乎同步、2…",
+        "output": {
+          "analysis_habits": [
+            "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+            "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+            "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+            "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+            "分析习惯：整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡…",
+            "分析习惯：整体画像把总量形态和拐点都定下来了，现在把盈利这条线单独拉出来：沿营业收入把三年利润路径逐…",
+            "分析习惯：路径拆完了，把两段同比并排对照一下：盈利增速和收入增速到底匹不匹配？2024年几乎同步、2…"
+          ]
+        },
+        "key_number": "changed_fields = [analysis_habits]",
+        "conclusion": "画像链路未真实触发；用户表达与会话角色来自真实数据。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "user_expression": "路径拆完了，把两段同比并排对照一下：盈利增速和收入增速到底匹不匹配？2024年几乎同步、2025年利润降幅率是收入的三倍多，这种组合该怎么读盈利质量？",
+          "declared_role": "权益研究员"
+        },
+        "simulated_process": {
+          "before_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "证据要求：资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+              "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+              "分析习惯：整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡…",
+              "分析习惯：整体画像把总量形态和拐点都定下来了，现在把盈利这条线单独拉出来：沿营业收入把三年利润路径逐…"
+            ],
+            "common_tasks": [
+              "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画…"
+            ]
+          },
+          "llm_update_plan": {
+            "operation": "append_unique",
+            "field": "analysis_habits",
+            "value": "分析习惯：路径拆完了，把两段同比并排对照一下：盈利增速和收入增速到底匹不匹配？2024年几乎同步、2…",
+            "reason": "derived from the current observed user expression"
+          },
+          "validated_modification": {
+            "changed_fields": [
+              "analysis_habits"
+            ],
+            "operation_type": "append_unique",
+            "before": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+              "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+              "分析习惯：整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡…",
+              "分析习惯：整体画像把总量形态和拐点都定下来了，现在把盈利这条线单独拉出来：沿营业收入把三年利润路径逐…"
+            ],
+            "after": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+              "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+              "分析习惯：整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡…",
+              "分析习惯：整体画像把总量形态和拐点都定下来了，现在把盈利这条线单独拉出来：沿营业收入把三年利润路径逐…",
+              "分析习惯：路径拆完了，把两段同比并排对照一下：盈利增速和收入增速到底匹不匹配？2024年几乎同步、2…"
+            ]
+          },
+          "db_operation": "SIMULATED UPSERT profile.analysis_habits"
+        },
+        "simulated_output": {
+          "after_profile": {
+            "work_role": "权益研究员",
+            "professional_level": "金融分析专业用户",
+            "output_preferences": [],
+            "evidence_requirements": [
+              "证据要求：刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "证据要求：口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "证据要求：资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。"
+            ],
+            "analysis_habits": [
+              "分析习惯：刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有…",
+              "分析习惯：沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原…",
+              "分析习惯：两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三…",
+              "分析习惯：归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+              "分析习惯：整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡…",
+              "分析习惯：整体画像把总量形态和拐点都定下来了，现在把盈利这条线单独拉出来：沿营业收入把三年利润路径逐…",
+              "分析习惯：路径拆完了，把两段同比并排对照一下：盈利增速和收入增速到底匹不匹配？2024年几乎同步、2…"
+            ],
+            "common_tasks": [
+              "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画…"
+            ]
+          }
+        },
+        "simulation_boundary": "No profile_update_jobs or user_profiles rows exist in the target source databases. Plan, validation, DB operation, and resulting profile are hypothetical."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q012",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q012",
+          "field": "当前角色"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q012",
+          "field": "最终回答"
+        }
+      ]
+    }
+  ],
+  "selection_criteria": {
+    "score_range": "0-100",
+    "dimensions": {
+      "change_magnitude": "排序/指标/状态变化是否明显",
+      "comprehensibility": "金融问题是否自然、非技术人员是否容易理解",
+      "evidence_completeness": "Input / Process / Output / Source 是否齐全",
+      "ppt_fit": "能否压缩成半页 PPT 的 Before/After、流程或时间轴"
+    },
+    "tie_breaker": "优先 S001_贵州茅台_投研，其次证据链更完整、文字更短"
+  },
+  "source_files": [
+    "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+    "mem0/memory/profile_manager.py",
+    "mem0/memory/profile_updater.py"
+  ],
+  "note": "目标数据库没有 Profile Job/Profile 行；以下是同一 Session 连续真实表达驱动的累计画像模拟。",
+  "scan_stats": {
+    "observed_profile_update_count": 0,
+    "simulated_scenario_count": 12
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "baseline_entry_count": 20,
+  "final_entry_count": 21,
+  "preexisting_entries_unchanged": true,
+  "added_entries": [
+    "?? exp/temp/"
+  ],
+  "removed_entries": [],
+  "unexpected_entries_outside_exp_temp": [],
+  "conclusion": "Only the permitted exp/temp/ output appeared relative to the captured baseline; all pre-existing modified/untracked entries remained present and were not touched by this task.",
+  "evidence_files": [
+    "exp/temp/ppt_evidence/git_status_before.txt",
+    "exp/temp/ppt_evidence/git_status_after.txt"
+  ]
+}

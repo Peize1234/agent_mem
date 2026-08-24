@@ -1,0 +1,3968 @@
+{
+  "status": "SIMULATED",
+  "candidate_count": 12,
+  "top_1": {
+    "candidate_id": "H-SIM-S001-S001-Q002",
+    "presentation_score": 87.49,
+    "why_good_for_ppt": "以真实 Memory S001-Q002 和随后三条连续真实问题演示阈值链；召回归属、Heat 达标、Job 与跨 Session 写入均标为模拟。",
+    "session_id": "S001_贵州茅台_投研",
+    "query_id": "S001-Q005",
+    "memory_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
+    "job_id": "SIMULATED-PROMOTION-02",
+    "display_data": {
+      "title": "连续 3 次模拟召回 → Heat 达标 → Promotion",
+      "current_question": "沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅…",
+      "input": "用户要求确认贵州茅台2023—2025年财务底表的来源、单位和比较口径的一致性及可确认程度。助手确认：来源为指定披露文件（2026-04-17发布），数据为真实历史披露，单位统一…",
+      "process": [
+        "#1 S001-Q003",
+        "#2 S001-Q004",
+        "#3 S001-Q005",
+        "SIMULATED Heat=5.50"
+      ],
+      "output": "用户要求确认贵州茅台2023—2025年财务底表的来源、单位和比较口径的一致性及可确认程度。助手确认：来源为指定披露文件（2026-04-17发布），数据为真实历史披露，单位统一为亿元，总资产202…",
+      "key_number": "count 3 / Heat 5.50 ≥ 5.00",
+      "conclusion": "Promotion 未真实发生；此卡只演示生产阈值如何作用于真实连续对话。",
+      "simulation_label": "SIMULATED"
+    },
+    "raw_data": {
+      "observed_input": {
+        "source_memory": {
+          "memory_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
+          "source_turn_id": "S001-Q002",
+          "summary": "用户要求确认贵州茅台2023—2025年财务底表的来源、单位和比较口径的一致性及可确认程度。助手确认：来源为指定披露文件（2026-04-17发布），数据为真实历史披露，单位统一为亿元，总资产2023年为整数披露，其余保留原精度；比较口径方面，利润与权益为归母口径，收入与资产为合并整体口径，同比均由原数复算且八个同比全部可复现；期末时点与期间数混合的比率（周转率、权益回报）标注为近似。不能确认的包括：无法逐页核对原文、无2022年数据、无指标定义细节及明细类指标（现金流、扣非、毛利率等）无披露。助手将可追溯性分为三级：披露原数、派生复算、分析判断，并制定了引用纪律：原数带来源、复算带公式与近似标记、缺口带无披露。复核结论为底表无需修订，可继续作为公共基准。"
+        },
+        "real_following_dialogue_queries": [
+          {
+            "recall_no": 1,
+            "turn_id": "S001-Q003",
+            "observed_query": "口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+            "simulated_as_recall_of": "S001-Q002"
+          },
+          {
+            "recall_no": 2,
+            "turn_id": "S001-Q004",
+            "observed_query": "刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有得到收入增长的支撑？",
+            "simulated_as_recall_of": "S001-Q002"
+          },
+          {
+            "recall_no": 3,
+            "turn_id": "S001-Q005",
+            "observed_query": "沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原因解释，只看哪一段摆动更剧烈、四个指标各摆了多少个百分点；再把 2024 高基数对 2025 同比的影响单独量化一下，看到底占多少。",
+            "simulated_as_recall_of": "S001-Q002"
+          }
+        ]
+      },
+      "simulated_process": {
+        "recall_history": [
+          {
+            "recall_no": 1,
+            "turn_id": "S001-Q003",
+            "observed_query": "口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+            "simulated_as_recall_of": "S001-Q002"
+          },
+          {
+            "recall_no": 2,
+            "turn_id": "S001-Q004",
+            "observed_query": "刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有得到收入增长的支撑？",
+            "simulated_as_recall_of": "S001-Q002"
+          },
+          {
+            "recall_no": 3,
+            "turn_id": "S001-Q005",
+            "observed_query": "沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原因解释，只看哪一段摆动更剧烈、四个指标各摆了多少个百分点；再把 2024 高基数对 2025 同比的影响单独量化一下，看到底占多少。",
+            "simulated_as_recall_of": "S001-Q002"
+          }
+        ],
+        "valid_recall_count": 3,
+        "H_segment": 5.5,
+        "promotion_threshold": {
+          "min_recall_count": 3,
+          "heat_threshold": 5.0
+        },
+        "first_threshold_turn": "S001-Q005",
+        "promotion_job": "SIMULATED-PROMOTION-02",
+        "attempts": 0,
+        "final_status": "SIMULATED_SUCCEEDED"
+      },
+      "simulated_output": {
+        "cross_session_memory": "用户要求确认贵州茅台2023—2025年财务底表的来源、单位和比较口径的一致性及可确认程度。助手确认：来源为指定披露文件（2026-04-17发布），数据为真实历史披露，单位统一为亿元，总资产2023年为整数披露，其余保留原精度；比较口径方面，利润与权益为归母口径，收入与资产为合并整体口径，同比均由原数复算且八个同比全部可复现；期末时点与期间数混合的比率（周转率、权益回报）标注为近似。不能确认的包括：无法逐页核对原文、无2022年数据、无指标定义细节及明细类指标（现金流、扣非、毛利率等）无披露。助手将可追溯性分为三级：披露原数、派生复算、分析判断，并制定了引用纪律：原数带来源、复算带公式与近似标记、缺口带无披露。复核结论为底表无需修订，可继续作为公共基准。"
+      },
+      "simulation_boundary": "No promotion_events or memory_promotion_jobs exist in the target run. The recall association, heat state, job, and promoted record are hypothetical; source memory and dialogue texts are observed."
+    },
+    "evidence": [
+      {
+        "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+        "table / collection": "final checkpoint / pages",
+        "record_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
+        "field": "source_turn_id"
+      },
+      {
+        "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+        "table / collection": "final checkpoint / pages",
+        "record_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
+        "field": "summary"
+      },
+      {
+        "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+        "table / collection": "final checkpoint / pages",
+        "record_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
+        "field": "keywords"
+      },
+      {
+        "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+        "table / collection": "S001 worksheet",
+        "record_id": "S001-Q005",
+        "field": "当前问题"
+      },
+      {
+        "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+        "table / collection": "S001 worksheet",
+        "record_id": "S001-Q005",
+        "field": "最终回答"
+      },
+      {
+        "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+        "table / collection": "midterm config",
+        "record_id": "promotion",
+        "field": "promotion_min_recall_count"
+      },
+      {
+        "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+        "table / collection": "midterm config",
+        "record_id": "promotion",
+        "field": "promotion_heat_threshold"
+      },
+      {
+        "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+        "table / collection": "midterm config",
+        "record_id": "promotion",
+        "field": "heat_alpha"
+      },
+      {
+        "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+        "table / collection": "midterm config",
+        "record_id": "promotion",
+        "field": "heat_beta"
+      },
+      {
+        "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+        "table / collection": "midterm config",
+        "record_id": "promotion",
+        "field": "heat_gamma"
+      }
+    ]
+  },
+  "top_3": [
+    {
+      "candidate_id": "H-SIM-S001-S001-Q002",
+      "presentation_score": 87.49,
+      "why_good_for_ppt": "以真实 Memory S001-Q002 和随后三条连续真实问题演示阈值链；召回归属、Heat 达标、Job 与跨 Session 写入均标为模拟。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q005",
+      "memory_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
+      "job_id": "SIMULATED-PROMOTION-02",
+      "display_data": {
+        "title": "连续 3 次模拟召回 → Heat 达标 → Promotion",
+        "current_question": "沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅…",
+        "input": "用户要求确认贵州茅台2023—2025年财务底表的来源、单位和比较口径的一致性及可确认程度。助手确认：来源为指定披露文件（2026-04-17发布），数据为真实历史披露，单位统一…",
+        "process": [
+          "#1 S001-Q003",
+          "#2 S001-Q004",
+          "#3 S001-Q005",
+          "SIMULATED Heat=5.50"
+        ],
+        "output": "用户要求确认贵州茅台2023—2025年财务底表的来源、单位和比较口径的一致性及可确认程度。助手确认：来源为指定披露文件（2026-04-17发布），数据为真实历史披露，单位统一为亿元，总资产202…",
+        "key_number": "count 3 / Heat 5.50 ≥ 5.00",
+        "conclusion": "Promotion 未真实发生；此卡只演示生产阈值如何作用于真实连续对话。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "source_memory": {
+            "memory_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
+            "source_turn_id": "S001-Q002",
+            "summary": "用户要求确认贵州茅台2023—2025年财务底表的来源、单位和比较口径的一致性及可确认程度。助手确认：来源为指定披露文件（2026-04-17发布），数据为真实历史披露，单位统一为亿元，总资产2023年为整数披露，其余保留原精度；比较口径方面，利润与权益为归母口径，收入与资产为合并整体口径，同比均由原数复算且八个同比全部可复现；期末时点与期间数混合的比率（周转率、权益回报）标注为近似。不能确认的包括：无法逐页核对原文、无2022年数据、无指标定义细节及明细类指标（现金流、扣非、毛利率等）无披露。助手将可追溯性分为三级：披露原数、派生复算、分析判断，并制定了引用纪律：原数带来源、复算带公式与近似标记、缺口带无披露。复核结论为底表无需修订，可继续作为公共基准。"
+          },
+          "real_following_dialogue_queries": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q003",
+              "observed_query": "口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "simulated_as_recall_of": "S001-Q002"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q004",
+              "observed_query": "刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有得到收入增长的支撑？",
+              "simulated_as_recall_of": "S001-Q002"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q005",
+              "observed_query": "沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原因解释，只看哪一段摆动更剧烈、四个指标各摆了多少个百分点；再把 2024 高基数对 2025 同比的影响单独量化一下，看到底占多少。",
+              "simulated_as_recall_of": "S001-Q002"
+            }
+          ]
+        },
+        "simulated_process": {
+          "recall_history": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q003",
+              "observed_query": "口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "simulated_as_recall_of": "S001-Q002"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q004",
+              "observed_query": "刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有得到收入增长的支撑？",
+              "simulated_as_recall_of": "S001-Q002"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q005",
+              "observed_query": "沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原因解释，只看哪一段摆动更剧烈、四个指标各摆了多少个百分点；再把 2024 高基数对 2025 同比的影响单独量化一下，看到底占多少。",
+              "simulated_as_recall_of": "S001-Q002"
+            }
+          ],
+          "valid_recall_count": 3,
+          "H_segment": 5.5,
+          "promotion_threshold": {
+            "min_recall_count": 3,
+            "heat_threshold": 5.0
+          },
+          "first_threshold_turn": "S001-Q005",
+          "promotion_job": "SIMULATED-PROMOTION-02",
+          "attempts": 0,
+          "final_status": "SIMULATED_SUCCEEDED"
+        },
+        "simulated_output": {
+          "cross_session_memory": "用户要求确认贵州茅台2023—2025年财务底表的来源、单位和比较口径的一致性及可确认程度。助手确认：来源为指定披露文件（2026-04-17发布），数据为真实历史披露，单位统一为亿元，总资产2023年为整数披露，其余保留原精度；比较口径方面，利润与权益为归母口径，收入与资产为合并整体口径，同比均由原数复算且八个同比全部可复现；期末时点与期间数混合的比率（周转率、权益回报）标注为近似。不能确认的包括：无法逐页核对原文、无2022年数据、无指标定义细节及明细类指标（现金流、扣非、毛利率等）无披露。助手将可追溯性分为三级：披露原数、派生复算、分析判断，并制定了引用纪律：原数带来源、复算带公式与近似标记、缺口带无披露。复核结论为底表无需修订，可继续作为公共基准。"
+        },
+        "simulation_boundary": "No promotion_events or memory_promotion_jobs exist in the target run. The recall association, heat state, job, and promoted record are hypothetical; source memory and dialogue texts are observed."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
+          "field": "source_turn_id"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
+          "field": "summary"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
+          "field": "keywords"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q005",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q005",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_min_recall_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_heat_threshold"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_alpha"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_beta"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_gamma"
+        }
+      ]
+    },
+    {
+      "candidate_id": "H-SIM-S001-S001-Q010",
+      "presentation_score": 87,
+      "why_good_for_ppt": "以真实 Memory S001-Q010 和随后三条连续真实问题演示阈值链；召回归属、Heat 达标、Job 与跨 Session 写入均标为模拟。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q013",
+      "memory_id": "59de4c34-c0a8-5669-80e0-ab2a3f8d7960",
+      "job_id": "SIMULATED-PROMOTION-10",
+      "display_data": {
+        "title": "连续 3 次模拟召回 → Heat 达标 → Promotion",
+        "current_question": "路径拆完了，两段同比也对照过了，现在把拐点本身钉死：利润拐点出现在哪一年、幅度…",
+        "input": "用户要求收口整体画像章的信息边界，明确现有底表能站稳哪些结论、哪些只能停在方向层面，以及这些缺口对后续分析的限制。助手先给出结论：能站稳的判断集中在形状与方向层（形态、比率方向、…",
+        "process": [
+          "#1 S001-Q011",
+          "#2 S001-Q012",
+          "#3 S001-Q013",
+          "SIMULATED Heat=5.50"
+        ],
+        "output": "用户要求收口整体画像章的信息边界，明确现有底表能站稳哪些结论、哪些只能停在方向层面，以及这些缺口对后续分析的限制。助手先给出结论：能站稳的判断集中在形状与方向层（形态、比率方向、弹性结构、恶化顺序、…",
+        "key_number": "count 3 / Heat 5.50 ≥ 5.00",
+        "conclusion": "Promotion 未真实发生；此卡只演示生产阈值如何作用于真实连续对话。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "source_memory": {
+            "memory_id": "59de4c34-c0a8-5669-80e0-ab2a3f8d7960",
+            "source_turn_id": "S001-Q010",
+            "summary": "用户要求收口整体画像章的信息边界，明确现有底表能站稳哪些结论、哪些只能停在方向层面，以及这些缺口对后续分析的限制。助手先给出结论：能站稳的判断集中在形状与方向层（形态、比率方向、弹性结构、恶化顺序、低留存机制），只能停在方向层面的判断集中在构成与质量层（科目归因、现金含量、资产投向、分配去向、2023同比与平均口径）。随后按判定标准（可复算性）、两列清单、缺口对后续章节的限制、补数路径四部分展开。判定标准将结论分为四级：披露原数、派生复算、需明细判断、无披露。能站稳的判断包括：形态与拐点（2024双顶、2025方向拐点）、比率方向（净利率连续下降、周转回吐未破起点、权益回报跌破起点）、弹性结构（利润降幅率3.7倍于收入、约七成三来自净利率）、恶化顺序（盈利>效率>杠杆）、低留存机制（留存吸收率20.2%/14.0%）。只能停在方向层面的判断包括：净利率回落科目归因、现金与利润匹配、2025年资产增量投向、未留存利润去向、非权益内部构成、2023年同比与平均口径、量的内部结构。缺口对后续章节的限制：对现金质量章约束最重，对盈利路径章居中，对资产权益章集中在结构端，对披露证据章止于声明级。补数优先级：2022年数据优先于年报原文、年报原文优先于附注定义。最后给出表述纪律（三档用词）与反证条件。"
+          },
+          "real_following_dialogue_queries": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q011",
+              "observed_query": "整体画像把总量形态和拐点都定下来了，现在把盈利这条线单独拉出来：沿营业收入把三年利润路径逐年拆开，拐点落在哪一年、幅度有多大？收入与利润两条序列对齐着看，节奏是同步还是错位？",
+              "simulated_as_recall_of": "S001-Q010"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q012",
+              "observed_query": "路径拆完了，把两段同比并排对照一下：盈利增速和收入增速到底匹不匹配？2024年几乎同步、2025年利润降幅率是收入的三倍多，这种组合该怎么读盈利质量？",
+              "simulated_as_recall_of": "S001-Q010"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q013",
+              "observed_query": "路径拆完了，两段同比也对照过了，现在把拐点本身钉死：利润拐点出现在哪一年、幅度有多大？用增量、增速、弹性三组口径把扩张段和回落段各比一遍，2024是不是就是那个扩张峰、2025的回落实在什么量级，我要一个能直接写进投研结论的定位。",
+              "simulated_as_recall_of": "S001-Q010"
+            }
+          ]
+        },
+        "simulated_process": {
+          "recall_history": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q011",
+              "observed_query": "整体画像把总量形态和拐点都定下来了，现在把盈利这条线单独拉出来：沿营业收入把三年利润路径逐年拆开，拐点落在哪一年、幅度有多大？收入与利润两条序列对齐着看，节奏是同步还是错位？",
+              "simulated_as_recall_of": "S001-Q010"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q012",
+              "observed_query": "路径拆完了，把两段同比并排对照一下：盈利增速和收入增速到底匹不匹配？2024年几乎同步、2025年利润降幅率是收入的三倍多，这种组合该怎么读盈利质量？",
+              "simulated_as_recall_of": "S001-Q010"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q013",
+              "observed_query": "路径拆完了，两段同比也对照过了，现在把拐点本身钉死：利润拐点出现在哪一年、幅度有多大？用增量、增速、弹性三组口径把扩张段和回落段各比一遍，2024是不是就是那个扩张峰、2025的回落实在什么量级，我要一个能直接写进投研结论的定位。",
+              "simulated_as_recall_of": "S001-Q010"
+            }
+          ],
+          "valid_recall_count": 3,
+          "H_segment": 5.5,
+          "promotion_threshold": {
+            "min_recall_count": 3,
+            "heat_threshold": 5.0
+          },
+          "first_threshold_turn": "S001-Q013",
+          "promotion_job": "SIMULATED-PROMOTION-10",
+          "attempts": 0,
+          "final_status": "SIMULATED_SUCCEEDED"
+        },
+        "simulated_output": {
+          "cross_session_memory": "用户要求收口整体画像章的信息边界，明确现有底表能站稳哪些结论、哪些只能停在方向层面，以及这些缺口对后续分析的限制。助手先给出结论：能站稳的判断集中在形状与方向层（形态、比率方向、弹性结构、恶化顺序、低留存机制），只能停在方向层面的判断集中在构成与质量层（科目归因、现金含量、资产投向、分配去向、2023同比与平均口径）。随后按判定标准（可复算性）、两列清单、缺口对后续章节的限制、补数路径四部分展开。判定标准将结论分为四级：披露原数、派生复算、需明细判断、无披露。能站稳的判断包括：形态与拐点（2024双顶、2025方向拐点）、比率方向（净利率连续下降、周转回吐未破起点、权益回报跌破起点）、弹性结构（利润降幅率3.7倍于收入、约七成三来自净利率）、恶化顺序（盈利>效率>杠杆）、低留存机制（留存吸收率20.2%/14.0%）。只能停在方向层面的判断包括：净利率回落科目归因、现金与利润匹配、2025年资产增量投向、未留存利润去向、非权益内部构成、2023年同比与平均口径、量的内部结构。缺口对后续章节的限制：对现金质量章约束最重，对盈利路径章居中，对资产权益章集中在结构端，对披露证据章止于声明级。补数优先级：2022年数据优先于年报原文、年报原文优先于附注定义。最后给出表述纪律（三档用词）与反证条件。"
+        },
+        "simulation_boundary": "No promotion_events or memory_promotion_jobs exist in the target run. The recall association, heat state, job, and promoted record are hypothetical; source memory and dialogue texts are observed."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "59de4c34-c0a8-5669-80e0-ab2a3f8d7960",
+          "field": "source_turn_id"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "59de4c34-c0a8-5669-80e0-ab2a3f8d7960",
+          "field": "summary"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "59de4c34-c0a8-5669-80e0-ab2a3f8d7960",
+          "field": "keywords"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q013",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q013",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_min_recall_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_heat_threshold"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_alpha"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_beta"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_gamma"
+        }
+      ]
+    },
+    {
+      "candidate_id": "H-SIM-S001-S001-Q011",
+      "presentation_score": 87,
+      "why_good_for_ppt": "以真实 Memory S001-Q011 和随后三条连续真实问题演示阈值链；召回归属、Heat 达标、Job 与跨 Session 写入均标为模拟。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q014",
+      "memory_id": "f9841a75-bee0-5c9a-9cb6-2a2057d8ff65",
+      "job_id": "SIMULATED-PROMOTION-11",
+      "display_data": {
+        "title": "连续 3 次模拟召回 → Heat 达标 → Promotion",
+        "current_question": "拐点定位在2024扩张峰、2025方向拐点，但盈利质量还差一块拼图：本数据集一…",
+        "input": "用户要求沿营业收入逐年拆解三年利润路径，定位拐点年份与幅度，并对照收入与利润序列的节奏同步性。助手基于2023-2025年披露原数复算：营业收入1,476.94/1,708.99…",
+        "process": [
+          "#1 S001-Q012",
+          "#2 S001-Q013",
+          "#3 S001-Q014",
+          "SIMULATED Heat=5.50"
+        ],
+        "output": "用户要求沿营业收入逐年拆解三年利润路径，定位拐点年份与幅度，并对照收入与利润序列的节奏同步性。助手基于2023-2025年披露原数复算：营业收入1,476.94/1,708.99/1,688.38亿…",
+        "key_number": "count 3 / Heat 5.50 ≥ 5.00",
+        "conclusion": "Promotion 未真实发生；此卡只演示生产阈值如何作用于真实连续对话。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "source_memory": {
+            "memory_id": "f9841a75-bee0-5c9a-9cb6-2a2057d8ff65",
+            "source_turn_id": "S001-Q011",
+            "summary": "用户要求沿营业收入逐年拆解三年利润路径，定位拐点年份与幅度，并对照收入与利润序列的节奏同步性。助手基于2023-2025年披露原数复算：营业收入1,476.94/1,708.99/1,688.38亿元，归母净利润747.34/862.28/823.20亿元，两段同比收入+15.71%/-1.21%、利润+15.38%/-4.53%。判定2024年为扩张峰（利润增量+114.94亿元、增速+15.38%），2025年为方向拐点（利润减量-39.08亿元、增速-4.53%），利润降幅率约为收入的3.7倍。通过增量、增速、弹性三组口径对比，确认利润弹性非对称（增量弹性约0.50对减量弹性约1.90），并分解2025年利润减量约73%来自净利率回落（-1.70个百分点，为2024年降幅的约12倍）、约27%来自收入收缩。近似净利率三年50.60%/50.46%/48.76%连续下降，2024年先行微降0.14个百分点，质量拐点先于方向拐点。结论：方向同步、强度错位，利润摆幅19.91个百分点大于收入16.92个百分点，多出部分几乎全由净利率相对摆幅3.08个百分点解释；三年累计利润+10.15%落后收入+14.32%约4.2个百分点，与净利率累计回落3.64%对应。边界：无2022年数据，2023年无同比；无毛利率、费用率、扣非、现金流数据，净利率回落归因与现金含金量不可见。"
+          },
+          "real_following_dialogue_queries": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q012",
+              "observed_query": "路径拆完了，把两段同比并排对照一下：盈利增速和收入增速到底匹不匹配？2024年几乎同步、2025年利润降幅率是收入的三倍多，这种组合该怎么读盈利质量？",
+              "simulated_as_recall_of": "S001-Q011"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q013",
+              "observed_query": "路径拆完了，两段同比也对照过了，现在把拐点本身钉死：利润拐点出现在哪一年、幅度有多大？用增量、增速、弹性三组口径把扩张段和回落段各比一遍，2024是不是就是那个扩张峰、2025的回落实在什么量级，我要一个能直接写进投研结论的定位。",
+              "simulated_as_recall_of": "S001-Q011"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q014",
+              "observed_query": "拐点定位在2024扩张峰、2025方向拐点，但盈利质量还差一块拼图：本数据集一直没有扣非归母净利润的数值。归母与扣非的差额算不出来、利润里经营与非经营的构成看不见，这个缺口对盈利质量判断到底限制了什么？'主营利润稳不稳'这句话我们能把结论说到哪一步？",
+              "simulated_as_recall_of": "S001-Q011"
+            }
+          ]
+        },
+        "simulated_process": {
+          "recall_history": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q012",
+              "observed_query": "路径拆完了，把两段同比并排对照一下：盈利增速和收入增速到底匹不匹配？2024年几乎同步、2025年利润降幅率是收入的三倍多，这种组合该怎么读盈利质量？",
+              "simulated_as_recall_of": "S001-Q011"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q013",
+              "observed_query": "路径拆完了，两段同比也对照过了，现在把拐点本身钉死：利润拐点出现在哪一年、幅度有多大？用增量、增速、弹性三组口径把扩张段和回落段各比一遍，2024是不是就是那个扩张峰、2025的回落实在什么量级，我要一个能直接写进投研结论的定位。",
+              "simulated_as_recall_of": "S001-Q011"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q014",
+              "observed_query": "拐点定位在2024扩张峰、2025方向拐点，但盈利质量还差一块拼图：本数据集一直没有扣非归母净利润的数值。归母与扣非的差额算不出来、利润里经营与非经营的构成看不见，这个缺口对盈利质量判断到底限制了什么？'主营利润稳不稳'这句话我们能把结论说到哪一步？",
+              "simulated_as_recall_of": "S001-Q011"
+            }
+          ],
+          "valid_recall_count": 3,
+          "H_segment": 5.5,
+          "promotion_threshold": {
+            "min_recall_count": 3,
+            "heat_threshold": 5.0
+          },
+          "first_threshold_turn": "S001-Q014",
+          "promotion_job": "SIMULATED-PROMOTION-11",
+          "attempts": 0,
+          "final_status": "SIMULATED_SUCCEEDED"
+        },
+        "simulated_output": {
+          "cross_session_memory": "用户要求沿营业收入逐年拆解三年利润路径，定位拐点年份与幅度，并对照收入与利润序列的节奏同步性。助手基于2023-2025年披露原数复算：营业收入1,476.94/1,708.99/1,688.38亿元，归母净利润747.34/862.28/823.20亿元，两段同比收入+15.71%/-1.21%、利润+15.38%/-4.53%。判定2024年为扩张峰（利润增量+114.94亿元、增速+15.38%），2025年为方向拐点（利润减量-39.08亿元、增速-4.53%），利润降幅率约为收入的3.7倍。通过增量、增速、弹性三组口径对比，确认利润弹性非对称（增量弹性约0.50对减量弹性约1.90），并分解2025年利润减量约73%来自净利率回落（-1.70个百分点，为2024年降幅的约12倍）、约27%来自收入收缩。近似净利率三年50.60%/50.46%/48.76%连续下降，2024年先行微降0.14个百分点，质量拐点先于方向拐点。结论：方向同步、强度错位，利润摆幅19.91个百分点大于收入16.92个百分点，多出部分几乎全由净利率相对摆幅3.08个百分点解释；三年累计利润+10.15%落后收入+14.32%约4.2个百分点，与净利率累计回落3.64%对应。边界：无2022年数据，2023年无同比；无毛利率、费用率、扣非、现金流数据，净利率回落归因与现金含金量不可见。"
+        },
+        "simulation_boundary": "No promotion_events or memory_promotion_jobs exist in the target run. The recall association, heat state, job, and promoted record are hypothetical; source memory and dialogue texts are observed."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "f9841a75-bee0-5c9a-9cb6-2a2057d8ff65",
+          "field": "source_turn_id"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "f9841a75-bee0-5c9a-9cb6-2a2057d8ff65",
+          "field": "summary"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "f9841a75-bee0-5c9a-9cb6-2a2057d8ff65",
+          "field": "keywords"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q014",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q014",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_min_recall_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_heat_threshold"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_alpha"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_beta"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_gamma"
+        }
+      ]
+    }
+  ],
+  "top_10": [
+    {
+      "candidate_id": "H-SIM-S001-S001-Q002",
+      "presentation_score": 87.49,
+      "why_good_for_ppt": "以真实 Memory S001-Q002 和随后三条连续真实问题演示阈值链；召回归属、Heat 达标、Job 与跨 Session 写入均标为模拟。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q005",
+      "memory_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
+      "job_id": "SIMULATED-PROMOTION-02",
+      "display_data": {
+        "title": "连续 3 次模拟召回 → Heat 达标 → Promotion",
+        "current_question": "沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅…",
+        "input": "用户要求确认贵州茅台2023—2025年财务底表的来源、单位和比较口径的一致性及可确认程度。助手确认：来源为指定披露文件（2026-04-17发布），数据为真实历史披露，单位统一…",
+        "process": [
+          "#1 S001-Q003",
+          "#2 S001-Q004",
+          "#3 S001-Q005",
+          "SIMULATED Heat=5.50"
+        ],
+        "output": "用户要求确认贵州茅台2023—2025年财务底表的来源、单位和比较口径的一致性及可确认程度。助手确认：来源为指定披露文件（2026-04-17发布），数据为真实历史披露，单位统一为亿元，总资产202…",
+        "key_number": "count 3 / Heat 5.50 ≥ 5.00",
+        "conclusion": "Promotion 未真实发生；此卡只演示生产阈值如何作用于真实连续对话。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "source_memory": {
+            "memory_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
+            "source_turn_id": "S001-Q002",
+            "summary": "用户要求确认贵州茅台2023—2025年财务底表的来源、单位和比较口径的一致性及可确认程度。助手确认：来源为指定披露文件（2026-04-17发布），数据为真实历史披露，单位统一为亿元，总资产2023年为整数披露，其余保留原精度；比较口径方面，利润与权益为归母口径，收入与资产为合并整体口径，同比均由原数复算且八个同比全部可复现；期末时点与期间数混合的比率（周转率、权益回报）标注为近似。不能确认的包括：无法逐页核对原文、无2022年数据、无指标定义细节及明细类指标（现金流、扣非、毛利率等）无披露。助手将可追溯性分为三级：披露原数、派生复算、分析判断，并制定了引用纪律：原数带来源、复算带公式与近似标记、缺口带无披露。复核结论为底表无需修订，可继续作为公共基准。"
+          },
+          "real_following_dialogue_queries": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q003",
+              "observed_query": "口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "simulated_as_recall_of": "S001-Q002"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q004",
+              "observed_query": "刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有得到收入增长的支撑？",
+              "simulated_as_recall_of": "S001-Q002"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q005",
+              "observed_query": "沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原因解释，只看哪一段摆动更剧烈、四个指标各摆了多少个百分点；再把 2024 高基数对 2025 同比的影响单独量化一下，看到底占多少。",
+              "simulated_as_recall_of": "S001-Q002"
+            }
+          ]
+        },
+        "simulated_process": {
+          "recall_history": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q003",
+              "observed_query": "口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "simulated_as_recall_of": "S001-Q002"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q004",
+              "observed_query": "刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有得到收入增长的支撑？",
+              "simulated_as_recall_of": "S001-Q002"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q005",
+              "observed_query": "沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原因解释，只看哪一段摆动更剧烈、四个指标各摆了多少个百分点；再把 2024 高基数对 2025 同比的影响单独量化一下，看到底占多少。",
+              "simulated_as_recall_of": "S001-Q002"
+            }
+          ],
+          "valid_recall_count": 3,
+          "H_segment": 5.5,
+          "promotion_threshold": {
+            "min_recall_count": 3,
+            "heat_threshold": 5.0
+          },
+          "first_threshold_turn": "S001-Q005",
+          "promotion_job": "SIMULATED-PROMOTION-02",
+          "attempts": 0,
+          "final_status": "SIMULATED_SUCCEEDED"
+        },
+        "simulated_output": {
+          "cross_session_memory": "用户要求确认贵州茅台2023—2025年财务底表的来源、单位和比较口径的一致性及可确认程度。助手确认：来源为指定披露文件（2026-04-17发布），数据为真实历史披露，单位统一为亿元，总资产2023年为整数披露，其余保留原精度；比较口径方面，利润与权益为归母口径，收入与资产为合并整体口径，同比均由原数复算且八个同比全部可复现；期末时点与期间数混合的比率（周转率、权益回报）标注为近似。不能确认的包括：无法逐页核对原文、无2022年数据、无指标定义细节及明细类指标（现金流、扣非、毛利率等）无披露。助手将可追溯性分为三级：披露原数、派生复算、分析判断，并制定了引用纪律：原数带来源、复算带公式与近似标记、缺口带无披露。复核结论为底表无需修订，可继续作为公共基准。"
+        },
+        "simulation_boundary": "No promotion_events or memory_promotion_jobs exist in the target run. The recall association, heat state, job, and promoted record are hypothetical; source memory and dialogue texts are observed."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
+          "field": "source_turn_id"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
+          "field": "summary"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
+          "field": "keywords"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q005",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q005",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_min_recall_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_heat_threshold"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_alpha"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_beta"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_gamma"
+        }
+      ]
+    },
+    {
+      "candidate_id": "H-SIM-S001-S001-Q010",
+      "presentation_score": 87,
+      "why_good_for_ppt": "以真实 Memory S001-Q010 和随后三条连续真实问题演示阈值链；召回归属、Heat 达标、Job 与跨 Session 写入均标为模拟。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q013",
+      "memory_id": "59de4c34-c0a8-5669-80e0-ab2a3f8d7960",
+      "job_id": "SIMULATED-PROMOTION-10",
+      "display_data": {
+        "title": "连续 3 次模拟召回 → Heat 达标 → Promotion",
+        "current_question": "路径拆完了，两段同比也对照过了，现在把拐点本身钉死：利润拐点出现在哪一年、幅度…",
+        "input": "用户要求收口整体画像章的信息边界，明确现有底表能站稳哪些结论、哪些只能停在方向层面，以及这些缺口对后续分析的限制。助手先给出结论：能站稳的判断集中在形状与方向层（形态、比率方向、…",
+        "process": [
+          "#1 S001-Q011",
+          "#2 S001-Q012",
+          "#3 S001-Q013",
+          "SIMULATED Heat=5.50"
+        ],
+        "output": "用户要求收口整体画像章的信息边界，明确现有底表能站稳哪些结论、哪些只能停在方向层面，以及这些缺口对后续分析的限制。助手先给出结论：能站稳的判断集中在形状与方向层（形态、比率方向、弹性结构、恶化顺序、…",
+        "key_number": "count 3 / Heat 5.50 ≥ 5.00",
+        "conclusion": "Promotion 未真实发生；此卡只演示生产阈值如何作用于真实连续对话。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "source_memory": {
+            "memory_id": "59de4c34-c0a8-5669-80e0-ab2a3f8d7960",
+            "source_turn_id": "S001-Q010",
+            "summary": "用户要求收口整体画像章的信息边界，明确现有底表能站稳哪些结论、哪些只能停在方向层面，以及这些缺口对后续分析的限制。助手先给出结论：能站稳的判断集中在形状与方向层（形态、比率方向、弹性结构、恶化顺序、低留存机制），只能停在方向层面的判断集中在构成与质量层（科目归因、现金含量、资产投向、分配去向、2023同比与平均口径）。随后按判定标准（可复算性）、两列清单、缺口对后续章节的限制、补数路径四部分展开。判定标准将结论分为四级：披露原数、派生复算、需明细判断、无披露。能站稳的判断包括：形态与拐点（2024双顶、2025方向拐点）、比率方向（净利率连续下降、周转回吐未破起点、权益回报跌破起点）、弹性结构（利润降幅率3.7倍于收入、约七成三来自净利率）、恶化顺序（盈利>效率>杠杆）、低留存机制（留存吸收率20.2%/14.0%）。只能停在方向层面的判断包括：净利率回落科目归因、现金与利润匹配、2025年资产增量投向、未留存利润去向、非权益内部构成、2023年同比与平均口径、量的内部结构。缺口对后续章节的限制：对现金质量章约束最重，对盈利路径章居中，对资产权益章集中在结构端，对披露证据章止于声明级。补数优先级：2022年数据优先于年报原文、年报原文优先于附注定义。最后给出表述纪律（三档用词）与反证条件。"
+          },
+          "real_following_dialogue_queries": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q011",
+              "observed_query": "整体画像把总量形态和拐点都定下来了，现在把盈利这条线单独拉出来：沿营业收入把三年利润路径逐年拆开，拐点落在哪一年、幅度有多大？收入与利润两条序列对齐着看，节奏是同步还是错位？",
+              "simulated_as_recall_of": "S001-Q010"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q012",
+              "observed_query": "路径拆完了，把两段同比并排对照一下：盈利增速和收入增速到底匹不匹配？2024年几乎同步、2025年利润降幅率是收入的三倍多，这种组合该怎么读盈利质量？",
+              "simulated_as_recall_of": "S001-Q010"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q013",
+              "observed_query": "路径拆完了，两段同比也对照过了，现在把拐点本身钉死：利润拐点出现在哪一年、幅度有多大？用增量、增速、弹性三组口径把扩张段和回落段各比一遍，2024是不是就是那个扩张峰、2025的回落实在什么量级，我要一个能直接写进投研结论的定位。",
+              "simulated_as_recall_of": "S001-Q010"
+            }
+          ]
+        },
+        "simulated_process": {
+          "recall_history": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q011",
+              "observed_query": "整体画像把总量形态和拐点都定下来了，现在把盈利这条线单独拉出来：沿营业收入把三年利润路径逐年拆开，拐点落在哪一年、幅度有多大？收入与利润两条序列对齐着看，节奏是同步还是错位？",
+              "simulated_as_recall_of": "S001-Q010"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q012",
+              "observed_query": "路径拆完了，把两段同比并排对照一下：盈利增速和收入增速到底匹不匹配？2024年几乎同步、2025年利润降幅率是收入的三倍多，这种组合该怎么读盈利质量？",
+              "simulated_as_recall_of": "S001-Q010"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q013",
+              "observed_query": "路径拆完了，两段同比也对照过了，现在把拐点本身钉死：利润拐点出现在哪一年、幅度有多大？用增量、增速、弹性三组口径把扩张段和回落段各比一遍，2024是不是就是那个扩张峰、2025的回落实在什么量级，我要一个能直接写进投研结论的定位。",
+              "simulated_as_recall_of": "S001-Q010"
+            }
+          ],
+          "valid_recall_count": 3,
+          "H_segment": 5.5,
+          "promotion_threshold": {
+            "min_recall_count": 3,
+            "heat_threshold": 5.0
+          },
+          "first_threshold_turn": "S001-Q013",
+          "promotion_job": "SIMULATED-PROMOTION-10",
+          "attempts": 0,
+          "final_status": "SIMULATED_SUCCEEDED"
+        },
+        "simulated_output": {
+          "cross_session_memory": "用户要求收口整体画像章的信息边界，明确现有底表能站稳哪些结论、哪些只能停在方向层面，以及这些缺口对后续分析的限制。助手先给出结论：能站稳的判断集中在形状与方向层（形态、比率方向、弹性结构、恶化顺序、低留存机制），只能停在方向层面的判断集中在构成与质量层（科目归因、现金含量、资产投向、分配去向、2023同比与平均口径）。随后按判定标准（可复算性）、两列清单、缺口对后续章节的限制、补数路径四部分展开。判定标准将结论分为四级：披露原数、派生复算、需明细判断、无披露。能站稳的判断包括：形态与拐点（2024双顶、2025方向拐点）、比率方向（净利率连续下降、周转回吐未破起点、权益回报跌破起点）、弹性结构（利润降幅率3.7倍于收入、约七成三来自净利率）、恶化顺序（盈利>效率>杠杆）、低留存机制（留存吸收率20.2%/14.0%）。只能停在方向层面的判断包括：净利率回落科目归因、现金与利润匹配、2025年资产增量投向、未留存利润去向、非权益内部构成、2023年同比与平均口径、量的内部结构。缺口对后续章节的限制：对现金质量章约束最重，对盈利路径章居中，对资产权益章集中在结构端，对披露证据章止于声明级。补数优先级：2022年数据优先于年报原文、年报原文优先于附注定义。最后给出表述纪律（三档用词）与反证条件。"
+        },
+        "simulation_boundary": "No promotion_events or memory_promotion_jobs exist in the target run. The recall association, heat state, job, and promoted record are hypothetical; source memory and dialogue texts are observed."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "59de4c34-c0a8-5669-80e0-ab2a3f8d7960",
+          "field": "source_turn_id"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "59de4c34-c0a8-5669-80e0-ab2a3f8d7960",
+          "field": "summary"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "59de4c34-c0a8-5669-80e0-ab2a3f8d7960",
+          "field": "keywords"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q013",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q013",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_min_recall_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_heat_threshold"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_alpha"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_beta"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_gamma"
+        }
+      ]
+    },
+    {
+      "candidate_id": "H-SIM-S001-S001-Q011",
+      "presentation_score": 87,
+      "why_good_for_ppt": "以真实 Memory S001-Q011 和随后三条连续真实问题演示阈值链；召回归属、Heat 达标、Job 与跨 Session 写入均标为模拟。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q014",
+      "memory_id": "f9841a75-bee0-5c9a-9cb6-2a2057d8ff65",
+      "job_id": "SIMULATED-PROMOTION-11",
+      "display_data": {
+        "title": "连续 3 次模拟召回 → Heat 达标 → Promotion",
+        "current_question": "拐点定位在2024扩张峰、2025方向拐点，但盈利质量还差一块拼图：本数据集一…",
+        "input": "用户要求沿营业收入逐年拆解三年利润路径，定位拐点年份与幅度，并对照收入与利润序列的节奏同步性。助手基于2023-2025年披露原数复算：营业收入1,476.94/1,708.99…",
+        "process": [
+          "#1 S001-Q012",
+          "#2 S001-Q013",
+          "#3 S001-Q014",
+          "SIMULATED Heat=5.50"
+        ],
+        "output": "用户要求沿营业收入逐年拆解三年利润路径，定位拐点年份与幅度，并对照收入与利润序列的节奏同步性。助手基于2023-2025年披露原数复算：营业收入1,476.94/1,708.99/1,688.38亿…",
+        "key_number": "count 3 / Heat 5.50 ≥ 5.00",
+        "conclusion": "Promotion 未真实发生；此卡只演示生产阈值如何作用于真实连续对话。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "source_memory": {
+            "memory_id": "f9841a75-bee0-5c9a-9cb6-2a2057d8ff65",
+            "source_turn_id": "S001-Q011",
+            "summary": "用户要求沿营业收入逐年拆解三年利润路径，定位拐点年份与幅度，并对照收入与利润序列的节奏同步性。助手基于2023-2025年披露原数复算：营业收入1,476.94/1,708.99/1,688.38亿元，归母净利润747.34/862.28/823.20亿元，两段同比收入+15.71%/-1.21%、利润+15.38%/-4.53%。判定2024年为扩张峰（利润增量+114.94亿元、增速+15.38%），2025年为方向拐点（利润减量-39.08亿元、增速-4.53%），利润降幅率约为收入的3.7倍。通过增量、增速、弹性三组口径对比，确认利润弹性非对称（增量弹性约0.50对减量弹性约1.90），并分解2025年利润减量约73%来自净利率回落（-1.70个百分点，为2024年降幅的约12倍）、约27%来自收入收缩。近似净利率三年50.60%/50.46%/48.76%连续下降，2024年先行微降0.14个百分点，质量拐点先于方向拐点。结论：方向同步、强度错位，利润摆幅19.91个百分点大于收入16.92个百分点，多出部分几乎全由净利率相对摆幅3.08个百分点解释；三年累计利润+10.15%落后收入+14.32%约4.2个百分点，与净利率累计回落3.64%对应。边界：无2022年数据，2023年无同比；无毛利率、费用率、扣非、现金流数据，净利率回落归因与现金含金量不可见。"
+          },
+          "real_following_dialogue_queries": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q012",
+              "observed_query": "路径拆完了，把两段同比并排对照一下：盈利增速和收入增速到底匹不匹配？2024年几乎同步、2025年利润降幅率是收入的三倍多，这种组合该怎么读盈利质量？",
+              "simulated_as_recall_of": "S001-Q011"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q013",
+              "observed_query": "路径拆完了，两段同比也对照过了，现在把拐点本身钉死：利润拐点出现在哪一年、幅度有多大？用增量、增速、弹性三组口径把扩张段和回落段各比一遍，2024是不是就是那个扩张峰、2025的回落实在什么量级，我要一个能直接写进投研结论的定位。",
+              "simulated_as_recall_of": "S001-Q011"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q014",
+              "observed_query": "拐点定位在2024扩张峰、2025方向拐点，但盈利质量还差一块拼图：本数据集一直没有扣非归母净利润的数值。归母与扣非的差额算不出来、利润里经营与非经营的构成看不见，这个缺口对盈利质量判断到底限制了什么？'主营利润稳不稳'这句话我们能把结论说到哪一步？",
+              "simulated_as_recall_of": "S001-Q011"
+            }
+          ]
+        },
+        "simulated_process": {
+          "recall_history": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q012",
+              "observed_query": "路径拆完了，把两段同比并排对照一下：盈利增速和收入增速到底匹不匹配？2024年几乎同步、2025年利润降幅率是收入的三倍多，这种组合该怎么读盈利质量？",
+              "simulated_as_recall_of": "S001-Q011"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q013",
+              "observed_query": "路径拆完了，两段同比也对照过了，现在把拐点本身钉死：利润拐点出现在哪一年、幅度有多大？用增量、增速、弹性三组口径把扩张段和回落段各比一遍，2024是不是就是那个扩张峰、2025的回落实在什么量级，我要一个能直接写进投研结论的定位。",
+              "simulated_as_recall_of": "S001-Q011"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q014",
+              "observed_query": "拐点定位在2024扩张峰、2025方向拐点，但盈利质量还差一块拼图：本数据集一直没有扣非归母净利润的数值。归母与扣非的差额算不出来、利润里经营与非经营的构成看不见，这个缺口对盈利质量判断到底限制了什么？'主营利润稳不稳'这句话我们能把结论说到哪一步？",
+              "simulated_as_recall_of": "S001-Q011"
+            }
+          ],
+          "valid_recall_count": 3,
+          "H_segment": 5.5,
+          "promotion_threshold": {
+            "min_recall_count": 3,
+            "heat_threshold": 5.0
+          },
+          "first_threshold_turn": "S001-Q014",
+          "promotion_job": "SIMULATED-PROMOTION-11",
+          "attempts": 0,
+          "final_status": "SIMULATED_SUCCEEDED"
+        },
+        "simulated_output": {
+          "cross_session_memory": "用户要求沿营业收入逐年拆解三年利润路径，定位拐点年份与幅度，并对照收入与利润序列的节奏同步性。助手基于2023-2025年披露原数复算：营业收入1,476.94/1,708.99/1,688.38亿元，归母净利润747.34/862.28/823.20亿元，两段同比收入+15.71%/-1.21%、利润+15.38%/-4.53%。判定2024年为扩张峰（利润增量+114.94亿元、增速+15.38%），2025年为方向拐点（利润减量-39.08亿元、增速-4.53%），利润降幅率约为收入的3.7倍。通过增量、增速、弹性三组口径对比，确认利润弹性非对称（增量弹性约0.50对减量弹性约1.90），并分解2025年利润减量约73%来自净利率回落（-1.70个百分点，为2024年降幅的约12倍）、约27%来自收入收缩。近似净利率三年50.60%/50.46%/48.76%连续下降，2024年先行微降0.14个百分点，质量拐点先于方向拐点。结论：方向同步、强度错位，利润摆幅19.91个百分点大于收入16.92个百分点，多出部分几乎全由净利率相对摆幅3.08个百分点解释；三年累计利润+10.15%落后收入+14.32%约4.2个百分点，与净利率累计回落3.64%对应。边界：无2022年数据，2023年无同比；无毛利率、费用率、扣非、现金流数据，净利率回落归因与现金含金量不可见。"
+        },
+        "simulation_boundary": "No promotion_events or memory_promotion_jobs exist in the target run. The recall association, heat state, job, and promoted record are hypothetical; source memory and dialogue texts are observed."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "f9841a75-bee0-5c9a-9cb6-2a2057d8ff65",
+          "field": "source_turn_id"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "f9841a75-bee0-5c9a-9cb6-2a2057d8ff65",
+          "field": "summary"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "f9841a75-bee0-5c9a-9cb6-2a2057d8ff65",
+          "field": "keywords"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q014",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q014",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_min_recall_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_heat_threshold"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_alpha"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_beta"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_gamma"
+        }
+      ]
+    },
+    {
+      "candidate_id": "H-SIM-S001-S001-Q008",
+      "presentation_score": 86.77,
+      "why_good_for_ppt": "以真实 Memory S001-Q008 和随后三条连续真实问题演示阈值链；召回归属、Heat 达标、Job 与跨 Session 写入均标为模拟。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q011",
+      "memory_id": "9d54be80-81c4-51c4-bfa4-edfad6974ceb",
+      "job_id": "SIMULATED-PROMOTION-08",
+      "display_data": {
+        "title": "连续 3 次模拟召回 → Heat 达标 → Promotion",
+        "current_question": "整体画像把总量形态和拐点都定下来了，现在把盈利这条线单独拉出来：沿营业收入把三…",
+        "input": "用户要求用期末近似权益回报（归母净利润/期末归母权益）检验归母股东权益三年连续上升与利润、资产扩张的对应关系。助手计算三年近似权益回报为34.7%（2023）、37.0%（202…",
+        "process": [
+          "#1 S001-Q009",
+          "#2 S001-Q010",
+          "#3 S001-Q011",
+          "SIMULATED Heat=5.50"
+        ],
+        "output": "用户要求用期末近似权益回报（归母净利润/期末归母权益）检验归母股东权益三年连续上升与利润、资产扩张的对应关系。助手计算三年近似权益回报为34.7%（2023）、37.0%（2024）、33.6%（2…",
+        "key_number": "count 3 / Heat 5.50 ≥ 5.00",
+        "conclusion": "Promotion 未真实发生；此卡只演示生产阈值如何作用于真实连续对话。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "source_memory": {
+            "memory_id": "9d54be80-81c4-51c4-bfa4-edfad6974ceb",
+            "source_turn_id": "S001-Q008",
+            "summary": "用户要求用期末近似权益回报（归母净利润/期末归母权益）检验归母股东权益三年连续上升与利润、资产扩张的对应关系。助手计算三年近似权益回报为34.7%（2023）、37.0%（2024）、33.6%（2025），先升后降，2025年跌破2023年起点。权益增量2024年174.37亿元、2025年115.32亿元，分别仅为当期利润的20.2%和14.0%，三年累计约11.9%，未留存利润差额（2024年687.91亿元、2025年707.88亿元）因无分红/回购数据只能定性为大概率对应现金流出。权益与资产扩张对应：2024年权益增量占资产增量66%，2025年权益增量115.32亿元完全覆盖资产增量48.90亿元并压降非权益66.42亿元，权益乘数从1.28降至1.24，资产扩张资金支撑增强。杜邦分解显示2024年回报上升主要由周转驱动（+1.92pp），2025年回落为净利率（-1.25pp）、周转（-1.00pp）、杠杆（-1.10pp）三维同负，净利率贡献最大。结论：权益水平连续上升但回报率2025年跌破起点，恶化顺序盈利>效率>杠杆，与前期判断一致；未留存利润去向、留存率下降原因、平均口径序列等因数据缺口无法确认。"
+          },
+          "real_following_dialogue_queries": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q009",
+              "observed_query": "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画像该怎么下？",
+              "simulated_as_recall_of": "S001-Q008"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q010",
+              "observed_query": "整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡住后续哪些分析？",
+              "simulated_as_recall_of": "S001-Q008"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q011",
+              "observed_query": "整体画像把总量形态和拐点都定下来了，现在把盈利这条线单独拉出来：沿营业收入把三年利润路径逐年拆开，拐点落在哪一年、幅度有多大？收入与利润两条序列对齐着看，节奏是同步还是错位？",
+              "simulated_as_recall_of": "S001-Q008"
+            }
+          ]
+        },
+        "simulated_process": {
+          "recall_history": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q009",
+              "observed_query": "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画像该怎么下？",
+              "simulated_as_recall_of": "S001-Q008"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q010",
+              "observed_query": "整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡住后续哪些分析？",
+              "simulated_as_recall_of": "S001-Q008"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q011",
+              "observed_query": "整体画像把总量形态和拐点都定下来了，现在把盈利这条线单独拉出来：沿营业收入把三年利润路径逐年拆开，拐点落在哪一年、幅度有多大？收入与利润两条序列对齐着看，节奏是同步还是错位？",
+              "simulated_as_recall_of": "S001-Q008"
+            }
+          ],
+          "valid_recall_count": 3,
+          "H_segment": 5.5,
+          "promotion_threshold": {
+            "min_recall_count": 3,
+            "heat_threshold": 5.0
+          },
+          "first_threshold_turn": "S001-Q011",
+          "promotion_job": "SIMULATED-PROMOTION-08",
+          "attempts": 0,
+          "final_status": "SIMULATED_SUCCEEDED"
+        },
+        "simulated_output": {
+          "cross_session_memory": "用户要求用期末近似权益回报（归母净利润/期末归母权益）检验归母股东权益三年连续上升与利润、资产扩张的对应关系。助手计算三年近似权益回报为34.7%（2023）、37.0%（2024）、33.6%（2025），先升后降，2025年跌破2023年起点。权益增量2024年174.37亿元、2025年115.32亿元，分别仅为当期利润的20.2%和14.0%，三年累计约11.9%，未留存利润差额（2024年687.91亿元、2025年707.88亿元）因无分红/回购数据只能定性为大概率对应现金流出。权益与资产扩张对应：2024年权益增量占资产增量66%，2025年权益增量115.32亿元完全覆盖资产增量48.90亿元并压降非权益66.42亿元，权益乘数从1.28降至1.24，资产扩张资金支撑增强。杜邦分解显示2024年回报上升主要由周转驱动（+1.92pp），2025年回落为净利率（-1.25pp）、周转（-1.00pp）、杠杆（-1.10pp）三维同负，净利率贡献最大。结论：权益水平连续上升但回报率2025年跌破起点，恶化顺序盈利>效率>杠杆，与前期判断一致；未留存利润去向、留存率下降原因、平均口径序列等因数据缺口无法确认。"
+        },
+        "simulation_boundary": "No promotion_events or memory_promotion_jobs exist in the target run. The recall association, heat state, job, and promoted record are hypothetical; source memory and dialogue texts are observed."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "9d54be80-81c4-51c4-bfa4-edfad6974ceb",
+          "field": "source_turn_id"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "9d54be80-81c4-51c4-bfa4-edfad6974ceb",
+          "field": "summary"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "9d54be80-81c4-51c4-bfa4-edfad6974ceb",
+          "field": "keywords"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q011",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q011",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_min_recall_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_heat_threshold"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_alpha"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_beta"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_gamma"
+        }
+      ]
+    },
+    {
+      "candidate_id": "H-SIM-S001-S001-Q001",
+      "presentation_score": 86.71,
+      "why_good_for_ppt": "以真实 Memory S001-Q001 和随后三条连续真实问题演示阈值链；召回归属、Heat 达标、Job 与跨 Session 写入均标为模拟。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q004",
+      "memory_id": "c6ee270c-d6cd-5972-9e46-d5feda47386f",
+      "job_id": "SIMULATED-PROMOTION-01",
+      "display_data": {
+        "title": "连续 3 次模拟召回 → Heat 达标 → Promotion",
+        "current_question": "刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资…",
+        "input": "用户要求梳理贵州茅台2023—2025年主要财务变化，并随后进行多轮分析。本轮助手基于指定来源披露文件（发布于2026-04-17）提供的数据，梳理了营业收入、归母净利润、总资产…",
+        "process": [
+          "#1 S001-Q002",
+          "#2 S001-Q003",
+          "#3 S001-Q004",
+          "SIMULATED Heat=5.50"
+        ],
+        "output": "用户要求梳理贵州茅台2023—2025年主要财务变化，并随后进行多轮分析。本轮助手基于指定来源披露文件（发布于2026-04-17）提供的数据，梳理了营业收入、归母净利润、总资产、归母股东权益四项指…",
+        "key_number": "count 3 / Heat 5.50 ≥ 5.00",
+        "conclusion": "Promotion 未真实发生；此卡只演示生产阈值如何作用于真实连续对话。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "source_memory": {
+            "memory_id": "c6ee270c-d6cd-5972-9e46-d5feda47386f",
+            "source_turn_id": "S001-Q001",
+            "summary": "用户要求梳理贵州茅台2023—2025年主要财务变化，并随后进行多轮分析。本轮助手基于指定来源披露文件（发布于2026-04-17）提供的数据，梳理了营业收入、归母净利润、总资产、归母股东权益四项指标的三年数值、同比、增量及形态，并计算了近似净利率、总资产周转、权益回报等比率。核心结论为：2024年是增速高点年，2025年是方向拐点年；收入与利润先升后降，资产与权益连续上升但减速；2025年利润降幅（-4.53%）显著大于收入降幅（-1.21%），净利率从50.46%降至48.76%，是利润下滑的主因（约占七成五）；高基数仅解释摆幅的一到两成。数据口径为亿元，同比由原数复算，总资产2023年为整数披露。"
+          },
+          "real_following_dialogue_queries": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q002",
+              "observed_query": "刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "simulated_as_recall_of": "S001-Q001"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q003",
+              "observed_query": "口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "simulated_as_recall_of": "S001-Q001"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q004",
+              "observed_query": "刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有得到收入增长的支撑？",
+              "simulated_as_recall_of": "S001-Q001"
+            }
+          ]
+        },
+        "simulated_process": {
+          "recall_history": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q002",
+              "observed_query": "刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "simulated_as_recall_of": "S001-Q001"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q003",
+              "observed_query": "口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "simulated_as_recall_of": "S001-Q001"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q004",
+              "observed_query": "刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有得到收入增长的支撑？",
+              "simulated_as_recall_of": "S001-Q001"
+            }
+          ],
+          "valid_recall_count": 3,
+          "H_segment": 5.5,
+          "promotion_threshold": {
+            "min_recall_count": 3,
+            "heat_threshold": 5.0
+          },
+          "first_threshold_turn": "S001-Q004",
+          "promotion_job": "SIMULATED-PROMOTION-01",
+          "attempts": 0,
+          "final_status": "SIMULATED_SUCCEEDED"
+        },
+        "simulated_output": {
+          "cross_session_memory": "用户要求梳理贵州茅台2023—2025年主要财务变化，并随后进行多轮分析。本轮助手基于指定来源披露文件（发布于2026-04-17）提供的数据，梳理了营业收入、归母净利润、总资产、归母股东权益四项指标的三年数值、同比、增量及形态，并计算了近似净利率、总资产周转、权益回报等比率。核心结论为：2024年是增速高点年，2025年是方向拐点年；收入与利润先升后降，资产与权益连续上升但减速；2025年利润降幅（-4.53%）显著大于收入降幅（-1.21%），净利率从50.46%降至48.76%，是利润下滑的主因（约占七成五）；高基数仅解释摆幅的一到两成。数据口径为亿元，同比由原数复算，总资产2023年为整数披露。"
+        },
+        "simulation_boundary": "No promotion_events or memory_promotion_jobs exist in the target run. The recall association, heat state, job, and promoted record are hypothetical; source memory and dialogue texts are observed."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "c6ee270c-d6cd-5972-9e46-d5feda47386f",
+          "field": "source_turn_id"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "c6ee270c-d6cd-5972-9e46-d5feda47386f",
+          "field": "summary"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "c6ee270c-d6cd-5972-9e46-d5feda47386f",
+          "field": "keywords"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q004",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q004",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_min_recall_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_heat_threshold"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_alpha"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_beta"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_gamma"
+        }
+      ]
+    },
+    {
+      "candidate_id": "H-SIM-S001-S001-Q003",
+      "presentation_score": 86.6,
+      "why_good_for_ppt": "以真实 Memory S001-Q003 和随后三条连续真实问题演示阈值链；召回归属、Heat 达标、Job 与跨 Session 写入均标为模拟。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q006",
+      "memory_id": "81381ff1-82bb-5aba-80fa-069594487d0b",
+      "job_id": "SIMULATED-PROMOTION-03",
+      "display_data": {
+        "title": "连续 3 次模拟召回 → Heat 达标 → Promotion",
+        "current_question": "两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近…",
+        "input": "用户要求用期末近似权益回报（归母净利润÷期末归母权益）检验归母股东权益三年连续上升与利润、资产扩张的对应关系。助手计算2023-2025年权益回报为34.7%、37.0%、33.…",
+        "process": [
+          "#1 S001-Q004",
+          "#2 S001-Q005",
+          "#3 S001-Q006",
+          "SIMULATED Heat=5.50"
+        ],
+        "output": "用户要求用期末近似权益回报（归母净利润÷期末归母权益）检验归母股东权益三年连续上升与利润、资产扩张的对应关系。助手计算2023-2025年权益回报为34.7%、37.0%、33.6%，先升后降，20…",
+        "key_number": "count 3 / Heat 5.50 ≥ 5.00",
+        "conclusion": "Promotion 未真实发生；此卡只演示生产阈值如何作用于真实连续对话。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "source_memory": {
+            "memory_id": "81381ff1-82bb-5aba-80fa-069594487d0b",
+            "source_turn_id": "S001-Q003",
+            "summary": "用户要求用期末近似权益回报（归母净利润÷期末归母权益）检验归母股东权益三年连续上升与利润、资产扩张的对应关系。助手计算2023-2025年权益回报为34.7%、37.0%、33.6%，先升后降，2025年跌破2023年水平。权益增量占当期利润比例分别为20.2%、14.0%，累计11.9%，大部分利润未留存，差额去向无披露。权益增量覆盖资产增量，2025年完全覆盖并压降非权益66.42亿元，杠杆下降。杜邦分解显示2024年回报上升主要由周转驱动，2025年净利率、周转、杠杆三因子同向回落，净利率贡献最大。结论：权益水平稳但回报率跌破起点，盈利质量先于规模恶化，资产扩张资金支撑增强但效率支撑减弱。"
+          },
+          "real_following_dialogue_queries": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q004",
+              "observed_query": "刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有得到收入增长的支撑？",
+              "simulated_as_recall_of": "S001-Q003"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q005",
+              "observed_query": "沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原因解释，只看哪一段摆动更剧烈、四个指标各摆了多少个百分点；再把 2024 高基数对 2025 同比的影响单独量化一下，看到底占多少。",
+              "simulated_as_recall_of": "S001-Q003"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q006",
+              "observed_query": "两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三年算一遍，先算后判断——2025 年利润比收入跌得深，有多少是净利率回落造成的，这个比率能不能支撑前面的判断？",
+              "simulated_as_recall_of": "S001-Q003"
+            }
+          ]
+        },
+        "simulated_process": {
+          "recall_history": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q004",
+              "observed_query": "刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有得到收入增长的支撑？",
+              "simulated_as_recall_of": "S001-Q003"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q005",
+              "observed_query": "沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原因解释，只看哪一段摆动更剧烈、四个指标各摆了多少个百分点；再把 2024 高基数对 2025 同比的影响单独量化一下，看到底占多少。",
+              "simulated_as_recall_of": "S001-Q003"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q006",
+              "observed_query": "两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三年算一遍，先算后判断——2025 年利润比收入跌得深，有多少是净利率回落造成的，这个比率能不能支撑前面的判断？",
+              "simulated_as_recall_of": "S001-Q003"
+            }
+          ],
+          "valid_recall_count": 3,
+          "H_segment": 5.5,
+          "promotion_threshold": {
+            "min_recall_count": 3,
+            "heat_threshold": 5.0
+          },
+          "first_threshold_turn": "S001-Q006",
+          "promotion_job": "SIMULATED-PROMOTION-03",
+          "attempts": 0,
+          "final_status": "SIMULATED_SUCCEEDED"
+        },
+        "simulated_output": {
+          "cross_session_memory": "用户要求用期末近似权益回报（归母净利润÷期末归母权益）检验归母股东权益三年连续上升与利润、资产扩张的对应关系。助手计算2023-2025年权益回报为34.7%、37.0%、33.6%，先升后降，2025年跌破2023年水平。权益增量占当期利润比例分别为20.2%、14.0%，累计11.9%，大部分利润未留存，差额去向无披露。权益增量覆盖资产增量，2025年完全覆盖并压降非权益66.42亿元，杠杆下降。杜邦分解显示2024年回报上升主要由周转驱动，2025年净利率、周转、杠杆三因子同向回落，净利率贡献最大。结论：权益水平稳但回报率跌破起点，盈利质量先于规模恶化，资产扩张资金支撑增强但效率支撑减弱。"
+        },
+        "simulation_boundary": "No promotion_events or memory_promotion_jobs exist in the target run. The recall association, heat state, job, and promoted record are hypothetical; source memory and dialogue texts are observed."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "81381ff1-82bb-5aba-80fa-069594487d0b",
+          "field": "source_turn_id"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "81381ff1-82bb-5aba-80fa-069594487d0b",
+          "field": "summary"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "81381ff1-82bb-5aba-80fa-069594487d0b",
+          "field": "keywords"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q006",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q006",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_min_recall_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_heat_threshold"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_alpha"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_beta"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_gamma"
+        }
+      ]
+    },
+    {
+      "candidate_id": "H-SIM-S001-S001-Q006",
+      "presentation_score": 83.6,
+      "why_good_for_ppt": "以真实 Memory S001-Q006 和随后三条连续真实问题演示阈值链；召回归属、Heat 达标、Job 与跨 Session 写入均标为模拟。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q009",
+      "memory_id": "2fe50c10-0892-58e3-b877-b5b0396398d0",
+      "job_id": "SIMULATED-PROMOTION-06",
+      "display_data": {
+        "title": "连续 3 次模拟召回 → Heat 达标 → Promotion",
+        "current_question": "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完…",
+        "input": "用户要求计算贵州茅台2023-2025年归母净利润/营业收入的近似净利率，以检验2025年利润降幅大于收入降幅是否由净利率回落造成。助手计算三年净利率分别为50.60%、50.4…",
+        "process": [
+          "#1 S001-Q007",
+          "#2 S001-Q008",
+          "#3 S001-Q009",
+          "SIMULATED Heat=5.50"
+        ],
+        "output": "用户要求计算贵州茅台2023-2025年归母净利润/营业收入的近似净利率，以检验2025年利润降幅大于收入降幅是否由净利率回落造成。助手计算三年净利率分别为50.60%、50.46%、48.76%，…",
+        "key_number": "count 3 / Heat 5.50 ≥ 5.00",
+        "conclusion": "Promotion 未真实发生；此卡只演示生产阈值如何作用于真实连续对话。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "source_memory": {
+            "memory_id": "2fe50c10-0892-58e3-b877-b5b0396398d0",
+            "source_turn_id": "S001-Q006",
+            "summary": "用户要求计算贵州茅台2023-2025年归母净利润/营业收入的近似净利率，以检验2025年利润降幅大于收入降幅是否由净利率回落造成。助手计算三年净利率分别为50.60%、50.46%、48.76%，连续下降，2025年单年降幅1.70个百分点，约为2024年降幅的12倍。通过增速分解和增量分解，确认2025年利润降幅-39.08亿元中约73%来自净利率效应（约-28.7亿元），约27%来自收入效应（约-10.4亿元），且该结论对分解基准不敏感。利润摆幅19.91个百分点可分解为收入摆幅16.92个百分点加净利率相对摆幅3.08个百分点，净利率解释了利润摆幅大于收入摆幅的约3个百分点。三年累计利润增速落后收入约4.2个百分点，与净利率累计相对回落3.64%的复利效应吻合。结论支撑前期判断：2025年为方向拐点年，利润弹性放大主要由净利率驱动，高基数非主因，且净利率走弱先于规模走弱（2024年先行微降）。"
+          },
+          "real_following_dialogue_queries": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q007",
+              "observed_query": "资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。",
+              "simulated_as_recall_of": "S001-Q006"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q008",
+              "observed_query": "归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+              "simulated_as_recall_of": "S001-Q006"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q009",
+              "observed_query": "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画像该怎么下？",
+              "simulated_as_recall_of": "S001-Q006"
+            }
+          ]
+        },
+        "simulated_process": {
+          "recall_history": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q007",
+              "observed_query": "资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。",
+              "simulated_as_recall_of": "S001-Q006"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q008",
+              "observed_query": "归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+              "simulated_as_recall_of": "S001-Q006"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q009",
+              "observed_query": "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画像该怎么下？",
+              "simulated_as_recall_of": "S001-Q006"
+            }
+          ],
+          "valid_recall_count": 3,
+          "H_segment": 5.5,
+          "promotion_threshold": {
+            "min_recall_count": 3,
+            "heat_threshold": 5.0
+          },
+          "first_threshold_turn": "S001-Q009",
+          "promotion_job": "SIMULATED-PROMOTION-06",
+          "attempts": 0,
+          "final_status": "SIMULATED_SUCCEEDED"
+        },
+        "simulated_output": {
+          "cross_session_memory": "用户要求计算贵州茅台2023-2025年归母净利润/营业收入的近似净利率，以检验2025年利润降幅大于收入降幅是否由净利率回落造成。助手计算三年净利率分别为50.60%、50.46%、48.76%，连续下降，2025年单年降幅1.70个百分点，约为2024年降幅的12倍。通过增速分解和增量分解，确认2025年利润降幅-39.08亿元中约73%来自净利率效应（约-28.7亿元），约27%来自收入效应（约-10.4亿元），且该结论对分解基准不敏感。利润摆幅19.91个百分点可分解为收入摆幅16.92个百分点加净利率相对摆幅3.08个百分点，净利率解释了利润摆幅大于收入摆幅的约3个百分点。三年累计利润增速落后收入约4.2个百分点，与净利率累计相对回落3.64%的复利效应吻合。结论支撑前期判断：2025年为方向拐点年，利润弹性放大主要由净利率驱动，高基数非主因，且净利率走弱先于规模走弱（2024年先行微降）。"
+        },
+        "simulation_boundary": "No promotion_events or memory_promotion_jobs exist in the target run. The recall association, heat state, job, and promoted record are hypothetical; source memory and dialogue texts are observed."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "2fe50c10-0892-58e3-b877-b5b0396398d0",
+          "field": "source_turn_id"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "2fe50c10-0892-58e3-b877-b5b0396398d0",
+          "field": "summary"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "2fe50c10-0892-58e3-b877-b5b0396398d0",
+          "field": "keywords"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q009",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q009",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_min_recall_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_heat_threshold"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_alpha"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_beta"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_gamma"
+        }
+      ]
+    },
+    {
+      "candidate_id": "H-SIM-S001-S001-Q009",
+      "presentation_score": 83.34,
+      "why_good_for_ppt": "以真实 Memory S001-Q009 和随后三条连续真实问题演示阈值链；召回归属、Heat 达标、Job 与跨 Session 写入均标为模拟。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q012",
+      "memory_id": "c737e6aa-1b76-56ec-a4a9-f1544297653a",
+      "job_id": "SIMULATED-PROMOTION-09",
+      "display_data": {
+        "title": "连续 3 次模拟召回 → Heat 达标 → Promotion",
+        "current_question": "路径拆完了，把两段同比并排对照一下：盈利增速和收入增速到底匹不匹配？2024年…",
+        "input": "用户要求将收入利润先升后降、资产权益连续上升的形态与前期确认的判断串成完整判断链，形成整体画像。助手综合三年数据（收入1,476.94/1,708.99/1,688.38亿元，利…",
+        "process": [
+          "#1 S001-Q010",
+          "#2 S001-Q011",
+          "#3 S001-Q012",
+          "SIMULATED Heat=5.50"
+        ],
+        "output": "用户要求将收入利润先升后降、资产权益连续上升的形态与前期确认的判断串成完整判断链，形成整体画像。助手综合三年数据（收入1,476.94/1,708.99/1,688.38亿元，利润747.34/86…",
+        "key_number": "count 3 / Heat 5.50 ≥ 5.00",
+        "conclusion": "Promotion 未真实发生；此卡只演示生产阈值如何作用于真实连续对话。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "source_memory": {
+            "memory_id": "c737e6aa-1b76-56ec-a4a9-f1544297653a",
+            "source_turn_id": "S001-Q009",
+            "summary": "用户要求将收入利润先升后降、资产权益连续上升的形态与前期确认的判断串成完整判断链，形成整体画像。助手综合三年数据（收入1,476.94/1,708.99/1,688.38亿元，利润747.34/862.28/823.20亿元，资产2,727/2,989.45/3,038.35亿元，权益2,156.69/2,331.06/2,446.38亿元），确认2024年为量率齐顶的顶点年、2025年为方向拐点年；利润降幅率3.7倍于收入，约73%来自净利率回落（50.60%→50.46%→48.76%），净利率2024年先行微降；周转0.542→0.572→0.556倍，2025年回吐未破起点；权益回报34.7%→37.0%→33.6%，2025年跌破起点；恶化顺序为盈利>效率>杠杆，低留存机制（留存率20.2%/14.0%）缓冲利润波动。判断链在形态-弹性-比率层闭合，科目-现金-结构层开放。"
+          },
+          "real_following_dialogue_queries": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q010",
+              "observed_query": "整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡住后续哪些分析？",
+              "simulated_as_recall_of": "S001-Q009"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q011",
+              "observed_query": "整体画像把总量形态和拐点都定下来了，现在把盈利这条线单独拉出来：沿营业收入把三年利润路径逐年拆开，拐点落在哪一年、幅度有多大？收入与利润两条序列对齐着看，节奏是同步还是错位？",
+              "simulated_as_recall_of": "S001-Q009"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q012",
+              "observed_query": "路径拆完了，把两段同比并排对照一下：盈利增速和收入增速到底匹不匹配？2024年几乎同步、2025年利润降幅率是收入的三倍多，这种组合该怎么读盈利质量？",
+              "simulated_as_recall_of": "S001-Q009"
+            }
+          ]
+        },
+        "simulated_process": {
+          "recall_history": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q010",
+              "observed_query": "整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡住后续哪些分析？",
+              "simulated_as_recall_of": "S001-Q009"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q011",
+              "observed_query": "整体画像把总量形态和拐点都定下来了，现在把盈利这条线单独拉出来：沿营业收入把三年利润路径逐年拆开，拐点落在哪一年、幅度有多大？收入与利润两条序列对齐着看，节奏是同步还是错位？",
+              "simulated_as_recall_of": "S001-Q009"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q012",
+              "observed_query": "路径拆完了，把两段同比并排对照一下：盈利增速和收入增速到底匹不匹配？2024年几乎同步、2025年利润降幅率是收入的三倍多，这种组合该怎么读盈利质量？",
+              "simulated_as_recall_of": "S001-Q009"
+            }
+          ],
+          "valid_recall_count": 3,
+          "H_segment": 5.5,
+          "promotion_threshold": {
+            "min_recall_count": 3,
+            "heat_threshold": 5.0
+          },
+          "first_threshold_turn": "S001-Q012",
+          "promotion_job": "SIMULATED-PROMOTION-09",
+          "attempts": 0,
+          "final_status": "SIMULATED_SUCCEEDED"
+        },
+        "simulated_output": {
+          "cross_session_memory": "用户要求将收入利润先升后降、资产权益连续上升的形态与前期确认的判断串成完整判断链，形成整体画像。助手综合三年数据（收入1,476.94/1,708.99/1,688.38亿元，利润747.34/862.28/823.20亿元，资产2,727/2,989.45/3,038.35亿元，权益2,156.69/2,331.06/2,446.38亿元），确认2024年为量率齐顶的顶点年、2025年为方向拐点年；利润降幅率3.7倍于收入，约73%来自净利率回落（50.60%→50.46%→48.76%），净利率2024年先行微降；周转0.542→0.572→0.556倍，2025年回吐未破起点；权益回报34.7%→37.0%→33.6%，2025年跌破起点；恶化顺序为盈利>效率>杠杆，低留存机制（留存率20.2%/14.0%）缓冲利润波动。判断链在形态-弹性-比率层闭合，科目-现金-结构层开放。"
+        },
+        "simulation_boundary": "No promotion_events or memory_promotion_jobs exist in the target run. The recall association, heat state, job, and promoted record are hypothetical; source memory and dialogue texts are observed."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "c737e6aa-1b76-56ec-a4a9-f1544297653a",
+          "field": "source_turn_id"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "c737e6aa-1b76-56ec-a4a9-f1544297653a",
+          "field": "summary"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "c737e6aa-1b76-56ec-a4a9-f1544297653a",
+          "field": "keywords"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q012",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q012",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_min_recall_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_heat_threshold"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_alpha"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_beta"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_gamma"
+        }
+      ]
+    },
+    {
+      "candidate_id": "H-SIM-S001-S001-Q012",
+      "presentation_score": 82.49,
+      "why_good_for_ppt": "以真实 Memory S001-Q012 和随后三条连续真实问题演示阈值链；召回归属、Heat 达标、Job 与跨 Session 写入均标为模拟。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q015",
+      "memory_id": "75369efa-613a-585d-8f0d-bb23a9e5e8f7",
+      "job_id": "SIMULATED-PROMOTION-12",
+      "display_data": {
+        "title": "连续 3 次模拟召回 → Heat 达标 → Promotion",
+        "current_question": "盈利路径的判断已经钉在2024扩张峰、2025方向拐点、利润弹性被放大、净利率…",
+        "input": "用户要求将收入与利润的两段同比并排对照，判断盈利增速与收入增速的匹配度，并解读盈利质量。助手给出结论：方向匹配、强度不匹配——2024年扩张段基本匹配（利润增速15.38%仅落后…",
+        "process": [
+          "#1 S001-Q013",
+          "#2 S001-Q014",
+          "#3 S001-Q015",
+          "SIMULATED Heat=5.50"
+        ],
+        "output": "用户要求将收入与利润的两段同比并排对照，判断盈利增速与收入增速的匹配度，并解读盈利质量。助手给出结论：方向匹配、强度不匹配——2024年扩张段基本匹配（利润增速15.38%仅落后收入15.71%约0…",
+        "key_number": "count 3 / Heat 5.50 ≥ 5.00",
+        "conclusion": "Promotion 未真实发生；此卡只演示生产阈值如何作用于真实连续对话。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "source_memory": {
+            "memory_id": "75369efa-613a-585d-8f0d-bb23a9e5e8f7",
+            "source_turn_id": "S001-Q012",
+            "summary": "用户要求将收入与利润的两段同比并排对照，判断盈利增速与收入增速的匹配度，并解读盈利质量。助手给出结论：方向匹配、强度不匹配——2024年扩张段基本匹配（利润增速15.38%仅落后收入15.71%约0.33个百分点），2025年收缩段显著背离（利润降幅率4.53%是收入降幅率1.21%的约3.7倍，多出3.32个百分点）。盈利质量在恶化且加速，但主体是“率”不是“量”：近似净利率三年50.60%/50.46%/48.76%连续下降，2025年单年降1.70个百分点（为2024年降幅0.14个百分点的约12倍）并跌破49%；2025年利润降幅约七成三来自净利率回落，仅约两成七来自收入收缩。助手建立了匹配度三要素框架（方向、幅度、比例），并给出质量双读数（净利率、弹性），强调所有判断基于披露原数复算，可复现、可证伪，不越披露边界。"
+          },
+          "real_following_dialogue_queries": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q013",
+              "observed_query": "路径拆完了，两段同比也对照过了，现在把拐点本身钉死：利润拐点出现在哪一年、幅度有多大？用增量、增速、弹性三组口径把扩张段和回落段各比一遍，2024是不是就是那个扩张峰、2025的回落实在什么量级，我要一个能直接写进投研结论的定位。",
+              "simulated_as_recall_of": "S001-Q012"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q014",
+              "observed_query": "拐点定位在2024扩张峰、2025方向拐点，但盈利质量还差一块拼图：本数据集一直没有扣非归母净利润的数值。归母与扣非的差额算不出来、利润里经营与非经营的构成看不见，这个缺口对盈利质量判断到底限制了什么？'主营利润稳不稳'这句话我们能把结论说到哪一步？",
+              "simulated_as_recall_of": "S001-Q012"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q015",
+              "observed_query": "盈利路径的判断已经钉在2024扩张峰、2025方向拐点、利润弹性被放大、净利率先行走弱这一组结论上。做研究最忌讳判断只能被印证、不能被推翻——把反证条件划清楚：什么样的新证据一旦出现，就足以推翻或削弱这套盈利判断？哪些证据只是补充细节、不改变结论本身？我要一份能直接放进跟踪清单的证伪清单。",
+              "simulated_as_recall_of": "S001-Q012"
+            }
+          ]
+        },
+        "simulated_process": {
+          "recall_history": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q013",
+              "observed_query": "路径拆完了，两段同比也对照过了，现在把拐点本身钉死：利润拐点出现在哪一年、幅度有多大？用增量、增速、弹性三组口径把扩张段和回落段各比一遍，2024是不是就是那个扩张峰、2025的回落实在什么量级，我要一个能直接写进投研结论的定位。",
+              "simulated_as_recall_of": "S001-Q012"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q014",
+              "observed_query": "拐点定位在2024扩张峰、2025方向拐点，但盈利质量还差一块拼图：本数据集一直没有扣非归母净利润的数值。归母与扣非的差额算不出来、利润里经营与非经营的构成看不见，这个缺口对盈利质量判断到底限制了什么？'主营利润稳不稳'这句话我们能把结论说到哪一步？",
+              "simulated_as_recall_of": "S001-Q012"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q015",
+              "observed_query": "盈利路径的判断已经钉在2024扩张峰、2025方向拐点、利润弹性被放大、净利率先行走弱这一组结论上。做研究最忌讳判断只能被印证、不能被推翻——把反证条件划清楚：什么样的新证据一旦出现，就足以推翻或削弱这套盈利判断？哪些证据只是补充细节、不改变结论本身？我要一份能直接放进跟踪清单的证伪清单。",
+              "simulated_as_recall_of": "S001-Q012"
+            }
+          ],
+          "valid_recall_count": 3,
+          "H_segment": 5.5,
+          "promotion_threshold": {
+            "min_recall_count": 3,
+            "heat_threshold": 5.0
+          },
+          "first_threshold_turn": "S001-Q015",
+          "promotion_job": "SIMULATED-PROMOTION-12",
+          "attempts": 0,
+          "final_status": "SIMULATED_SUCCEEDED"
+        },
+        "simulated_output": {
+          "cross_session_memory": "用户要求将收入与利润的两段同比并排对照，判断盈利增速与收入增速的匹配度，并解读盈利质量。助手给出结论：方向匹配、强度不匹配——2024年扩张段基本匹配（利润增速15.38%仅落后收入15.71%约0.33个百分点），2025年收缩段显著背离（利润降幅率4.53%是收入降幅率1.21%的约3.7倍，多出3.32个百分点）。盈利质量在恶化且加速，但主体是“率”不是“量”：近似净利率三年50.60%/50.46%/48.76%连续下降，2025年单年降1.70个百分点（为2024年降幅0.14个百分点的约12倍）并跌破49%；2025年利润降幅约七成三来自净利率回落，仅约两成七来自收入收缩。助手建立了匹配度三要素框架（方向、幅度、比例），并给出质量双读数（净利率、弹性），强调所有判断基于披露原数复算，可复现、可证伪，不越披露边界。"
+        },
+        "simulation_boundary": "No promotion_events or memory_promotion_jobs exist in the target run. The recall association, heat state, job, and promoted record are hypothetical; source memory and dialogue texts are observed."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "75369efa-613a-585d-8f0d-bb23a9e5e8f7",
+          "field": "source_turn_id"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "75369efa-613a-585d-8f0d-bb23a9e5e8f7",
+          "field": "summary"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "75369efa-613a-585d-8f0d-bb23a9e5e8f7",
+          "field": "keywords"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q015",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q015",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_min_recall_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_heat_threshold"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_alpha"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_beta"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_gamma"
+        }
+      ]
+    },
+    {
+      "candidate_id": "H-SIM-S001-S001-Q005",
+      "presentation_score": 81.86,
+      "why_good_for_ppt": "以真实 Memory S001-Q005 和随后三条连续真实问题演示阈值链；召回归属、Heat 达标、Job 与跨 Session 写入均标为模拟。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q008",
+      "memory_id": "43711fe9-79f1-526b-8d75-ca4adca60443",
+      "job_id": "SIMULATED-PROMOTION-05",
+      "display_data": {
+        "title": "连续 3 次模拟召回 → Heat 达标 → Promotion",
+        "current_question": "归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算…",
+        "input": "用户要求将2024与2025两段同比并排比较变化幅度，并量化2024年高基数对2025年同比的影响。助手基于贵州茅台2023-2025年四个指标（营业收入、归母净利润、总资产、归…",
+        "process": [
+          "#1 S001-Q006",
+          "#2 S001-Q007",
+          "#3 S001-Q008",
+          "SIMULATED Heat=5.50"
+        ],
+        "output": "用户要求将2024与2025两段同比并排比较变化幅度，并量化2024年高基数对2025年同比的影响。助手基于贵州茅台2023-2025年四个指标（营业收入、归母净利润、总资产、归母股东权益）的原数，…",
+        "key_number": "count 3 / Heat 5.50 ≥ 5.00",
+        "conclusion": "Promotion 未真实发生；此卡只演示生产阈值如何作用于真实连续对话。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "source_memory": {
+            "memory_id": "43711fe9-79f1-526b-8d75-ca4adca60443",
+            "source_turn_id": "S001-Q005",
+            "summary": "用户要求将2024与2025两段同比并排比较变化幅度，并量化2024年高基数对2025年同比的影响。助手基于贵州茅台2023-2025年四个指标（营业收入、归母净利润、总资产、归母股东权益）的原数，计算摆幅：利润19.91个百分点、收入16.92、资产7.98、权益3.14，排序利润>收入>资产>权益；判定2025段为剧变段（收入利润转负、资产骤停、权益温和放缓），2024段为高点段。高基数量化：若2025年保持2024年绝对增量，收入同比+13.58%、利润+13.33%、资产+8.78%、权益+7.48%，基数拖累分别为2.13、2.05、0.84、0.61个百分点，占摆幅的12.6%、10.3%、10.5%、19.4%，结论为高基数只解释一成到两成，主体是绝对增量收缩与反转。"
+          },
+          "real_following_dialogue_queries": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q006",
+              "observed_query": "两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三年算一遍，先算后判断——2025 年利润比收入跌得深，有多少是净利率回落造成的，这个比率能不能支撑前面的判断？",
+              "simulated_as_recall_of": "S001-Q005"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q007",
+              "observed_query": "资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。",
+              "simulated_as_recall_of": "S001-Q005"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q008",
+              "observed_query": "归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+              "simulated_as_recall_of": "S001-Q005"
+            }
+          ]
+        },
+        "simulated_process": {
+          "recall_history": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q006",
+              "observed_query": "两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三年算一遍，先算后判断——2025 年利润比收入跌得深，有多少是净利率回落造成的，这个比率能不能支撑前面的判断？",
+              "simulated_as_recall_of": "S001-Q005"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q007",
+              "observed_query": "资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。",
+              "simulated_as_recall_of": "S001-Q005"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q008",
+              "observed_query": "归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+              "simulated_as_recall_of": "S001-Q005"
+            }
+          ],
+          "valid_recall_count": 3,
+          "H_segment": 5.5,
+          "promotion_threshold": {
+            "min_recall_count": 3,
+            "heat_threshold": 5.0
+          },
+          "first_threshold_turn": "S001-Q008",
+          "promotion_job": "SIMULATED-PROMOTION-05",
+          "attempts": 0,
+          "final_status": "SIMULATED_SUCCEEDED"
+        },
+        "simulated_output": {
+          "cross_session_memory": "用户要求将2024与2025两段同比并排比较变化幅度，并量化2024年高基数对2025年同比的影响。助手基于贵州茅台2023-2025年四个指标（营业收入、归母净利润、总资产、归母股东权益）的原数，计算摆幅：利润19.91个百分点、收入16.92、资产7.98、权益3.14，排序利润>收入>资产>权益；判定2025段为剧变段（收入利润转负、资产骤停、权益温和放缓），2024段为高点段。高基数量化：若2025年保持2024年绝对增量，收入同比+13.58%、利润+13.33%、资产+8.78%、权益+7.48%，基数拖累分别为2.13、2.05、0.84、0.61个百分点，占摆幅的12.6%、10.3%、10.5%、19.4%，结论为高基数只解释一成到两成，主体是绝对增量收缩与反转。"
+        },
+        "simulation_boundary": "No promotion_events or memory_promotion_jobs exist in the target run. The recall association, heat state, job, and promoted record are hypothetical; source memory and dialogue texts are observed."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "43711fe9-79f1-526b-8d75-ca4adca60443",
+          "field": "source_turn_id"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "43711fe9-79f1-526b-8d75-ca4adca60443",
+          "field": "summary"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "43711fe9-79f1-526b-8d75-ca4adca60443",
+          "field": "keywords"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q008",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q008",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_min_recall_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_heat_threshold"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_alpha"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_beta"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_gamma"
+        }
+      ]
+    }
+  ],
+  "all_candidates": [
+    {
+      "candidate_id": "H-SIM-S001-S001-Q002",
+      "presentation_score": 87.49,
+      "why_good_for_ppt": "以真实 Memory S001-Q002 和随后三条连续真实问题演示阈值链；召回归属、Heat 达标、Job 与跨 Session 写入均标为模拟。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q005",
+      "memory_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
+      "job_id": "SIMULATED-PROMOTION-02",
+      "display_data": {
+        "title": "连续 3 次模拟召回 → Heat 达标 → Promotion",
+        "current_question": "沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅…",
+        "input": "用户要求确认贵州茅台2023—2025年财务底表的来源、单位和比较口径的一致性及可确认程度。助手确认：来源为指定披露文件（2026-04-17发布），数据为真实历史披露，单位统一…",
+        "process": [
+          "#1 S001-Q003",
+          "#2 S001-Q004",
+          "#3 S001-Q005",
+          "SIMULATED Heat=5.50"
+        ],
+        "output": "用户要求确认贵州茅台2023—2025年财务底表的来源、单位和比较口径的一致性及可确认程度。助手确认：来源为指定披露文件（2026-04-17发布），数据为真实历史披露，单位统一为亿元，总资产202…",
+        "key_number": "count 3 / Heat 5.50 ≥ 5.00",
+        "conclusion": "Promotion 未真实发生；此卡只演示生产阈值如何作用于真实连续对话。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "source_memory": {
+            "memory_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
+            "source_turn_id": "S001-Q002",
+            "summary": "用户要求确认贵州茅台2023—2025年财务底表的来源、单位和比较口径的一致性及可确认程度。助手确认：来源为指定披露文件（2026-04-17发布），数据为真实历史披露，单位统一为亿元，总资产2023年为整数披露，其余保留原精度；比较口径方面，利润与权益为归母口径，收入与资产为合并整体口径，同比均由原数复算且八个同比全部可复现；期末时点与期间数混合的比率（周转率、权益回报）标注为近似。不能确认的包括：无法逐页核对原文、无2022年数据、无指标定义细节及明细类指标（现金流、扣非、毛利率等）无披露。助手将可追溯性分为三级：披露原数、派生复算、分析判断，并制定了引用纪律：原数带来源、复算带公式与近似标记、缺口带无披露。复核结论为底表无需修订，可继续作为公共基准。"
+          },
+          "real_following_dialogue_queries": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q003",
+              "observed_query": "口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "simulated_as_recall_of": "S001-Q002"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q004",
+              "observed_query": "刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有得到收入增长的支撑？",
+              "simulated_as_recall_of": "S001-Q002"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q005",
+              "observed_query": "沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原因解释，只看哪一段摆动更剧烈、四个指标各摆了多少个百分点；再把 2024 高基数对 2025 同比的影响单独量化一下，看到底占多少。",
+              "simulated_as_recall_of": "S001-Q002"
+            }
+          ]
+        },
+        "simulated_process": {
+          "recall_history": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q003",
+              "observed_query": "口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "simulated_as_recall_of": "S001-Q002"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q004",
+              "observed_query": "刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有得到收入增长的支撑？",
+              "simulated_as_recall_of": "S001-Q002"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q005",
+              "observed_query": "沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原因解释，只看哪一段摆动更剧烈、四个指标各摆了多少个百分点；再把 2024 高基数对 2025 同比的影响单独量化一下，看到底占多少。",
+              "simulated_as_recall_of": "S001-Q002"
+            }
+          ],
+          "valid_recall_count": 3,
+          "H_segment": 5.5,
+          "promotion_threshold": {
+            "min_recall_count": 3,
+            "heat_threshold": 5.0
+          },
+          "first_threshold_turn": "S001-Q005",
+          "promotion_job": "SIMULATED-PROMOTION-02",
+          "attempts": 0,
+          "final_status": "SIMULATED_SUCCEEDED"
+        },
+        "simulated_output": {
+          "cross_session_memory": "用户要求确认贵州茅台2023—2025年财务底表的来源、单位和比较口径的一致性及可确认程度。助手确认：来源为指定披露文件（2026-04-17发布），数据为真实历史披露，单位统一为亿元，总资产2023年为整数披露，其余保留原精度；比较口径方面，利润与权益为归母口径，收入与资产为合并整体口径，同比均由原数复算且八个同比全部可复现；期末时点与期间数混合的比率（周转率、权益回报）标注为近似。不能确认的包括：无法逐页核对原文、无2022年数据、无指标定义细节及明细类指标（现金流、扣非、毛利率等）无披露。助手将可追溯性分为三级：披露原数、派生复算、分析判断，并制定了引用纪律：原数带来源、复算带公式与近似标记、缺口带无披露。复核结论为底表无需修订，可继续作为公共基准。"
+        },
+        "simulation_boundary": "No promotion_events or memory_promotion_jobs exist in the target run. The recall association, heat state, job, and promoted record are hypothetical; source memory and dialogue texts are observed."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
+          "field": "source_turn_id"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
+          "field": "summary"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
+          "field": "keywords"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q005",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q005",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_min_recall_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_heat_threshold"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_alpha"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_beta"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_gamma"
+        }
+      ]
+    },
+    {
+      "candidate_id": "H-SIM-S001-S001-Q010",
+      "presentation_score": 87,
+      "why_good_for_ppt": "以真实 Memory S001-Q010 和随后三条连续真实问题演示阈值链；召回归属、Heat 达标、Job 与跨 Session 写入均标为模拟。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q013",
+      "memory_id": "59de4c34-c0a8-5669-80e0-ab2a3f8d7960",
+      "job_id": "SIMULATED-PROMOTION-10",
+      "display_data": {
+        "title": "连续 3 次模拟召回 → Heat 达标 → Promotion",
+        "current_question": "路径拆完了，两段同比也对照过了，现在把拐点本身钉死：利润拐点出现在哪一年、幅度…",
+        "input": "用户要求收口整体画像章的信息边界，明确现有底表能站稳哪些结论、哪些只能停在方向层面，以及这些缺口对后续分析的限制。助手先给出结论：能站稳的判断集中在形状与方向层（形态、比率方向、…",
+        "process": [
+          "#1 S001-Q011",
+          "#2 S001-Q012",
+          "#3 S001-Q013",
+          "SIMULATED Heat=5.50"
+        ],
+        "output": "用户要求收口整体画像章的信息边界，明确现有底表能站稳哪些结论、哪些只能停在方向层面，以及这些缺口对后续分析的限制。助手先给出结论：能站稳的判断集中在形状与方向层（形态、比率方向、弹性结构、恶化顺序、…",
+        "key_number": "count 3 / Heat 5.50 ≥ 5.00",
+        "conclusion": "Promotion 未真实发生；此卡只演示生产阈值如何作用于真实连续对话。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "source_memory": {
+            "memory_id": "59de4c34-c0a8-5669-80e0-ab2a3f8d7960",
+            "source_turn_id": "S001-Q010",
+            "summary": "用户要求收口整体画像章的信息边界，明确现有底表能站稳哪些结论、哪些只能停在方向层面，以及这些缺口对后续分析的限制。助手先给出结论：能站稳的判断集中在形状与方向层（形态、比率方向、弹性结构、恶化顺序、低留存机制），只能停在方向层面的判断集中在构成与质量层（科目归因、现金含量、资产投向、分配去向、2023同比与平均口径）。随后按判定标准（可复算性）、两列清单、缺口对后续章节的限制、补数路径四部分展开。判定标准将结论分为四级：披露原数、派生复算、需明细判断、无披露。能站稳的判断包括：形态与拐点（2024双顶、2025方向拐点）、比率方向（净利率连续下降、周转回吐未破起点、权益回报跌破起点）、弹性结构（利润降幅率3.7倍于收入、约七成三来自净利率）、恶化顺序（盈利>效率>杠杆）、低留存机制（留存吸收率20.2%/14.0%）。只能停在方向层面的判断包括：净利率回落科目归因、现金与利润匹配、2025年资产增量投向、未留存利润去向、非权益内部构成、2023年同比与平均口径、量的内部结构。缺口对后续章节的限制：对现金质量章约束最重，对盈利路径章居中，对资产权益章集中在结构端，对披露证据章止于声明级。补数优先级：2022年数据优先于年报原文、年报原文优先于附注定义。最后给出表述纪律（三档用词）与反证条件。"
+          },
+          "real_following_dialogue_queries": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q011",
+              "observed_query": "整体画像把总量形态和拐点都定下来了，现在把盈利这条线单独拉出来：沿营业收入把三年利润路径逐年拆开，拐点落在哪一年、幅度有多大？收入与利润两条序列对齐着看，节奏是同步还是错位？",
+              "simulated_as_recall_of": "S001-Q010"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q012",
+              "observed_query": "路径拆完了，把两段同比并排对照一下：盈利增速和收入增速到底匹不匹配？2024年几乎同步、2025年利润降幅率是收入的三倍多，这种组合该怎么读盈利质量？",
+              "simulated_as_recall_of": "S001-Q010"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q013",
+              "observed_query": "路径拆完了，两段同比也对照过了，现在把拐点本身钉死：利润拐点出现在哪一年、幅度有多大？用增量、增速、弹性三组口径把扩张段和回落段各比一遍，2024是不是就是那个扩张峰、2025的回落实在什么量级，我要一个能直接写进投研结论的定位。",
+              "simulated_as_recall_of": "S001-Q010"
+            }
+          ]
+        },
+        "simulated_process": {
+          "recall_history": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q011",
+              "observed_query": "整体画像把总量形态和拐点都定下来了，现在把盈利这条线单独拉出来：沿营业收入把三年利润路径逐年拆开，拐点落在哪一年、幅度有多大？收入与利润两条序列对齐着看，节奏是同步还是错位？",
+              "simulated_as_recall_of": "S001-Q010"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q012",
+              "observed_query": "路径拆完了，把两段同比并排对照一下：盈利增速和收入增速到底匹不匹配？2024年几乎同步、2025年利润降幅率是收入的三倍多，这种组合该怎么读盈利质量？",
+              "simulated_as_recall_of": "S001-Q010"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q013",
+              "observed_query": "路径拆完了，两段同比也对照过了，现在把拐点本身钉死：利润拐点出现在哪一年、幅度有多大？用增量、增速、弹性三组口径把扩张段和回落段各比一遍，2024是不是就是那个扩张峰、2025的回落实在什么量级，我要一个能直接写进投研结论的定位。",
+              "simulated_as_recall_of": "S001-Q010"
+            }
+          ],
+          "valid_recall_count": 3,
+          "H_segment": 5.5,
+          "promotion_threshold": {
+            "min_recall_count": 3,
+            "heat_threshold": 5.0
+          },
+          "first_threshold_turn": "S001-Q013",
+          "promotion_job": "SIMULATED-PROMOTION-10",
+          "attempts": 0,
+          "final_status": "SIMULATED_SUCCEEDED"
+        },
+        "simulated_output": {
+          "cross_session_memory": "用户要求收口整体画像章的信息边界，明确现有底表能站稳哪些结论、哪些只能停在方向层面，以及这些缺口对后续分析的限制。助手先给出结论：能站稳的判断集中在形状与方向层（形态、比率方向、弹性结构、恶化顺序、低留存机制），只能停在方向层面的判断集中在构成与质量层（科目归因、现金含量、资产投向、分配去向、2023同比与平均口径）。随后按判定标准（可复算性）、两列清单、缺口对后续章节的限制、补数路径四部分展开。判定标准将结论分为四级：披露原数、派生复算、需明细判断、无披露。能站稳的判断包括：形态与拐点（2024双顶、2025方向拐点）、比率方向（净利率连续下降、周转回吐未破起点、权益回报跌破起点）、弹性结构（利润降幅率3.7倍于收入、约七成三来自净利率）、恶化顺序（盈利>效率>杠杆）、低留存机制（留存吸收率20.2%/14.0%）。只能停在方向层面的判断包括：净利率回落科目归因、现金与利润匹配、2025年资产增量投向、未留存利润去向、非权益内部构成、2023年同比与平均口径、量的内部结构。缺口对后续章节的限制：对现金质量章约束最重，对盈利路径章居中，对资产权益章集中在结构端，对披露证据章止于声明级。补数优先级：2022年数据优先于年报原文、年报原文优先于附注定义。最后给出表述纪律（三档用词）与反证条件。"
+        },
+        "simulation_boundary": "No promotion_events or memory_promotion_jobs exist in the target run. The recall association, heat state, job, and promoted record are hypothetical; source memory and dialogue texts are observed."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "59de4c34-c0a8-5669-80e0-ab2a3f8d7960",
+          "field": "source_turn_id"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "59de4c34-c0a8-5669-80e0-ab2a3f8d7960",
+          "field": "summary"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "59de4c34-c0a8-5669-80e0-ab2a3f8d7960",
+          "field": "keywords"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q013",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q013",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_min_recall_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_heat_threshold"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_alpha"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_beta"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_gamma"
+        }
+      ]
+    },
+    {
+      "candidate_id": "H-SIM-S001-S001-Q011",
+      "presentation_score": 87,
+      "why_good_for_ppt": "以真实 Memory S001-Q011 和随后三条连续真实问题演示阈值链；召回归属、Heat 达标、Job 与跨 Session 写入均标为模拟。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q014",
+      "memory_id": "f9841a75-bee0-5c9a-9cb6-2a2057d8ff65",
+      "job_id": "SIMULATED-PROMOTION-11",
+      "display_data": {
+        "title": "连续 3 次模拟召回 → Heat 达标 → Promotion",
+        "current_question": "拐点定位在2024扩张峰、2025方向拐点，但盈利质量还差一块拼图：本数据集一…",
+        "input": "用户要求沿营业收入逐年拆解三年利润路径，定位拐点年份与幅度，并对照收入与利润序列的节奏同步性。助手基于2023-2025年披露原数复算：营业收入1,476.94/1,708.99…",
+        "process": [
+          "#1 S001-Q012",
+          "#2 S001-Q013",
+          "#3 S001-Q014",
+          "SIMULATED Heat=5.50"
+        ],
+        "output": "用户要求沿营业收入逐年拆解三年利润路径，定位拐点年份与幅度，并对照收入与利润序列的节奏同步性。助手基于2023-2025年披露原数复算：营业收入1,476.94/1,708.99/1,688.38亿…",
+        "key_number": "count 3 / Heat 5.50 ≥ 5.00",
+        "conclusion": "Promotion 未真实发生；此卡只演示生产阈值如何作用于真实连续对话。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "source_memory": {
+            "memory_id": "f9841a75-bee0-5c9a-9cb6-2a2057d8ff65",
+            "source_turn_id": "S001-Q011",
+            "summary": "用户要求沿营业收入逐年拆解三年利润路径，定位拐点年份与幅度，并对照收入与利润序列的节奏同步性。助手基于2023-2025年披露原数复算：营业收入1,476.94/1,708.99/1,688.38亿元，归母净利润747.34/862.28/823.20亿元，两段同比收入+15.71%/-1.21%、利润+15.38%/-4.53%。判定2024年为扩张峰（利润增量+114.94亿元、增速+15.38%），2025年为方向拐点（利润减量-39.08亿元、增速-4.53%），利润降幅率约为收入的3.7倍。通过增量、增速、弹性三组口径对比，确认利润弹性非对称（增量弹性约0.50对减量弹性约1.90），并分解2025年利润减量约73%来自净利率回落（-1.70个百分点，为2024年降幅的约12倍）、约27%来自收入收缩。近似净利率三年50.60%/50.46%/48.76%连续下降，2024年先行微降0.14个百分点，质量拐点先于方向拐点。结论：方向同步、强度错位，利润摆幅19.91个百分点大于收入16.92个百分点，多出部分几乎全由净利率相对摆幅3.08个百分点解释；三年累计利润+10.15%落后收入+14.32%约4.2个百分点，与净利率累计回落3.64%对应。边界：无2022年数据，2023年无同比；无毛利率、费用率、扣非、现金流数据，净利率回落归因与现金含金量不可见。"
+          },
+          "real_following_dialogue_queries": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q012",
+              "observed_query": "路径拆完了，把两段同比并排对照一下：盈利增速和收入增速到底匹不匹配？2024年几乎同步、2025年利润降幅率是收入的三倍多，这种组合该怎么读盈利质量？",
+              "simulated_as_recall_of": "S001-Q011"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q013",
+              "observed_query": "路径拆完了，两段同比也对照过了，现在把拐点本身钉死：利润拐点出现在哪一年、幅度有多大？用增量、增速、弹性三组口径把扩张段和回落段各比一遍，2024是不是就是那个扩张峰、2025的回落实在什么量级，我要一个能直接写进投研结论的定位。",
+              "simulated_as_recall_of": "S001-Q011"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q014",
+              "observed_query": "拐点定位在2024扩张峰、2025方向拐点，但盈利质量还差一块拼图：本数据集一直没有扣非归母净利润的数值。归母与扣非的差额算不出来、利润里经营与非经营的构成看不见，这个缺口对盈利质量判断到底限制了什么？'主营利润稳不稳'这句话我们能把结论说到哪一步？",
+              "simulated_as_recall_of": "S001-Q011"
+            }
+          ]
+        },
+        "simulated_process": {
+          "recall_history": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q012",
+              "observed_query": "路径拆完了，把两段同比并排对照一下：盈利增速和收入增速到底匹不匹配？2024年几乎同步、2025年利润降幅率是收入的三倍多，这种组合该怎么读盈利质量？",
+              "simulated_as_recall_of": "S001-Q011"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q013",
+              "observed_query": "路径拆完了，两段同比也对照过了，现在把拐点本身钉死：利润拐点出现在哪一年、幅度有多大？用增量、增速、弹性三组口径把扩张段和回落段各比一遍，2024是不是就是那个扩张峰、2025的回落实在什么量级，我要一个能直接写进投研结论的定位。",
+              "simulated_as_recall_of": "S001-Q011"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q014",
+              "observed_query": "拐点定位在2024扩张峰、2025方向拐点，但盈利质量还差一块拼图：本数据集一直没有扣非归母净利润的数值。归母与扣非的差额算不出来、利润里经营与非经营的构成看不见，这个缺口对盈利质量判断到底限制了什么？'主营利润稳不稳'这句话我们能把结论说到哪一步？",
+              "simulated_as_recall_of": "S001-Q011"
+            }
+          ],
+          "valid_recall_count": 3,
+          "H_segment": 5.5,
+          "promotion_threshold": {
+            "min_recall_count": 3,
+            "heat_threshold": 5.0
+          },
+          "first_threshold_turn": "S001-Q014",
+          "promotion_job": "SIMULATED-PROMOTION-11",
+          "attempts": 0,
+          "final_status": "SIMULATED_SUCCEEDED"
+        },
+        "simulated_output": {
+          "cross_session_memory": "用户要求沿营业收入逐年拆解三年利润路径，定位拐点年份与幅度，并对照收入与利润序列的节奏同步性。助手基于2023-2025年披露原数复算：营业收入1,476.94/1,708.99/1,688.38亿元，归母净利润747.34/862.28/823.20亿元，两段同比收入+15.71%/-1.21%、利润+15.38%/-4.53%。判定2024年为扩张峰（利润增量+114.94亿元、增速+15.38%），2025年为方向拐点（利润减量-39.08亿元、增速-4.53%），利润降幅率约为收入的3.7倍。通过增量、增速、弹性三组口径对比，确认利润弹性非对称（增量弹性约0.50对减量弹性约1.90），并分解2025年利润减量约73%来自净利率回落（-1.70个百分点，为2024年降幅的约12倍）、约27%来自收入收缩。近似净利率三年50.60%/50.46%/48.76%连续下降，2024年先行微降0.14个百分点，质量拐点先于方向拐点。结论：方向同步、强度错位，利润摆幅19.91个百分点大于收入16.92个百分点，多出部分几乎全由净利率相对摆幅3.08个百分点解释；三年累计利润+10.15%落后收入+14.32%约4.2个百分点，与净利率累计回落3.64%对应。边界：无2022年数据，2023年无同比；无毛利率、费用率、扣非、现金流数据，净利率回落归因与现金含金量不可见。"
+        },
+        "simulation_boundary": "No promotion_events or memory_promotion_jobs exist in the target run. The recall association, heat state, job, and promoted record are hypothetical; source memory and dialogue texts are observed."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "f9841a75-bee0-5c9a-9cb6-2a2057d8ff65",
+          "field": "source_turn_id"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "f9841a75-bee0-5c9a-9cb6-2a2057d8ff65",
+          "field": "summary"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "f9841a75-bee0-5c9a-9cb6-2a2057d8ff65",
+          "field": "keywords"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q014",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q014",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_min_recall_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_heat_threshold"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_alpha"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_beta"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_gamma"
+        }
+      ]
+    },
+    {
+      "candidate_id": "H-SIM-S001-S001-Q008",
+      "presentation_score": 86.77,
+      "why_good_for_ppt": "以真实 Memory S001-Q008 和随后三条连续真实问题演示阈值链；召回归属、Heat 达标、Job 与跨 Session 写入均标为模拟。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q011",
+      "memory_id": "9d54be80-81c4-51c4-bfa4-edfad6974ceb",
+      "job_id": "SIMULATED-PROMOTION-08",
+      "display_data": {
+        "title": "连续 3 次模拟召回 → Heat 达标 → Promotion",
+        "current_question": "整体画像把总量形态和拐点都定下来了，现在把盈利这条线单独拉出来：沿营业收入把三…",
+        "input": "用户要求用期末近似权益回报（归母净利润/期末归母权益）检验归母股东权益三年连续上升与利润、资产扩张的对应关系。助手计算三年近似权益回报为34.7%（2023）、37.0%（202…",
+        "process": [
+          "#1 S001-Q009",
+          "#2 S001-Q010",
+          "#3 S001-Q011",
+          "SIMULATED Heat=5.50"
+        ],
+        "output": "用户要求用期末近似权益回报（归母净利润/期末归母权益）检验归母股东权益三年连续上升与利润、资产扩张的对应关系。助手计算三年近似权益回报为34.7%（2023）、37.0%（2024）、33.6%（2…",
+        "key_number": "count 3 / Heat 5.50 ≥ 5.00",
+        "conclusion": "Promotion 未真实发生；此卡只演示生产阈值如何作用于真实连续对话。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "source_memory": {
+            "memory_id": "9d54be80-81c4-51c4-bfa4-edfad6974ceb",
+            "source_turn_id": "S001-Q008",
+            "summary": "用户要求用期末近似权益回报（归母净利润/期末归母权益）检验归母股东权益三年连续上升与利润、资产扩张的对应关系。助手计算三年近似权益回报为34.7%（2023）、37.0%（2024）、33.6%（2025），先升后降，2025年跌破2023年起点。权益增量2024年174.37亿元、2025年115.32亿元，分别仅为当期利润的20.2%和14.0%，三年累计约11.9%，未留存利润差额（2024年687.91亿元、2025年707.88亿元）因无分红/回购数据只能定性为大概率对应现金流出。权益与资产扩张对应：2024年权益增量占资产增量66%，2025年权益增量115.32亿元完全覆盖资产增量48.90亿元并压降非权益66.42亿元，权益乘数从1.28降至1.24，资产扩张资金支撑增强。杜邦分解显示2024年回报上升主要由周转驱动（+1.92pp），2025年回落为净利率（-1.25pp）、周转（-1.00pp）、杠杆（-1.10pp）三维同负，净利率贡献最大。结论：权益水平连续上升但回报率2025年跌破起点，恶化顺序盈利>效率>杠杆，与前期判断一致；未留存利润去向、留存率下降原因、平均口径序列等因数据缺口无法确认。"
+          },
+          "real_following_dialogue_queries": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q009",
+              "observed_query": "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画像该怎么下？",
+              "simulated_as_recall_of": "S001-Q008"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q010",
+              "observed_query": "整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡住后续哪些分析？",
+              "simulated_as_recall_of": "S001-Q008"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q011",
+              "observed_query": "整体画像把总量形态和拐点都定下来了，现在把盈利这条线单独拉出来：沿营业收入把三年利润路径逐年拆开，拐点落在哪一年、幅度有多大？收入与利润两条序列对齐着看，节奏是同步还是错位？",
+              "simulated_as_recall_of": "S001-Q008"
+            }
+          ]
+        },
+        "simulated_process": {
+          "recall_history": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q009",
+              "observed_query": "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画像该怎么下？",
+              "simulated_as_recall_of": "S001-Q008"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q010",
+              "observed_query": "整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡住后续哪些分析？",
+              "simulated_as_recall_of": "S001-Q008"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q011",
+              "observed_query": "整体画像把总量形态和拐点都定下来了，现在把盈利这条线单独拉出来：沿营业收入把三年利润路径逐年拆开，拐点落在哪一年、幅度有多大？收入与利润两条序列对齐着看，节奏是同步还是错位？",
+              "simulated_as_recall_of": "S001-Q008"
+            }
+          ],
+          "valid_recall_count": 3,
+          "H_segment": 5.5,
+          "promotion_threshold": {
+            "min_recall_count": 3,
+            "heat_threshold": 5.0
+          },
+          "first_threshold_turn": "S001-Q011",
+          "promotion_job": "SIMULATED-PROMOTION-08",
+          "attempts": 0,
+          "final_status": "SIMULATED_SUCCEEDED"
+        },
+        "simulated_output": {
+          "cross_session_memory": "用户要求用期末近似权益回报（归母净利润/期末归母权益）检验归母股东权益三年连续上升与利润、资产扩张的对应关系。助手计算三年近似权益回报为34.7%（2023）、37.0%（2024）、33.6%（2025），先升后降，2025年跌破2023年起点。权益增量2024年174.37亿元、2025年115.32亿元，分别仅为当期利润的20.2%和14.0%，三年累计约11.9%，未留存利润差额（2024年687.91亿元、2025年707.88亿元）因无分红/回购数据只能定性为大概率对应现金流出。权益与资产扩张对应：2024年权益增量占资产增量66%，2025年权益增量115.32亿元完全覆盖资产增量48.90亿元并压降非权益66.42亿元，权益乘数从1.28降至1.24，资产扩张资金支撑增强。杜邦分解显示2024年回报上升主要由周转驱动（+1.92pp），2025年回落为净利率（-1.25pp）、周转（-1.00pp）、杠杆（-1.10pp）三维同负，净利率贡献最大。结论：权益水平连续上升但回报率2025年跌破起点，恶化顺序盈利>效率>杠杆，与前期判断一致；未留存利润去向、留存率下降原因、平均口径序列等因数据缺口无法确认。"
+        },
+        "simulation_boundary": "No promotion_events or memory_promotion_jobs exist in the target run. The recall association, heat state, job, and promoted record are hypothetical; source memory and dialogue texts are observed."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "9d54be80-81c4-51c4-bfa4-edfad6974ceb",
+          "field": "source_turn_id"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "9d54be80-81c4-51c4-bfa4-edfad6974ceb",
+          "field": "summary"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "9d54be80-81c4-51c4-bfa4-edfad6974ceb",
+          "field": "keywords"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q011",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q011",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_min_recall_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_heat_threshold"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_alpha"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_beta"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_gamma"
+        }
+      ]
+    },
+    {
+      "candidate_id": "H-SIM-S001-S001-Q001",
+      "presentation_score": 86.71,
+      "why_good_for_ppt": "以真实 Memory S001-Q001 和随后三条连续真实问题演示阈值链；召回归属、Heat 达标、Job 与跨 Session 写入均标为模拟。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q004",
+      "memory_id": "c6ee270c-d6cd-5972-9e46-d5feda47386f",
+      "job_id": "SIMULATED-PROMOTION-01",
+      "display_data": {
+        "title": "连续 3 次模拟召回 → Heat 达标 → Promotion",
+        "current_question": "刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资…",
+        "input": "用户要求梳理贵州茅台2023—2025年主要财务变化，并随后进行多轮分析。本轮助手基于指定来源披露文件（发布于2026-04-17）提供的数据，梳理了营业收入、归母净利润、总资产…",
+        "process": [
+          "#1 S001-Q002",
+          "#2 S001-Q003",
+          "#3 S001-Q004",
+          "SIMULATED Heat=5.50"
+        ],
+        "output": "用户要求梳理贵州茅台2023—2025年主要财务变化，并随后进行多轮分析。本轮助手基于指定来源披露文件（发布于2026-04-17）提供的数据，梳理了营业收入、归母净利润、总资产、归母股东权益四项指…",
+        "key_number": "count 3 / Heat 5.50 ≥ 5.00",
+        "conclusion": "Promotion 未真实发生；此卡只演示生产阈值如何作用于真实连续对话。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "source_memory": {
+            "memory_id": "c6ee270c-d6cd-5972-9e46-d5feda47386f",
+            "source_turn_id": "S001-Q001",
+            "summary": "用户要求梳理贵州茅台2023—2025年主要财务变化，并随后进行多轮分析。本轮助手基于指定来源披露文件（发布于2026-04-17）提供的数据，梳理了营业收入、归母净利润、总资产、归母股东权益四项指标的三年数值、同比、增量及形态，并计算了近似净利率、总资产周转、权益回报等比率。核心结论为：2024年是增速高点年，2025年是方向拐点年；收入与利润先升后降，资产与权益连续上升但减速；2025年利润降幅（-4.53%）显著大于收入降幅（-1.21%），净利率从50.46%降至48.76%，是利润下滑的主因（约占七成五）；高基数仅解释摆幅的一到两成。数据口径为亿元，同比由原数复算，总资产2023年为整数披露。"
+          },
+          "real_following_dialogue_queries": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q002",
+              "observed_query": "刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "simulated_as_recall_of": "S001-Q001"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q003",
+              "observed_query": "口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "simulated_as_recall_of": "S001-Q001"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q004",
+              "observed_query": "刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有得到收入增长的支撑？",
+              "simulated_as_recall_of": "S001-Q001"
+            }
+          ]
+        },
+        "simulated_process": {
+          "recall_history": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q002",
+              "observed_query": "刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
+              "simulated_as_recall_of": "S001-Q001"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q003",
+              "observed_query": "口径确认后，把这几个关键指标逐年列一遍，哪一年变化最明显？先从我最关心的增长质量证据讲起。",
+              "simulated_as_recall_of": "S001-Q001"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q004",
+              "observed_query": "刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有得到收入增长的支撑？",
+              "simulated_as_recall_of": "S001-Q001"
+            }
+          ],
+          "valid_recall_count": 3,
+          "H_segment": 5.5,
+          "promotion_threshold": {
+            "min_recall_count": 3,
+            "heat_threshold": 5.0
+          },
+          "first_threshold_turn": "S001-Q004",
+          "promotion_job": "SIMULATED-PROMOTION-01",
+          "attempts": 0,
+          "final_status": "SIMULATED_SUCCEEDED"
+        },
+        "simulated_output": {
+          "cross_session_memory": "用户要求梳理贵州茅台2023—2025年主要财务变化，并随后进行多轮分析。本轮助手基于指定来源披露文件（发布于2026-04-17）提供的数据，梳理了营业收入、归母净利润、总资产、归母股东权益四项指标的三年数值、同比、增量及形态，并计算了近似净利率、总资产周转、权益回报等比率。核心结论为：2024年是增速高点年，2025年是方向拐点年；收入与利润先升后降，资产与权益连续上升但减速；2025年利润降幅（-4.53%）显著大于收入降幅（-1.21%），净利率从50.46%降至48.76%，是利润下滑的主因（约占七成五）；高基数仅解释摆幅的一到两成。数据口径为亿元，同比由原数复算，总资产2023年为整数披露。"
+        },
+        "simulation_boundary": "No promotion_events or memory_promotion_jobs exist in the target run. The recall association, heat state, job, and promoted record are hypothetical; source memory and dialogue texts are observed."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "c6ee270c-d6cd-5972-9e46-d5feda47386f",
+          "field": "source_turn_id"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "c6ee270c-d6cd-5972-9e46-d5feda47386f",
+          "field": "summary"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "c6ee270c-d6cd-5972-9e46-d5feda47386f",
+          "field": "keywords"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q004",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q004",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_min_recall_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_heat_threshold"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_alpha"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_beta"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_gamma"
+        }
+      ]
+    },
+    {
+      "candidate_id": "H-SIM-S001-S001-Q003",
+      "presentation_score": 86.6,
+      "why_good_for_ppt": "以真实 Memory S001-Q003 和随后三条连续真实问题演示阈值链；召回归属、Heat 达标、Job 与跨 Session 写入均标为模拟。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q006",
+      "memory_id": "81381ff1-82bb-5aba-80fa-069594487d0b",
+      "job_id": "SIMULATED-PROMOTION-03",
+      "display_data": {
+        "title": "连续 3 次模拟召回 → Heat 达标 → Promotion",
+        "current_question": "两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近…",
+        "input": "用户要求用期末近似权益回报（归母净利润÷期末归母权益）检验归母股东权益三年连续上升与利润、资产扩张的对应关系。助手计算2023-2025年权益回报为34.7%、37.0%、33.…",
+        "process": [
+          "#1 S001-Q004",
+          "#2 S001-Q005",
+          "#3 S001-Q006",
+          "SIMULATED Heat=5.50"
+        ],
+        "output": "用户要求用期末近似权益回报（归母净利润÷期末归母权益）检验归母股东权益三年连续上升与利润、资产扩张的对应关系。助手计算2023-2025年权益回报为34.7%、37.0%、33.6%，先升后降，20…",
+        "key_number": "count 3 / Heat 5.50 ≥ 5.00",
+        "conclusion": "Promotion 未真实发生；此卡只演示生产阈值如何作用于真实连续对话。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "source_memory": {
+            "memory_id": "81381ff1-82bb-5aba-80fa-069594487d0b",
+            "source_turn_id": "S001-Q003",
+            "summary": "用户要求用期末近似权益回报（归母净利润÷期末归母权益）检验归母股东权益三年连续上升与利润、资产扩张的对应关系。助手计算2023-2025年权益回报为34.7%、37.0%、33.6%，先升后降，2025年跌破2023年水平。权益增量占当期利润比例分别为20.2%、14.0%，累计11.9%，大部分利润未留存，差额去向无披露。权益增量覆盖资产增量，2025年完全覆盖并压降非权益66.42亿元，杠杆下降。杜邦分解显示2024年回报上升主要由周转驱动，2025年净利率、周转、杠杆三因子同向回落，净利率贡献最大。结论：权益水平稳但回报率跌破起点，盈利质量先于规模恶化，资产扩张资金支撑增强但效率支撑减弱。"
+          },
+          "real_following_dialogue_queries": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q004",
+              "observed_query": "刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有得到收入增长的支撑？",
+              "simulated_as_recall_of": "S001-Q003"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q005",
+              "observed_query": "沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原因解释，只看哪一段摆动更剧烈、四个指标各摆了多少个百分点；再把 2024 高基数对 2025 同比的影响单独量化一下，看到底占多少。",
+              "simulated_as_recall_of": "S001-Q003"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q006",
+              "observed_query": "两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三年算一遍，先算后判断——2025 年利润比收入跌得深，有多少是净利率回落造成的，这个比率能不能支撑前面的判断？",
+              "simulated_as_recall_of": "S001-Q003"
+            }
+          ]
+        },
+        "simulated_process": {
+          "recall_history": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q004",
+              "observed_query": "刚才逐年看过的数字，现在把规模和质量放到一起对照：收入与利润的表现算同步吗？资产扩张有没有得到收入增长的支撑？",
+              "simulated_as_recall_of": "S001-Q003"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q005",
+              "observed_query": "沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原因解释，只看哪一段摆动更剧烈、四个指标各摆了多少个百分点；再把 2024 高基数对 2025 同比的影响单独量化一下，看到底占多少。",
+              "simulated_as_recall_of": "S001-Q003"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q006",
+              "observed_query": "两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三年算一遍，先算后判断——2025 年利润比收入跌得深，有多少是净利率回落造成的，这个比率能不能支撑前面的判断？",
+              "simulated_as_recall_of": "S001-Q003"
+            }
+          ],
+          "valid_recall_count": 3,
+          "H_segment": 5.5,
+          "promotion_threshold": {
+            "min_recall_count": 3,
+            "heat_threshold": 5.0
+          },
+          "first_threshold_turn": "S001-Q006",
+          "promotion_job": "SIMULATED-PROMOTION-03",
+          "attempts": 0,
+          "final_status": "SIMULATED_SUCCEEDED"
+        },
+        "simulated_output": {
+          "cross_session_memory": "用户要求用期末近似权益回报（归母净利润÷期末归母权益）检验归母股东权益三年连续上升与利润、资产扩张的对应关系。助手计算2023-2025年权益回报为34.7%、37.0%、33.6%，先升后降，2025年跌破2023年水平。权益增量占当期利润比例分别为20.2%、14.0%，累计11.9%，大部分利润未留存，差额去向无披露。权益增量覆盖资产增量，2025年完全覆盖并压降非权益66.42亿元，杠杆下降。杜邦分解显示2024年回报上升主要由周转驱动，2025年净利率、周转、杠杆三因子同向回落，净利率贡献最大。结论：权益水平稳但回报率跌破起点，盈利质量先于规模恶化，资产扩张资金支撑增强但效率支撑减弱。"
+        },
+        "simulation_boundary": "No promotion_events or memory_promotion_jobs exist in the target run. The recall association, heat state, job, and promoted record are hypothetical; source memory and dialogue texts are observed."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "81381ff1-82bb-5aba-80fa-069594487d0b",
+          "field": "source_turn_id"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "81381ff1-82bb-5aba-80fa-069594487d0b",
+          "field": "summary"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "81381ff1-82bb-5aba-80fa-069594487d0b",
+          "field": "keywords"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q006",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q006",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_min_recall_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_heat_threshold"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_alpha"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_beta"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_gamma"
+        }
+      ]
+    },
+    {
+      "candidate_id": "H-SIM-S001-S001-Q006",
+      "presentation_score": 83.6,
+      "why_good_for_ppt": "以真实 Memory S001-Q006 和随后三条连续真实问题演示阈值链；召回归属、Heat 达标、Job 与跨 Session 写入均标为模拟。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q009",
+      "memory_id": "2fe50c10-0892-58e3-b877-b5b0396398d0",
+      "job_id": "SIMULATED-PROMOTION-06",
+      "display_data": {
+        "title": "连续 3 次模拟召回 → Heat 达标 → Promotion",
+        "current_question": "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完…",
+        "input": "用户要求计算贵州茅台2023-2025年归母净利润/营业收入的近似净利率，以检验2025年利润降幅大于收入降幅是否由净利率回落造成。助手计算三年净利率分别为50.60%、50.4…",
+        "process": [
+          "#1 S001-Q007",
+          "#2 S001-Q008",
+          "#3 S001-Q009",
+          "SIMULATED Heat=5.50"
+        ],
+        "output": "用户要求计算贵州茅台2023-2025年归母净利润/营业收入的近似净利率，以检验2025年利润降幅大于收入降幅是否由净利率回落造成。助手计算三年净利率分别为50.60%、50.46%、48.76%，…",
+        "key_number": "count 3 / Heat 5.50 ≥ 5.00",
+        "conclusion": "Promotion 未真实发生；此卡只演示生产阈值如何作用于真实连续对话。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "source_memory": {
+            "memory_id": "2fe50c10-0892-58e3-b877-b5b0396398d0",
+            "source_turn_id": "S001-Q006",
+            "summary": "用户要求计算贵州茅台2023-2025年归母净利润/营业收入的近似净利率，以检验2025年利润降幅大于收入降幅是否由净利率回落造成。助手计算三年净利率分别为50.60%、50.46%、48.76%，连续下降，2025年单年降幅1.70个百分点，约为2024年降幅的12倍。通过增速分解和增量分解，确认2025年利润降幅-39.08亿元中约73%来自净利率效应（约-28.7亿元），约27%来自收入效应（约-10.4亿元），且该结论对分解基准不敏感。利润摆幅19.91个百分点可分解为收入摆幅16.92个百分点加净利率相对摆幅3.08个百分点，净利率解释了利润摆幅大于收入摆幅的约3个百分点。三年累计利润增速落后收入约4.2个百分点，与净利率累计相对回落3.64%的复利效应吻合。结论支撑前期判断：2025年为方向拐点年，利润弹性放大主要由净利率驱动，高基数非主因，且净利率走弱先于规模走弱（2024年先行微降）。"
+          },
+          "real_following_dialogue_queries": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q007",
+              "observed_query": "资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。",
+              "simulated_as_recall_of": "S001-Q006"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q008",
+              "observed_query": "归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+              "simulated_as_recall_of": "S001-Q006"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q009",
+              "observed_query": "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画像该怎么下？",
+              "simulated_as_recall_of": "S001-Q006"
+            }
+          ]
+        },
+        "simulated_process": {
+          "recall_history": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q007",
+              "observed_query": "资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。",
+              "simulated_as_recall_of": "S001-Q006"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q008",
+              "observed_query": "归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+              "simulated_as_recall_of": "S001-Q006"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q009",
+              "observed_query": "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画像该怎么下？",
+              "simulated_as_recall_of": "S001-Q006"
+            }
+          ],
+          "valid_recall_count": 3,
+          "H_segment": 5.5,
+          "promotion_threshold": {
+            "min_recall_count": 3,
+            "heat_threshold": 5.0
+          },
+          "first_threshold_turn": "S001-Q009",
+          "promotion_job": "SIMULATED-PROMOTION-06",
+          "attempts": 0,
+          "final_status": "SIMULATED_SUCCEEDED"
+        },
+        "simulated_output": {
+          "cross_session_memory": "用户要求计算贵州茅台2023-2025年归母净利润/营业收入的近似净利率，以检验2025年利润降幅大于收入降幅是否由净利率回落造成。助手计算三年净利率分别为50.60%、50.46%、48.76%，连续下降，2025年单年降幅1.70个百分点，约为2024年降幅的12倍。通过增速分解和增量分解，确认2025年利润降幅-39.08亿元中约73%来自净利率效应（约-28.7亿元），约27%来自收入效应（约-10.4亿元），且该结论对分解基准不敏感。利润摆幅19.91个百分点可分解为收入摆幅16.92个百分点加净利率相对摆幅3.08个百分点，净利率解释了利润摆幅大于收入摆幅的约3个百分点。三年累计利润增速落后收入约4.2个百分点，与净利率累计相对回落3.64%的复利效应吻合。结论支撑前期判断：2025年为方向拐点年，利润弹性放大主要由净利率驱动，高基数非主因，且净利率走弱先于规模走弱（2024年先行微降）。"
+        },
+        "simulation_boundary": "No promotion_events or memory_promotion_jobs exist in the target run. The recall association, heat state, job, and promoted record are hypothetical; source memory and dialogue texts are observed."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "2fe50c10-0892-58e3-b877-b5b0396398d0",
+          "field": "source_turn_id"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "2fe50c10-0892-58e3-b877-b5b0396398d0",
+          "field": "summary"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "2fe50c10-0892-58e3-b877-b5b0396398d0",
+          "field": "keywords"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q009",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q009",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_min_recall_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_heat_threshold"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_alpha"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_beta"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_gamma"
+        }
+      ]
+    },
+    {
+      "candidate_id": "H-SIM-S001-S001-Q009",
+      "presentation_score": 83.34,
+      "why_good_for_ppt": "以真实 Memory S001-Q009 和随后三条连续真实问题演示阈值链；召回归属、Heat 达标、Job 与跨 Session 写入均标为模拟。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q012",
+      "memory_id": "c737e6aa-1b76-56ec-a4a9-f1544297653a",
+      "job_id": "SIMULATED-PROMOTION-09",
+      "display_data": {
+        "title": "连续 3 次模拟召回 → Heat 达标 → Promotion",
+        "current_question": "路径拆完了，把两段同比并排对照一下：盈利增速和收入增速到底匹不匹配？2024年…",
+        "input": "用户要求将收入利润先升后降、资产权益连续上升的形态与前期确认的判断串成完整判断链，形成整体画像。助手综合三年数据（收入1,476.94/1,708.99/1,688.38亿元，利…",
+        "process": [
+          "#1 S001-Q010",
+          "#2 S001-Q011",
+          "#3 S001-Q012",
+          "SIMULATED Heat=5.50"
+        ],
+        "output": "用户要求将收入利润先升后降、资产权益连续上升的形态与前期确认的判断串成完整判断链，形成整体画像。助手综合三年数据（收入1,476.94/1,708.99/1,688.38亿元，利润747.34/86…",
+        "key_number": "count 3 / Heat 5.50 ≥ 5.00",
+        "conclusion": "Promotion 未真实发生；此卡只演示生产阈值如何作用于真实连续对话。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "source_memory": {
+            "memory_id": "c737e6aa-1b76-56ec-a4a9-f1544297653a",
+            "source_turn_id": "S001-Q009",
+            "summary": "用户要求将收入利润先升后降、资产权益连续上升的形态与前期确认的判断串成完整判断链，形成整体画像。助手综合三年数据（收入1,476.94/1,708.99/1,688.38亿元，利润747.34/862.28/823.20亿元，资产2,727/2,989.45/3,038.35亿元，权益2,156.69/2,331.06/2,446.38亿元），确认2024年为量率齐顶的顶点年、2025年为方向拐点年；利润降幅率3.7倍于收入，约73%来自净利率回落（50.60%→50.46%→48.76%），净利率2024年先行微降；周转0.542→0.572→0.556倍，2025年回吐未破起点；权益回报34.7%→37.0%→33.6%，2025年跌破起点；恶化顺序为盈利>效率>杠杆，低留存机制（留存率20.2%/14.0%）缓冲利润波动。判断链在形态-弹性-比率层闭合，科目-现金-结构层开放。"
+          },
+          "real_following_dialogue_queries": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q010",
+              "observed_query": "整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡住后续哪些分析？",
+              "simulated_as_recall_of": "S001-Q009"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q011",
+              "observed_query": "整体画像把总量形态和拐点都定下来了，现在把盈利这条线单独拉出来：沿营业收入把三年利润路径逐年拆开，拐点落在哪一年、幅度有多大？收入与利润两条序列对齐着看，节奏是同步还是错位？",
+              "simulated_as_recall_of": "S001-Q009"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q012",
+              "observed_query": "路径拆完了，把两段同比并排对照一下：盈利增速和收入增速到底匹不匹配？2024年几乎同步、2025年利润降幅率是收入的三倍多，这种组合该怎么读盈利质量？",
+              "simulated_as_recall_of": "S001-Q009"
+            }
+          ]
+        },
+        "simulated_process": {
+          "recall_history": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q010",
+              "observed_query": "整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡住后续哪些分析？",
+              "simulated_as_recall_of": "S001-Q009"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q011",
+              "observed_query": "整体画像把总量形态和拐点都定下来了，现在把盈利这条线单独拉出来：沿营业收入把三年利润路径逐年拆开，拐点落在哪一年、幅度有多大？收入与利润两条序列对齐着看，节奏是同步还是错位？",
+              "simulated_as_recall_of": "S001-Q009"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q012",
+              "observed_query": "路径拆完了，把两段同比并排对照一下：盈利增速和收入增速到底匹不匹配？2024年几乎同步、2025年利润降幅率是收入的三倍多，这种组合该怎么读盈利质量？",
+              "simulated_as_recall_of": "S001-Q009"
+            }
+          ],
+          "valid_recall_count": 3,
+          "H_segment": 5.5,
+          "promotion_threshold": {
+            "min_recall_count": 3,
+            "heat_threshold": 5.0
+          },
+          "first_threshold_turn": "S001-Q012",
+          "promotion_job": "SIMULATED-PROMOTION-09",
+          "attempts": 0,
+          "final_status": "SIMULATED_SUCCEEDED"
+        },
+        "simulated_output": {
+          "cross_session_memory": "用户要求将收入利润先升后降、资产权益连续上升的形态与前期确认的判断串成完整判断链，形成整体画像。助手综合三年数据（收入1,476.94/1,708.99/1,688.38亿元，利润747.34/862.28/823.20亿元，资产2,727/2,989.45/3,038.35亿元，权益2,156.69/2,331.06/2,446.38亿元），确认2024年为量率齐顶的顶点年、2025年为方向拐点年；利润降幅率3.7倍于收入，约73%来自净利率回落（50.60%→50.46%→48.76%），净利率2024年先行微降；周转0.542→0.572→0.556倍，2025年回吐未破起点；权益回报34.7%→37.0%→33.6%，2025年跌破起点；恶化顺序为盈利>效率>杠杆，低留存机制（留存率20.2%/14.0%）缓冲利润波动。判断链在形态-弹性-比率层闭合，科目-现金-结构层开放。"
+        },
+        "simulation_boundary": "No promotion_events or memory_promotion_jobs exist in the target run. The recall association, heat state, job, and promoted record are hypothetical; source memory and dialogue texts are observed."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "c737e6aa-1b76-56ec-a4a9-f1544297653a",
+          "field": "source_turn_id"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "c737e6aa-1b76-56ec-a4a9-f1544297653a",
+          "field": "summary"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "c737e6aa-1b76-56ec-a4a9-f1544297653a",
+          "field": "keywords"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q012",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q012",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_min_recall_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_heat_threshold"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_alpha"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_beta"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_gamma"
+        }
+      ]
+    },
+    {
+      "candidate_id": "H-SIM-S001-S001-Q012",
+      "presentation_score": 82.49,
+      "why_good_for_ppt": "以真实 Memory S001-Q012 和随后三条连续真实问题演示阈值链；召回归属、Heat 达标、Job 与跨 Session 写入均标为模拟。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q015",
+      "memory_id": "75369efa-613a-585d-8f0d-bb23a9e5e8f7",
+      "job_id": "SIMULATED-PROMOTION-12",
+      "display_data": {
+        "title": "连续 3 次模拟召回 → Heat 达标 → Promotion",
+        "current_question": "盈利路径的判断已经钉在2024扩张峰、2025方向拐点、利润弹性被放大、净利率…",
+        "input": "用户要求将收入与利润的两段同比并排对照，判断盈利增速与收入增速的匹配度，并解读盈利质量。助手给出结论：方向匹配、强度不匹配——2024年扩张段基本匹配（利润增速15.38%仅落后…",
+        "process": [
+          "#1 S001-Q013",
+          "#2 S001-Q014",
+          "#3 S001-Q015",
+          "SIMULATED Heat=5.50"
+        ],
+        "output": "用户要求将收入与利润的两段同比并排对照，判断盈利增速与收入增速的匹配度，并解读盈利质量。助手给出结论：方向匹配、强度不匹配——2024年扩张段基本匹配（利润增速15.38%仅落后收入15.71%约0…",
+        "key_number": "count 3 / Heat 5.50 ≥ 5.00",
+        "conclusion": "Promotion 未真实发生；此卡只演示生产阈值如何作用于真实连续对话。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "source_memory": {
+            "memory_id": "75369efa-613a-585d-8f0d-bb23a9e5e8f7",
+            "source_turn_id": "S001-Q012",
+            "summary": "用户要求将收入与利润的两段同比并排对照，判断盈利增速与收入增速的匹配度，并解读盈利质量。助手给出结论：方向匹配、强度不匹配——2024年扩张段基本匹配（利润增速15.38%仅落后收入15.71%约0.33个百分点），2025年收缩段显著背离（利润降幅率4.53%是收入降幅率1.21%的约3.7倍，多出3.32个百分点）。盈利质量在恶化且加速，但主体是“率”不是“量”：近似净利率三年50.60%/50.46%/48.76%连续下降，2025年单年降1.70个百分点（为2024年降幅0.14个百分点的约12倍）并跌破49%；2025年利润降幅约七成三来自净利率回落，仅约两成七来自收入收缩。助手建立了匹配度三要素框架（方向、幅度、比例），并给出质量双读数（净利率、弹性），强调所有判断基于披露原数复算，可复现、可证伪，不越披露边界。"
+          },
+          "real_following_dialogue_queries": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q013",
+              "observed_query": "路径拆完了，两段同比也对照过了，现在把拐点本身钉死：利润拐点出现在哪一年、幅度有多大？用增量、增速、弹性三组口径把扩张段和回落段各比一遍，2024是不是就是那个扩张峰、2025的回落实在什么量级，我要一个能直接写进投研结论的定位。",
+              "simulated_as_recall_of": "S001-Q012"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q014",
+              "observed_query": "拐点定位在2024扩张峰、2025方向拐点，但盈利质量还差一块拼图：本数据集一直没有扣非归母净利润的数值。归母与扣非的差额算不出来、利润里经营与非经营的构成看不见，这个缺口对盈利质量判断到底限制了什么？'主营利润稳不稳'这句话我们能把结论说到哪一步？",
+              "simulated_as_recall_of": "S001-Q012"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q015",
+              "observed_query": "盈利路径的判断已经钉在2024扩张峰、2025方向拐点、利润弹性被放大、净利率先行走弱这一组结论上。做研究最忌讳判断只能被印证、不能被推翻——把反证条件划清楚：什么样的新证据一旦出现，就足以推翻或削弱这套盈利判断？哪些证据只是补充细节、不改变结论本身？我要一份能直接放进跟踪清单的证伪清单。",
+              "simulated_as_recall_of": "S001-Q012"
+            }
+          ]
+        },
+        "simulated_process": {
+          "recall_history": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q013",
+              "observed_query": "路径拆完了，两段同比也对照过了，现在把拐点本身钉死：利润拐点出现在哪一年、幅度有多大？用增量、增速、弹性三组口径把扩张段和回落段各比一遍，2024是不是就是那个扩张峰、2025的回落实在什么量级，我要一个能直接写进投研结论的定位。",
+              "simulated_as_recall_of": "S001-Q012"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q014",
+              "observed_query": "拐点定位在2024扩张峰、2025方向拐点，但盈利质量还差一块拼图：本数据集一直没有扣非归母净利润的数值。归母与扣非的差额算不出来、利润里经营与非经营的构成看不见，这个缺口对盈利质量判断到底限制了什么？'主营利润稳不稳'这句话我们能把结论说到哪一步？",
+              "simulated_as_recall_of": "S001-Q012"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q015",
+              "observed_query": "盈利路径的判断已经钉在2024扩张峰、2025方向拐点、利润弹性被放大、净利率先行走弱这一组结论上。做研究最忌讳判断只能被印证、不能被推翻——把反证条件划清楚：什么样的新证据一旦出现，就足以推翻或削弱这套盈利判断？哪些证据只是补充细节、不改变结论本身？我要一份能直接放进跟踪清单的证伪清单。",
+              "simulated_as_recall_of": "S001-Q012"
+            }
+          ],
+          "valid_recall_count": 3,
+          "H_segment": 5.5,
+          "promotion_threshold": {
+            "min_recall_count": 3,
+            "heat_threshold": 5.0
+          },
+          "first_threshold_turn": "S001-Q015",
+          "promotion_job": "SIMULATED-PROMOTION-12",
+          "attempts": 0,
+          "final_status": "SIMULATED_SUCCEEDED"
+        },
+        "simulated_output": {
+          "cross_session_memory": "用户要求将收入与利润的两段同比并排对照，判断盈利增速与收入增速的匹配度，并解读盈利质量。助手给出结论：方向匹配、强度不匹配——2024年扩张段基本匹配（利润增速15.38%仅落后收入15.71%约0.33个百分点），2025年收缩段显著背离（利润降幅率4.53%是收入降幅率1.21%的约3.7倍，多出3.32个百分点）。盈利质量在恶化且加速，但主体是“率”不是“量”：近似净利率三年50.60%/50.46%/48.76%连续下降，2025年单年降1.70个百分点（为2024年降幅0.14个百分点的约12倍）并跌破49%；2025年利润降幅约七成三来自净利率回落，仅约两成七来自收入收缩。助手建立了匹配度三要素框架（方向、幅度、比例），并给出质量双读数（净利率、弹性），强调所有判断基于披露原数复算，可复现、可证伪，不越披露边界。"
+        },
+        "simulation_boundary": "No promotion_events or memory_promotion_jobs exist in the target run. The recall association, heat state, job, and promoted record are hypothetical; source memory and dialogue texts are observed."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "75369efa-613a-585d-8f0d-bb23a9e5e8f7",
+          "field": "source_turn_id"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "75369efa-613a-585d-8f0d-bb23a9e5e8f7",
+          "field": "summary"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "75369efa-613a-585d-8f0d-bb23a9e5e8f7",
+          "field": "keywords"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q015",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q015",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_min_recall_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_heat_threshold"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_alpha"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_beta"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_gamma"
+        }
+      ]
+    },
+    {
+      "candidate_id": "H-SIM-S001-S001-Q005",
+      "presentation_score": 81.86,
+      "why_good_for_ppt": "以真实 Memory S001-Q005 和随后三条连续真实问题演示阈值链；召回归属、Heat 达标、Job 与跨 Session 写入均标为模拟。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q008",
+      "memory_id": "43711fe9-79f1-526b-8d75-ca4adca60443",
+      "job_id": "SIMULATED-PROMOTION-05",
+      "display_data": {
+        "title": "连续 3 次模拟召回 → Heat 达标 → Promotion",
+        "current_question": "归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算…",
+        "input": "用户要求将2024与2025两段同比并排比较变化幅度，并量化2024年高基数对2025年同比的影响。助手基于贵州茅台2023-2025年四个指标（营业收入、归母净利润、总资产、归…",
+        "process": [
+          "#1 S001-Q006",
+          "#2 S001-Q007",
+          "#3 S001-Q008",
+          "SIMULATED Heat=5.50"
+        ],
+        "output": "用户要求将2024与2025两段同比并排比较变化幅度，并量化2024年高基数对2025年同比的影响。助手基于贵州茅台2023-2025年四个指标（营业收入、归母净利润、总资产、归母股东权益）的原数，…",
+        "key_number": "count 3 / Heat 5.50 ≥ 5.00",
+        "conclusion": "Promotion 未真实发生；此卡只演示生产阈值如何作用于真实连续对话。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "source_memory": {
+            "memory_id": "43711fe9-79f1-526b-8d75-ca4adca60443",
+            "source_turn_id": "S001-Q005",
+            "summary": "用户要求将2024与2025两段同比并排比较变化幅度，并量化2024年高基数对2025年同比的影响。助手基于贵州茅台2023-2025年四个指标（营业收入、归母净利润、总资产、归母股东权益）的原数，计算摆幅：利润19.91个百分点、收入16.92、资产7.98、权益3.14，排序利润>收入>资产>权益；判定2025段为剧变段（收入利润转负、资产骤停、权益温和放缓），2024段为高点段。高基数量化：若2025年保持2024年绝对增量，收入同比+13.58%、利润+13.33%、资产+8.78%、权益+7.48%，基数拖累分别为2.13、2.05、0.84、0.61个百分点，占摆幅的12.6%、10.3%、10.5%、19.4%，结论为高基数只解释一成到两成，主体是绝对增量收缩与反转。"
+          },
+          "real_following_dialogue_queries": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q006",
+              "observed_query": "两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三年算一遍，先算后判断——2025 年利润比收入跌得深，有多少是净利率回落造成的，这个比率能不能支撑前面的判断？",
+              "simulated_as_recall_of": "S001-Q005"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q007",
+              "observed_query": "资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。",
+              "simulated_as_recall_of": "S001-Q005"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q008",
+              "observed_query": "归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+              "simulated_as_recall_of": "S001-Q005"
+            }
+          ]
+        },
+        "simulated_process": {
+          "recall_history": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q006",
+              "observed_query": "两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三年算一遍，先算后判断——2025 年利润比收入跌得深，有多少是净利率回落造成的，这个比率能不能支撑前面的判断？",
+              "simulated_as_recall_of": "S001-Q005"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q007",
+              "observed_query": "资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。",
+              "simulated_as_recall_of": "S001-Q005"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q008",
+              "observed_query": "归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+              "simulated_as_recall_of": "S001-Q005"
+            }
+          ],
+          "valid_recall_count": 3,
+          "H_segment": 5.5,
+          "promotion_threshold": {
+            "min_recall_count": 3,
+            "heat_threshold": 5.0
+          },
+          "first_threshold_turn": "S001-Q008",
+          "promotion_job": "SIMULATED-PROMOTION-05",
+          "attempts": 0,
+          "final_status": "SIMULATED_SUCCEEDED"
+        },
+        "simulated_output": {
+          "cross_session_memory": "用户要求将2024与2025两段同比并排比较变化幅度，并量化2024年高基数对2025年同比的影响。助手基于贵州茅台2023-2025年四个指标（营业收入、归母净利润、总资产、归母股东权益）的原数，计算摆幅：利润19.91个百分点、收入16.92、资产7.98、权益3.14，排序利润>收入>资产>权益；判定2025段为剧变段（收入利润转负、资产骤停、权益温和放缓），2024段为高点段。高基数量化：若2025年保持2024年绝对增量，收入同比+13.58%、利润+13.33%、资产+8.78%、权益+7.48%，基数拖累分别为2.13、2.05、0.84、0.61个百分点，占摆幅的12.6%、10.3%、10.5%、19.4%，结论为高基数只解释一成到两成，主体是绝对增量收缩与反转。"
+        },
+        "simulation_boundary": "No promotion_events or memory_promotion_jobs exist in the target run. The recall association, heat state, job, and promoted record are hypothetical; source memory and dialogue texts are observed."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "43711fe9-79f1-526b-8d75-ca4adca60443",
+          "field": "source_turn_id"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "43711fe9-79f1-526b-8d75-ca4adca60443",
+          "field": "summary"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "43711fe9-79f1-526b-8d75-ca4adca60443",
+          "field": "keywords"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q008",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q008",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_min_recall_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_heat_threshold"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_alpha"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_beta"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_gamma"
+        }
+      ]
+    },
+    {
+      "candidate_id": "H-SIM-S001-S001-Q007",
+      "presentation_score": 81.31,
+      "why_good_for_ppt": "以真实 Memory S001-Q007 和随后三条连续真实问题演示阈值链；召回归属、Heat 达标、Job 与跨 Session 写入均标为模拟。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q010",
+      "memory_id": "6bce7f2e-33d4-52ad-9d55-4b6d2966e0e4",
+      "job_id": "SIMULATED-PROMOTION-07",
+      "display_data": {
+        "title": "连续 3 次模拟召回 → Heat 达标 → Promotion",
+        "current_question": "整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？…",
+        "input": "用户询问资产扩张是否得到收入增长支撑，要求用可复算的周转比率检验。助手计算期末总资产周转近似（营业收入/期末总资产）：2023年0.542倍、2024年0.572倍、2025年0…",
+        "process": [
+          "#1 S001-Q008",
+          "#2 S001-Q009",
+          "#3 S001-Q010",
+          "SIMULATED Heat=5.50"
+        ],
+        "output": "用户询问资产扩张是否得到收入增长支撑，要求用可复算的周转比率检验。助手计算期末总资产周转近似（营业收入/期末总资产）：2023年0.542倍、2024年0.572倍、2025年0.556倍，并对比收…",
+        "key_number": "count 3 / Heat 5.50 ≥ 5.00",
+        "conclusion": "Promotion 未真实发生；此卡只演示生产阈值如何作用于真实连续对话。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "source_memory": {
+            "memory_id": "6bce7f2e-33d4-52ad-9d55-4b6d2966e0e4",
+            "source_turn_id": "S001-Q007",
+            "summary": "用户询问资产扩张是否得到收入增长支撑，要求用可复算的周转比率检验。助手计算期末总资产周转近似（营业收入/期末总资产）：2023年0.542倍、2024年0.572倍、2025年0.556倍，并对比收入与资产增速：2024年收入+15.71%、资产+9.62%，增速差+6.09个百分点，周转上升；2025年收入-1.21%、资产+1.64%，增速差-2.85个百分点，周转回落。结论：2024年资产扩张有收入支撑，属效率型扩张；2025年支撑减弱，但周转仍高于2023年，累计收入增速（+14.32%）仍快于资产（+11.42%），判断为“支撑由强转弱、未跌破起点”。同时指出资产增量结构（2025年+48.90亿元）无明细，无法判断投向，需补充披露。"
+          },
+          "real_following_dialogue_queries": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q008",
+              "observed_query": "归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+              "simulated_as_recall_of": "S001-Q007"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q009",
+              "observed_query": "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画像该怎么下？",
+              "simulated_as_recall_of": "S001-Q007"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q010",
+              "observed_query": "整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡住后续哪些分析？",
+              "simulated_as_recall_of": "S001-Q007"
+            }
+          ]
+        },
+        "simulated_process": {
+          "recall_history": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q008",
+              "observed_query": "归母股东权益三年连续上升，跟利润、资产扩张对得上吗？用期末近似权益回报把三年算一遍。",
+              "simulated_as_recall_of": "S001-Q007"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q009",
+              "observed_query": "收入利润先升后降、资产权益连续上升，把这几种形态与前面陆续确认的判断串成一条完整判断链，整体画像该怎么下？",
+              "simulated_as_recall_of": "S001-Q007"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q010",
+              "observed_query": "整体画像这一章收一下信息边界：现在的底表能站稳哪些结论，哪些只能停在方向层面？这些缺口会卡住后续哪些分析？",
+              "simulated_as_recall_of": "S001-Q007"
+            }
+          ],
+          "valid_recall_count": 3,
+          "H_segment": 5.5,
+          "promotion_threshold": {
+            "min_recall_count": 3,
+            "heat_threshold": 5.0
+          },
+          "first_threshold_turn": "S001-Q010",
+          "promotion_job": "SIMULATED-PROMOTION-07",
+          "attempts": 0,
+          "final_status": "SIMULATED_SUCCEEDED"
+        },
+        "simulated_output": {
+          "cross_session_memory": "用户询问资产扩张是否得到收入增长支撑，要求用可复算的周转比率检验。助手计算期末总资产周转近似（营业收入/期末总资产）：2023年0.542倍、2024年0.572倍、2025年0.556倍，并对比收入与资产增速：2024年收入+15.71%、资产+9.62%，增速差+6.09个百分点，周转上升；2025年收入-1.21%、资产+1.64%，增速差-2.85个百分点，周转回落。结论：2024年资产扩张有收入支撑，属效率型扩张；2025年支撑减弱，但周转仍高于2023年，累计收入增速（+14.32%）仍快于资产（+11.42%），判断为“支撑由强转弱、未跌破起点”。同时指出资产增量结构（2025年+48.90亿元）无明细，无法判断投向，需补充披露。"
+        },
+        "simulation_boundary": "No promotion_events or memory_promotion_jobs exist in the target run. The recall association, heat state, job, and promoted record are hypothetical; source memory and dialogue texts are observed."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "6bce7f2e-33d4-52ad-9d55-4b6d2966e0e4",
+          "field": "source_turn_id"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "6bce7f2e-33d4-52ad-9d55-4b6d2966e0e4",
+          "field": "summary"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "6bce7f2e-33d4-52ad-9d55-4b6d2966e0e4",
+          "field": "keywords"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q010",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q010",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_min_recall_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_heat_threshold"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_alpha"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_beta"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_gamma"
+        }
+      ]
+    },
+    {
+      "candidate_id": "H-SIM-S001-S001-Q004",
+      "presentation_score": 77.89,
+      "why_good_for_ppt": "以真实 Memory S001-Q004 和随后三条连续真实问题演示阈值链；召回归属、Heat 达标、Job 与跨 Session 写入均标为模拟。",
+      "session_id": "S001_贵州茅台_投研",
+      "query_id": "S001-Q007",
+      "memory_id": "eee7a1d1-35fe-53cf-b761-fca76cb7827b",
+      "job_id": "SIMULATED-PROMOTION-04",
+      "display_data": {
+        "title": "连续 3 次模拟召回 → Heat 达标 → Promotion",
+        "current_question": "资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。",
+        "input": "用户要求将规模与质量对照，分析收入与利润是否同步、资产扩张是否得到收入支撑。助手基于2023-2025年贵州茅台财务数据，通过增速差、弹性系数、净利率、总资产周转等比率分析，得出…",
+        "process": [
+          "#1 S001-Q005",
+          "#2 S001-Q006",
+          "#3 S001-Q007",
+          "SIMULATED Heat=5.50"
+        ],
+        "output": "用户要求将规模与质量对照，分析收入与利润是否同步、资产扩张是否得到收入支撑。助手基于2023-2025年贵州茅台财务数据，通过增速差、弹性系数、净利率、总资产周转等比率分析，得出结论：收入与利润方向…",
+        "key_number": "count 3 / Heat 5.50 ≥ 5.00",
+        "conclusion": "Promotion 未真实发生；此卡只演示生产阈值如何作用于真实连续对话。",
+        "simulation_label": "SIMULATED"
+      },
+      "raw_data": {
+        "observed_input": {
+          "source_memory": {
+            "memory_id": "eee7a1d1-35fe-53cf-b761-fca76cb7827b",
+            "source_turn_id": "S001-Q004",
+            "summary": "用户要求将规模与质量对照，分析收入与利润是否同步、资产扩张是否得到收入支撑。助手基于2023-2025年贵州茅台财务数据，通过增速差、弹性系数、净利率、总资产周转等比率分析，得出结论：收入与利润方向同步但强度不同步，2025年利润降幅率是收入的3.7倍，净利率下滑主导利润降幅；资产扩张在2024年有收入支撑，2025年支撑减弱但未断裂，周转回吐但未跌破2023年水平。整体判断为规模质量走弱，盈利维度恶化最重。"
+          },
+          "real_following_dialogue_queries": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q005",
+              "observed_query": "沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原因解释，只看哪一段摆动更剧烈、四个指标各摆了多少个百分点；再把 2024 高基数对 2025 同比的影响单独量化一下，看到底占多少。",
+              "simulated_as_recall_of": "S001-Q004"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q006",
+              "observed_query": "两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三年算一遍，先算后判断——2025 年利润比收入跌得深，有多少是净利率回落造成的，这个比率能不能支撑前面的判断？",
+              "simulated_as_recall_of": "S001-Q004"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q007",
+              "observed_query": "资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。",
+              "simulated_as_recall_of": "S001-Q004"
+            }
+          ]
+        },
+        "simulated_process": {
+          "recall_history": [
+            {
+              "recall_no": 1,
+              "turn_id": "S001-Q005",
+              "observed_query": "沿用刚才逐年看过的四个指标，把 2024 和 2025 两段同比放一起比变化幅度：先不做原因解释，只看哪一段摆动更剧烈、四个指标各摆了多少个百分点；再把 2024 高基数对 2025 同比的影响单独量化一下，看到底占多少。",
+              "simulated_as_recall_of": "S001-Q004"
+            },
+            {
+              "recall_no": 2,
+              "turn_id": "S001-Q006",
+              "observed_query": "两段同比的摆幅比较完之后，利润摆动一直大于收入；现在把归母净利润/营业收入的近似净利率按三年算一遍，先算后判断——2025 年利润比收入跌得深，有多少是净利率回落造成的，这个比率能不能支撑前面的判断？",
+              "simulated_as_recall_of": "S001-Q004"
+            },
+            {
+              "recall_no": 3,
+              "turn_id": "S001-Q007",
+              "observed_query": "资产扩张这几年有没有得到收入增长支撑？用可复算的周转比率看一下。",
+              "simulated_as_recall_of": "S001-Q004"
+            }
+          ],
+          "valid_recall_count": 3,
+          "H_segment": 5.5,
+          "promotion_threshold": {
+            "min_recall_count": 3,
+            "heat_threshold": 5.0
+          },
+          "first_threshold_turn": "S001-Q007",
+          "promotion_job": "SIMULATED-PROMOTION-04",
+          "attempts": 0,
+          "final_status": "SIMULATED_SUCCEEDED"
+        },
+        "simulated_output": {
+          "cross_session_memory": "用户要求将规模与质量对照，分析收入与利润是否同步、资产扩张是否得到收入支撑。助手基于2023-2025年贵州茅台财务数据，通过增速差、弹性系数、净利率、总资产周转等比率分析，得出结论：收入与利润方向同步但强度不同步，2025年利润降幅率是收入的3.7倍，净利率下滑主导利润降幅；资产扩张在2024年有收入支撑，2025年支撑减弱但未断裂，周转回吐但未跌破2023年水平。整体判断为规模质量走弱，盈利维度恶化最重。"
+        },
+        "simulation_boundary": "No promotion_events or memory_promotion_jobs exist in the target run. The recall association, heat state, job, and promoted record are hypothetical; source memory and dialogue texts are observed."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "eee7a1d1-35fe-53cf-b761-fca76cb7827b",
+          "field": "source_turn_id"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "eee7a1d1-35fe-53cf-b761-fca76cb7827b",
+          "field": "summary"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+          "table / collection": "final checkpoint / pages",
+          "record_id": "eee7a1d1-35fe-53cf-b761-fca76cb7827b",
+          "field": "keywords"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q007",
+          "field": "当前问题"
+        },
+        {
+          "source_file": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+          "table / collection": "S001 worksheet",
+          "record_id": "S001-Q007",
+          "field": "最终回答"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_min_recall_count"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "promotion_heat_threshold"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_alpha"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_beta"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+          "table / collection": "midterm config",
+          "record_id": "promotion",
+          "field": "heat_gamma"
+        }
+      ]
+    }
+  ],
+  "selection_criteria": {
+    "score_range": "0-100",
+    "dimensions": {
+      "change_magnitude": "排序/指标/状态变化是否明显",
+      "comprehensibility": "金融问题是否自然、非技术人员是否容易理解",
+      "evidence_completeness": "Input / Process / Output / Source 是否齐全",
+      "ppt_fit": "能否压缩成半页 PPT 的 Before/After、流程或时间轴"
+    },
+    "tie_breaker": "优先 S001_贵州茅台_投研，其次证据链更完整、文字更短"
+  },
+  "source_files": [
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S002/production_midterm_checkpoints.jsonl",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S003/production_midterm_checkpoints.jsonl",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S004___IR/production_midterm_checkpoints.jsonl",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S005/production_midterm_checkpoints.jsonl",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S006/production_midterm_checkpoints.jsonl",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S007/production_midterm_checkpoints.jsonl",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S008/production_midterm_checkpoints.jsonl",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S009/production_midterm_checkpoints.jsonl",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S010/production_midterm_checkpoints.jsonl",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
+    "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+    "mem0/memory/background_worker.py"
+  ],
+  "note": "目标运行扫描到 0 个 promotion event / job；以下仅为真实连续对话驱动的阈值演示。",
+  "scan_stats": {
+    "observed_promotion_event_count": 0,
+    "simulated_scenario_count": 12,
+    "target_promotion_event_count": 0,
+    "target_promotion_job_count": 0
+  }
+}

@@ -206,6 +206,32 @@ def test_gold_and_or_semantics() -> None:
     assert requirements[1].hit_by(["S001-Q003"])
 
 
+def test_reconstructed_workbook_keeps_source_id_gold_separate_from_annotations(tmp_path: Path) -> None:
+    dataset_path = tmp_path / "reconstructed.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "S001_x"
+    sheet.append(
+        [
+            "编号",
+            "当前问题",
+            "最终回答",
+            "是否需要前文",
+            "关联前序对话",
+            "实际需召回内容（原始回答）",
+            "所需前文信息",
+        ]
+    )
+    sheet.append(["S001-Q001", "问题", "答案", "否", "无", "无需前文；当前问题可独立回答", "annotation only"])
+    sheet.append(["S001-Q002", "问题2", "答案2", "是", "S001-Q001", "previous answer material", "dependency rationale"])
+    workbook.save(dataset_path)
+    workbook.close()
+
+    loaded = load_dataset(dataset_path)
+    assert loaded[0].turns[1].dependency_turn_ids == ("S001-Q001",)
+    assert loaded[0].turns[1].required_context == "dependency rationale"
+
+
 @pytest.mark.parametrize(("k", "expected"), [(5, False), (10, True)])
 def test_evaluator_parameterizes_k(tmp_path: Path, k: int, expected: bool) -> None:
     dataset = make_dataset(tmp_path, 1)

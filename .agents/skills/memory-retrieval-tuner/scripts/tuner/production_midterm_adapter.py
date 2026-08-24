@@ -33,9 +33,10 @@ from .benchmark_support import (
     wait_for_migration_jobs,
 )
 from .diagnostic_midterm_retriever import DiagnosticMidTermRetriever
-from .fact_evaluator import fact_member_hit, parse_required_context
+from .fact_evaluator import fact_member_hit, parse_required_context, uses_context_gold
 from .io_utils import (
     atomic_write_json,
+    iter_jsonl,
     load_jsonl,
     sha256_file,
     stable_hash,
@@ -208,6 +209,7 @@ def _diagnostic_rows_from_pages(
     source_turn_ids_by_job: Mapping[str, Any],
     *,
     ranking_depth: int | None = None,
+    page_payloads: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Expand the production Page-level trace to evaluator source-turn rows.
 
@@ -217,21 +219,30 @@ def _diagnostic_rows_from_pages(
     """
     rows: list[dict[str, Any]] = []
     for page in pages:
+        page_id = str(page.get("id") or page.get("page_id") or "")
+        # The production reranker returns ranking metadata but may omit the
+        # Page payload.  Replay must restore the exact stored representation
+        # before fact evaluation; otherwise every text Gold becomes a false
+        # routing/coverage loss even when the Page was retrieved.
+        payload = dict((page_payloads or {}).get(page_id) or {})
         source_ids = _diagnostic_source_ids(page, source_turn_ids_by_job)
         if not source_ids:
-            source_ids = [str(page.get("id") or page.get("page_id") or "").upper()]
+            source_ids = [page_id.upper()]
         for source_turn_id in source_ids:
             if not source_turn_id:
                 continue
             rows.append(
                 {
-                    "page_id": str(page.get("id") or page.get("page_id") or ""),
+                    "page_id": page_id,
                     "source_turn_id": source_turn_id,
                     "source": str(page.get("source") or "mid_term_page"),
                     "score": float(page.get("score") or page.get("final_score") or 0.0),
-                    "memory": page.get("memory"),
-                    "summary": page.get("summary"),
-                    "raw_dialogue": page.get("raw_dialogue"),
+                    "memory": page.get("memory") or payload.get("memory") or payload.get("data"),
+                    "summary": page.get("summary") or payload.get("summary"),
+                    "raw_dialogue": page.get("raw_dialogue") or payload.get("raw_dialogue"),
+                    "content": page.get("content") or payload.get("content"),
+                    "text": page.get("text") or payload.get("text"),
+                    "data": page.get("data") or payload.get("data"),
                     "raw_rag_score": page.get("raw_rag_score"),
                     "forgetting_factor": page.get("forgetting_factor"),
                     "heat_modulation": page.get("heat_factor", page.get("heat_modulation")),
@@ -428,6 +439,7 @@ def _checkpoint(
         QueryResolver(
             memory.llm,
             prompt=getattr(memory.config, "query_rewrite_prompt", None) or _DEFAULT_QUERY_REWRITE_PROMPT,
+            request_options=getattr(memory.config, "query_rewrite_request_options", None) or {},
         ).resolve_async(query, base_context.get("short_term_messages") or [])
     )
     query_vector = memory.embedding_model.embed(retrieval_query, "search")
@@ -575,7 +587,7 @@ def _valid_recalled_page_ids(turn: Any, checkpoint: Mapping[str, Any]) -> list[s
         if isinstance(row, Mapping) and row.get("source") in {"mid_term_page", "midterm"} and row.get("id")
     ]
     required_context = str(getattr(turn, "required_context", "") or "").strip()
-    if required_context:
+    if uses_context_gold(turn) and required_context:
         requirements = parse_required_context(required_context)
         return [
             str(row["id"])
@@ -1080,6 +1092,22 @@ def load_checkpoints(manifest_paths: Sequence[str | Path]) -> dict[str, dict[str
     return result
 
 
+def checkpoint_paths_by_session(manifest_paths: Sequence[str | Path]) -> dict[str, Path]:
+    """Resolve validated per-Session checkpoint files without loading their contents."""
+    result: dict[str, Path] = {}
+    for raw_path in manifest_paths:
+        manifest_path = Path(raw_path)
+        manifest = load_json(manifest_path)
+        if manifest.get("schema") != ADAPTER_SCHEMA or manifest.get("status") != "COMPLETE":
+            raise ValueError(f"Invalid production MidTerm manifest: {raw_path}")
+        session_id = str(manifest.get("session_id") or "")
+        checkpoint_path = Path(str(manifest.get("checkpoints_path") or ""))
+        if not session_id or session_id in result or not checkpoint_path.is_file():
+            raise ValueError(f"Missing or duplicate production Session checkpoint: {session_id}")
+        result[session_id] = checkpoint_path
+    return result
+
+
 def production_candidate_from_manifests(
     manifest_paths: Sequence[Path],
     *,
@@ -1104,6 +1132,9 @@ def production_candidate_from_manifests(
                 (manifest.get("effective_memory_config") or {}).get("promoted_longterm") or {}
             ),
             "query_rewrite_prompt": (manifest.get("effective_memory_config") or {}).get("query_rewrite_prompt"),
+            "query_rewrite_request_options": deepcopy(
+                (manifest.get("effective_memory_config") or {}).get("query_rewrite_request_options") or {}
+            ),
             "embedder": deepcopy((manifest.get("effective_memory_config") or {}).get("embedder") or {}),
             "reranker": deepcopy((manifest.get("effective_memory_config") or {}).get("reranker")),
         }
@@ -1165,6 +1196,9 @@ def production_candidate_from_manifests(
             "query_prompt_hash": hashlib.sha256(
                 str(effective_memory_config.get("query_rewrite_prompt") or _DEFAULT_QUERY_REWRITE_PROMPT).encode()
             ).hexdigest(),
+            "query_rewrite_request_options": deepcopy(
+                effective_memory_config.get("query_rewrite_request_options") or {}
+            ),
             "page_representation": str(config.get("page_representation") or _DEFAULT_PAGE_REPRESENTATION),
             "production_overrides": {},
             "benchmark_constraints": {
@@ -1467,6 +1501,11 @@ class ProductionMidtermAdapter:
                 production_config.midterm,
                 reranker=midterm_reranker,
             )
+            page_payloads = {
+                str(point.get("id") or ""): dict(point.get("payload") or {})
+                for point in checkpoint.get("pages") or []
+                if point.get("id")
+            }
             results = retriever.search(query, dict(checkpoint["filters"]), record_visits=False)
             job_map = {
                 str(job_id): [str(turn_id).upper() for turn_id in turn_ids]
@@ -1490,12 +1529,14 @@ class ProductionMidtermAdapter:
                     reranked,
                     job_map,
                     ranking_depth=self.ranking_depth,
+                    page_payloads=page_payloads,
                 )
                 ranking.extend(_unselected_page_diagnostic_rows(checkpoint, diagnostics, job_map))
             else:
                 ranking = _diagnostic_rows_from_pages(
                     [row for row in results if row.get("source") == "mid_term_page"],
                     job_map,
+                    page_payloads=page_payloads,
                 )
             longterm_ranking = self._rank_fine_grained_longterm(
                 checkpoint,

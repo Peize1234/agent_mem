@@ -6,10 +6,10 @@ from typing import Any, Mapping, Sequence
 
 from .artifact_registry import ArtifactRegistry, load_frozen_query_overrides
 from .benchmark_support import expand_env_placeholders, load_json
-from .io_utils import load_json as load_json_file
+from .io_utils import iter_jsonl, load_json as load_json_file
 from .io_utils import sha256_file, stable_hash
 from .models import Candidate
-from .production_midterm_adapter import load_checkpoints
+from .production_midterm_adapter import checkpoint_paths_by_session
 
 DERIVED_ARTIFACT_SCHEMA = 1
 
@@ -134,14 +134,18 @@ class DerivedArtifactBuilder:
         }
 
         def produce() -> dict[str, Any]:
-            checkpoints = load_checkpoints(manifests)
-            selected = {
-                query_id: checkpoint
-                for query_id, checkpoint in checkpoints.items()
-                if str((checkpoint.get("filters") or {}).get("run_id") or "") in set(session_scope)
-                or any(query_id.startswith(session.split("_", 1)[0].upper()) for session in session_scope)
-            }
-            if not selected:
+            paths_by_session = checkpoint_paths_by_session(manifests)
+            selected_query_texts: dict[str, str] = {}
+            for session_id in session_scope:
+                checkpoint_path = paths_by_session.get(session_id)
+                if checkpoint_path is None:
+                    raise ValueError(f"No production checkpoint manifest matched Session {session_id}")
+                for checkpoint in iter_jsonl(checkpoint_path):
+                    query_id = str(checkpoint.get("query_id") or "").upper()
+                    if not query_id or query_id in selected_query_texts:
+                        raise ValueError(f"Missing or duplicate production checkpoint: {query_id}")
+                    selected_query_texts[query_id] = str(checkpoint.get("query") or "")
+            if not selected_query_texts:
                 raise ValueError("No production checkpoints matched the requested Session scope")
             overrides: dict[str, str] = {}
             if query_artifact_path is not None:
@@ -164,10 +168,8 @@ class DerivedArtifactBuilder:
                     contract=dict(encoding_contract),
                 )
 
-            query_ids = sorted(selected)
-            query_texts = {
-                query_id: overrides.get(query_id, str(selected[query_id]["query"])) for query_id in query_ids
-            }
+            query_ids = sorted(selected_query_texts)
+            query_texts = {query_id: overrides.get(query_id, selected_query_texts[query_id]) for query_id in query_ids}
             reembed_queries = embedding_model_id != "production" or query_representation != "original"
             query_vectors = (
                 dict(zip(query_ids, encoder.encode([query_texts[value] for value in query_ids], action="search")))

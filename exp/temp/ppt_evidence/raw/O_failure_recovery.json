@@ -1,0 +1,1148 @@
+{
+  "status": "FOUND",
+  "candidate_count": 4,
+  "top_1": {
+    "candidate_id": "O-producti-S002-cf601e0f-0149-582b-9140-b1a5506d1eca",
+    "presentation_score": 66,
+    "why_good_for_ppt": "真实 Job 保留 attempts=2、错误/恢复字段与最终状态；未持久化的逐次 Attempt 细节不补写。",
+    "session_id": "run_id=S002_贵州茅台_内审&user_id=recall::S002_贵州茅台_内审",
+    "query_id": "S002-Q005",
+    "memory_id": null,
+    "job_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+    "display_data": {
+      "title": "失败计数 / Retry → 最终状态",
+      "current_question": "S002-Q005",
+      "input": "longterm_extraction_jobs / cf601e0f",
+      "process": [
+        "记录 attempts=2（此前至少发生过重试/失败计数）"
+      ],
+      "output": "最终可见状态：succeeded",
+      "key_number": "attempts=2 / recovery=0",
+      "conclusion": "仅展示数据库真实保留的失败与恢复信号。"
+    },
+    "raw_data": {
+      "job_type": "longterm_extraction_jobs",
+      "runtime": "production-source-f32e1b7117ea",
+      "session": "S002",
+      "job_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+      "attempts": 2,
+      "error": null,
+      "retry": true,
+      "recovery": 0,
+      "degraded": false,
+      "final_status": "succeeded",
+      "observable_chain": [
+        "记录 attempts=2（此前至少发生过重试/失败计数）",
+        "最终可见状态：succeeded"
+      ],
+      "unobservable_detail": "Per-attempt timestamps/errors are not retained when last_error was cleared after success."
+    },
+    "evidence": [
+      {
+        "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S002/history.db",
+        "table / collection": "longterm_extraction_jobs",
+        "record_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+        "field": "attempts / stage attempts"
+      },
+      {
+        "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S002/history.db",
+        "table / collection": "longterm_extraction_jobs",
+        "record_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+        "field": "last_error / stage last error"
+      },
+      {
+        "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S002/history.db",
+        "table / collection": "longterm_extraction_jobs",
+        "record_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+        "field": "recovery_count / stage recovery"
+      },
+      {
+        "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S002/history.db",
+        "table / collection": "longterm_extraction_jobs",
+        "record_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+        "field": "status"
+      },
+      {
+        "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S002/history.db",
+        "table / collection": "longterm_extraction_jobs",
+        "record_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+        "field": "started_at"
+      },
+      {
+        "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S002/history.db",
+        "table / collection": "longterm_extraction_jobs",
+        "record_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+        "field": "finished_at"
+      }
+    ]
+  },
+  "top_3": [
+    {
+      "candidate_id": "O-producti-S002-cf601e0f-0149-582b-9140-b1a5506d1eca",
+      "presentation_score": 66,
+      "why_good_for_ppt": "真实 Job 保留 attempts=2、错误/恢复字段与最终状态；未持久化的逐次 Attempt 细节不补写。",
+      "session_id": "run_id=S002_贵州茅台_内审&user_id=recall::S002_贵州茅台_内审",
+      "query_id": "S002-Q005",
+      "memory_id": null,
+      "job_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+      "display_data": {
+        "title": "失败计数 / Retry → 最终状态",
+        "current_question": "S002-Q005",
+        "input": "longterm_extraction_jobs / cf601e0f",
+        "process": [
+          "记录 attempts=2（此前至少发生过重试/失败计数）"
+        ],
+        "output": "最终可见状态：succeeded",
+        "key_number": "attempts=2 / recovery=0",
+        "conclusion": "仅展示数据库真实保留的失败与恢复信号。"
+      },
+      "raw_data": {
+        "job_type": "longterm_extraction_jobs",
+        "runtime": "production-source-f32e1b7117ea",
+        "session": "S002",
+        "job_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+        "attempts": 2,
+        "error": null,
+        "retry": true,
+        "recovery": 0,
+        "degraded": false,
+        "final_status": "succeeded",
+        "observable_chain": [
+          "记录 attempts=2（此前至少发生过重试/失败计数）",
+          "最终可见状态：succeeded"
+        ],
+        "unobservable_detail": "Per-attempt timestamps/errors are not retained when last_error was cleared after success."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S002/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+          "field": "attempts / stage attempts"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S002/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+          "field": "last_error / stage last error"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S002/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+          "field": "recovery_count / stage recovery"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S002/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+          "field": "status"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S002/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+          "field": "started_at"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S002/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+          "field": "finished_at"
+        }
+      ]
+    },
+    {
+      "candidate_id": "O-producti-S003-fd880462-f335-5193-bf8e-77726e704802",
+      "presentation_score": 66,
+      "why_good_for_ppt": "真实 Job 保留 attempts=2、错误/恢复字段与最终状态；未持久化的逐次 Attempt 细节不补写。",
+      "session_id": "run_id=S003_比亚迪_风委&user_id=recall::S003_比亚迪_风委",
+      "query_id": "S003-Q004",
+      "memory_id": null,
+      "job_id": "fd880462-f335-5193-bf8e-77726e704802",
+      "display_data": {
+        "title": "失败计数 / Retry → 最终状态",
+        "current_question": "S003-Q004",
+        "input": "longterm_extraction_jobs / fd880462",
+        "process": [
+          "记录 attempts=2（此前至少发生过重试/失败计数）"
+        ],
+        "output": "最终可见状态：succeeded",
+        "key_number": "attempts=2 / recovery=0",
+        "conclusion": "仅展示数据库真实保留的失败与恢复信号。"
+      },
+      "raw_data": {
+        "job_type": "longterm_extraction_jobs",
+        "runtime": "production-source-f32e1b7117ea",
+        "session": "S003",
+        "job_id": "fd880462-f335-5193-bf8e-77726e704802",
+        "attempts": 2,
+        "error": null,
+        "retry": true,
+        "recovery": 0,
+        "degraded": false,
+        "final_status": "succeeded",
+        "observable_chain": [
+          "记录 attempts=2（此前至少发生过重试/失败计数）",
+          "最终可见状态：succeeded"
+        ],
+        "unobservable_detail": "Per-attempt timestamps/errors are not retained when last_error was cleared after success."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "fd880462-f335-5193-bf8e-77726e704802",
+          "field": "attempts / stage attempts"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "fd880462-f335-5193-bf8e-77726e704802",
+          "field": "last_error / stage last error"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "fd880462-f335-5193-bf8e-77726e704802",
+          "field": "recovery_count / stage recovery"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "fd880462-f335-5193-bf8e-77726e704802",
+          "field": "status"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "fd880462-f335-5193-bf8e-77726e704802",
+          "field": "started_at"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "fd880462-f335-5193-bf8e-77726e704802",
+          "field": "finished_at"
+        }
+      ]
+    },
+    {
+      "candidate_id": "O-producti-S006-ba02f6cd-1cb9-5630-a297-8e793344a4e3",
+      "presentation_score": 61,
+      "why_good_for_ppt": "真实 Job 保留 attempts=1、错误/恢复字段与最终状态；未持久化的逐次 Attempt 细节不补写。",
+      "session_id": "run_id=S006_宁德时代_审委&user_id=recall::S006_宁德时代_审委",
+      "query_id": "S006-Q046",
+      "memory_id": null,
+      "job_id": "ba02f6cd-1cb9-5630-a297-8e793344a4e3",
+      "display_data": {
+        "title": "失败计数 / Retry → 最终状态",
+        "current_question": "S006-Q046",
+        "input": "longterm_extraction_jobs / ba02f6cd",
+        "process": [
+          "记录 attempts=1（此前至少发生过重试/失败计数）"
+        ],
+        "output": "最终可见状态：succeeded",
+        "key_number": "attempts=1 / recovery=0",
+        "conclusion": "仅展示数据库真实保留的失败与恢复信号。"
+      },
+      "raw_data": {
+        "job_type": "longterm_extraction_jobs",
+        "runtime": "production-source-44136fa355b3",
+        "session": "S006",
+        "job_id": "ba02f6cd-1cb9-5630-a297-8e793344a4e3",
+        "attempts": 1,
+        "error": null,
+        "retry": true,
+        "recovery": 0,
+        "degraded": false,
+        "final_status": "succeeded",
+        "observable_chain": [
+          "记录 attempts=1（此前至少发生过重试/失败计数）",
+          "最终可见状态：succeeded"
+        ],
+        "unobservable_detail": "Per-attempt timestamps/errors are not retained when last_error was cleared after success."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S006/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "ba02f6cd-1cb9-5630-a297-8e793344a4e3",
+          "field": "attempts / stage attempts"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S006/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "ba02f6cd-1cb9-5630-a297-8e793344a4e3",
+          "field": "last_error / stage last error"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S006/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "ba02f6cd-1cb9-5630-a297-8e793344a4e3",
+          "field": "recovery_count / stage recovery"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S006/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "ba02f6cd-1cb9-5630-a297-8e793344a4e3",
+          "field": "status"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S006/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "ba02f6cd-1cb9-5630-a297-8e793344a4e3",
+          "field": "started_at"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S006/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "ba02f6cd-1cb9-5630-a297-8e793344a4e3",
+          "field": "finished_at"
+        }
+      ]
+    }
+  ],
+  "top_10": [
+    {
+      "candidate_id": "O-producti-S002-cf601e0f-0149-582b-9140-b1a5506d1eca",
+      "presentation_score": 66,
+      "why_good_for_ppt": "真实 Job 保留 attempts=2、错误/恢复字段与最终状态；未持久化的逐次 Attempt 细节不补写。",
+      "session_id": "run_id=S002_贵州茅台_内审&user_id=recall::S002_贵州茅台_内审",
+      "query_id": "S002-Q005",
+      "memory_id": null,
+      "job_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+      "display_data": {
+        "title": "失败计数 / Retry → 最终状态",
+        "current_question": "S002-Q005",
+        "input": "longterm_extraction_jobs / cf601e0f",
+        "process": [
+          "记录 attempts=2（此前至少发生过重试/失败计数）"
+        ],
+        "output": "最终可见状态：succeeded",
+        "key_number": "attempts=2 / recovery=0",
+        "conclusion": "仅展示数据库真实保留的失败与恢复信号。"
+      },
+      "raw_data": {
+        "job_type": "longterm_extraction_jobs",
+        "runtime": "production-source-f32e1b7117ea",
+        "session": "S002",
+        "job_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+        "attempts": 2,
+        "error": null,
+        "retry": true,
+        "recovery": 0,
+        "degraded": false,
+        "final_status": "succeeded",
+        "observable_chain": [
+          "记录 attempts=2（此前至少发生过重试/失败计数）",
+          "最终可见状态：succeeded"
+        ],
+        "unobservable_detail": "Per-attempt timestamps/errors are not retained when last_error was cleared after success."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S002/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+          "field": "attempts / stage attempts"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S002/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+          "field": "last_error / stage last error"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S002/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+          "field": "recovery_count / stage recovery"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S002/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+          "field": "status"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S002/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+          "field": "started_at"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S002/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+          "field": "finished_at"
+        }
+      ]
+    },
+    {
+      "candidate_id": "O-producti-S003-fd880462-f335-5193-bf8e-77726e704802",
+      "presentation_score": 66,
+      "why_good_for_ppt": "真实 Job 保留 attempts=2、错误/恢复字段与最终状态；未持久化的逐次 Attempt 细节不补写。",
+      "session_id": "run_id=S003_比亚迪_风委&user_id=recall::S003_比亚迪_风委",
+      "query_id": "S003-Q004",
+      "memory_id": null,
+      "job_id": "fd880462-f335-5193-bf8e-77726e704802",
+      "display_data": {
+        "title": "失败计数 / Retry → 最终状态",
+        "current_question": "S003-Q004",
+        "input": "longterm_extraction_jobs / fd880462",
+        "process": [
+          "记录 attempts=2（此前至少发生过重试/失败计数）"
+        ],
+        "output": "最终可见状态：succeeded",
+        "key_number": "attempts=2 / recovery=0",
+        "conclusion": "仅展示数据库真实保留的失败与恢复信号。"
+      },
+      "raw_data": {
+        "job_type": "longterm_extraction_jobs",
+        "runtime": "production-source-f32e1b7117ea",
+        "session": "S003",
+        "job_id": "fd880462-f335-5193-bf8e-77726e704802",
+        "attempts": 2,
+        "error": null,
+        "retry": true,
+        "recovery": 0,
+        "degraded": false,
+        "final_status": "succeeded",
+        "observable_chain": [
+          "记录 attempts=2（此前至少发生过重试/失败计数）",
+          "最终可见状态：succeeded"
+        ],
+        "unobservable_detail": "Per-attempt timestamps/errors are not retained when last_error was cleared after success."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "fd880462-f335-5193-bf8e-77726e704802",
+          "field": "attempts / stage attempts"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "fd880462-f335-5193-bf8e-77726e704802",
+          "field": "last_error / stage last error"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "fd880462-f335-5193-bf8e-77726e704802",
+          "field": "recovery_count / stage recovery"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "fd880462-f335-5193-bf8e-77726e704802",
+          "field": "status"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "fd880462-f335-5193-bf8e-77726e704802",
+          "field": "started_at"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "fd880462-f335-5193-bf8e-77726e704802",
+          "field": "finished_at"
+        }
+      ]
+    },
+    {
+      "candidate_id": "O-producti-S006-ba02f6cd-1cb9-5630-a297-8e793344a4e3",
+      "presentation_score": 61,
+      "why_good_for_ppt": "真实 Job 保留 attempts=1、错误/恢复字段与最终状态；未持久化的逐次 Attempt 细节不补写。",
+      "session_id": "run_id=S006_宁德时代_审委&user_id=recall::S006_宁德时代_审委",
+      "query_id": "S006-Q046",
+      "memory_id": null,
+      "job_id": "ba02f6cd-1cb9-5630-a297-8e793344a4e3",
+      "display_data": {
+        "title": "失败计数 / Retry → 最终状态",
+        "current_question": "S006-Q046",
+        "input": "longterm_extraction_jobs / ba02f6cd",
+        "process": [
+          "记录 attempts=1（此前至少发生过重试/失败计数）"
+        ],
+        "output": "最终可见状态：succeeded",
+        "key_number": "attempts=1 / recovery=0",
+        "conclusion": "仅展示数据库真实保留的失败与恢复信号。"
+      },
+      "raw_data": {
+        "job_type": "longterm_extraction_jobs",
+        "runtime": "production-source-44136fa355b3",
+        "session": "S006",
+        "job_id": "ba02f6cd-1cb9-5630-a297-8e793344a4e3",
+        "attempts": 1,
+        "error": null,
+        "retry": true,
+        "recovery": 0,
+        "degraded": false,
+        "final_status": "succeeded",
+        "observable_chain": [
+          "记录 attempts=1（此前至少发生过重试/失败计数）",
+          "最终可见状态：succeeded"
+        ],
+        "unobservable_detail": "Per-attempt timestamps/errors are not retained when last_error was cleared after success."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S006/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "ba02f6cd-1cb9-5630-a297-8e793344a4e3",
+          "field": "attempts / stage attempts"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S006/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "ba02f6cd-1cb9-5630-a297-8e793344a4e3",
+          "field": "last_error / stage last error"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S006/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "ba02f6cd-1cb9-5630-a297-8e793344a4e3",
+          "field": "recovery_count / stage recovery"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S006/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "ba02f6cd-1cb9-5630-a297-8e793344a4e3",
+          "field": "status"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S006/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "ba02f6cd-1cb9-5630-a297-8e793344a4e3",
+          "field": "started_at"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S006/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "ba02f6cd-1cb9-5630-a297-8e793344a4e3",
+          "field": "finished_at"
+        }
+      ]
+    },
+    {
+      "candidate_id": "O-producti-S003-d23d0056-565c-5d64-a90c-25c5bf118d67",
+      "presentation_score": 56,
+      "why_good_for_ppt": "真实 Job 保留 attempts=0、错误/恢复字段与最终状态；未持久化的逐次 Attempt 细节不补写。",
+      "session_id": "run_id=S003_比亚迪_风委&user_id=recall::S003_比亚迪_风委",
+      "query_id": "S003-Q006",
+      "memory_id": null,
+      "job_id": "d23d0056-565c-5d64-a90c-25c5bf118d67",
+      "display_data": {
+        "title": "失败计数 / Retry → 最终状态",
+        "current_question": "S003-Q006",
+        "input": "longterm_extraction_jobs / d23d0056",
+        "process": [],
+        "output": "最终可见状态：running",
+        "key_number": "attempts=0 / recovery=0",
+        "conclusion": "仅展示数据库真实保留的失败与恢复信号。"
+      },
+      "raw_data": {
+        "job_type": "longterm_extraction_jobs",
+        "runtime": "production-source-f32e1b7117ea",
+        "session": "S003",
+        "job_id": "d23d0056-565c-5d64-a90c-25c5bf118d67",
+        "attempts": 0,
+        "error": null,
+        "retry": false,
+        "recovery": 0,
+        "degraded": false,
+        "final_status": "running",
+        "observable_chain": [
+          "最终可见状态：running"
+        ],
+        "unobservable_detail": "Per-attempt timestamps/errors are not retained when last_error was cleared after success."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "d23d0056-565c-5d64-a90c-25c5bf118d67",
+          "field": "attempts / stage attempts"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "d23d0056-565c-5d64-a90c-25c5bf118d67",
+          "field": "last_error / stage last error"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "d23d0056-565c-5d64-a90c-25c5bf118d67",
+          "field": "recovery_count / stage recovery"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "d23d0056-565c-5d64-a90c-25c5bf118d67",
+          "field": "status"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "d23d0056-565c-5d64-a90c-25c5bf118d67",
+          "field": "started_at"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "d23d0056-565c-5d64-a90c-25c5bf118d67",
+          "field": "finished_at"
+        }
+      ]
+    }
+  ],
+  "all_candidates": [
+    {
+      "candidate_id": "O-producti-S002-cf601e0f-0149-582b-9140-b1a5506d1eca",
+      "presentation_score": 66,
+      "why_good_for_ppt": "真实 Job 保留 attempts=2、错误/恢复字段与最终状态；未持久化的逐次 Attempt 细节不补写。",
+      "session_id": "run_id=S002_贵州茅台_内审&user_id=recall::S002_贵州茅台_内审",
+      "query_id": "S002-Q005",
+      "memory_id": null,
+      "job_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+      "display_data": {
+        "title": "失败计数 / Retry → 最终状态",
+        "current_question": "S002-Q005",
+        "input": "longterm_extraction_jobs / cf601e0f",
+        "process": [
+          "记录 attempts=2（此前至少发生过重试/失败计数）"
+        ],
+        "output": "最终可见状态：succeeded",
+        "key_number": "attempts=2 / recovery=0",
+        "conclusion": "仅展示数据库真实保留的失败与恢复信号。"
+      },
+      "raw_data": {
+        "job_type": "longterm_extraction_jobs",
+        "runtime": "production-source-f32e1b7117ea",
+        "session": "S002",
+        "job_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+        "attempts": 2,
+        "error": null,
+        "retry": true,
+        "recovery": 0,
+        "degraded": false,
+        "final_status": "succeeded",
+        "observable_chain": [
+          "记录 attempts=2（此前至少发生过重试/失败计数）",
+          "最终可见状态：succeeded"
+        ],
+        "unobservable_detail": "Per-attempt timestamps/errors are not retained when last_error was cleared after success."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S002/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+          "field": "attempts / stage attempts"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S002/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+          "field": "last_error / stage last error"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S002/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+          "field": "recovery_count / stage recovery"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S002/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+          "field": "status"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S002/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+          "field": "started_at"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S002/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "cf601e0f-0149-582b-9140-b1a5506d1eca",
+          "field": "finished_at"
+        }
+      ]
+    },
+    {
+      "candidate_id": "O-producti-S003-fd880462-f335-5193-bf8e-77726e704802",
+      "presentation_score": 66,
+      "why_good_for_ppt": "真实 Job 保留 attempts=2、错误/恢复字段与最终状态；未持久化的逐次 Attempt 细节不补写。",
+      "session_id": "run_id=S003_比亚迪_风委&user_id=recall::S003_比亚迪_风委",
+      "query_id": "S003-Q004",
+      "memory_id": null,
+      "job_id": "fd880462-f335-5193-bf8e-77726e704802",
+      "display_data": {
+        "title": "失败计数 / Retry → 最终状态",
+        "current_question": "S003-Q004",
+        "input": "longterm_extraction_jobs / fd880462",
+        "process": [
+          "记录 attempts=2（此前至少发生过重试/失败计数）"
+        ],
+        "output": "最终可见状态：succeeded",
+        "key_number": "attempts=2 / recovery=0",
+        "conclusion": "仅展示数据库真实保留的失败与恢复信号。"
+      },
+      "raw_data": {
+        "job_type": "longterm_extraction_jobs",
+        "runtime": "production-source-f32e1b7117ea",
+        "session": "S003",
+        "job_id": "fd880462-f335-5193-bf8e-77726e704802",
+        "attempts": 2,
+        "error": null,
+        "retry": true,
+        "recovery": 0,
+        "degraded": false,
+        "final_status": "succeeded",
+        "observable_chain": [
+          "记录 attempts=2（此前至少发生过重试/失败计数）",
+          "最终可见状态：succeeded"
+        ],
+        "unobservable_detail": "Per-attempt timestamps/errors are not retained when last_error was cleared after success."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "fd880462-f335-5193-bf8e-77726e704802",
+          "field": "attempts / stage attempts"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "fd880462-f335-5193-bf8e-77726e704802",
+          "field": "last_error / stage last error"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "fd880462-f335-5193-bf8e-77726e704802",
+          "field": "recovery_count / stage recovery"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "fd880462-f335-5193-bf8e-77726e704802",
+          "field": "status"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "fd880462-f335-5193-bf8e-77726e704802",
+          "field": "started_at"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "fd880462-f335-5193-bf8e-77726e704802",
+          "field": "finished_at"
+        }
+      ]
+    },
+    {
+      "candidate_id": "O-producti-S006-ba02f6cd-1cb9-5630-a297-8e793344a4e3",
+      "presentation_score": 61,
+      "why_good_for_ppt": "真实 Job 保留 attempts=1、错误/恢复字段与最终状态；未持久化的逐次 Attempt 细节不补写。",
+      "session_id": "run_id=S006_宁德时代_审委&user_id=recall::S006_宁德时代_审委",
+      "query_id": "S006-Q046",
+      "memory_id": null,
+      "job_id": "ba02f6cd-1cb9-5630-a297-8e793344a4e3",
+      "display_data": {
+        "title": "失败计数 / Retry → 最终状态",
+        "current_question": "S006-Q046",
+        "input": "longterm_extraction_jobs / ba02f6cd",
+        "process": [
+          "记录 attempts=1（此前至少发生过重试/失败计数）"
+        ],
+        "output": "最终可见状态：succeeded",
+        "key_number": "attempts=1 / recovery=0",
+        "conclusion": "仅展示数据库真实保留的失败与恢复信号。"
+      },
+      "raw_data": {
+        "job_type": "longterm_extraction_jobs",
+        "runtime": "production-source-44136fa355b3",
+        "session": "S006",
+        "job_id": "ba02f6cd-1cb9-5630-a297-8e793344a4e3",
+        "attempts": 1,
+        "error": null,
+        "retry": true,
+        "recovery": 0,
+        "degraded": false,
+        "final_status": "succeeded",
+        "observable_chain": [
+          "记录 attempts=1（此前至少发生过重试/失败计数）",
+          "最终可见状态：succeeded"
+        ],
+        "unobservable_detail": "Per-attempt timestamps/errors are not retained when last_error was cleared after success."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S006/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "ba02f6cd-1cb9-5630-a297-8e793344a4e3",
+          "field": "attempts / stage attempts"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S006/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "ba02f6cd-1cb9-5630-a297-8e793344a4e3",
+          "field": "last_error / stage last error"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S006/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "ba02f6cd-1cb9-5630-a297-8e793344a4e3",
+          "field": "recovery_count / stage recovery"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S006/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "ba02f6cd-1cb9-5630-a297-8e793344a4e3",
+          "field": "status"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S006/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "ba02f6cd-1cb9-5630-a297-8e793344a4e3",
+          "field": "started_at"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S006/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "ba02f6cd-1cb9-5630-a297-8e793344a4e3",
+          "field": "finished_at"
+        }
+      ]
+    },
+    {
+      "candidate_id": "O-producti-S003-d23d0056-565c-5d64-a90c-25c5bf118d67",
+      "presentation_score": 56,
+      "why_good_for_ppt": "真实 Job 保留 attempts=0、错误/恢复字段与最终状态；未持久化的逐次 Attempt 细节不补写。",
+      "session_id": "run_id=S003_比亚迪_风委&user_id=recall::S003_比亚迪_风委",
+      "query_id": "S003-Q006",
+      "memory_id": null,
+      "job_id": "d23d0056-565c-5d64-a90c-25c5bf118d67",
+      "display_data": {
+        "title": "失败计数 / Retry → 最终状态",
+        "current_question": "S003-Q006",
+        "input": "longterm_extraction_jobs / d23d0056",
+        "process": [],
+        "output": "最终可见状态：running",
+        "key_number": "attempts=0 / recovery=0",
+        "conclusion": "仅展示数据库真实保留的失败与恢复信号。"
+      },
+      "raw_data": {
+        "job_type": "longterm_extraction_jobs",
+        "runtime": "production-source-f32e1b7117ea",
+        "session": "S003",
+        "job_id": "d23d0056-565c-5d64-a90c-25c5bf118d67",
+        "attempts": 0,
+        "error": null,
+        "retry": false,
+        "recovery": 0,
+        "degraded": false,
+        "final_status": "running",
+        "observable_chain": [
+          "最终可见状态：running"
+        ],
+        "unobservable_detail": "Per-attempt timestamps/errors are not retained when last_error was cleared after success."
+      },
+      "evidence": [
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "d23d0056-565c-5d64-a90c-25c5bf118d67",
+          "field": "attempts / stage attempts"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "d23d0056-565c-5d64-a90c-25c5bf118d67",
+          "field": "last_error / stage last error"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "d23d0056-565c-5d64-a90c-25c5bf118d67",
+          "field": "recovery_count / stage recovery"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "d23d0056-565c-5d64-a90c-25c5bf118d67",
+          "field": "status"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "d23d0056-565c-5d64-a90c-25c5bf118d67",
+          "field": "started_at"
+        },
+        {
+          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+          "table / collection": "longterm_extraction_jobs",
+          "record_id": "d23d0056-565c-5d64-a90c-25c5bf118d67",
+          "field": "finished_at"
+        }
+      ]
+    }
+  ],
+  "selection_criteria": {
+    "score_range": "0-100",
+    "dimensions": {
+      "change_magnitude": "排序/指标/状态变化是否明显",
+      "comprehensibility": "金融问题是否自然、非技术人员是否容易理解",
+      "evidence_completeness": "Input / Process / Output / Source 是否齐全",
+      "ppt_fit": "能否压缩成半页 PPT 的 Before/After、流程或时间轴"
+    },
+    "tie_breaker": "优先 S001_贵州茅台_投研，其次证据链更完整、文字更短"
+  },
+  "source_files": [
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/0a0f0de55789a4d88f702d4abdc9f4f90f2ceb52a741278ea5b6d65451940fa5/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/0a0f0de55789a4d88f702d4abdc9f4f90f2ceb52a741278ea5b6d65451940fa5/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/0a0f0de55789a4d88f702d4abdc9f4f90f2ceb52a741278ea5b6d65451940fa5/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/0a0f0de55789a4d88f702d4abdc9f4f90f2ceb52a741278ea5b6d65451940fa5/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/0a0f0de55789a4d88f702d4abdc9f4f90f2ceb52a741278ea5b6d65451940fa5/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/0a0f0de55789a4d88f702d4abdc9f4f90f2ceb52a741278ea5b6d65451940fa5/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/0a0f0de55789a4d88f702d4abdc9f4f90f2ceb52a741278ea5b6d65451940fa5/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/20404554c7806122d483758ebf51f6664fbe5316f02ad09092fab34558d9a45d/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/20404554c7806122d483758ebf51f6664fbe5316f02ad09092fab34558d9a45d/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/20404554c7806122d483758ebf51f6664fbe5316f02ad09092fab34558d9a45d/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/20404554c7806122d483758ebf51f6664fbe5316f02ad09092fab34558d9a45d/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/20404554c7806122d483758ebf51f6664fbe5316f02ad09092fab34558d9a45d/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/20404554c7806122d483758ebf51f6664fbe5316f02ad09092fab34558d9a45d/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/20404554c7806122d483758ebf51f6664fbe5316f02ad09092fab34558d9a45d/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/2e2bd1a8d6c812b22d40cb89f6d6ca6ffde4c6b8085ae214d1aab5f8d191c8b7/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/2e2bd1a8d6c812b22d40cb89f6d6ca6ffde4c6b8085ae214d1aab5f8d191c8b7/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/2e2bd1a8d6c812b22d40cb89f6d6ca6ffde4c6b8085ae214d1aab5f8d191c8b7/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/2e2bd1a8d6c812b22d40cb89f6d6ca6ffde4c6b8085ae214d1aab5f8d191c8b7/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/2e2bd1a8d6c812b22d40cb89f6d6ca6ffde4c6b8085ae214d1aab5f8d191c8b7/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/2e2bd1a8d6c812b22d40cb89f6d6ca6ffde4c6b8085ae214d1aab5f8d191c8b7/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/2e2bd1a8d6c812b22d40cb89f6d6ca6ffde4c6b8085ae214d1aab5f8d191c8b7/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/383f7f89d9846c87167d4bc868dbd46fce1771a67652cfea9305fe8814bd00b2/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/383f7f89d9846c87167d4bc868dbd46fce1771a67652cfea9305fe8814bd00b2/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/383f7f89d9846c87167d4bc868dbd46fce1771a67652cfea9305fe8814bd00b2/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/383f7f89d9846c87167d4bc868dbd46fce1771a67652cfea9305fe8814bd00b2/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/383f7f89d9846c87167d4bc868dbd46fce1771a67652cfea9305fe8814bd00b2/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/383f7f89d9846c87167d4bc868dbd46fce1771a67652cfea9305fe8814bd00b2/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/383f7f89d9846c87167d4bc868dbd46fce1771a67652cfea9305fe8814bd00b2/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/39bec2612238ea60297abd81774e2e16bf5ea7ce02f1948036a3aa7d2d331757/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/39bec2612238ea60297abd81774e2e16bf5ea7ce02f1948036a3aa7d2d331757/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/39bec2612238ea60297abd81774e2e16bf5ea7ce02f1948036a3aa7d2d331757/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/39bec2612238ea60297abd81774e2e16bf5ea7ce02f1948036a3aa7d2d331757/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/39bec2612238ea60297abd81774e2e16bf5ea7ce02f1948036a3aa7d2d331757/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/39bec2612238ea60297abd81774e2e16bf5ea7ce02f1948036a3aa7d2d331757/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/39bec2612238ea60297abd81774e2e16bf5ea7ce02f1948036a3aa7d2d331757/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/3f5aa77595ee04ecdaea4a40e8ad3950f067517875cae219e4afb29a58269116/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/3f5aa77595ee04ecdaea4a40e8ad3950f067517875cae219e4afb29a58269116/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/3f5aa77595ee04ecdaea4a40e8ad3950f067517875cae219e4afb29a58269116/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/3f5aa77595ee04ecdaea4a40e8ad3950f067517875cae219e4afb29a58269116/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/3f5aa77595ee04ecdaea4a40e8ad3950f067517875cae219e4afb29a58269116/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/3f5aa77595ee04ecdaea4a40e8ad3950f067517875cae219e4afb29a58269116/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/3f5aa77595ee04ecdaea4a40e8ad3950f067517875cae219e4afb29a58269116/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/454dc30f525f4b2a674827ff4ebfd17e73a9241650f009e2ab29c742e8682908/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/454dc30f525f4b2a674827ff4ebfd17e73a9241650f009e2ab29c742e8682908/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/454dc30f525f4b2a674827ff4ebfd17e73a9241650f009e2ab29c742e8682908/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/454dc30f525f4b2a674827ff4ebfd17e73a9241650f009e2ab29c742e8682908/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/454dc30f525f4b2a674827ff4ebfd17e73a9241650f009e2ab29c742e8682908/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/454dc30f525f4b2a674827ff4ebfd17e73a9241650f009e2ab29c742e8682908/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/454dc30f525f4b2a674827ff4ebfd17e73a9241650f009e2ab29c742e8682908/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/53ff953783a6c1270c7d0dd65676dac7994b83f065855e5e31a98af1dce9fcc1/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/53ff953783a6c1270c7d0dd65676dac7994b83f065855e5e31a98af1dce9fcc1/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/53ff953783a6c1270c7d0dd65676dac7994b83f065855e5e31a98af1dce9fcc1/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/53ff953783a6c1270c7d0dd65676dac7994b83f065855e5e31a98af1dce9fcc1/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/53ff953783a6c1270c7d0dd65676dac7994b83f065855e5e31a98af1dce9fcc1/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/53ff953783a6c1270c7d0dd65676dac7994b83f065855e5e31a98af1dce9fcc1/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/53ff953783a6c1270c7d0dd65676dac7994b83f065855e5e31a98af1dce9fcc1/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/568df4f95e1040f6ff25e6d649fdb1c27211d425f470c4d9332990b947ea3a97/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/568df4f95e1040f6ff25e6d649fdb1c27211d425f470c4d9332990b947ea3a97/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/568df4f95e1040f6ff25e6d649fdb1c27211d425f470c4d9332990b947ea3a97/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/568df4f95e1040f6ff25e6d649fdb1c27211d425f470c4d9332990b947ea3a97/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/568df4f95e1040f6ff25e6d649fdb1c27211d425f470c4d9332990b947ea3a97/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/568df4f95e1040f6ff25e6d649fdb1c27211d425f470c4d9332990b947ea3a97/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/568df4f95e1040f6ff25e6d649fdb1c27211d425f470c4d9332990b947ea3a97/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/5cd981134ea908ed6d4392063b7861cfce74500a406d462ac9d5233bd9b1f155/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/5cd981134ea908ed6d4392063b7861cfce74500a406d462ac9d5233bd9b1f155/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/5cd981134ea908ed6d4392063b7861cfce74500a406d462ac9d5233bd9b1f155/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/5cd981134ea908ed6d4392063b7861cfce74500a406d462ac9d5233bd9b1f155/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/5cd981134ea908ed6d4392063b7861cfce74500a406d462ac9d5233bd9b1f155/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/5cd981134ea908ed6d4392063b7861cfce74500a406d462ac9d5233bd9b1f155/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/5cd981134ea908ed6d4392063b7861cfce74500a406d462ac9d5233bd9b1f155/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/8190a9545a1bbb15f97261e258ed37a0a037d4f55742a1c7deebbc0743c19ccc/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/8190a9545a1bbb15f97261e258ed37a0a037d4f55742a1c7deebbc0743c19ccc/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/8190a9545a1bbb15f97261e258ed37a0a037d4f55742a1c7deebbc0743c19ccc/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/8190a9545a1bbb15f97261e258ed37a0a037d4f55742a1c7deebbc0743c19ccc/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/8190a9545a1bbb15f97261e258ed37a0a037d4f55742a1c7deebbc0743c19ccc/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/8190a9545a1bbb15f97261e258ed37a0a037d4f55742a1c7deebbc0743c19ccc/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/8190a9545a1bbb15f97261e258ed37a0a037d4f55742a1c7deebbc0743c19ccc/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/90f0136c8dee4098d2f420e6798619556cf112a2dc71888b9313e2c49a51f8f1/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/90f0136c8dee4098d2f420e6798619556cf112a2dc71888b9313e2c49a51f8f1/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/90f0136c8dee4098d2f420e6798619556cf112a2dc71888b9313e2c49a51f8f1/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/90f0136c8dee4098d2f420e6798619556cf112a2dc71888b9313e2c49a51f8f1/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/90f0136c8dee4098d2f420e6798619556cf112a2dc71888b9313e2c49a51f8f1/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/90f0136c8dee4098d2f420e6798619556cf112a2dc71888b9313e2c49a51f8f1/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/90f0136c8dee4098d2f420e6798619556cf112a2dc71888b9313e2c49a51f8f1/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/966ffacdbf96bd16e523f96f8d71b8fdcfb641758a176d8f718ad1e1ff932ab7/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/966ffacdbf96bd16e523f96f8d71b8fdcfb641758a176d8f718ad1e1ff932ab7/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/966ffacdbf96bd16e523f96f8d71b8fdcfb641758a176d8f718ad1e1ff932ab7/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/966ffacdbf96bd16e523f96f8d71b8fdcfb641758a176d8f718ad1e1ff932ab7/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/966ffacdbf96bd16e523f96f8d71b8fdcfb641758a176d8f718ad1e1ff932ab7/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/966ffacdbf96bd16e523f96f8d71b8fdcfb641758a176d8f718ad1e1ff932ab7/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/966ffacdbf96bd16e523f96f8d71b8fdcfb641758a176d8f718ad1e1ff932ab7/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/96b08247e27a0e5d9c64d19ae184ba9f0cf38dbb05445228454fc0fe6382dec2/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/96b08247e27a0e5d9c64d19ae184ba9f0cf38dbb05445228454fc0fe6382dec2/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/96b08247e27a0e5d9c64d19ae184ba9f0cf38dbb05445228454fc0fe6382dec2/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/96b08247e27a0e5d9c64d19ae184ba9f0cf38dbb05445228454fc0fe6382dec2/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/96b08247e27a0e5d9c64d19ae184ba9f0cf38dbb05445228454fc0fe6382dec2/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/96b08247e27a0e5d9c64d19ae184ba9f0cf38dbb05445228454fc0fe6382dec2/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/96b08247e27a0e5d9c64d19ae184ba9f0cf38dbb05445228454fc0fe6382dec2/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/96bc859c7f3e37f65b7835a213f526a2f95d464c1f6b22d8f76f363dff99a464/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/96bc859c7f3e37f65b7835a213f526a2f95d464c1f6b22d8f76f363dff99a464/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/96bc859c7f3e37f65b7835a213f526a2f95d464c1f6b22d8f76f363dff99a464/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/96bc859c7f3e37f65b7835a213f526a2f95d464c1f6b22d8f76f363dff99a464/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/96bc859c7f3e37f65b7835a213f526a2f95d464c1f6b22d8f76f363dff99a464/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/96bc859c7f3e37f65b7835a213f526a2f95d464c1f6b22d8f76f363dff99a464/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/96bc859c7f3e37f65b7835a213f526a2f95d464c1f6b22d8f76f363dff99a464/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/ab48642a0b0753e2bf8732752f5f206ab33ddc082c8fe2253389c536381049a7/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/ab48642a0b0753e2bf8732752f5f206ab33ddc082c8fe2253389c536381049a7/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/ab48642a0b0753e2bf8732752f5f206ab33ddc082c8fe2253389c536381049a7/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/ab48642a0b0753e2bf8732752f5f206ab33ddc082c8fe2253389c536381049a7/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/ab48642a0b0753e2bf8732752f5f206ab33ddc082c8fe2253389c536381049a7/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/ab48642a0b0753e2bf8732752f5f206ab33ddc082c8fe2253389c536381049a7/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/ab48642a0b0753e2bf8732752f5f206ab33ddc082c8fe2253389c536381049a7/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/b2f041861aa2eb6aea0b11558d9e080bd6ef99a5bb11986fd15b1428d9c1eb1f/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/b2f041861aa2eb6aea0b11558d9e080bd6ef99a5bb11986fd15b1428d9c1eb1f/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/b2f041861aa2eb6aea0b11558d9e080bd6ef99a5bb11986fd15b1428d9c1eb1f/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/b2f041861aa2eb6aea0b11558d9e080bd6ef99a5bb11986fd15b1428d9c1eb1f/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/b2f041861aa2eb6aea0b11558d9e080bd6ef99a5bb11986fd15b1428d9c1eb1f/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/b2f041861aa2eb6aea0b11558d9e080bd6ef99a5bb11986fd15b1428d9c1eb1f/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/b2f041861aa2eb6aea0b11558d9e080bd6ef99a5bb11986fd15b1428d9c1eb1f/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/b35cf2612bdc04113b06599851c07e0ed60bcd499dd2edc062a6322f3ca4e997/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/b35cf2612bdc04113b06599851c07e0ed60bcd499dd2edc062a6322f3ca4e997/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/b35cf2612bdc04113b06599851c07e0ed60bcd499dd2edc062a6322f3ca4e997/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/b35cf2612bdc04113b06599851c07e0ed60bcd499dd2edc062a6322f3ca4e997/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/b35cf2612bdc04113b06599851c07e0ed60bcd499dd2edc062a6322f3ca4e997/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/b35cf2612bdc04113b06599851c07e0ed60bcd499dd2edc062a6322f3ca4e997/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/b35cf2612bdc04113b06599851c07e0ed60bcd499dd2edc062a6322f3ca4e997/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/bd7d62e2c0068ddb0e043b7020ef139637f3ed384e91c46a7ddcc724bed1dca8/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/bd7d62e2c0068ddb0e043b7020ef139637f3ed384e91c46a7ddcc724bed1dca8/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/bd7d62e2c0068ddb0e043b7020ef139637f3ed384e91c46a7ddcc724bed1dca8/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/bd7d62e2c0068ddb0e043b7020ef139637f3ed384e91c46a7ddcc724bed1dca8/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/bd7d62e2c0068ddb0e043b7020ef139637f3ed384e91c46a7ddcc724bed1dca8/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/bd7d62e2c0068ddb0e043b7020ef139637f3ed384e91c46a7ddcc724bed1dca8/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/bd7d62e2c0068ddb0e043b7020ef139637f3ed384e91c46a7ddcc724bed1dca8/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/bef0dafe302e5ceca47a2c08c4e6a86c3a9f4b11ae78e83ecbffcabcebd26df7/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/bef0dafe302e5ceca47a2c08c4e6a86c3a9f4b11ae78e83ecbffcabcebd26df7/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/bef0dafe302e5ceca47a2c08c4e6a86c3a9f4b11ae78e83ecbffcabcebd26df7/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/bef0dafe302e5ceca47a2c08c4e6a86c3a9f4b11ae78e83ecbffcabcebd26df7/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/bef0dafe302e5ceca47a2c08c4e6a86c3a9f4b11ae78e83ecbffcabcebd26df7/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/bef0dafe302e5ceca47a2c08c4e6a86c3a9f4b11ae78e83ecbffcabcebd26df7/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/bef0dafe302e5ceca47a2c08c4e6a86c3a9f4b11ae78e83ecbffcabcebd26df7/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/c239a1e915c16499dc9a4c1add1a0695b0f4f6a1b6974541ff554a60ee401a92/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/c239a1e915c16499dc9a4c1add1a0695b0f4f6a1b6974541ff554a60ee401a92/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/c239a1e915c16499dc9a4c1add1a0695b0f4f6a1b6974541ff554a60ee401a92/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/c239a1e915c16499dc9a4c1add1a0695b0f4f6a1b6974541ff554a60ee401a92/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/c239a1e915c16499dc9a4c1add1a0695b0f4f6a1b6974541ff554a60ee401a92/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/c239a1e915c16499dc9a4c1add1a0695b0f4f6a1b6974541ff554a60ee401a92/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/c239a1e915c16499dc9a4c1add1a0695b0f4f6a1b6974541ff554a60ee401a92/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/c3b0bc828931ce2b21d8f234726c0c57fc5dd561ee4cfeb28964578638f391f3/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/c3b0bc828931ce2b21d8f234726c0c57fc5dd561ee4cfeb28964578638f391f3/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/c3b0bc828931ce2b21d8f234726c0c57fc5dd561ee4cfeb28964578638f391f3/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/c3b0bc828931ce2b21d8f234726c0c57fc5dd561ee4cfeb28964578638f391f3/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/c3b0bc828931ce2b21d8f234726c0c57fc5dd561ee4cfeb28964578638f391f3/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/c3b0bc828931ce2b21d8f234726c0c57fc5dd561ee4cfeb28964578638f391f3/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/c3b0bc828931ce2b21d8f234726c0c57fc5dd561ee4cfeb28964578638f391f3/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/d3ef865e9f6319b2edc4de6060ba883b76d79bfe968e1189c96d77045942921d/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/d3ef865e9f6319b2edc4de6060ba883b76d79bfe968e1189c96d77045942921d/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/d3ef865e9f6319b2edc4de6060ba883b76d79bfe968e1189c96d77045942921d/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/d3ef865e9f6319b2edc4de6060ba883b76d79bfe968e1189c96d77045942921d/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/d3ef865e9f6319b2edc4de6060ba883b76d79bfe968e1189c96d77045942921d/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/d3ef865e9f6319b2edc4de6060ba883b76d79bfe968e1189c96d77045942921d/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/d3ef865e9f6319b2edc4de6060ba883b76d79bfe968e1189c96d77045942921d/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/df426ffeba0aeda74c6312c7365d74169813d8674d5c795d1364a9b5885af8eb/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/df426ffeba0aeda74c6312c7365d74169813d8674d5c795d1364a9b5885af8eb/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/df426ffeba0aeda74c6312c7365d74169813d8674d5c795d1364a9b5885af8eb/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/df426ffeba0aeda74c6312c7365d74169813d8674d5c795d1364a9b5885af8eb/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/df426ffeba0aeda74c6312c7365d74169813d8674d5c795d1364a9b5885af8eb/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/df426ffeba0aeda74c6312c7365d74169813d8674d5c795d1364a9b5885af8eb/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/df426ffeba0aeda74c6312c7365d74169813d8674d5c795d1364a9b5885af8eb/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/e6ce829dbfde4bccc792286e8ca02c5f91b7826fb6bdb41940accc2e0f3c8504/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/e6ce829dbfde4bccc792286e8ca02c5f91b7826fb6bdb41940accc2e0f3c8504/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/e6ce829dbfde4bccc792286e8ca02c5f91b7826fb6bdb41940accc2e0f3c8504/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/e6ce829dbfde4bccc792286e8ca02c5f91b7826fb6bdb41940accc2e0f3c8504/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/e6ce829dbfde4bccc792286e8ca02c5f91b7826fb6bdb41940accc2e0f3c8504/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/e6ce829dbfde4bccc792286e8ca02c5f91b7826fb6bdb41940accc2e0f3c8504/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/e6ce829dbfde4bccc792286e8ca02c5f91b7826fb6bdb41940accc2e0f3c8504/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/ea1cdb3b3e0bda0c48c510c45ad43798cb03514c14f98b3e1be08ebca847e9c0/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/ea1cdb3b3e0bda0c48c510c45ad43798cb03514c14f98b3e1be08ebca847e9c0/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/ea1cdb3b3e0bda0c48c510c45ad43798cb03514c14f98b3e1be08ebca847e9c0/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/ea1cdb3b3e0bda0c48c510c45ad43798cb03514c14f98b3e1be08ebca847e9c0/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/ea1cdb3b3e0bda0c48c510c45ad43798cb03514c14f98b3e1be08ebca847e9c0/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/ea1cdb3b3e0bda0c48c510c45ad43798cb03514c14f98b3e1be08ebca847e9c0/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/ea1cdb3b3e0bda0c48c510c45ad43798cb03514c14f98b3e1be08ebca847e9c0/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/eab6f81c190a7134761a61e885333daa2957b4212a90b8424990b007b8354b2f/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/eab6f81c190a7134761a61e885333daa2957b4212a90b8424990b007b8354b2f/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/eab6f81c190a7134761a61e885333daa2957b4212a90b8424990b007b8354b2f/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/eab6f81c190a7134761a61e885333daa2957b4212a90b8424990b007b8354b2f/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/eab6f81c190a7134761a61e885333daa2957b4212a90b8424990b007b8354b2f/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/eab6f81c190a7134761a61e885333daa2957b4212a90b8424990b007b8354b2f/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/eab6f81c190a7134761a61e885333daa2957b4212a90b8424990b007b8354b2f/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/eb454101f496b3ba55881a9c9e4a7d6614045b77f10f3ea53f4d62408022fb2d/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/eb454101f496b3ba55881a9c9e4a7d6614045b77f10f3ea53f4d62408022fb2d/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/eb454101f496b3ba55881a9c9e4a7d6614045b77f10f3ea53f4d62408022fb2d/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/eb454101f496b3ba55881a9c9e4a7d6614045b77f10f3ea53f4d62408022fb2d/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/eb454101f496b3ba55881a9c9e4a7d6614045b77f10f3ea53f4d62408022fb2d/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/eb454101f496b3ba55881a9c9e4a7d6614045b77f10f3ea53f4d62408022fb2d/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/eb454101f496b3ba55881a9c9e4a7d6614045b77f10f3ea53f4d62408022fb2d/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/efc0566a03660565a47c0e2228571529cf0ca551dbca0c3d593cf613a967e80d/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/efc0566a03660565a47c0e2228571529cf0ca551dbca0c3d593cf613a967e80d/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/efc0566a03660565a47c0e2228571529cf0ca551dbca0c3d593cf613a967e80d/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/efc0566a03660565a47c0e2228571529cf0ca551dbca0c3d593cf613a967e80d/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/efc0566a03660565a47c0e2228571529cf0ca551dbca0c3d593cf613a967e80d/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/efc0566a03660565a47c0e2228571529cf0ca551dbca0c3d593cf613a967e80d/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/efc0566a03660565a47c0e2228571529cf0ca551dbca0c3d593cf613a967e80d/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/fbc467c1799d8c6bd0153ac76c8e826c61f333018c86f77a631d6e56c94da463/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/fbc467c1799d8c6bd0153ac76c8e826c61f333018c86f77a631d6e56c94da463/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/fbc467c1799d8c6bd0153ac76c8e826c61f333018c86f77a631d6e56c94da463/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/fbc467c1799d8c6bd0153ac76c8e826c61f333018c86f77a631d6e56c94da463/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/fbc467c1799d8c6bd0153ac76c8e826c61f333018c86f77a631d6e56c94da463/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/fbc467c1799d8c6bd0153ac76c8e826c61f333018c86f77a631d6e56c94da463/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/fbc467c1799d8c6bd0153ac76c8e826c61f333018c86f77a631d6e56c94da463/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S001/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S003/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S004___IR/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S005/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S006/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S007/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S008/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S009/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-44136fa355b3/S010/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S002/history.db",
+    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_runtimes/production-source-f32e1b7117ea/S003/history.db",
+    "mem0/memory/background_worker.py",
+    "mem0/memory/storage.py"
+  ],
+  "scan_stats": {
+    "database_count": 222,
+    "failure_signal_event_count": 4,
+    "final_status_counts": {
+      "succeeded": 3,
+      "running": 1
+    }
+  }
+}

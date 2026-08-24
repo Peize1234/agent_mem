@@ -53,6 +53,20 @@ def test_custom_production_query_rewrite_prompt_is_used():
     }
 
 
+def test_production_query_request_options_are_forwarded():
+    llm = MagicMock()
+    llm.generate_response.return_value = '{"resolved_query":"resolved"}'
+    options = {"extra_body": {"thinking": {"type": "disabled"}}}
+
+    assert QueryResolver(llm, request_options=options).resolve("original", HISTORY) == "resolved"
+    assert llm.generate_response.call_args.kwargs["extra_body"] == options["extra_body"]
+
+
+def test_query_request_options_cannot_override_protocol_fields():
+    with pytest.raises(ValueError, match="cannot override: response_format"):
+        QueryResolver(MagicMock(), request_options={"response_format": {"type": "text"}})
+
+
 @pytest.mark.parametrize(
     "response",
     [
@@ -92,6 +106,16 @@ async def test_sync_async_resolution_parity():
 
     assert async_value == sync_value
     async_llm.generate_response_async.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_async_production_query_request_options_are_forwarded():
+    llm = MagicMock()
+    llm.generate_response_async = AsyncMock(return_value='{"resolved_query":"resolved"}')
+    options = {"extra_body": {"thinking": {"type": "disabled"}}}
+
+    assert await QueryResolver(llm, request_options=options).resolve_async("original", HISTORY) == "resolved"
+    assert llm.generate_response_async.await_args.kwargs["extra_body"] == options["extra_body"]
 
 
 @pytest.mark.asyncio

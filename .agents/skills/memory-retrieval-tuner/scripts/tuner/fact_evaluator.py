@@ -25,6 +25,21 @@ _ENTITY_CODE = re.compile(r"\b(?:[A-Z]{1,6}\s*[-/]?\s*\d{0,6}|\d{3,6})\b")
 _ALIAS = re.compile(r"(?:别名|alias)\s*[:：]\s*([^,，;；)）]+)", re.IGNORECASE)
 
 
+def uses_context_gold(turn: object) -> bool:
+    """Return whether a Turn uses the legacy text-context Gold contract.
+
+    The reconstructed workbook has explicit source-ID Gold in
+    ``关联前序对话`` and keeps ``所需前文信息`` as an annotation.  Only
+    ID-less legacy/context-only fixtures should use ``required_context`` as
+    the evaluation denominator.  An explicit ``无`` Gold marker means an
+    independent Query, even when its annotation column contains prose.
+    """
+    raw_gold = str(getattr(turn, "gold_raw", "") or "").strip().lower()
+    if raw_gold in {"无", "none", "null", "nan"}:
+        return False
+    return not raw_gold and bool(str(getattr(turn, "required_context", "") or "").strip())
+
+
 @dataclass(frozen=True)
 class FactRequirement:
     members: tuple[str, ...]

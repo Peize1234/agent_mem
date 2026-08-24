@@ -14,19 +14,20 @@ from .agentic_retrieval_artifacts import (
     load_production_agentic_trace,
 )
 from .artifact_registry import ArtifactRegistry
-from .fact_evaluator import FactRequirement, fact_member_hit, parse_required_context
-from .io_utils import atomic_write_json, load_jsonl, stable_hash
+from .fact_evaluator import FactRequirement, fact_member_hit, parse_required_context, uses_context_gold
+from .io_utils import atomic_write_json, iter_jsonl, load_jsonl, stable_hash
 from .models import Candidate, CandidateResult, Dataset, Requirement, Turn
 from .parameter_schema import production_parameter_metadata, validate_candidate_config
 from .production_midterm_adapter import (
     PRODUCTION_BACKEND,
     ProductionMidtermAdapter,
-    load_checkpoints,
+    checkpoint_paths_by_session,
 )
 
 _DEFAULT_MAX_TOTAL_PAGES = int(production_parameter_metadata("max_total_pages").default)
 _DEFAULT_AGENTIC_MAX_TOTAL_RESULTS = int(production_parameter_metadata("max_total_results").default)
 _DEFAULT_LONGTERM_TOP_K = int(production_parameter_metadata("longterm_top_k").default)
+_EVALUATION_SCHEMA = 3
 
 
 def candidate_hash(dataset_sha256: str, candidate: Candidate) -> str:
@@ -66,13 +67,10 @@ def _eligible_requirements(
     local_requirements = [
         requirement for requirement in turn.requirements if all(member in local_ids for member in requirement.members)
     ]
-    # ``required_context`` is the benchmark contract.  Its denominator is
-    # fixed for a Query and must not move when a candidate changes the
-    # ShortTerm window.  Legacy ID-only workbooks retain the old eligibility
-    # behaviour for backwards-compatible regression fixtures.
-    if str(turn.required_context or "").strip():
-        # required_context is the fixed benchmark contract.  Ignore legacy
-        # source-ID rows whenever both representations are present.
+    # Reconstructed workbooks use ``关联前序对话`` as deterministic Gold
+    # source IDs.  Text ``required_context`` remains supported only for
+    # ID-less legacy/context-only fixtures, whose denominator is fixed.
+    if uses_context_gold(turn):
         return [Requirement((), str(turn.required_context))]
     if target == "all_memory":
         return local_requirements
@@ -413,14 +411,14 @@ def _rank_session(
     registry: ArtifactRegistry,
     frozen: Mapping[str, Sequence[Mapping[str, Any]]] | None,
     agentic: Mapping[str, Sequence[Mapping[str, Any]]] | None,
-    checkpoints: Mapping[str, Mapping[str, Any]] | None,
+    checkpoint_path: Path | None,
     run_dir: Path,
     candidate_id: str,
 ) -> tuple[dict[str, list[dict[str, Any]]], bool]:
     ranking_config = _ranking_identity_config(candidate.config)
     raw_depth = ranking_depth + int(candidate.config.get("longterm_top_k", _DEFAULT_LONGTERM_TOP_K))
     identity = {
-        "schema": 1,
+        "schema": _EVALUATION_SCHEMA,
         "dataset_sha256": dataset.sha256,
         "session_id": session_id,
         "target": target,
@@ -450,7 +448,20 @@ def _rank_session(
         if candidate.config.get("backend") == PRODUCTION_BACKEND
         else None
     )
+    checkpoint_iterator = iter_jsonl(checkpoint_path) if checkpoint_path is not None else None
     for turn in session_turns:
+        checkpoint = None
+        if checkpoint_iterator is not None:
+            try:
+                checkpoint = next(checkpoint_iterator)
+            except StopIteration as exc:
+                raise ValueError(f"Production checkpoint is incomplete for Query {turn.query_id}") from exc
+            checkpoint_query_id = str(checkpoint.get("query_id") or "").upper()
+            if checkpoint_query_id != turn.query_id:
+                raise ValueError(
+                    f"Production checkpoint order mismatch for {session_id}: "
+                    f"expected {turn.query_id}, got {checkpoint_query_id or '<missing>'}"
+                )
         if not _eligible_requirements(turn, session_turns, target, shortterm_window):
             continue
         backend = candidate.config.get("backend")
@@ -461,7 +472,6 @@ def _rank_session(
             if backend == "frozen_ranking" and not ranking:
                 raise ValueError(f"Frozen ranking is incomplete for eligible Query {turn.query_id}")
         elif backend == PRODUCTION_BACKEND:
-            checkpoint = (checkpoints or {}).get(turn.query_id)
             if checkpoint is None:
                 raise ValueError(f"Production checkpoint is incomplete for eligible Query {turn.query_id}")
             ranking = adapter.rank(checkpoint, candidate.config) if adapter is not None else []
@@ -475,6 +485,16 @@ def _rank_session(
             ranking = [*ranking, *(dict(row) for row in (agentic or {})[turn.query_id])]
         grouped[turn.query_id] = _apply_retrieval_controls(ranking, candidate.config, ranking_depth)
         flat.extend({"query_id": turn.query_id, **row} for row in ranking)
+    if checkpoint_iterator is not None:
+        try:
+            extra_checkpoint = next(checkpoint_iterator)
+        except StopIteration:
+            pass
+        else:
+            raise ValueError(
+                f"Production checkpoint contains extra Query for {session_id}: "
+                f"{str(extra_checkpoint.get('query_id') or '<missing>').upper()}"
+            )
     registry.store_ranking(identity, flat, raw_depth)
     return grouped, False
 
@@ -505,7 +525,7 @@ def _evaluate_session(
     requirement_rows: list[dict[str, Any]] = []
     shortterm_total = 0
     shortterm_hits = 0
-    context_mode = any(str(turn.required_context or "").strip() for turn in session_turns)
+    context_mode = any(uses_context_gold(turn) for turn in session_turns)
     returned_page_counts: list[int] = []
     precision_values: list[float] = []
     contribution_counts = {"midterm": 0, "agentic": 0, "session_longterm": 0, "shortterm": 0}
@@ -518,7 +538,7 @@ def _evaluate_session(
             for item in session_turns[max(0, turn.turn_index - shortterm_window) : turn.turn_index]
         ]
         local_requirements = _eligible_requirements(turn, session_turns, "all_memory", 0)
-        if str(turn.required_context or "").strip():
+        if uses_context_gold(turn):
             shortterm_requirements = parse_required_context(turn.required_context)
             shortterm_text = "\n".join(_row_text(row) for row in short_rows)
             shortterm_total += len(shortterm_requirements)
@@ -564,7 +584,7 @@ def _evaluate_session(
         visible_longterm = longterm_rows[:longterm_top_k]
         visible_rows = [*short_rows, *session_rows, *visible_midterm, *visible_agentic, *visible_longterm]
         returned_page_counts.append(len(visible_midterm) + len(visible_agentic) + len(visible_longterm))
-        if context_mode and str(turn.required_context or "").strip():
+        if context_mode and uses_context_gold(turn):
             context_rows, context_requirements = _fact_rows_for_visible(
                 turn,
                 visible_rows,
@@ -721,6 +741,14 @@ def _evaluate_session(
     metrics["target_layer_union"] = (shortterm_hits + sum(row["hit_at_k"] for row in requirement_rows)) / max(
         shortterm_total, 1
     )
+    if not context_mode:
+        # ID-backed Gold keeps ShortTerm coverage separate from the eligible
+        # MidTerm rows.  These are marginal layer rates over the same fixed
+        # Gold denominator, not additive components of R@K.
+        metrics["shortterm_contribution"] = shortterm_hits / max(shortterm_total, 1)
+        metrics["midterm_contribution"] = sum(bool(row["hit_at_k"]) for row in requirement_rows) / max(
+            shortterm_total, 1
+        )
     metrics["all_memory_union"] = None
     metrics["query_completion"] = None
     return {"metrics": metrics, "requirements": requirement_rows}
@@ -921,8 +949,10 @@ def evaluate_candidate(
         frozen = _load_production_trace_rankings(candidate.config, target)
     else:
         frozen = None
-    checkpoints = (
-        load_checkpoints(candidate.config.get("manifest_paths") or []) if backend == PRODUCTION_BACKEND else None
+    checkpoint_paths = (
+        checkpoint_paths_by_session(candidate.config.get("manifest_paths") or [])
+        if backend == PRODUCTION_BACKEND
+        else None
     )
     candidate_id = candidate_hash(dataset.sha256, candidate)
     cache_hits = 0
@@ -936,6 +966,7 @@ def evaluate_candidate(
             bool(_eligible_requirements(turn, session_turns, target, shortterm_window)) for turn in session_turns
         )
         identity = {
+            "evaluation_schema": _EVALUATION_SCHEMA,
             "dataset_sha256": dataset.sha256,
             "candidate_hash": candidate_id,
             "scope": scope,
@@ -960,7 +991,7 @@ def evaluate_candidate(
             registry=registry,
             frozen=frozen,
             agentic=agentic,
-            checkpoints=checkpoints,
+            checkpoint_path=(checkpoint_paths or {}).get(session_id),
             run_dir=run_dir,
             candidate_id=candidate_id,
         )

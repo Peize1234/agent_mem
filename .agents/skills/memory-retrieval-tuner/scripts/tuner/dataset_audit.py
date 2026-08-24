@@ -9,7 +9,7 @@ from typing import Any, Mapping, Sequence
 from openpyxl import load_workbook
 
 from .benchmark_support import load_dataset, parse_gold_requirements
-from .fact_evaluator import parse_required_context
+from .fact_evaluator import parse_required_context, uses_context_gold
 from .io_utils import atomic_write_json, atomic_write_text, load_json, load_jsonl, sha256_file
 from .models import Dataset, Requirement, Turn
 
@@ -315,16 +315,20 @@ def audit_dataset(
     source_check = _source_run_check(
         source_run,
         {turn.query_id for turn in all_turns},
-        expected_checkpoint_query_ids={turn.query_id for turn in all_turns if turn.requirements},
+        expected_checkpoint_query_ids={
+            turn.query_id for turn in all_turns if turn.requirements or uses_context_gold(turn)
+        },
         expected_dataset_sha256=dataset.sha256,
         expected_session_turn_counts={session_id: len(turns) for session_id, turns in dataset.sessions.items()},
     )
     if source_check["status"] == "INCOMPLETE":
         hard_errors.append({"code": "INCOMPLETE_SOURCE_RUN", **source_check})
 
-    fixed_fact_count = sum(len(parse_required_context(turn.required_context)) for turn in all_turns)
-    fixed_context_query_count = sum(bool(str(turn.required_context or "").strip()) for turn in all_turns)
-    gold_query_count = sum(bool(turn.requirements or str(turn.required_context or "").strip()) for turn in all_turns)
+    fixed_fact_count = sum(
+        len(parse_required_context(turn.required_context)) for turn in all_turns if uses_context_gold(turn)
+    )
+    fixed_context_query_count = sum(uses_context_gold(turn) for turn in all_turns)
+    gold_query_count = sum(bool(turn.requirements or uses_context_gold(turn)) for turn in all_turns)
     leakage = [
         turn.query_id
         for turn in all_turns
@@ -370,7 +374,7 @@ def audit_dataset(
         "query_count": len(all_turns),
         "gold_bearing_query_count": gold_query_count,
         "independent_query_count": len(all_turns) - gold_query_count,
-        "gold_requirement_count": fixed_fact_count or requirement_count,
+        "gold_requirement_count": requirement_count + fixed_fact_count,
         "required_context_fact_count": fixed_fact_count,
         "required_context_query_count": fixed_context_query_count,
         "and_requirement_count": requirement_count - or_count,
