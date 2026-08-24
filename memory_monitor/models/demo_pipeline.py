@@ -27,6 +27,30 @@ class StepStatus(str, Enum):
     SKIPPED = "skipped"
 
 
+# These names are shared by the monitor state reader and the UI.  They are
+# deliberately separate from the persisted Demo pipeline steps: core jobs are
+# created by ``Memory.add`` and are not owned by the Demo scheduler.
+MEMORY_STATE_SECTIONS = (
+    "short_term",
+    "midterm_sessions",
+    "midterm_pages",
+    "fine_grained_longterm",
+    "promoted_longterm",
+    "profile",
+    "migration_jobs",
+    "longterm_extraction_jobs",
+    "profile_jobs",
+    "promotion_jobs",
+)
+CORE_JOB_TYPES = (
+    "migration",
+    "longterm_extraction",
+    "profile",
+    "promotion",
+)
+CORE_JOB_ACTIVE_STATUSES = frozenset({"pending", "queued", "running", "retry"})
+
+
 FOREGROUND_STEPS = (
     PipelineStep.CAPTURE_INPUT,
     PipelineStep.RETRIEVE_CONTEXT,
@@ -129,6 +153,16 @@ class BackgroundStepConfig:
 
     def enabled_background_steps(self) -> tuple[PipelineStep, ...]:
         return tuple(step for step in BACKGROUND_STEPS if self.enabled(step))
+
+
+def job_section_for_type(job_type: str) -> str:
+    """Map a production core job type to its monitor state section."""
+    return {
+        "migration": "migration_jobs",
+        "longterm_extraction": "longterm_extraction_jobs",
+        "profile": "profile_jobs",
+        "promotion": "promotion_jobs",
+    }[job_type]
 
 
 DEFAULT_BACKGROUND_CONFIG = BackgroundStepConfig()

@@ -33,8 +33,12 @@ class DemoMemory(Memory):
             process_midterm=self._background_process_midterm,
             process_longterm=self._background_process_longterm,
             process_profile=self._background_process_profile,
+            process_longterm_extraction=self._background_process_longterm_extraction,
+            process_promotion=self._background_process_promotion,
             commit_migration_outputs=self._commit_migration_stage_outputs,
             discard_migration_outputs=self._discard_migration_stage_outputs,
+            commit_longterm_extraction_outputs=self._commit_longterm_extraction_outputs,
+            discard_longterm_extraction_outputs=self._discard_longterm_extraction_outputs,
             startup_cleanup=self._cleanup_orphan_staging_outputs,
             event_recorder=self._record_demo_event,
         )
@@ -77,6 +81,16 @@ class DemoMemory(Memory):
             deepcopy(item)
             for item in memories
             if isinstance(item, dict) and not str(item.get("source") or "").startswith("mid_term")
+        ]
+        context["fine_grained_longterm"] = [
+            deepcopy(item)
+            for item in memories
+            if isinstance(item, dict) and item.get("source") == "long_term"
+        ]
+        context["promoted_longterm"] = [
+            deepcopy(item)
+            for item in memories
+            if isinstance(item, dict) and item.get("source") == "cross_session_long_term"
         ]
         context["user_profile"] = deepcopy(context.get("profile") or {})
         if agentic_enabled:
@@ -188,7 +202,7 @@ class DemoMemory(Memory):
         """Commit one turn through the parent's persisted idempotency boundary."""
         commit_metadata = deepcopy(metadata) if metadata else {}
         idempotency_key = f"demo-turn:{simulation_id}:{turn_id}"
-        return super().add(
+        result = super().add(
             [
                 {"role": "user", "content": user_message},
                 {"role": "assistant", "content": assistant_message},
@@ -198,6 +212,24 @@ class DemoMemory(Memory):
             metadata=commit_metadata or None,
             idempotency_key=idempotency_key,
         )
+        # ``Memory.add`` intentionally returns only the historical migration
+        # and profile IDs.  Read the extraction IDs back from the same core DB
+        # so the Demo can explain every job created by this call without
+        # maintaining a parallel state store.
+        background = result.setdefault("background", {})
+        try:
+            extraction_jobs = self.db.list_longterm_extraction_jobs(
+                session_scope=self.session_scope_for_demo(user_id=user_id, run_id=run_id)
+            )
+            background["longterm_extraction_job_ids"] = [
+                str(job["job_id"])
+                for job in extraction_jobs
+                if job.get("source_operation_key") == idempotency_key
+            ]
+        except Exception:
+            # Older/duck-typed test memories may not expose the new table yet.
+            background.setdefault("longterm_extraction_job_ids", [])
+        return result
 
     @staticmethod
     def session_scope_for_demo(*, user_id: str, run_id: str) -> str:

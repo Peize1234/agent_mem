@@ -6,8 +6,9 @@ from pathlib import Path
 from typing import Any, Dict, Iterable
 
 from mem0.memory.main import _build_session_scope
+from memory_monitor.models.demo_pipeline import MEMORY_STATE_SECTIONS
 
-SNAPSHOT_SECTIONS = (
+_LEGACY_SNAPSHOT_SECTIONS = (
     "short_term",
     "midterm_sessions",
     "midterm_pages",
@@ -16,17 +17,35 @@ SNAPSHOT_SECTIONS = (
     "migration_jobs",
     "profile_jobs",
 )
-_SQLITE_SECTIONS = frozenset({"short_term", "profile", "migration_jobs", "profile_jobs"})
-_SESSION_SCOPE_SECTIONS = frozenset({"short_term", "migration_jobs"})
+# ``long_term`` remains accepted for old persisted Demo snapshots. New live
+# state defaults to the canonical split sections and never uses that name in
+# the monitor UI.
+SNAPSHOT_SECTIONS = tuple(MEMORY_STATE_SECTIONS)
+_SUPPORTED_SECTIONS = frozenset((*SNAPSHOT_SECTIONS, "long_term"))
+_SQLITE_SECTIONS = frozenset(
+    {
+        "short_term",
+        "profile",
+        "migration_jobs",
+        "longterm_extraction_jobs",
+        "profile_jobs",
+        "promotion_jobs",
+    }
+)
+_SESSION_SCOPE_SECTIONS = frozenset({"short_term", "migration_jobs", "longterm_extraction_jobs"})
 _MIDTERM_SECTIONS = frozenset({"midterm_sessions", "midterm_pages"})
 _SECTION_RECORD_KEYS = {
     "short_term": "id",
     "midterm_sessions": "id",
     "midterm_pages": "id",
     "long_term": "id",
+    "fine_grained_longterm": "id",
+    "promoted_longterm": "id",
     "profile": "attribute_id",
     "migration_jobs": "job_id",
+    "longterm_extraction_jobs": "job_id",
     "profile_jobs": "job_id",
+    "promotion_jobs": "job_id",
 }
 
 
@@ -45,10 +64,14 @@ class MemoryStateService:
         sections: Iterable[str] | None = None,
     ) -> Dict[str, Any]:
         """Capture the active memory view used by persisted step snapshots."""
+        # Persisted step snapshots predate the two long-term stores.  Keep the
+        # legacy default shape for old turns while explicit sections (and all
+        # live ``current_state`` reads) expose the complete production view.
+        effective_sections = _LEGACY_SNAPSHOT_SECTIONS if sections is None else sections
         return self._read_state(
             user_id=user_id,
             run_id=run_id,
-            sections=sections,
+            sections=effective_sections,
             include_all_messages=False,
         )
 
@@ -101,14 +124,27 @@ class MemoryStateService:
             snapshot["midterm_pages"] = midterm_state["midterm_pages"]
         if "long_term" in selected:
             snapshot["long_term"] = self._vector_rows(self.memory.vector_store, filters)
+        if "fine_grained_longterm" in selected:
+            snapshot["fine_grained_longterm"] = self._fine_grained_longterm_state(filters)
+        if "promoted_longterm" in selected:
+            snapshot["promoted_longterm"] = self._promoted_longterm_state(user_id)
         if "profile" in selected:
             snapshot["profile"] = sqlite_state["profile"]
-        if selected & {"migration_jobs", "profile_jobs"}:
+        if selected & {
+            "migration_jobs",
+            "longterm_extraction_jobs",
+            "profile_jobs",
+            "promotion_jobs",
+        }:
             snapshot["jobs"] = {}
             if "migration_jobs" in selected:
                 snapshot["jobs"]["migration"] = sqlite_state["migration_jobs"]
+            if "longterm_extraction_jobs" in selected:
+                snapshot["jobs"]["longterm_extraction"] = sqlite_state["longterm_extraction_jobs"]
             if "profile_jobs" in selected:
                 snapshot["jobs"]["profile"] = sqlite_state["profile_jobs"]
+            if "promotion_jobs" in selected:
+                snapshot["jobs"]["promotion"] = sqlite_state["promotion_jobs"]
         return snapshot
 
     @staticmethod
@@ -116,7 +152,7 @@ class MemoryStateService:
         if sections is None:
             return frozenset(SNAPSHOT_SECTIONS)
         selected = frozenset({sections} if isinstance(sections, str) else sections)
-        unknown = selected.difference(SNAPSHOT_SECTIONS)
+        unknown = selected.difference(_SUPPORTED_SECTIONS)
         if unknown:
             raise ValueError(f"Unknown memory snapshot sections: {sorted(unknown)}")
         return selected
@@ -158,6 +194,8 @@ class MemoryStateService:
                     """,
                     (session_scope,),
                 )
+            if "longterm_extraction_jobs" in selected:
+                state["longterm_extraction_jobs"] = self._list_longterm_extraction_jobs(session_scope)
             if "profile_jobs" in selected:
                 state["profile_jobs"] = self._query(
                     connection,
@@ -167,6 +205,8 @@ class MemoryStateService:
                     """,
                     (user_id,),
                 )
+            if "promotion_jobs" in selected:
+                state["promotion_jobs"] = self._list_promotion_jobs(user_id)
             if "profile" in selected:
                 state["profile"] = self._query(
                     connection,
@@ -217,9 +257,101 @@ class MemoryStateService:
                 """,
                 (user_id,),
             ).fetchone()
-            return profile is not None
+            if profile is not None:
+                return True
+            extraction = connection.execute(
+                """
+                SELECT 1 FROM longterm_extraction_jobs
+                WHERE session_scope = ? AND status IN ('pending', 'running', 'retry')
+                LIMIT 1
+                """,
+                (session_scope,),
+            ).fetchone()
+            if extraction is not None:
+                return True
+            promotion = connection.execute(
+                """
+                SELECT 1 FROM memory_promotion_jobs
+                WHERE user_id = ? AND status IN ('pending', 'running', 'retry')
+                LIMIT 1
+                """,
+                (user_id,),
+            ).fetchone()
+            return promotion is not None
         finally:
             connection.close()
+
+    def _list_longterm_extraction_jobs(self, session_scope: str | None) -> list[Dict[str, Any]]:
+        db = getattr(self.memory, "db", None)
+        lister = getattr(db, "list_longterm_extraction_jobs", None)
+        if callable(lister):
+            return [dict(row) for row in lister(session_scope=session_scope)]
+        connection = self._read_only_connection()
+        try:
+            return self._query(
+                connection,
+                "SELECT * FROM longterm_extraction_jobs WHERE session_scope = ? ORDER BY sequence_no, rowid",
+                (session_scope,),
+            )
+        finally:
+            connection.close()
+
+    def _list_promotion_jobs(self, user_id: str) -> list[Dict[str, Any]]:
+        db = getattr(self.memory, "db", None)
+        lister = getattr(db, "list_promotion_jobs", None)
+        if callable(lister):
+            return [dict(row) for row in lister(user_id=user_id)]
+        connection = self._read_only_connection()
+        try:
+            return self._query(
+                connection,
+                "SELECT * FROM memory_promotion_jobs WHERE user_id = ? ORDER BY created_at, rowid",
+                (user_id,),
+            )
+        finally:
+            connection.close()
+
+    def _read_only_connection(self) -> sqlite3.Connection:
+        uri = f"{self.db_path.as_uri()}?mode=ro"
+        connection = sqlite3.connect(uri, uri=True, timeout=5)
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA query_only = ON")
+        return connection
+
+    def _fine_grained_longterm_state(self, filters: Dict[str, Any]) -> list[Dict[str, Any]]:
+        rows = self._vector_rows(self.memory.vector_store, filters)
+        visible = getattr(self.memory, "_stage_output_is_visible", None)
+        result = []
+        for row in rows:
+            payload = row.get("payload") or {}
+            if payload.get("source_job_type") != "longterm_extraction":
+                continue
+            if callable(visible):
+                try:
+                    if not visible(payload, "longterm"):
+                        continue
+                except Exception:
+                    continue
+            result.append(row)
+        return result
+
+    def _promoted_longterm_state(self, user_id: str) -> list[Dict[str, Any]]:
+        enabled = getattr(self.memory, "_promoted_longterm_enabled", None)
+        if callable(enabled):
+            try:
+                if not enabled():
+                    return []
+            except Exception:
+                return []
+        promoted = getattr(self.memory, "promoted_longterm", None)
+        if promoted is None:
+            promoted = getattr(self.memory, "cross_session_longterm", None)
+        if promoted is None:
+            return []
+        try:
+            return self._serialize_vectors(promoted.list(filters={"user_id": user_id}, top_k=1000))
+        except TypeError:
+            return self._serialize_vectors(promoted.list(filters={"user_id": user_id}))
 
     @staticmethod
     def _query(
@@ -250,14 +382,61 @@ class MemoryStateService:
         midterm = self.memory.midterm_memory
         state = {}
         if "midterm_sessions" in selected:
-            state["midterm_sessions"] = self._serialize_vectors(
+            sessions = self._serialize_vectors(
                 midterm.list_sessions(filters=filters, top_k=1000)
             )
+            state["midterm_sessions"] = self._annotate_midterm_sessions(sessions, filters)
         if "midterm_pages" in selected:
             state["midterm_pages"] = self._serialize_vectors(
                 midterm.list_pages(filters=filters, top_k=1000)
             )
         return state
+
+    def _annotate_midterm_sessions(
+        self,
+        rows: list[Dict[str, Any]],
+        filters: Dict[str, Any],
+    ) -> list[Dict[str, Any]]:
+        """Expose the exact production promotion inputs and persisted job link."""
+        midterm_config = getattr(getattr(self.memory, "config", None), "midterm", None)
+        min_recalls = int(getattr(midterm_config, "promotion_min_recall_count", 0) or 0)
+        heat_threshold = float(getattr(midterm_config, "promotion_heat_threshold", 0.0) or 0.0)
+        promotion_jobs = {}
+        lister = getattr(getattr(self.memory, "db", None), "list_promotion_jobs", None)
+        if callable(lister):
+            try:
+                promotion_jobs = {
+                    str(job.get("source_midterm_session_id")): job
+                    for job in lister(user_id=filters.get("user_id"))
+                }
+            except Exception:
+                promotion_jobs = {}
+        promoted_rows = self._promoted_longterm_state(str(filters.get("user_id") or ""))
+        promoted_by_session = {
+            str((row.get("payload") or {}).get("source_midterm_session_id")): row.get("id")
+            for row in promoted_rows
+            if (row.get("payload") or {}).get("source_midterm_session_id")
+        }
+        annotated = []
+        for row in rows:
+            item = dict(row)
+            payload = dict(item.get("payload") or {})
+            recalls = int(payload.get("valid_recall_count", 0) or 0)
+            heat = float(payload.get("H_segment", 0.0) or 0.0)
+            payload["promotion_threshold"] = {
+                "min_valid_recall_count": min_recalls,
+                "heat_threshold": heat_threshold,
+            }
+            payload["promotion_eligible"] = recalls >= min_recalls and heat >= heat_threshold
+            job = promotion_jobs.get(str(item.get("id")))
+            if job:
+                payload["promotion_job_id"] = job.get("job_id")
+                payload["promotion_job_status"] = job.get("status")
+            if str(item.get("id")) in promoted_by_session:
+                payload["promoted_longterm_id"] = promoted_by_session[str(item.get("id"))]
+            item["payload"] = payload
+            annotated.append(item)
+        return annotated
 
     def _vector_rows(self, store, filters: Dict[str, Any]) -> list[Dict[str, Any]]:
         listed = store.list(filters=filters, top_k=1000)
@@ -285,7 +464,7 @@ class MemoryStateService:
     ) -> Dict[str, Any]:
         selected = cls._normalize_sections(sections)
         diff = {}
-        for name in SNAPSHOT_SECTIONS:
+        for name in _SUPPORTED_SECTIONS:
             if name not in selected:
                 continue
             rows_before = cls._section_rows(before, name)
@@ -311,6 +490,12 @@ class MemoryStateService:
         if section == "profile_jobs":
             jobs = snapshot.get("jobs")
             return None if not isinstance(jobs, dict) or "profile" not in jobs else jobs["profile"]
+        if section == "longterm_extraction_jobs":
+            jobs = snapshot.get("jobs")
+            return None if not isinstance(jobs, dict) or "longterm_extraction" not in jobs else jobs["longterm_extraction"]
+        if section == "promotion_jobs":
+            jobs = snapshot.get("jobs")
+            return None if not isinstance(jobs, dict) or "promotion" not in jobs else jobs["promotion"]
         return snapshot.get(section) if section in snapshot else None
 
     @staticmethod

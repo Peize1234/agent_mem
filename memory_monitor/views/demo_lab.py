@@ -15,7 +15,12 @@ from memory_monitor.components import (
     prompt_panel,
     trace_panel,
 )
-from memory_monitor.models import BackgroundStepConfig, PipelineStep, TERMINAL_STEP_STATUSES
+from memory_monitor.models import (
+    CORE_JOB_ACTIVE_STATUSES,
+    BackgroundStepConfig,
+    PipelineStep,
+    TERMINAL_STEP_STATUSES,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +35,11 @@ _EMPTY_SNAPSHOT = {
     "short_term": [],
     "midterm_sessions": [],
     "midterm_pages": [],
-    "long_term": [],
+    "long_term": [],  # legacy snapshots only
+    "fine_grained_longterm": [],
+    "promoted_longterm": [],
     "profile": [],
-    "jobs": {"migration": [], "profile": []},
+    "jobs": {"migration": [], "longterm_extraction": [], "profile": [], "promotion": []},
 }
 _WORKSPACE_SECTIONS = (
     ("执行流程", "pipeline"),
@@ -42,7 +49,7 @@ _WORKSPACE_SECTIONS = (
     ("数据库和任务", "database"),
     ("Trace", "trace"),
 )
-_ACTIVE_JOB_STATUSES = frozenset({"pending", "queued", "running", "retry"})
+_ACTIVE_JOB_STATUSES = CORE_JOB_ACTIVE_STATUSES
 
 
 def render(st, simulation_service, config) -> None:
@@ -171,7 +178,7 @@ def _render_header(st, simulation_service, environment, *, restoring: bool = Fal
     with title:
         st.markdown('<h1 class="demo-lab-title">Agent Memory · Demo Lab</h1>', unsafe_allow_html=True)
         st.markdown(
-            '<p class="demo-lab-subtitle">前台链异步执行；短期、中期、长期和画像使用四条独立队列。</p>',
+            '<p class="demo-lab-subtitle">Demo 调度队列异步推进；Memory.add 创建的 Core Jobs 使用真实 lease、重试和状态。</p>',
             unsafe_allow_html=True,
         )
     with sandbox:
@@ -513,7 +520,7 @@ def _session_has_active_jobs(environment, session_id: str) -> bool:
     state = state_reader(
         user_id=session["user_id"],
         run_id=session["run_id"],
-        sections={"migration_jobs", "profile_jobs"},
+        sections={"migration_jobs", "longterm_extraction_jobs", "profile_jobs", "promotion_jobs"},
     )
     jobs = state.get("jobs") or {}
     migration_active = any(
@@ -521,7 +528,9 @@ def _session_has_active_jobs(environment, session_id: str) -> bool:
         for job in jobs.get("migration") or []
     )
     profile_active = any(job.get("status") in _ACTIVE_JOB_STATUSES for job in jobs.get("profile") or [])
-    return migration_active or profile_active
+    extraction_active = any(job.get("status") in _ACTIVE_JOB_STATUSES for job in jobs.get("longterm_extraction") or [])
+    promotion_active = any(job.get("status") in _ACTIVE_JOB_STATUSES for job in jobs.get("promotion") or [])
+    return migration_active or profile_active or extraction_active or promotion_active
 
 
 def _right_workspace_needs_polling(

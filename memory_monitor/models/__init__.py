@@ -5,7 +5,10 @@ from memory_monitor.models.demo_pipeline import (
     DEFAULT_BACKGROUND_CONFIG,
     FOREGROUND_STEPS,
     INFLIGHT_STEP_STATUSES,
+    CORE_JOB_ACTIVE_STATUSES,
+    CORE_JOB_TYPES,
     MEMORY_STEPS,
+    MEMORY_STATE_SECTIONS,
     OPTIONAL_PIPELINE_STEPS,
     PIPELINE_STEPS,
     STEP_DEPENDENCIES,
@@ -15,6 +18,7 @@ from memory_monitor.models.demo_pipeline import (
     PipelineStep,
     StepStatus,
     dependencies_for,
+    job_section_for_type,
 )
 
 __all__ = [
@@ -22,7 +26,10 @@ __all__ = [
     "DEFAULT_BACKGROUND_CONFIG",
     "FOREGROUND_STEPS",
     "INFLIGHT_STEP_STATUSES",
+    "CORE_JOB_ACTIVE_STATUSES",
+    "CORE_JOB_TYPES",
     "MEMORY_STEPS",
+    "MEMORY_STATE_SECTIONS",
     "OPTIONAL_PIPELINE_STEPS",
     "PIPELINE_STEPS",
     "STEP_DEPENDENCIES",
@@ -32,4 +39,5 @@ __all__ = [
     "PipelineStep",
     "StepStatus",
     "dependencies_for",
+    "job_section_for_type",
 ]

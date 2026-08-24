@@ -45,9 +45,9 @@ STEP_LLM_PURPOSES = {
     PipelineStep.AGENTIC_RETRIEVAL: "Agentic 检索",
     PipelineStep.BUILD_PROMPT: "构建最终 Prompt",
     PipelineStep.GENERATE_RESPONSE: "生成最终回答",
-    PipelineStep.RUN_SHORTTERM: "提交短期记忆",
+    PipelineStep.RUN_SHORTTERM: "提交本轮记忆",
     PipelineStep.RUN_MIDTERM: "生成中期记忆",
-    PipelineStep.RUN_LONGTERM: "抽取长期记忆",
+    PipelineStep.RUN_LONGTERM: "执行细粒度长期记忆抽取",
     PipelineStep.RUN_PROFILE: "抽取用户画像",
 }
 
@@ -680,7 +680,18 @@ class DemoPipelineService:
                 user_message=turn["user_message"],
                 assistant_message=generation["assistant_message"],
             )
-            return result, {"commit": result}
+            background = result.get("background") if isinstance(result, dict) else {}
+            return {
+                **(result if isinstance(result, dict) else {"result": result}),
+                "memory_add_created": {
+                    "short_term_messages": 2,
+                    "migration_job_id": (background or {}).get("migration_job_id"),
+                    "longterm_extraction_job_ids": list(
+                        (background or {}).get("longterm_extraction_job_ids") or []
+                    ),
+                    "profile_job_id": (background or {}).get("profile_job_id"),
+                },
+            }, {"commit": result}
 
         if step in MEMORY_STEPS[1:]:
             return self._run_background_job(turn_id, step), {}
@@ -724,20 +735,57 @@ class DemoPipelineService:
                 f"{step.value} job did not complete successfully: "
                 f"job_id={job_id} status={status_name} processed={processed}"
             )
-        events = [
-            event
-            for event in self.memory.demo_events()[event_offset:]
-            if event.get("job_id") == job_id and (stage is None or event.get("stage") in {None, stage})
-        ]
-        return {
+        result = {
             "job_type": job_type,
             "pipeline_step": step.value,
             "job_id": job_id,
             "processed": processed,
             "status": status_name,
             "job": status,
-            "events": events,
+            "events": [
+                event
+                for event in self.memory.demo_events()[event_offset:]
+                if event.get("job_id") == job_id and (stage is None or event.get("stage") in {None, stage})
+            ],
         }
+
+        # ``Memory.add`` creates the per-QA extraction jobs in addition to the
+        # migration/profile jobs.  Keep the legacy migration stage result for
+        # old callers, then drive the new production extraction queue from the
+        # same Demo action.
+        if step is PipelineStep.RUN_LONGTERM:
+            extraction_ids = list(background.get("longterm_extraction_job_ids") or [])
+            extraction_results = []
+            extraction_processor = getattr(worker, "process_longterm_extraction_job", None)
+            if extraction_processor is not None:
+                for extraction_id in extraction_ids:
+                    extraction_processed = extraction_processor(extraction_id)
+                    extraction_status = worker.get_job_status(extraction_id, "longterm_extraction")
+                    extraction_results.append(
+                        {
+                            "job_type": "longterm_extraction",
+                            "job_id": extraction_id,
+                            "processed": extraction_processed,
+                            "status": (extraction_status or {}).get("status"),
+                            "job": extraction_status,
+                        }
+                    )
+                result["longterm_extraction_jobs"] = extraction_results
+                if extraction_results and any(
+                    item["status"] not in {"succeeded", "discarded"} for item in extraction_results
+                ):
+                    raise BackgroundJobDeferred(
+                        "fine-grained longterm extraction is still pending: "
+                        + ", ".join(str(item["job_id"]) for item in extraction_results)
+                    )
+
+        if step is PipelineStep.RUN_MIDTERM:
+            promotion_processor = getattr(worker, "process_next_promotion_job", None)
+            if promotion_processor is not None:
+                promotion_processed = promotion_processor()
+                if promotion_processed:
+                    result["promotion_processed"] = True
+        return result
 
     def _step_input(self, turn: Dict[str, Any], step: PipelineStep) -> Dict[str, Any]:
         turn_id = turn["turn_id"]
@@ -784,7 +832,13 @@ class DemoPipelineService:
                 if step is PipelineStep.RUN_PROFILE
                 else background.get("migration_job_id")
             )
-            return {"pipeline_step": step.value, "job_id": job_id}
+            return {
+                "pipeline_step": step.value,
+                "job_id": job_id,
+                "longterm_extraction_job_ids": list(background.get("longterm_extraction_job_ids") or [])
+                if step is PipelineStep.RUN_LONGTERM
+                else [],
+            }
         raise ValueError(f"Unsupported pipeline step: {step.value}")
 
     def _require_prerequisites(self, turn_id: str, step: PipelineStep) -> None:

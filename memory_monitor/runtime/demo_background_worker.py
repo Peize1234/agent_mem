@@ -5,7 +5,7 @@ import threading
 import time
 from typing import Any, Callable, Dict, Optional
 
-from mem0.memory.background_worker import BackgroundWorkerManager
+from mem0.memory.background_worker import BackgroundWorkerManager, LeaseHeartbeat
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,9 @@ class DemoBackgroundWorkerManager(BackgroundWorkerManager):
         self._manual_locks = {
             "midterm": threading.Lock(),
             "longterm": threading.Lock(),
+            "longterm_extraction": threading.Lock(),
             "profile": threading.Lock(),
+            "promotion": threading.Lock(),
         }
         self._recovered = False
         self._manual_condition = threading.Condition()
@@ -35,9 +37,11 @@ class DemoBackgroundWorkerManager(BackgroundWorkerManager):
                 return
             recovered = self.db.recover_expired_background_leases(self.config.max_stale_recoveries)
             logger.info(
-                "Demo recovered stale background jobs migration=%s profile=%s",
+                "Demo recovered stale Core jobs migration=%s profile=%s longterm_extraction=%s promotion=%s",
                 recovered.get("migration", 0),
                 recovered.get("profile", 0),
+                recovered.get("longterm_extraction", 0),
+                recovered.get("promotion", 0),
             )
             if self.startup_cleanup is not None:
                 try:
@@ -88,6 +92,9 @@ class DemoBackgroundWorkerManager(BackgroundWorkerManager):
     def wake_profile(self) -> None:
         return None
 
+    def wake_promotion(self) -> None:
+        return None
+
     def flush(self, timeout: Optional[float] = None) -> bool:
         """Report queue state without waiting for threads that do not exist."""
         return not self.db.background_jobs_pending()
@@ -106,6 +113,12 @@ class DemoBackgroundWorkerManager(BackgroundWorkerManager):
     def process_next_profile_job(self) -> bool:
         return self._process_claimed_profile()
 
+    def process_next_longterm_extraction_job(self) -> bool:
+        return self._process_claimed_longterm_extraction()
+
+    def process_next_promotion_job(self) -> bool:
+        return self._process_claimed_promotion()
+
     def process_midterm_job(self, job_id: str) -> bool:
         return self._process_claimed_stage("midterm", job_id)
 
@@ -120,6 +133,12 @@ class DemoBackgroundWorkerManager(BackgroundWorkerManager):
 
     def process_profile_job(self, job_id: str) -> bool:
         return self._process_claimed_profile(job_id)
+
+    def process_longterm_extraction_job(self, job_id: str) -> bool:
+        return self._process_claimed_longterm_extraction(job_id)
+
+    def process_promotion_job(self, job_id: str) -> bool:
+        return self._process_claimed_promotion(job_id)
 
     def get_job_status(self, job_id: str, job_type: str) -> Optional[Dict[str, Any]]:
         return self.db.get_background_job(job_id, job_type)
@@ -198,10 +217,97 @@ class DemoBackgroundWorkerManager(BackgroundWorkerManager):
                     },
                 )
                 if profile_status == "discarded":
+                    last_error = (status or {}).get("last_error")
+                    if isinstance(last_error, str) and ": " in last_error:
+                        last_error = last_error.split(": ", 1)[1]
                     self._record(
                         "job.discarded",
                         {
                             "job_type": "profile",
+                            "job_id": job["job_id"],
+                            "attempts": (status or {}).get("attempts"),
+                            "last_error": last_error,
+                        },
+                    )
+                return True
+        finally:
+            self._end_manual_call()
+
+    def _process_claimed_longterm_extraction(self, job_id: Optional[str] = None) -> bool:
+        """Manually run one real fine-grained extraction job with core leases."""
+        if not self._begin_manual_call():
+            return False
+        heartbeat = None
+        try:
+            with self._manual_locks["longterm_extraction"]:
+                job = (
+                    self.db.claim_longterm_extraction_job(job_id, self.config.lease_timeout_seconds)
+                    if job_id is not None
+                    else self.db.claim_next_longterm_extraction_job(self.config.lease_timeout_seconds)
+                )
+                if not isinstance(job, dict):
+                    return False
+                self._record(
+                    "job.started",
+                    {"job_type": "longterm_extraction", "job_id": job["job_id"]},
+                )
+                heartbeat = LeaseHeartbeat(
+                    heartbeat=lambda: self.db.heartbeat_longterm_extraction_job(
+                        job["job_id"],
+                        job["lease_token"],
+                        self.config.lease_timeout_seconds,
+                    ),
+                    interval_seconds=self.config.heartbeat_interval_seconds,
+                    name=f"demo-longterm-extraction-heartbeat-{job['job_id']}",
+                )
+                heartbeat.start()
+                try:
+                    self.process_longterm_extraction(job)
+                    if self.db.longterm_extraction_job_lease_is_current(job["job_id"], job["lease_token"]):
+                        self.commit_longterm_extraction_outputs(job, job["lease_token"])
+                        if not self.db.complete_longterm_extraction_job(job["job_id"], job["lease_token"]):
+                            self.discard_longterm_extraction_outputs(job, job["lease_token"])
+                    else:
+                        self.discard_longterm_extraction_outputs(job, job["lease_token"])
+                except Exception as exc:
+                    try:
+                        self.discard_longterm_extraction_outputs(job, job["lease_token"])
+                    except Exception:
+                        logger.exception("Demo extraction output cleanup failed job_id=%s", job.get("job_id"))
+                    attempt = int(job.get("attempts", 0)) + 1
+                    retryable = getattr(exc, "retryable", None)
+                    if retryable is None:
+                        retryable = not isinstance(exc, (TypeError, ValueError))
+                    self.db.record_longterm_extraction_failure(
+                        job["job_id"],
+                        job["lease_token"],
+                        f"{type(exc).__name__}: {exc}",
+                        max_retries=int(self.config.max_retries) if retryable else 0,
+                        retry_delay_seconds=self._retry_delay(attempt),
+                    )
+                    self._record(
+                        "job.failed",
+                        {
+                            "job_type": "longterm_extraction",
+                            "job_id": job["job_id"],
+                            "error_type": type(exc).__name__,
+                            "error": str(exc),
+                        },
+                    )
+                status = self.db.get_background_job(job["job_id"], "longterm_extraction")
+                self._record(
+                    "job.finished",
+                    {
+                        "job_type": "longterm_extraction",
+                        "job_id": job["job_id"],
+                        "status": (status or {}).get("status"),
+                    },
+                )
+                if (status or {}).get("status") == "discarded":
+                    self._record(
+                        "job.discarded",
+                        {
+                            "job_type": "longterm_extraction",
                             "job_id": job["job_id"],
                             "attempts": (status or {}).get("attempts"),
                             "last_error": (status or {}).get("last_error"),
@@ -209,6 +315,85 @@ class DemoBackgroundWorkerManager(BackgroundWorkerManager):
                     )
                 return True
         finally:
+            if heartbeat is not None:
+                self._stop_heartbeat(heartbeat)
+            self._end_manual_call()
+
+    def _process_claimed_promotion(self, job_id: Optional[str] = None) -> bool:
+        """Manually run one real cross-session promotion job with core leases."""
+        if not self._begin_manual_call():
+            return False
+        heartbeat = None
+        try:
+            with self._manual_locks["promotion"]:
+                job = (
+                    self.db.claim_promotion_job(job_id, self.config.lease_timeout_seconds)
+                    if job_id is not None
+                    else self.db.claim_next_promotion_job(self.config.lease_timeout_seconds)
+                )
+                if not isinstance(job, dict):
+                    return False
+                self._record("job.started", {"job_type": "promotion", "job_id": job["job_id"]})
+                heartbeat = LeaseHeartbeat(
+                    heartbeat=lambda: self.db.heartbeat_promotion_job(
+                        job["job_id"],
+                        job["lease_token"],
+                        self.config.lease_timeout_seconds,
+                    ),
+                    interval_seconds=self.config.heartbeat_interval_seconds,
+                    name=f"demo-promotion-heartbeat-{job['job_id']}",
+                )
+                heartbeat.start()
+                try:
+                    discard_reason = self.process_promotion(job)
+                    if discard_reason:
+                        self.db.discard_promotion_job(job["job_id"], job["lease_token"], str(discard_reason))
+                    elif not self.db.complete_promotion_job(job["job_id"], job["lease_token"]):
+                        logger.info("Demo promotion job lease became stale job_id=%s", job["job_id"])
+                except Exception as exc:
+                    attempt = int(job.get("attempts", 0)) + 1
+                    retryable = getattr(exc, "retryable", None)
+                    if retryable is None:
+                        retryable = not isinstance(exc, (TypeError, ValueError))
+                    self.db.retry_promotion_job(
+                        job["job_id"],
+                        job["lease_token"],
+                        f"{type(exc).__name__}: {exc}",
+                        max_retries=int(self.config.max_retries) if retryable else 0,
+                        retry_delay_seconds=self._retry_delay(attempt),
+                    )
+                    self._record(
+                        "job.failed",
+                        {
+                            "job_type": "promotion",
+                            "job_id": job["job_id"],
+                            "error_type": type(exc).__name__,
+                            "error": str(exc),
+                        },
+                    )
+                status = self.db.get_background_job(job["job_id"], "promotion")
+                self._record(
+                    "job.finished",
+                    {
+                        "job_type": "promotion",
+                        "job_id": job["job_id"],
+                        "status": (status or {}).get("status"),
+                    },
+                )
+                if (status or {}).get("status") == "discarded":
+                    self._record(
+                        "job.discarded",
+                        {
+                            "job_type": "promotion",
+                            "job_id": job["job_id"],
+                            "attempts": (status or {}).get("attempts"),
+                            "last_error": (status or {}).get("last_error"),
+                        },
+                    )
+                return True
+        finally:
+            if heartbeat is not None:
+                self._stop_heartbeat(heartbeat)
             self._end_manual_call()
 
     def _record_unexpected_stage_failure(self, job: Dict[str, Any], stage: str, exc: Exception) -> None:

@@ -11,7 +11,8 @@ def render(st, context: dict | None, *, key_prefix: str) -> None:
     sections = (
         ("短期记忆", context.get("short_term") or context.get("short_term_messages") or []),
         ("中期记忆", context.get("mid_term") or []),
-        ("长期记忆", context.get("long_term") or []),
+        ("细粒度长期记忆", context.get("fine_grained_longterm") or []),
+        ("跨 Session 长期记忆", context.get("promoted_longterm") or []),
     )
     for section, (title, records) in enumerate(sections):
         st.markdown(f"#### {title}")

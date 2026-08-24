@@ -29,9 +29,9 @@ _STEP_LABELS = {
     PipelineStep.AGENTIC_RETRIEVAL: "Agentic 检索",
     PipelineStep.BUILD_PROMPT: "构建 Prompt",
     PipelineStep.GENERATE_RESPONSE: "模型回答",
-    PipelineStep.RUN_SHORTTERM: "添加短期记忆",
+    PipelineStep.RUN_SHORTTERM: "提交本轮记忆",
     PipelineStep.RUN_MIDTERM: "添加中期记忆",
-    PipelineStep.RUN_LONGTERM: "添加长期记忆",
+    PipelineStep.RUN_LONGTERM: "执行细粒度长期记忆",
     PipelineStep.RUN_PROFILE: "抽取用户画像",
     PipelineStep.COMPLETE_TURN: "完成本轮",
 }
@@ -426,6 +426,15 @@ def _node_detail(
 ) -> str | None:
     if step is PipelineStep.COMPLETE_TURN:
         return None
+    if step is PipelineStep.RUN_SHORTTERM and item["status"] == StepStatus.SUCCEEDED.value:
+        output = item.get("output") if isinstance(item.get("output"), dict) else {}
+        created = output.get("memory_add_created") if isinstance(output.get("memory_add_created"), dict) else {}
+        if created:
+            extraction_count = len(created.get("longterm_extraction_job_ids") or [])
+            return (
+                "ShortTerm + Migration + "
+                f"LongTerm Extraction×{extraction_count} + Profile"
+            )
     if step is PipelineStep.AGENTIC_RETRIEVAL:
         output = item.get("output") if isinstance(item.get("output"), dict) else {}
         agentic_status = output.get("agentic_status")

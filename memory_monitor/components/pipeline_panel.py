@@ -16,9 +16,9 @@ _SECONDARY_ACTIONS = (
     ("reset", "重置当前轮"),
 )
 _MEMORY_GATE_CONTROLS = (
-    (PipelineStep.RUN_SHORTTERM, "添加短期记忆", "短期"),
+    (PipelineStep.RUN_SHORTTERM, "提交本轮记忆", "提交"),
     (PipelineStep.RUN_MIDTERM, "添加中期记忆", "中期"),
-    (PipelineStep.RUN_LONGTERM, "添加长期记忆", "长期"),
+    (PipelineStep.RUN_LONGTERM, "执行细粒度长期记忆", "细粒度长期"),
     (PipelineStep.RUN_PROFILE, "抽取用户画像", "用户画像"),
 )
 
@@ -28,9 +28,9 @@ _STEP_LABELS = {
     PipelineStep.AGENTIC_RETRIEVAL.value: "Agentic 检索",
     PipelineStep.BUILD_PROMPT.value: "构建 Prompt",
     PipelineStep.GENERATE_RESPONSE.value: "模型回答",
-    PipelineStep.RUN_SHORTTERM.value: "添加短期记忆",
+    PipelineStep.RUN_SHORTTERM.value: "提交本轮记忆",
     PipelineStep.RUN_MIDTERM.value: "添加中期记忆",
-    PipelineStep.RUN_LONGTERM.value: "添加长期记忆",
+    PipelineStep.RUN_LONGTERM.value: "执行细粒度长期记忆",
     PipelineStep.RUN_PROFILE.value: "抽取用户画像",
 }
 
@@ -42,6 +42,9 @@ def render_controls(
     disabled: bool,
     steps: list[dict] | None = None,
 ) -> tuple[str | None, str | None]:
+    caption = getattr(st, "caption", None)
+    if callable(caption):
+        caption("Demo 调度队列：提交操作后由独立 worker 异步推进；下方 Core Jobs 反映生产状态。")
     step_runs = steps or []
     failed = failed_steps(step_runs)
     target = None
