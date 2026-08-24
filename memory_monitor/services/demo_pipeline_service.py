@@ -8,6 +8,7 @@ from copy import deepcopy
 from typing import Any, Dict, Optional
 
 from memory_monitor.models import (
+    CORE_JOB_ACTIVE_STATUSES,
     FOREGROUND_STEPS,
     MEMORY_STEPS,
     OPTIONAL_PIPELINE_STEPS,
@@ -33,9 +34,15 @@ TARGET_MEMORY = "memory"
 TARGET_ALL = "all"
 
 STEP_SNAPSHOT_SECTIONS = {
-    PipelineStep.RUN_SHORTTERM: frozenset({"short_term"}),
-    PipelineStep.RUN_MIDTERM: frozenset({"midterm_sessions", "midterm_pages"}),
-    PipelineStep.RUN_LONGTERM: frozenset({"long_term"}),
+    # Memory.add() creates the Core jobs together. Keep those rows in the
+    # submission diff, while downstream steps own their independent outputs.
+    PipelineStep.RUN_SHORTTERM: frozenset(
+        {"short_term", "migration_jobs", "longterm_extraction_jobs", "profile_jobs"}
+    ),
+    PipelineStep.RUN_MIDTERM: frozenset(
+        {"midterm_sessions", "midterm_pages", "promotion_jobs", "promoted_longterm"}
+    ),
+    PipelineStep.RUN_LONGTERM: frozenset({"fine_grained_longterm", "longterm_extraction_jobs"}),
     PipelineStep.RUN_PROFILE: frozenset({"profile"}),
 }
 
@@ -710,82 +717,199 @@ class DemoPipelineService:
             stage = None
         else:
             job_type = "migration"
-            job_id = background.get("migration_job_id")
+            migration_job_id = background.get("migration_job_id")
             stage = "midterm" if step is PipelineStep.RUN_MIDTERM else "longterm"
             status_field = f"{stage}_status"
             processor = worker.process_midterm_job if step is PipelineStep.RUN_MIDTERM else worker.process_longterm_job
-        if not job_id:
+
+        # Profile remains a single Core queue item. The other memory branches
+        # below deliberately keep Migration, Extraction, and Promotion
+        # independent because Memory.add() can create them separately.
+        if step is PipelineStep.RUN_PROFILE:
+            if not job_id:
+                return {
+                    "job_type": job_type,
+                    "job_id": None,
+                    "processed": False,
+                    "status": "not_created",
+                }
+            event_offset = len(self.memory.demo_events())
+            processed = processor(job_id)
+            status = worker.get_job_status(job_id, job_type)
+            status_name = (status or {}).get(status_field)
+            if status_name not in {"succeeded", "succeeded_degraded"}:
+                if not processed and status_name in {"pending", "running", "retry"}:
+                    raise BackgroundJobDeferred(
+                        f"{step.value} is waiting for an earlier core queue item: job_id={job_id} status={status_name}"
+                    )
+                raise RuntimeError(
+                    f"{step.value} job did not complete successfully: "
+                    f"job_id={job_id} status={status_name} processed={processed}"
+                )
             return {
                 "job_type": job_type,
-                "job_id": None,
-                "processed": False,
-                "status": "not_created",
+                "pipeline_step": step.value,
+                "job_id": job_id,
+                "processed": processed,
+                "status": status_name,
+                "job": status,
+                "events": [
+                    event
+                    for event in self.memory.demo_events()[event_offset:]
+                    if event.get("job_id") == job_id
+                ],
             }
 
-        event_offset = len(self.memory.demo_events())
-        processed = processor(job_id)
-        status = worker.get_job_status(job_id, job_type)
-        status_name = (status or {}).get(status_field)
-        if status_name not in {"succeeded", "succeeded_degraded"}:
-            if not processed and status_name in {"pending", "running", "retry"}:
-                raise BackgroundJobDeferred(
-                    f"{step.value} is waiting for an earlier core queue item: job_id={job_id} status={status_name}"
-                )
-            raise RuntimeError(
-                f"{step.value} job did not complete successfully: "
-                f"job_id={job_id} status={status_name} processed={processed}"
-            )
-        result = {
-            "job_type": job_type,
-            "pipeline_step": step.value,
-            "job_id": job_id,
-            "processed": processed,
-            "status": status_name,
-            "job": status,
-            "events": [
-                event
-                for event in self.memory.demo_events()[event_offset:]
-                if event.get("job_id") == job_id and (stage is None or event.get("stage") in {None, stage})
-            ],
-        }
+        migration_result = None
+        migration_pending = False
+        if migration_job_id:
+            event_offset = len(self.memory.demo_events())
+            migration_processed = processor(migration_job_id)
+            migration_status = worker.get_job_status(migration_job_id, "migration")
+            migration_status_name = (migration_status or {}).get(status_field)
+            if migration_status_name not in {"succeeded", "succeeded_degraded"}:
+                if not migration_processed and migration_status_name in {"pending", "running", "retry"}:
+                    migration_pending = True
+                else:
+                    raise RuntimeError(
+                        f"{step.value} migration job did not complete successfully: "
+                        f"job_id={migration_job_id} status={migration_status_name} processed={migration_processed}"
+                    )
+            migration_result = {
+                "job_type": "migration",
+                "pipeline_step": step.value,
+                "job_id": migration_job_id,
+                "processed": migration_processed,
+                "status": migration_status_name,
+                "job": migration_status,
+                "events": [
+                    event
+                    for event in self.memory.demo_events()[event_offset:]
+                    if event.get("job_id") == migration_job_id
+                    and event.get("stage") in {None, stage}
+                ],
+            }
 
-        # ``Memory.add`` creates the per-QA extraction jobs in addition to the
-        # migration/profile jobs.  Keep the legacy migration stage result for
-        # old callers, then drive the new production extraction queue from the
-        # same Demo action.
         if step is PipelineStep.RUN_LONGTERM:
             extraction_ids = list(background.get("longterm_extraction_job_ids") or [])
             extraction_results = []
+            extraction_pending = False
             extraction_processor = getattr(worker, "process_longterm_extraction_job", None)
-            if extraction_processor is not None:
-                for extraction_id in extraction_ids:
-                    extraction_processed = extraction_processor(extraction_id)
-                    extraction_status = worker.get_job_status(extraction_id, "longterm_extraction")
-                    extraction_results.append(
-                        {
-                            "job_type": "longterm_extraction",
-                            "job_id": extraction_id,
-                            "processed": extraction_processed,
-                            "status": (extraction_status or {}).get("status"),
-                            "job": extraction_status,
-                        }
+            if extraction_ids and extraction_processor is None:
+                raise RuntimeError("Demo worker does not expose the Core longterm extraction handler")
+            for extraction_id in extraction_ids:
+                extraction_processed = extraction_processor(extraction_id)
+                extraction_status = worker.get_job_status(extraction_id, "longterm_extraction")
+                extraction_status_name = (extraction_status or {}).get("status")
+                if extraction_status_name in CORE_JOB_ACTIVE_STATUSES:
+                    extraction_pending = True
+                elif extraction_status_name not in {"succeeded", "discarded"}:
+                    raise RuntimeError(
+                        f"{step.value} extraction job did not complete successfully: "
+                        f"job_id={extraction_id} status={extraction_status_name} processed={extraction_processed}"
                     )
-                result["longterm_extraction_jobs"] = extraction_results
-                if extraction_results and any(
-                    item["status"] not in {"succeeded", "discarded"} for item in extraction_results
-                ):
-                    raise BackgroundJobDeferred(
-                        "fine-grained longterm extraction is still pending: "
-                        + ", ".join(str(item["job_id"]) for item in extraction_results)
-                    )
+                extraction_results.append(
+                    {
+                        "job_type": "longterm_extraction",
+                        "job_id": extraction_id,
+                        "processed": extraction_processed,
+                        "status": extraction_status_name,
+                        "job": extraction_status,
+                    }
+                )
+            if migration_job_id is None and not extraction_ids:
+                return {
+                    "job_type": "migration",
+                    "job_id": None,
+                    "processed": False,
+                    "status": "not_created",
+                    "longterm_extraction_jobs": [],
+                }
+            if migration_pending or extraction_pending:
+                pending_ids = [
+                    str(item["job_id"])
+                    for item in extraction_results
+                    if item["status"] in CORE_JOB_ACTIVE_STATUSES
+                ]
+                if migration_pending:
+                    pending_ids.insert(0, str(migration_job_id))
+                raise BackgroundJobDeferred(
+                    f"{step.value} is waiting for Core queue items: {', '.join(pending_ids)}"
+                )
+            if migration_result is None:
+                return {
+                    "job_type": "longterm_extraction",
+                    "pipeline_step": step.value,
+                    "job_id": extraction_ids[0] if len(extraction_ids) == 1 else None,
+                    "job_ids": extraction_ids,
+                    "processed": any(item["processed"] for item in extraction_results),
+                    "status": "succeeded" if extraction_results else "not_created",
+                    "job": extraction_results[0]["job"] if len(extraction_results) == 1 else None,
+                    "longterm_extraction_jobs": extraction_results,
+                }
+            migration_result["longterm_extraction_jobs"] = extraction_results
+            migration_result["job_ids"] = [migration_job_id, *extraction_ids]
+            return migration_result
 
-        if step is PipelineStep.RUN_MIDTERM:
+        # Promotion is an independent Core queue. A claimed job may belong to
+        # another turn, so expose its real identifiers instead of attributing
+        # it to this Demo turn.
+        promotion_detail = None
+        promotion_details_processor = getattr(worker, "process_next_promotion_job_details", None)
+        if promotion_details_processor is not None:
+            promotion_detail = promotion_details_processor()
+        else:
             promotion_processor = getattr(worker, "process_next_promotion_job", None)
-            if promotion_processor is not None:
-                promotion_processed = promotion_processor()
-                if promotion_processed:
-                    result["promotion_processed"] = True
-        return result
+            if promotion_processor is not None and promotion_processor():
+                detail_getter = getattr(worker, "get_last_processed_job", None)
+                promotion_detail = detail_getter("promotion") if callable(detail_getter) else None
+                promotion_detail = promotion_detail or {
+                    "job_type": "promotion",
+                    "processed": True,
+                    "queue_scope": "core_promotion_queue",
+                }
+        if migration_job_id is None and migration_result is None and promotion_detail is None:
+            return {
+                "job_type": "migration",
+                "job_id": None,
+                "processed": False,
+                "status": "not_created",
+                "promotion_processed": False,
+            }
+        if migration_pending:
+            raise BackgroundJobDeferred(f"{step.value} is waiting for Core queue items: {migration_job_id}")
+        if migration_result is None:
+            migration_result = {
+                "job_type": "promotion",
+                "pipeline_step": step.value,
+                "job_id": None,
+                "processed": bool(promotion_detail),
+                "status": (promotion_detail or {}).get("status", "succeeded"),
+                "job": None,
+                "events": [],
+            }
+        if promotion_detail is not None:
+            promotion_status = promotion_detail.get("status")
+            if promotion_status in CORE_JOB_ACTIVE_STATUSES:
+                raise BackgroundJobDeferred(
+                    f"{step.value} is waiting for Core promotion job: "
+                    f"job_id={promotion_detail.get('job_id')} status={promotion_status}"
+                )
+            if promotion_status not in {None, "succeeded", "succeeded_degraded"}:
+                raise RuntimeError(
+                    f"{step.value} promotion job did not complete successfully: "
+                    f"job_id={promotion_detail.get('job_id')} status={promotion_status}"
+                )
+            migration_result["promotion_processed"] = bool(promotion_detail.get("processed", True))
+            migration_result["promotion_job_id"] = promotion_detail.get("job_id")
+            migration_result["promotion_source_midterm_session_id"] = promotion_detail.get(
+                "source_midterm_session_id"
+            )
+            migration_result["promotion_job"] = promotion_detail
+            migration_result["promotion_queue_scope"] = "core_promotion_queue"
+        else:
+            migration_result["promotion_processed"] = False
+        return migration_result
 
     def _step_input(self, turn: Dict[str, Any], step: PipelineStep) -> Dict[str, Any]:
         turn_id = turn["turn_id"]

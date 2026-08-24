@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 import logging
 import threading
 import time
@@ -29,6 +30,7 @@ class DemoBackgroundWorkerManager(BackgroundWorkerManager):
         self._manual_condition = threading.Condition()
         self._accepting_manual_work = True
         self._active_manual_calls = 0
+        self._last_manual_results: Dict[str, Optional[Dict[str, Any]]] = {}
 
     def start(self) -> None:
         """Recover stale work but deliberately avoid starting background threads."""
@@ -118,6 +120,21 @@ class DemoBackgroundWorkerManager(BackgroundWorkerManager):
 
     def process_next_promotion_job(self) -> bool:
         return self._process_claimed_promotion()
+
+    def process_next_promotion_job_details(self) -> Optional[Dict[str, Any]]:
+        """Process one Core promotion job and return its persisted identity.
+
+        ``process_next_promotion_job`` stays boolean for compatibility with
+        the worker API. The pipeline uses this detail-bearing variant because
+        a FIFO Core queue item is not necessarily created by the current Demo
+        turn.
+        """
+        self._last_manual_results["promotion"] = None
+        self._process_claimed_promotion()
+        return deepcopy(self._last_manual_results.get("promotion"))
+
+    def get_last_processed_job(self, job_type: str) -> Optional[Dict[str, Any]]:
+        return deepcopy(self._last_manual_results.get(job_type))
 
     def process_midterm_job(self, job_id: str) -> bool:
         return self._process_claimed_stage("midterm", job_id)
@@ -321,6 +338,7 @@ class DemoBackgroundWorkerManager(BackgroundWorkerManager):
 
     def _process_claimed_promotion(self, job_id: Optional[str] = None) -> bool:
         """Manually run one real cross-session promotion job with core leases."""
+        self._last_manual_results["promotion"] = None
         if not self._begin_manual_call():
             return False
         heartbeat = None
@@ -390,6 +408,15 @@ class DemoBackgroundWorkerManager(BackgroundWorkerManager):
                             "last_error": (status or {}).get("last_error"),
                         },
                     )
+                self._last_manual_results["promotion"] = {
+                    "job_type": "promotion",
+                    "job_id": job["job_id"],
+                    "source_midterm_session_id": job.get("source_midterm_session_id"),
+                    "source_run_id": job.get("source_run_id"),
+                    "status": (status or {}).get("status"),
+                    "processed": True,
+                    "queue_scope": "core_promotion_queue",
+                }
                 return True
         finally:
             if heartbeat is not None:
