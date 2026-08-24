@@ -66,6 +66,10 @@ class PipelineStepError(RuntimeError):
 class BackgroundJobDeferred(RuntimeError):
     """The core queue cannot claim this job yet because an earlier job owns its stage."""
 
+    def __init__(self, message: str, *, output: Optional[Dict[str, Any]] = None):
+        super().__init__(message)
+        self.output = deepcopy(output or {})
+
 
 class DemoPipelineService:
     """Persisted asynchronous DAG orchestration composed around ``DemoMemory``."""
@@ -526,13 +530,30 @@ class DemoPipelineService:
                     commit=turn_updates.get("commit"),
                 )
             except BackgroundJobDeferred as exc:
+                if mutates_memory:
+                    try:
+                        after, after_id, snapshot_error = self._capture_snapshot(turn, step, "after")
+                        if snapshot_error:
+                            diff["after_snapshot_error"] = snapshot_error
+                        if before is not None and after is not None:
+                            diff.update(
+                                self.state_service.compare(
+                                    before,
+                                    after,
+                                    sections=STEP_SNAPSHOT_SECTIONS[step],
+                                )
+                            )
+                    except Exception as snapshot_exc:
+                        # Snapshot inspection must not replace the real queue
+                        # deferral that controls the Demo step lifecycle.
+                        diff["after_snapshot_error"] = f"{type(snapshot_exc).__name__}: {snapshot_exc}"
                 duration_ms = (time.perf_counter() - started_at) * 1000
                 return self.repository.defer_step(
                     turn_id,
                     step,
                     token,
                     input_data=input_data,
-                    output_data=self._output_with_trace(step, {}, trace),
+                    output_data=self._output_with_trace(step, exc.output, trace),
                     reason=str(exc),
                     duration_ms=duration_ms,
                     before_snapshot_id=before_id,
@@ -798,9 +819,13 @@ class DemoPipelineService:
             if extraction_ids and extraction_processor is None:
                 raise RuntimeError("Demo worker does not expose the Core longterm extraction handler")
             for extraction_id in extraction_ids:
-                extraction_processed = extraction_processor(extraction_id)
                 extraction_status = worker.get_job_status(extraction_id, "longterm_extraction")
                 extraction_status_name = (extraction_status or {}).get("status")
+                extraction_processed = False
+                if extraction_status_name not in {"succeeded", "discarded"}:
+                    extraction_processed = extraction_processor(extraction_id)
+                    extraction_status = worker.get_job_status(extraction_id, "longterm_extraction")
+                    extraction_status_name = (extraction_status or {}).get("status")
                 if extraction_status_name in CORE_JOB_ACTIVE_STATUSES:
                     extraction_pending = True
                 elif extraction_status_name not in {"succeeded", "discarded"}:
@@ -833,8 +858,23 @@ class DemoPipelineService:
                 ]
                 if migration_pending:
                     pending_ids.insert(0, str(migration_job_id))
+                deferred_output = migration_result or {
+                    "job_type": "longterm_extraction",
+                    "pipeline_step": step.value,
+                    "job_id": extraction_ids[0] if len(extraction_ids) == 1 else None,
+                    "processed": any(item["processed"] for item in extraction_results),
+                    "status": "pending",
+                    "job": None,
+                    "events": [],
+                }
+                deferred_output["job_ids"] = [
+                    *([migration_job_id] if migration_job_id else []),
+                    *extraction_ids,
+                ]
+                deferred_output["longterm_extraction_jobs"] = extraction_results
                 raise BackgroundJobDeferred(
-                    f"{step.value} is waiting for Core queue items: {', '.join(pending_ids)}"
+                    f"{step.value} is waiting for Core queue items: {', '.join(pending_ids)}",
+                    output=deferred_output,
                 )
             if migration_result is None:
                 return {
@@ -877,7 +917,27 @@ class DemoPipelineService:
                 "promotion_processed": False,
             }
         if migration_pending:
-            raise BackgroundJobDeferred(f"{step.value} is waiting for Core queue items: {migration_job_id}")
+            deferred_output = migration_result or {
+                "job_type": "migration",
+                "pipeline_step": step.value,
+                "job_id": migration_job_id,
+                "processed": False,
+                "status": "pending",
+                "job": None,
+                "events": [],
+            }
+            if promotion_detail is not None:
+                deferred_output["promotion_processed"] = bool(promotion_detail.get("processed", True))
+                deferred_output["promotion_job_id"] = promotion_detail.get("job_id")
+                deferred_output["promotion_source_midterm_session_id"] = promotion_detail.get(
+                    "source_midterm_session_id"
+                )
+                deferred_output["promotion_job"] = promotion_detail
+                deferred_output["promotion_queue_scope"] = "core_promotion_queue"
+            raise BackgroundJobDeferred(
+                f"{step.value} is waiting for Core queue items: {migration_job_id}",
+                output=deferred_output,
+            )
         if migration_result is None:
             migration_result = {
                 "job_type": "promotion",
@@ -893,7 +953,17 @@ class DemoPipelineService:
             if promotion_status in CORE_JOB_ACTIVE_STATUSES:
                 raise BackgroundJobDeferred(
                     f"{step.value} is waiting for Core promotion job: "
-                    f"job_id={promotion_detail.get('job_id')} status={promotion_status}"
+                    f"job_id={promotion_detail.get('job_id')} status={promotion_status}",
+                    output={
+                        **migration_result,
+                        "promotion_processed": bool(promotion_detail.get("processed", True)),
+                        "promotion_job_id": promotion_detail.get("job_id"),
+                        "promotion_source_midterm_session_id": promotion_detail.get(
+                            "source_midterm_session_id"
+                        ),
+                        "promotion_job": promotion_detail,
+                        "promotion_queue_scope": "core_promotion_queue",
+                    },
                 )
             if promotion_status not in {None, "succeeded", "succeeded_degraded"}:
                 raise RuntimeError(

@@ -153,12 +153,13 @@ class _PipelineStateService:
 
 
 class _PipelineWorker(_FakeWorker):
-    def __init__(self, memory, *, migration=False, extraction=False, promotion=False):
+    def __init__(self, memory, *, migration=False, extraction=False, promotion=False, block_migration=False):
         super().__init__(memory)
         self.calls.setdefault("extraction", [])
         self.calls.setdefault("promotion", [])
         self.memory.state["jobs"].setdefault("longterm_extraction", [])
         self.memory.state["jobs"].setdefault("promotion", [])
+        self.block_migration = block_migration
         if extraction:
             self.jobs["extraction-1"] = {
                 "job_id": "extraction-1",
@@ -178,6 +179,16 @@ class _PipelineWorker(_FakeWorker):
                 "source_run_id": "run-other-turn",
             }
             self.memory.state["jobs"]["promotion"].append(self.jobs["promotion-1"])
+
+    def process_midterm_job(self, job_id):
+        if self.block_migration:
+            return False
+        return super().process_midterm_job(job_id)
+
+    def process_longterm_job(self, job_id):
+        if self.block_migration:
+            return False
+        return super().process_longterm_job(job_id)
 
     def process_longterm_extraction_job(self, job_id):
         self.calls["extraction"].append(job_id)
@@ -219,7 +230,7 @@ class _PipelineWorker(_FakeWorker):
 
 
 class _PipelineMemory(_FakeDemoMemory):
-    def __init__(self, *, migration=False, extraction=False, promotion=False):
+    def __init__(self, *, migration=False, extraction=False, promotion=False, block_migration=False):
         super().__init__()
         self.state["fine_grained_longterm"] = []
         self.state["promoted_longterm"] = []
@@ -230,6 +241,7 @@ class _PipelineMemory(_FakeDemoMemory):
             migration=migration,
             extraction=extraction,
             promotion=promotion,
+            block_migration=block_migration,
         )
         self._migration = migration
         self._extraction = extraction
@@ -330,5 +342,71 @@ def test_pipeline_longterm_processes_migration_and_extraction_once(tmp_path):
         assert memory.demo_background_worker.calls["longterm"] == ["migration-1"]
         assert memory.demo_background_worker.calls["extraction"] == ["extraction-1"]
         assert step["output"]["job_ids"] == ["migration-1", "extraction-1"]
+    finally:
+        coordinator.shutdown(wait=True)
+
+
+def test_pipeline_deferred_longterm_snapshots_completed_extraction_and_does_not_repeat(tmp_path):
+    memory = _PipelineMemory(migration=True, extraction=True, block_migration=True)
+    pipeline, repository, coordinator, session, turn = _pipeline_turn(tmp_path, memory)
+    try:
+        _complete_answer_and_shortterm(pipeline, coordinator, session, turn)
+        pipeline.run_step(turn["turn_id"], PipelineStep.RUN_LONGTERM, session_id=session["session_id"])
+        assert coordinator.wait_for_idle(3)
+
+        deferred = repository.get_step(turn["turn_id"], PipelineStep.RUN_LONGTERM)
+        assert deferred["status"] == "pending"
+        assert deferred["error_type"] == "BackgroundJobDeferred"
+        assert deferred["after_snapshot_id"] is not None
+        assert [row["id"] for row in deferred["diff"]["fine_grained_longterm"]["added"]] == ["fine-fact-1"]
+        extraction_jobs = deferred["diff"]["longterm_extraction_jobs"]["updated"]
+        assert extraction_jobs[0]["status"] == "succeeded"
+        assert deferred["output"]["longterm_extraction_jobs"][0]["status"] == "succeeded"
+        assert deferred["output"]["status"] == "pending"
+        assert memory.demo_background_worker.calls["extraction"] == ["extraction-1"]
+        assert len(memory.state["fine_grained_longterm"]) == 1
+
+        memory.demo_background_worker.block_migration = False
+        pipeline.run_step(turn["turn_id"], PipelineStep.RUN_LONGTERM, session_id=session["session_id"])
+        assert coordinator.wait_for_idle(3)
+
+        completed = repository.get_step(turn["turn_id"], PipelineStep.RUN_LONGTERM)
+        assert completed["status"] == "succeeded"
+        assert memory.demo_background_worker.calls["extraction"] == ["extraction-1"]
+        assert len(memory.state["fine_grained_longterm"]) == 1
+        assert memory.demo_background_worker.calls["longterm"] == ["migration-1"]
+    finally:
+        coordinator.shutdown(wait=True)
+
+
+def test_pipeline_deferred_midterm_snapshots_completed_promotion_and_does_not_repeat(tmp_path):
+    memory = _PipelineMemory(migration=True, promotion=True, block_migration=True)
+    pipeline, repository, coordinator, session, turn = _pipeline_turn(tmp_path, memory)
+    try:
+        _complete_answer_and_shortterm(pipeline, coordinator, session, turn)
+        pipeline.run_step(turn["turn_id"], PipelineStep.RUN_MIDTERM, session_id=session["session_id"])
+        assert coordinator.wait_for_idle(3)
+
+        deferred = repository.get_step(turn["turn_id"], PipelineStep.RUN_MIDTERM)
+        assert deferred["status"] == "pending"
+        assert deferred["error_type"] == "BackgroundJobDeferred"
+        assert deferred["after_snapshot_id"] is not None
+        assert [row["id"] for row in deferred["diff"]["promoted_longterm"]["added"]] == ["promoted-fact-1"]
+        promotion_jobs = deferred["diff"]["promotion_jobs"]["updated"]
+        assert promotion_jobs[0]["status"] == "succeeded"
+        assert deferred["output"]["promotion_job_id"] == "promotion-1"
+        assert deferred["output"]["promotion_source_midterm_session_id"] == "midterm-session-other-turn"
+        assert memory.demo_background_worker.calls["promotion"] == ["promotion-1"]
+        assert len(memory.state["promoted_longterm"]) == 1
+
+        memory.demo_background_worker.block_migration = False
+        pipeline.run_step(turn["turn_id"], PipelineStep.RUN_MIDTERM, session_id=session["session_id"])
+        assert coordinator.wait_for_idle(3)
+
+        completed = repository.get_step(turn["turn_id"], PipelineStep.RUN_MIDTERM)
+        assert completed["status"] == "succeeded"
+        assert memory.demo_background_worker.calls["promotion"] == ["promotion-1"]
+        assert len(memory.state["promoted_longterm"]) == 1
+        assert memory.demo_background_worker.calls["midterm"] == ["migration-1"]
     finally:
         coordinator.shutdown(wait=True)
