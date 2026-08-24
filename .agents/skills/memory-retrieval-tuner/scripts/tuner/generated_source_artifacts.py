@@ -7,6 +7,7 @@ from .artifact_registry import ArtifactRegistry
 from .benchmark_support import load_json
 from .derived_artifacts import DerivedArtifactBuilder
 from .io_utils import sha256_file, stable_hash
+from .low_consumption import low_consumption_enabled, reuse_baseline_source_candidate
 from .models import Candidate
 from .production_midterm_adapter import generate_production_sources
 
@@ -28,6 +29,10 @@ def prepare_generated_source_candidate(
     generation is cheap; Tune-subset screening triggers the first isolated
     source workers, and only promoted Candidates are completed for full Tune
     and later held-out Validation.
+
+    In low-consumption mode the Branch still reaches normal evaluation, but its
+    source-changing configuration is replayed against baseline checkpoints and
+    vectors. No candidate-specific Production Add/source generation is run.
     """
 
     spec = candidate.config.get("source_generation_spec")
@@ -36,6 +41,9 @@ def prepare_generated_source_candidate(
     requested = sorted(set(str(value) for value in sessions))
     if not requested:
         return candidate
+    if low_consumption_enabled():
+        return reuse_baseline_source_candidate(candidate, sessions=requested, run_dir=run_dir)
+
     identity = dict(spec["source_identity"])
     stats: dict[str, Any] = {}
     with registry.lock(f"source-{stable_hash(identity)}", timeout_seconds=7200.0):
