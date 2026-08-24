@@ -20,6 +20,7 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(SCRIPT_PATH.parent))
 
 from tuner.dataset_audit import DatasetAuditFailed  # noqa: E402
+from tuner.low_consumption import set_low_consumption_mode  # noqa: E402
 from tuner.orchestrator import TunerConfig, run_tuning  # noqa: E402
 
 KNOWN_KEYS = {
@@ -34,6 +35,7 @@ KNOWN_KEYS = {
     "source_run",
     "memory_config",
     "llm_mode",
+    "low_consumption",
     "max_parallel_sessions",
     "max_parallel_candidates",
     "max_parallel_llm_calls",
@@ -77,6 +79,7 @@ def parse_args(argv: list[str] | None = None) -> TunerConfig:
     parser.add_argument("--source-run")
     parser.add_argument("--memory-config")
     parser.add_argument("--llm-mode", choices=("real", "mock"))
+    parser.add_argument("--low-consumption", action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument("--max-parallel-sessions", type=int)
     parser.add_argument("--max-parallel-candidates", type=int)
     parser.add_argument("--max-parallel-llm-calls", type=int)
@@ -99,6 +102,19 @@ def parse_args(argv: list[str] | None = None) -> TunerConfig:
             values[key] = value
     if not values.get("dataset"):
         parser.error("dataset is required")
+
+    low_consumption = bool(values.get("low_consumption", False))
+    set_low_consumption_mode(low_consumption)
+    if low_consumption:
+        # Low-consumption mode permits the baseline source generation only.
+        # Search remains deterministic after Stage 1 and LLM-dependent Query
+        # rewrite branches are disabled because they cannot be approximated
+        # without creating new model output.
+        _nested_override(overrides, "search.low_consumption.enabled", True)
+        _nested_override(overrides, "search.research.enabled", False)
+        _nested_override(overrides, "search.branch_registry.QueryRepresentation.enabled", False)
+        _nested_override(overrides, "search.branch_registry.QueryRewritePrompt.enabled", False)
+
     dataset = Path(str(values["dataset"]))
     if not dataset.is_absolute():
         dataset = REPO_ROOT / dataset
