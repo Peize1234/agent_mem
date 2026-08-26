@@ -15,7 +15,8 @@ from pydantic import BaseModel, Field
 import tuner.parameter_schema as parameter_schema
 from mem0.configs.base import FineGrainedLongTermConfig, MidTermMemoryConfig
 from tuner.artifact_registry import ArtifactRegistry
-from tuner.evaluate_candidate import _eligible_requirements, _evaluate_session, _fact_rows_for_visible
+from tuner.evaluate_candidate import _aggregate, _eligible_requirements, _evaluate_session, _fact_rows_for_visible
+from tuner.evaluate_candidate import _EVALUATION_SCHEMA, _RANKING_SCHEMA
 from tuner.experiment_branches import (
     BranchContext,
     BranchRegistry,
@@ -254,6 +255,219 @@ def test_final_context_uses_page_budget_not_candidate_depth() -> None:
     assert result["metrics"]["candidate_pool_recall"] == 1.0
     assert result["metrics"]["midterm_final_context_recall"] == 0.0
     assert result["metrics"]["final_context_recall"] == 0.0
+
+
+def test_id_gold_precision_threshold_and_longterm_union_use_final_visible_memories() -> None:
+    dataset = _dataset("")
+    ranking = {
+        "S001-Q002": {
+            "midterm": [
+                {
+                    "page_id": "relevant-page",
+                    "source_turn_id": "S001-Q001",
+                    "in_candidate_pool": True,
+                    "rank_before_threshold": 1,
+                    "threshold_filtered": True,
+                    "final_visible": False,
+                },
+                {
+                    "page_id": "irrelevant-page",
+                    "source_turn_id": "S001-Q999",
+                    "in_candidate_pool": True,
+                    "rank_before_threshold": 2,
+                    "threshold_filtered": False,
+                    "final_visible": True,
+                },
+            ],
+            "session_longterm": [],
+        }
+    }
+
+    filtered = _evaluate_session(
+        dataset,
+        "S001",
+        ranking,
+        k=1,
+        target="midterm",
+        shortterm_window=0,
+        max_total_pages=1,
+    )
+    assert filtered["metrics"]["candidate_pool_recall"] == 1.0
+    assert filtered["metrics"]["post_threshold_recall"] == 0.0
+    assert filtered["metrics"]["midterm_final_context_recall"] == 0.0
+    assert filtered["metrics"]["final_context_recall"] == 0.0
+    assert filtered["metrics"]["recall_at_k"] == 0.0
+    assert filtered["metrics"]["context_precision"] == 0.0
+
+    ranking["S001-Q002"]["session_longterm"] = [
+        {
+            "page_id": "longterm-relevant",
+            "source_turn_id": "S001-Q001",
+            "source": "long_term",
+        }
+    ]
+    recovered = _evaluate_session(
+        dataset,
+        "S001",
+        ranking,
+        k=1,
+        target="midterm",
+        shortterm_window=0,
+        max_total_pages=1,
+        longterm_top_k=1,
+    )
+    assert recovered["metrics"]["midterm_final_context_recall"] == 0.0
+    assert recovered["metrics"]["final_context_recall"] == 1.0
+    assert recovered["metrics"]["recall_at_k"] == 1.0
+    assert recovered["metrics"]["context_precision"] == pytest.approx(0.5)
+    assert recovered["metrics"]["session_longterm_contribution"] > 0.0
+
+
+def test_id_gold_precision_counts_expanded_page_lineage_once() -> None:
+    dataset = _dataset("")
+    result = _evaluate_session(
+        dataset,
+        "S001",
+        {
+            "S001-Q002": {
+                "midterm": [
+                    {
+                        "page_id": "relevant-page",
+                        "source_turn_id": "S001-Q001",
+                        "in_candidate_pool": True,
+                        "rank_before_threshold": 1,
+                        "threshold_filtered": False,
+                        "final_visible": True,
+                    },
+                    {
+                        "page_id": "relevant-page",
+                        "source_turn_id": "S001-Q000",
+                        "in_candidate_pool": True,
+                        "rank_before_threshold": 1,
+                        "threshold_filtered": False,
+                        "final_visible": True,
+                    },
+                    {
+                        "page_id": "irrelevant-page",
+                        "source_turn_id": "S001-Q999",
+                        "in_candidate_pool": True,
+                        "rank_before_threshold": 2,
+                        "threshold_filtered": False,
+                        "final_visible": True,
+                    },
+                ],
+                "session_longterm": [],
+            }
+        },
+        k=2,
+        target="midterm",
+        shortterm_window=0,
+        max_total_pages=2,
+    )
+
+    assert result["metrics"]["recall_at_k"] == 1.0
+    assert result["metrics"]["context_precision"] == pytest.approx(0.5)
+    assert result["metrics"]["returned_page_count"] == 2.0
+
+
+def test_context_gold_precision_counts_expanded_page_lineage_once() -> None:
+    dataset = _dataset("目标事实")
+    result = _evaluate_session(
+        dataset,
+        "S001",
+        {
+            "S001-Q002": {
+                "midterm": [
+                    {
+                        "page_id": "relevant-page",
+                        "source_turn_id": "S001-Q001",
+                        "memory": "目标事实",
+                    },
+                    {
+                        "page_id": "relevant-page",
+                        "source_turn_id": "S001-Q000",
+                        "memory": "同一页面的另一条来源",
+                    },
+                    {
+                        "page_id": "irrelevant-page",
+                        "source_turn_id": "S001-Q999",
+                        "memory": "无关内容",
+                    },
+                ],
+                "session_longterm": [],
+            }
+        },
+        k=2,
+        target="midterm",
+        shortterm_window=0,
+        max_total_pages=2,
+    )
+
+    assert result["metrics"]["context_precision"] == pytest.approx(0.5)
+    assert result["metrics"]["returned_page_count"] == 2.0
+
+
+def test_aggregate_keeps_micro_recall_and_query_weighted_precision_separate_from_session_macro() -> None:
+    def requirement(session_id: str, query_id: str, hit: bool) -> dict[str, object]:
+        return {
+            "session_id": session_id,
+            "query_id": query_id,
+            "best_rank": 1 if hit else None,
+            "reciprocal_rank": 1.0 if hit else 0.0,
+            "hit_at_k": hit,
+            "hit_at_2k": hit,
+            "hit_at_4k": hit,
+            "candidate_pool_hit": hit,
+            "post_threshold_hit": hit,
+            "midterm_final_context_hit": hit,
+            "final_context_hit": hit,
+            "midterm_hit": hit,
+            "agentic_hit": False,
+            "session_longterm_hit": False,
+            "candidate_pool_count": 4,
+            "returned_page_count": 2,
+        }
+
+    def session_result(
+        session_id: str,
+        requirements: list[dict[str, object]],
+        *,
+        recall: float,
+        precision: float,
+    ) -> dict[str, object]:
+        query_count = len({str(row["query_id"]) for row in requirements})
+        return {
+            "metrics": {
+                "session_id": session_id,
+                "evaluated_query_count": query_count,
+                "recall_at_k": recall,
+                "total_gold_requirement_count": len(requirements),
+                "shortterm_requirement_count": 0,
+                "context_precision": precision,
+                "mean_returned_pages": 2.0,
+                "required_context_evaluation": False,
+            },
+            "requirements": requirements,
+        }
+
+    first = [requirement("S001", "S001-Q001", True)]
+    second = [requirement("S002", f"S002-Q00{index}", False) for index in range(1, 4)]
+    metrics, _, _ = _aggregate(
+        [
+            session_result("S001", first, recall=1.0, precision=1.0),
+            session_result("S002", second, recall=0.0, precision=0.0),
+        ]
+    )
+
+    assert metrics["recall_at_k"] == pytest.approx(0.25)
+    assert metrics["final_context_recall"] == pytest.approx(0.25)
+    assert metrics["macro_session_recall_at_k"] == pytest.approx(0.5)
+    assert metrics["context_precision"] == pytest.approx(0.25)
+
+
+def test_evaluator_schema_changes_do_not_invalidate_unchanged_ranking_cache() -> None:
+    assert _EVALUATION_SCHEMA == 5
+    assert _RANKING_SCHEMA == 3
 
 
 def test_adapter_diagnostic_trace_drives_all_failure_classes() -> None:
@@ -618,7 +832,7 @@ def test_stateful_replay_records_real_heat_distribution_fields() -> None:
     assert all(step.promotion_events for step in result.steps)
 
 
-def _promotion_context(tmp_path: Path, heat_values: list[float]) -> BranchContext:
+def _promotion_context(tmp_path: Path, heat_values: list[float], *, gpu_count: int = 0) -> BranchContext:
     config_path = tmp_path / "memory_config.json"
     config_path.write_text(json.dumps({"midterm": {"short_term_capacity": 6}}), encoding="utf-8")
     checkpoints_path = tmp_path / "checkpoints.jsonl"
@@ -698,7 +912,11 @@ def _promotion_context(tmp_path: Path, heat_values: list[float]) -> BranchContex
         run_dir=tmp_path / "run",
         model_discovery=None,
         stage_index=2,
-        execution_settings={"max_candidates_per_stage": 20, "remaining_expensive_candidates": 20},
+        execution_settings={
+            "max_candidates_per_stage": 20,
+            "remaining_expensive_candidates": 20,
+            "gpu_count": gpu_count,
+        },
     )
 
 
@@ -719,7 +937,7 @@ def test_promotion_without_heat_does_not_create_zero_threshold(tmp_path: Path) -
 
 
 def test_midterm_source_config_deep_generates_real_source_specs(tmp_path: Path) -> None:
-    context = _promotion_context(tmp_path, [2.0])
+    context = _promotion_context(tmp_path, [2.0], gpu_count=1)
     branch = MidtermSourceConfigBranch()
     outcome = BranchRegistry([branch]).generate(branch, context)
     assert outcome.status == "READY"

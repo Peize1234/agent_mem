@@ -48,12 +48,14 @@ class SentenceTransformerReranker(BaseReranker):
             )
 
         self.config = config
-        self.model = CrossEncoder(
-            self.config.model,
-            device=self.config.device,
-            revision=self.config.revision,
-            local_files_only=self.config.local_files_only,
-        )
+        model_init_kwargs = {
+            "device": self.config.device,
+            "revision": self.config.revision,
+            "local_files_only": self.config.local_files_only,
+        }
+        if self.config.model_kwargs:
+            model_init_kwargs["model_kwargs"] = self.config.model_kwargs
+        self.model = CrossEncoder(self.config.model, **model_init_kwargs)
 
     def rerank(self, query: str, documents: List[Dict[str, Any]], top_k: int = None) -> List[Dict[str, Any]]:
         """

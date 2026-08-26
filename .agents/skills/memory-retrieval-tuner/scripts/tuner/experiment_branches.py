@@ -17,6 +17,7 @@ from .agentic_retrieval_artifacts import (
 from .artifact_registry import ArtifactRegistry
 from .derived_artifacts import DerivedArtifactBuilder
 from .io_utils import load_json, load_jsonl, sha256_file, stable_hash
+from .low_consumption import low_consumption_enabled
 from .model_discovery import ModelDiscovery
 from .models import Candidate, CandidateResult, Dataset
 from .parameter_schema import (
@@ -296,6 +297,18 @@ def _relative_values(config: Mapping[str, Any], baseline: int, *, minimum: int) 
     return sorted({max(minimum, baseline + int(value)) for value in values})
 
 
+def _coverage_first_numeric_values(values: Iterable[Any], baseline: int | float) -> list[Any]:
+    """Order a bounded numeric sample so a truncated prefix still spans the axis.
+
+    Stage-level candidate budgets are intentionally finite.  Sorting numeric
+    candidates by distance from the production/anchor value makes the first
+    few points a coarse coverage sample instead of an arbitrary low-value
+    prefix.  Stable numeric ordering resolves equal-distance ties.
+    """
+
+    return sorted(values, key=lambda value: (-abs(float(value) - float(baseline)), float(value)))
+
+
 class RetrievalControlBranch(BaseBranch):
     spec = BranchSpec(
         name="RetrievalControl",
@@ -337,6 +350,7 @@ class RetrievalControlBranch(BaseBranch):
                 values = production_integer_candidates(axis)
             else:
                 values = production_strategy_candidates(axis, values)
+            values = _coverage_first_numeric_values(values, baseline)
             for value in values:
                 if value == baseline:
                     continue
@@ -347,6 +361,7 @@ class RetrievalControlBranch(BaseBranch):
                         label=f"{axis}={value}",
                         cost_level=self.spec.cost_level,
                         complexity=1,
+                        provenance={"search_axis": axis},
                         **{axis: value},
                     )
                 )
@@ -357,7 +372,11 @@ class RetrievalControlBranch(BaseBranch):
                 "midterm_rag_threshold", production_parameter_metadata("midterm_rag_threshold").default
             )
         )
-        for raw_threshold in production_strategy_candidates("midterm_rag_threshold", threshold_values):
+        ordered_thresholds = _coverage_first_numeric_values(
+            production_strategy_candidates("midterm_rag_threshold", threshold_values),
+            baseline_threshold,
+        )
+        for raw_threshold in ordered_thresholds:
             threshold = float(raw_threshold)
             if threshold == baseline_threshold:
                 continue
@@ -368,6 +387,7 @@ class RetrievalControlBranch(BaseBranch):
                     label=f"midterm_rag_threshold={threshold:.2f}",
                     cost_level=self.spec.cost_level,
                     complexity=1,
+                    provenance={"search_axis": "midterm_rag_threshold"},
                     midterm_rag_threshold=threshold,
                 )
             )
@@ -910,7 +930,7 @@ class RerankingBranch(BaseBranch):
             for model in models[: max(0, model_limit)]:
                 model = context.model_discovery.ensure_available(model, allow_download=allow_network)
                 model = context.model_discovery.smoke_test(
-                    model, device="cuda" if context.model_discovery.resources.gpu_count else "cpu"
+                    model, device=str(model.resource_usage.get("preferred_device") or "cpu")
                 )
                 if model.status != "SMOKE_PASSED":
                     unavailable.append(f"{model.model_id}: {model.status}")
@@ -927,6 +947,9 @@ class RerankingBranch(BaseBranch):
                         reranker_model_id=model.model_id,
                         reranker_model_revision=model.revision,
                         reranker_model_path=model.local_path,
+                        reranker_inference_device=str(model.resource_usage.get("preferred_device") or "cuda"),
+                        reranker_inference_precision=model.resource_usage.get("inference_precision"),
+                        reranker_inference_batch_size=int(model.resource_usage.get("inference_batch_size") or 1),
                         rerank_depth=reference_depth,
                     )
                 )
@@ -1028,7 +1051,7 @@ class EmbeddingBranch(BaseBranch):
             model = context.model_discovery.ensure_available(model, allow_download=allow_network)
             model = context.model_discovery.smoke_test(
                 model,
-                device="cuda" if context.model_discovery.resources.gpu_count else "cpu",
+                device=str(model.resource_usage.get("preferred_device") or "cpu"),
             )
             if model.status != "SMOKE_PASSED":
                 unavailable.append(f"{model.model_id}: {model.status}")
@@ -1048,6 +1071,17 @@ class EmbeddingBranch(BaseBranch):
                 effective_config = dict(manifest.get("effective_memory_config") or {})
                 base_embedder = deepcopy(dict(effective_config.get("embedder") or {}))
                 embedder_config = deepcopy(dict(base_embedder.get("config") or {}))
+                inference_device = str(model.resource_usage.get("preferred_device") or "cpu")
+                inference_precision = str(model.resource_usage.get("inference_precision") or "")
+                runtime_model_kwargs: dict[str, Any] = {
+                    "local_files_only": True,
+                    "device": inference_device,
+                }
+                if inference_device.startswith("cuda") and inference_precision:
+                    runtime_model_kwargs["model_kwargs"] = _deep_merge_mapping(
+                        dict((embedder_config.get("model_kwargs") or {}).get("model_kwargs") or {}),
+                        {"torch_dtype": inference_precision},
+                    )
                 embedder_config.update(
                     {
                         "model": str(Path(model.local_path).resolve()),
@@ -1056,7 +1090,7 @@ class EmbeddingBranch(BaseBranch):
                         "encoding_contract": dict(model.encoding_contract),
                         "model_kwargs": _deep_merge_mapping(
                             dict(embedder_config.get("model_kwargs") or {}),
-                            {"local_files_only": True},
+                            runtime_model_kwargs,
                         ),
                     }
                 )
@@ -1122,6 +1156,9 @@ class EmbeddingBranch(BaseBranch):
                         embedding_model_path=str(Path(model.local_path).resolve()),
                         encoding_contract=model.encoding_contract,
                         embedding_dimension=embedding_dimension,
+                        embedding_inference_device=inference_device,
+                        embedding_inference_precision=inference_precision or None,
+                        embedding_inference_batch_size=int(model.resource_usage.get("inference_batch_size") or 4),
                         embedding_source_regenerated=True,
                         source_generation_spec=source_spec,
                         source_config_overrides=config_overrides,
@@ -1207,6 +1244,69 @@ class FieldAwareMultiVectorBranch(BaseBranch):
                 )
             except Exception as exc:
                 reason = f"multi-vector unavailable: {type(exc).__name__}: {exc}"
+            if low_consumption_enabled():
+                # A low-consumption run still permits online model discovery,
+                # download, and local inference. Compose the field-aware method
+                # with discovered embedding candidates so the experiment does
+                # not silently assume the repository's baseline embedder.
+                embedding_outcome = EmbeddingBranch().generate(context)
+                unavailable = [embedding_outcome.reason] if embedding_outcome.reason else []
+                reranker_override = {
+                    "midterm": {
+                        "reranker": {
+                            "method": "multi_vector_maxsim",
+                            "rerank_depth": context.ranking_depth,
+                        }
+                    }
+                }
+                for embedding_candidate in embedding_outcome.candidates:
+                    embedding_spec = dict(embedding_candidate.config.get("source_generation_spec") or {})
+                    embedding_overrides = dict(embedding_candidate.config.get("source_config_overrides") or {})
+                    combined_overrides = _deep_merge_mapping(embedding_overrides, reranker_override)
+                    identity = {
+                        "schema": 1,
+                        "kind": "low_consumption_discovered_embedding_multi_vector",
+                        "dataset_sha256": context.dataset.sha256,
+                        "embedding_source_identity": embedding_spec.get("source_identity"),
+                        "config_overrides": combined_overrides,
+                    }
+                    combined_spec = {
+                        **embedding_spec,
+                        "config_overrides": combined_overrides,
+                        "source_identity": identity,
+                        "source_variant": (
+                            f"field-aware:{embedding_candidate.config.get('embedding_model_id') or 'unknown'}"
+                        ),
+                        "source_root": str(context.registry.cache_root / "production_variants" / stable_hash(identity)),
+                    }
+                    candidates.append(
+                        _candidate(
+                            context,
+                            base=embedding_candidate,
+                            branch=self.spec.name,
+                            label=(
+                                "maxsim_fields+"
+                                + str(embedding_candidate.config.get("embedding_model_id") or "embedding").replace(
+                                    "/", "--"
+                                )
+                            ),
+                            cost_level=self.spec.cost_level,
+                            complexity=4,
+                            provenance={
+                                "source_identity": identity,
+                                "provenance_validated": True,
+                                "field_embedding_model_discovered_online": True,
+                            },
+                            reranker_method="multi_vector_maxsim",
+                            source_generation_spec=combined_spec,
+                            source_config_overrides=combined_overrides,
+                            derived_artifact_path=None,
+                            derived_artifact_sha256=None,
+                            rerank_depth=context.ranking_depth,
+                        )
+                    )
+                if unavailable:
+                    reason = "; ".join(value for value in [reason, *unavailable] if value)
         if context.budget == "standard":
             candidates = candidates[: max(1, int(settings.get("max_methods_standard") or 1))]
         candidates = candidates[
@@ -1844,7 +1944,7 @@ class FineGrainedLongtermRetrievalBranch(BaseBranch):
                     model = context.model_discovery.ensure_available(model, allow_download=allow_network)
                     model = context.model_discovery.smoke_test(
                         model,
-                        device="cuda" if context.model_discovery.resources.gpu_count else "cpu",
+                        device=str(model.resource_usage.get("preferred_device") or "cpu"),
                     )
                     if model.status != "SMOKE_PASSED":
                         continue
@@ -1863,6 +1963,13 @@ class FineGrainedLongtermRetrievalBranch(BaseBranch):
                             longterm_reranker_model_id=model.model_id,
                             longterm_reranker_model_revision=model.revision,
                             longterm_reranker_model_path=model.local_path,
+                            longterm_reranker_inference_device=str(
+                                model.resource_usage.get("preferred_device") or "cuda"
+                            ),
+                            longterm_reranker_inference_precision=model.resource_usage.get("inference_precision"),
+                            longterm_reranker_inference_batch_size=int(
+                                model.resource_usage.get("inference_batch_size") or 1
+                            ),
                             longterm_rerank_depth=reference_depth,
                         )
                     )
@@ -2347,6 +2454,14 @@ class BranchRegistry:
         return eligible[:limit]
 
     def generate(self, branch: ExperimentBranch, context: BranchContext) -> BranchOutcome:
+        needs_embedding = bool(branch.spec.resource_requirements.get("embedding"))
+        needs_reranker = branch.spec.name == "Reranking"
+        if (needs_embedding or needs_reranker) and int(context.execution_settings.get("gpu_count") or 0) <= 0:
+            return BranchOutcome(
+                branch.spec.name,
+                "UNAVAILABLE_NO_GPU",
+                reason="GPU_REQUIRED_NO_GPU: skipped embedding/reranker Branch; CPU fallback is disabled",
+            )
         try:
             outcome = branch.generate(context)
         except Exception as exc:

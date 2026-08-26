@@ -3068,5 +3068,14 @@
     "saved_config_row_count": 0
   },
   "cross_session_tuning_status": "CROSS_SESSION_TUNING_UNSUPPORTED_NO_GOLD",
-  "deployment_note": "即便保存推荐配置也不等于线上 Memory 已生效；本目标运行连 saved config 都未产生。"
+  "deployment_note": "即便保存推荐配置也不等于线上 Memory 已生效；本目标运行连 saved config 都未产生。",
+  "qa_pair_review": {
+    "version": "2026-08-24.qa-pair-repair.v1",
+    "candidate_selection_changed": false,
+    "candidate_count_reviewed": 10,
+    "qa_pairs_or_answer_bearing_records_added": 0,
+    "source_dataset": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+    "causal_rule": "Historical memory representations expose both source question and source answer. For pre-answer retrieval/rewrite, the current assistant answer is shown only as later observed output and is never labeled as retrieval input.",
+    "scope": "NOT_APPLICABLE: aggregate tuning/benchmark evidence"
+  }
 }

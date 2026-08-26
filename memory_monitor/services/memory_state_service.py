@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Any, Dict, Iterable
 
 from mem0.memory.main import _build_session_scope
+from mem0.memory.memory_evolution import forgetting_factor, heat_modulations
+from mem0.memory.midterm import compute_recency, compute_session_heat
 from memory_monitor.models.demo_pipeline import MEMORY_STATE_SECTIONS
 
 _LEGACY_SNAPSHOT_SECTIONS = (
@@ -380,22 +382,91 @@ class MemoryStateService:
         if not getattr(self.memory.config.midterm, "enabled", False):
             return {section: [] for section in selected}
         midterm = self.memory.midterm_memory
+        current_turn_index = self._current_midterm_turn_index(midterm, filters)
+        sessions = []
+        if "midterm_sessions" in selected or ("midterm_pages" in selected and current_turn_index is not None):
+            sessions = self._serialize_vectors(midterm.list_sessions(filters=filters, top_k=1000))
+        session_states = self._midterm_session_monitor_states(sessions, current_turn_index)
         state = {}
         if "midterm_sessions" in selected:
-            sessions = self._serialize_vectors(
-                midterm.list_sessions(filters=filters, top_k=1000)
+            state["midterm_sessions"] = self._annotate_midterm_sessions(
+                sessions,
+                filters,
+                session_states,
             )
-            state["midterm_sessions"] = self._annotate_midterm_sessions(sessions, filters)
         if "midterm_pages" in selected:
-            state["midterm_pages"] = self._serialize_vectors(
-                midterm.list_pages(filters=filters, top_k=1000)
+            pages = self._serialize_vectors(midterm.list_pages(filters=filters, top_k=1000))
+            state["midterm_pages"] = self._annotate_midterm_pages(
+                pages,
+                session_states,
+                current_turn_index,
             )
         return state
+
+    @staticmethod
+    def _current_midterm_turn_index(midterm, filters: Dict[str, Any]) -> int | None:
+        provider = getattr(midterm, "current_turn_index", None)
+        if not callable(provider):
+            return None
+        try:
+            return int(provider(filters))
+        except (TypeError, ValueError):
+            return None
+
+    def _midterm_session_monitor_states(
+        self,
+        rows: list[Dict[str, Any]],
+        current_turn_index: int | None,
+    ) -> Dict[str, Dict[str, Any]]:
+        if current_turn_index is None:
+            return {}
+        config = self.memory.config.midterm
+        states: Dict[str, Dict[str, Any]] = {}
+        current_heats: Dict[str, float] = {}
+        for row in rows:
+            session_id = str(row.get("id") or "")
+            payload = row.get("payload") or {}
+            calculation_payload = {
+                **payload,
+                "last_visit_turn_index": payload.get("last_visit_turn_index") or 0,
+                "N_visit": payload.get("N_visit") or 0,
+                "L_interaction": payload.get("L_interaction") or 0,
+            }
+            try:
+                current_recency = compute_recency(
+                    int(calculation_payload["last_visit_turn_index"]),
+                    current_turn_index,
+                    config.heat_recency_tau_turns,
+                )
+                current_heat = compute_session_heat(calculation_payload, config, current_turn_index)
+            except (KeyError, TypeError, ValueError):
+                current_recency = None
+                current_heat = None
+            states[session_id] = {
+                "current_turn_index": current_turn_index,
+                "stored_R_recency": payload.get("R_recency"),
+                "current_R_recency": current_recency,
+                "stored_H_segment": payload.get("H_segment"),
+                "current_H_segment": current_heat,
+                "valid_recall_count": int(payload.get("valid_recall_count", 0) or 0),
+            }
+            if current_heat is not None:
+                current_heats[session_id] = current_heat
+
+        factors = heat_modulations(
+            current_heats,
+            minimum=config.heat_modulation_min,
+            maximum=config.heat_modulation_max,
+        )
+        for session_id, factor in factors.items():
+            states[session_id]["heat_factor"] = factor
+        return states
 
     def _annotate_midterm_sessions(
         self,
         rows: list[Dict[str, Any]],
         filters: Dict[str, Any],
+        session_states: Dict[str, Dict[str, Any]],
     ) -> list[Dict[str, Any]]:
         """Expose the exact production promotion inputs and persisted job link."""
         midterm_config = getattr(getattr(self.memory, "config", None), "midterm", None)
@@ -406,8 +477,7 @@ class MemoryStateService:
         if callable(lister):
             try:
                 promotion_jobs = {
-                    str(job.get("source_midterm_session_id")): job
-                    for job in lister(user_id=filters.get("user_id"))
+                    str(job.get("source_midterm_session_id")): job for job in lister(user_id=filters.get("user_id"))
                 }
             except Exception:
                 promotion_jobs = {}
@@ -420,23 +490,101 @@ class MemoryStateService:
         annotated = []
         for row in rows:
             item = dict(row)
-            payload = dict(item.get("payload") or {})
+            payload = item.get("payload") or {}
             recalls = int(payload.get("valid_recall_count", 0) or 0)
-            heat = float(payload.get("H_segment", 0.0) or 0.0)
-            payload["promotion_threshold"] = {
+            stored_heat = float(payload.get("H_segment", 0.0) or 0.0)
+            monitor_state = dict(session_states.get(str(item.get("id"))) or {})
+            monitor_state["promotion_threshold"] = {
                 "min_valid_recall_count": min_recalls,
                 "heat_threshold": heat_threshold,
             }
-            payload["promotion_eligible"] = recalls >= min_recalls and heat >= heat_threshold
+            stored_promotion_eligible = recalls >= min_recalls and stored_heat >= heat_threshold
+            monitor_state["stored_promotion_eligible"] = stored_promotion_eligible
+            monitor_state["promotion_eligible"] = stored_promotion_eligible
+            current_heat = monitor_state.get("current_H_segment")
+            monitor_state["current_promotion_eligible"] = (
+                recalls >= min_recalls and current_heat >= heat_threshold if current_heat is not None else None
+            )
             job = promotion_jobs.get(str(item.get("id")))
             if job:
-                payload["promotion_job_id"] = job.get("job_id")
-                payload["promotion_job_status"] = job.get("status")
+                monitor_state["promotion_job_id"] = job.get("job_id")
+                monitor_state["promotion_job_status"] = job.get("status")
             if str(item.get("id")) in promoted_by_session:
-                payload["promoted_longterm_id"] = promoted_by_session[str(item.get("id"))]
-            item["payload"] = payload
+                monitor_state["promoted_longterm_id"] = promoted_by_session[str(item.get("id"))]
+            item["monitor_state"] = monitor_state
             annotated.append(item)
         return annotated
+
+    def _annotate_midterm_pages(
+        self,
+        rows: list[Dict[str, Any]],
+        session_states: Dict[str, Dict[str, Any]],
+        current_turn_index: int | None,
+    ) -> list[Dict[str, Any]]:
+        if current_turn_index is None:
+            return rows
+        config = self.memory.config.midterm
+        base_half_life = getattr(config, "retention_half_life_turns", None)
+        annotated = []
+        for row in rows:
+            item = dict(row)
+            payload = item.get("payload") or {}
+            session_id = str(payload.get("session_id") or "")
+            session_state = session_states.get(session_id) or {}
+            heat_factor = session_state.get("heat_factor")
+            last_recall_turn_index = payload.get("last_recall_turn_index")
+            turn_index = payload.get("turn_index")
+            decay_anchor_turn_index = last_recall_turn_index if last_recall_turn_index is not None else turn_index
+            turns_since_last_recall = self._turn_distance(current_turn_index, last_recall_turn_index)
+            turns_since_decay_anchor = self._turn_distance(current_turn_index, decay_anchor_turn_index)
+            effective_half_life = self._effective_half_life(base_half_life, heat_factor)
+            retention = None
+            if heat_factor is not None and decay_anchor_turn_index is not None:
+                try:
+                    retention = forgetting_factor(
+                        payload,
+                        config,
+                        current_turn_index=current_turn_index,
+                        heat_factor=heat_factor,
+                    )
+                except (TypeError, ValueError):
+                    retention = None
+            item["monitor_state"] = {
+                "session_id": payload.get("session_id"),
+                "current_turn_index": current_turn_index,
+                "turn_index": turn_index,
+                "last_recall_turn_index": last_recall_turn_index,
+                "turns_since_last_valid_recall": turns_since_last_recall,
+                "decay_anchor_turn_index": decay_anchor_turn_index,
+                "turns_since_decay_anchor": turns_since_decay_anchor,
+                "valid_recall_count": int(payload.get("valid_recall_count", 0) or 0),
+                "current_H_segment": session_state.get("current_H_segment"),
+                "heat_factor": heat_factor,
+                "base_half_life_turns": base_half_life,
+                "effective_half_life_turns": effective_half_life,
+                "forgetting_factor": retention,
+                "retention": retention,
+            }
+            annotated.append(item)
+        return annotated
+
+    @staticmethod
+    def _turn_distance(current_turn_index: int, anchor_turn_index: Any) -> int | float | None:
+        if anchor_turn_index is None:
+            return None
+        try:
+            return max(float(current_turn_index) - float(anchor_turn_index), 0.0)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _effective_half_life(base_half_life: Any, heat_factor: Any) -> float | None:
+        if base_half_life is None or heat_factor is None:
+            return None
+        try:
+            return float(base_half_life) * float(heat_factor)
+        except (TypeError, ValueError):
+            return None
 
     def _vector_rows(self, store, filters: Dict[str, Any]) -> list[Dict[str, Any]]:
         listed = store.list(filters=filters, top_k=1000)

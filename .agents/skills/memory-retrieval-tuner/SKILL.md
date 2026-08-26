@@ -430,13 +430,16 @@ Embedding/Reranker Branch 使用 `model_discovery.py`。`standard` 只扫描并�
 
 Primary Ranking Criterion 是 Validation requirement-level R@K。
 
+`context_precision` 必须在 Tune 和 held-out Validation 上真实计算并进入 Candidate 比较与最终报告；它用于识别“扩大召回但引入过多无关上下文”的代价。允许小幅波动，不作为硬性零回退约束。
+
 Tie-break 顺序：
 
 1. Validation R@K；
 2. Macro/session stability；
-3. MRR；
-4. R@(2K) / R@(4K)；
-5. 更低成本和更低复杂度。
+3. context precision；
+4. MRR；
+5. R@(2K) / R@(4K)；
+6. 更低成本和更低复杂度。
 
 当差异落在 `selection.tie_tolerance_pp` 内时，应视为实际接近，除非重复实验或 Session-level 证据明显支持其中某个 Candidate。
 
@@ -525,6 +528,7 @@ Candidate 满足以下任一条件时可以晋级：
 - [ ] failed-turn count 为 0，或者这些 failure 已明确判定为使结果无效。
 - [ ] 不存在 future/cross-session memory leakage。
 - [ ] 最佳配置由 held-out Validation 选择，而不是仅根据 Tune score。
+- [ ] Tune/Validation context precision 已真实计算并明确报告，不是仅用返回页数代替。
 - [ ] Search 已因为一个可记录的 reason 停止。
 - [ ] `best_config.json` 可复现。
 - [ ] `final_report.md` 明确区分当前-run实证结果、生产默认与未验证项。

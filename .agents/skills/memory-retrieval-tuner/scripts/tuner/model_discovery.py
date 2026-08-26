@@ -4,6 +4,7 @@ import json
 import math
 import os
 import re
+import threading
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -13,8 +14,48 @@ import yaml
 
 from .encoding_contract import resolve_encoding_contract
 from .io_utils import atomic_write_json
+from .low_consumption import (
+    assert_cuda_headroom,
+    cuda_memory_snapshot,
+    release_local_model_memory,
+    required_cuda_free_gib,
+)
 
 MODEL_KINDS = {"embedding", "reranker"}
+UNSUPPORTED_TRANSFORMER_RUNTIME_FORMAT_MARKERS = frozenset({"gguf"})
+TRANSFORMER_RUNTIME_ALLOW_PATTERNS = (
+    "*.json",
+    "*.txt",
+    "*.model",
+    "*.py",
+    "*.safetensors",
+    "pytorch_model*.bin",
+)
+TRANSFORMER_RUNTIME_IGNORE_PATTERNS = (
+    "*.gguf",
+    "*.onnx",
+    "*.onnx_data",
+    "openvino/*",
+    "*.tflite",
+    "*.mlmodel",
+)
+EMBEDDING_SMOKE_LONG_TEXT = (
+    "贵州茅台年度报告显示经营活动现金流、营业收入、净利润、存货周转和资本开支均需结合同比变化分析。"
+    * 128
+)
+ONLINE_REFERENCE_MODELS = {
+    "embedding": (
+        "Qwen/Qwen3-Embedding-0.6B",
+        "BAAI/bge-m3",
+        "Alibaba-NLP/gte-multilingual-base",
+    ),
+    "reranker": (
+        "BAAI/bge-reranker-v2-m3",
+        "Alibaba-NLP/gte-multilingual-reranker-base",
+    ),
+}
+_SMOKE_RESULT_CACHE: dict[tuple[str, str, str, str], "ModelCandidate"] = {}
+_SMOKE_RESULT_CACHE_LOCK = threading.RLock()
 FINANCE_MARKERS = {"finance", "financial", "finbert", "finmteb", "财经", "金融"}
 MULTILINGUAL_MARKERS = {"multilingual", "chinese", "zh", "bge", "gte", "e5", "qwen", "m3"}
 QUALITY_METRIC_MARKERS = (
@@ -339,17 +380,85 @@ def _estimated_memory_gib(parameters: int | None) -> float | None:
 
 
 def _resource_fit(candidate: ModelCandidate, envelope: ResourceEnvelope) -> tuple[bool, str]:
+    if envelope.gpu_count <= 0 or envelope.gpu_memory_gib is None or envelope.gpu_memory_gib <= 0:
+        return False, "GPU_REQUIRED_NO_GPU: local embedding/reranker inference cannot use CPU"
     needed = candidate.estimated_memory_gib
     if needed is None:
-        return True, "parameter count unavailable; require smoke test"
-    available = (
-        envelope.gpu_memory_gib if envelope.gpu_count and envelope.gpu_memory_gib else envelope.available_memory_gib
-    )
-    if available is not None and needed > available * 0.8:
-        return False, f"estimated {needed:.1f} GiB exceeds conservative resource envelope"
+        if candidate.cache_status != "CACHED":
+            return False, (
+                "parameter count unavailable for an uncached model; refusing an unbounded download before CUDA smoke"
+            )
+        return True, "parameter count unavailable for cached model; require real CUDA smoke test"
+    precision = "float16" if envelope.gpu_memory_gib <= 6.0 else "float32"
+    effective_needed = needed / 2 if precision == "float16" else needed
+    if effective_needed > envelope.gpu_memory_gib * 0.8:
+        return False, (
+            f"estimated {effective_needed:.1f} GiB at {precision} exceeds the current GPU's "
+            "conservative free-memory envelope"
+        )
     if envelope.free_disk_gib is not None and needed > envelope.free_disk_gib * 0.8:
         return False, f"estimated {needed:.1f} GiB exceeds free disk envelope"
-    return True, f"estimated footprint {needed:.1f} GiB fits resource envelope"
+    return True, f"estimated footprint {effective_needed:.1f} GiB at {precision} fits CUDA resource envelope"
+
+
+def _preferred_device(candidate: ModelCandidate, envelope: ResourceEnvelope) -> str:
+    del candidate
+    if envelope.gpu_count <= 0 or envelope.gpu_memory_gib is None or envelope.gpu_memory_gib <= 0:
+        raise RuntimeError("GPU_REQUIRED_NO_GPU: local model inference cannot use CPU")
+    return "cuda"
+
+
+def _transformer_runtime_compatible(candidate: ModelCandidate) -> tuple[bool, str]:
+    """Only admit artifacts loadable by the configured HF transformer runtimes."""
+
+    markers = {
+        str(candidate.model_id).casefold(),
+        *(str(tag).casefold() for tag in candidate.tags),
+        str(candidate.metadata_evidence.get("library_name") or "").casefold(),
+    }
+    matched = sorted(
+        marker
+        for marker in UNSUPPORTED_TRANSFORMER_RUNTIME_FORMAT_MARKERS
+        if any(marker in value for value in markers)
+    )
+    if matched:
+        return False, (
+            "unsupported artifact format for the configured SentenceTransformer/Transformers runtime: "
+            + ", ".join(matched)
+        )
+    return True, "artifact format is compatible with the configured transformer runtime"
+
+
+def _prepare_cuda_smoke(device: str) -> None:
+    import torch
+
+    if not torch.cuda.is_available():
+        raise RuntimeError("CUDA_REQUIRED_UNAVAILABLE: PyTorch cannot initialize CUDA")
+    torch.cuda.synchronize(device)
+    torch.cuda.reset_peak_memory_stats(device)
+
+
+def _record_cuda_smoke_headroom(candidate: ModelCandidate, device: str) -> None:
+    import torch
+
+    torch.cuda.synchronize(device)
+    allocated_bytes = torch.cuda.max_memory_allocated(device)
+    reserved_bytes = torch.cuda.max_memory_reserved(device)
+    gib = float(1024**3)
+    snapshot = cuda_memory_snapshot(device)
+    candidate.resource_usage.update(
+        {
+            "cuda_peak_allocated_gib": allocated_bytes / gib,
+            "cuda_peak_reserved_gib": reserved_bytes / gib,
+            "cuda_free_after_representative_smoke_gib": snapshot["free_gib"],
+            "cuda_total_memory_gib": snapshot["total_gib"],
+            "cuda_required_free_gib": required_cuda_free_gib(snapshot["total_gib"]),
+        }
+    )
+    assert_cuda_headroom(
+        device,
+        context=f"representative {candidate.model_type} smoke for {candidate.model_id}",
+    )
 
 
 def _task_match(
@@ -375,7 +484,9 @@ def _task_match(
         marker in text for marker in ("embedding", "feature-extraction", "sentence-similarity", "bge", "e5", "gte")
     )
     reranker_only = any(marker in text for marker in ("rerank", "cross-encoder", "text-ranking"))
-    return explicit_embedding or (bool(metadata.get("retrieval_benchmark_evidence")) and not reranker_only)
+    if reranker_only:
+        return False
+    return explicit_embedding or bool(metadata.get("retrieval_benchmark_evidence"))
 
 
 def _quality_benchmark_score(row: Mapping[str, Any], model_type: str) -> bool:
@@ -640,6 +751,21 @@ def _cached_snapshot(local: Mapping[str, Any] | None, revision: str | None) -> P
     return snapshot if snapshot.exists() else None
 
 
+def _snapshot_has_model_weights(snapshot: Path, *, model_type: str) -> bool:
+    """Reject HF snapshots whose symlinks point at unfinished blobs."""
+
+    if model_type == "reranker":
+        names = ("model.safetensors", "pytorch_model.bin", "model.safetensors.index.json")
+    else:
+        names = (
+            "model.safetensors",
+            "pytorch_model.bin",
+            "model.safetensors.index.json",
+            "pytorch_model.bin.index.json",
+        )
+    return any((snapshot / name).is_file() for name in names)
+
+
 class ModelDiscovery:
     """Cache-aware Hugging Face discovery with unified quality ranking."""
 
@@ -650,11 +776,21 @@ class ModelDiscovery:
         resources: ResourceEnvelope,
         cache_root: Path | None = None,
         api: HuggingFaceApi | None = None,
+        online_access: bool = True,
+        frozen_model_revisions: Mapping[str, Mapping[str, Sequence[str]]] | None = None,
     ):
         self.output_path = output_path
         self.resources = resources
         self.cache_root = cache_root or _hf_cache_root()
         self._api = api
+        self.online_access = bool(online_access)
+        self.frozen_model_revisions = {
+            str(model_type): {
+                str(model_id): tuple(sorted({str(revision) for revision in revisions if str(revision)}))
+                for model_id, revisions in models.items()
+            }
+            for model_type, models in (frozen_model_revisions or {}).items()
+        }
         self.events: list[dict[str, Any]] = []
 
     def _api_client(self) -> HuggingFaceApi:
@@ -696,6 +832,30 @@ class ModelDiscovery:
     ) -> list[ModelCandidate]:
         if model_type not in MODEL_KINDS:
             raise ValueError(f"Unsupported model type: {model_type}")
+        if (
+            self.resources.gpu_count <= 0
+            or self.resources.gpu_memory_gib is None
+            or self.resources.gpu_memory_gib <= 0
+        ):
+            self.events.append(
+                {
+                    "model_type": model_type,
+                    "status": "UNAVAILABLE_NO_GPU",
+                    "reason": "GPU_REQUIRED_NO_GPU: skipped local embedding/reranker discovery; CPU fallback is disabled",
+                }
+            )
+            self.flush()
+            return []
+        requested_network = bool(allow_network)
+        allow_network = requested_network and self.online_access
+        if requested_network and not allow_network:
+            self.events.append(
+                {
+                    "model_type": model_type,
+                    "status": "ONLINE_DISCOVERY_FROZEN_FOR_RESUME",
+                    "reason": "resume uses only immutable local model snapshots; new online candidates are disabled",
+                }
+            )
         local = local_huggingface_models(self.cache_root)
         candidates: dict[tuple[str, str], ModelCandidate] = {}
         for model_id, metadata in local.items():
@@ -723,9 +883,24 @@ class ModelDiscovery:
             )
         if allow_network:
             queries = (
-                ["multilingual embedding", "chinese embedding", "financial embedding", "finance retrieval"]
+                [
+                    "multilingual embedding",
+                    "chinese embedding",
+                    "qwen3 embedding",
+                    "bge m3",
+                    "Alibaba-NLP/gte-multilingual-base",
+                    "financial embedding",
+                    "finance retrieval",
+                    "finmteb embedding",
+                ]
                 if model_type == "embedding"
-                else ["multilingual reranker", "chinese reranker", "financial reranker", "finance reranking"]
+                else [
+                    "multilingual reranker",
+                    "chinese reranker",
+                    "bge reranker v2 m3",
+                    "financial reranker",
+                    "finance reranking",
+                ]
             )
             api = self._api_client()
             for query in queries:
@@ -757,6 +932,30 @@ class ModelDiscovery:
 
             model_info = getattr(api, "model_info", None)
             if callable(model_info):
+                # Search ranking alone can omit strong official families when a
+                # model card exposes benchmark tables only as Markdown. Fetch a
+                # small, auditable reference set directly, then rank/smoke it by
+                # the same rules as every other online result.
+                for model_id in ONLINE_REFERENCE_MODELS[model_type]:
+                    try:
+                        info = model_info(model_id, files_metadata=False)
+                        seeded = self._from_info(info, model_type=model_type, source="huggingface_reference_model")
+                        if seeded is not None:
+                            seeded.metadata_evidence["online_reference_model"] = True
+                            cached_path = _cached_snapshot(local.get(seeded.model_id), seeded.revision)
+                            if cached_path is not None:
+                                seeded.cache_status = "CACHED"
+                                seeded.local_path = str(cached_path)
+                            _add_candidate(candidates, seeded)
+                    except Exception as exc:
+                        self.events.append(
+                            {
+                                "model_type": model_type,
+                                "model_id": model_id,
+                                "status": "REFERENCE_METADATA_UNAVAILABLE",
+                                "reason": str(exc),
+                            }
+                        )
                 online_candidates = [
                     candidate
                     for candidate in candidates.values()
@@ -786,12 +985,37 @@ class ModelDiscovery:
 
         screened: list[ModelCandidate] = []
         for candidate in candidates.values():
+            frozen_models = self.frozen_model_revisions.get(model_type) or {}
+            if frozen_models:
+                allowed_revisions = frozen_models.get(candidate.model_id)
+                if allowed_revisions is None or str(candidate.revision or "") not in allowed_revisions:
+                    candidate.status = "UNAVAILABLE_NOT_IN_RESUME_MODEL_SET"
+                    candidate.selection_reason = "candidate identity was not present in the interrupted run"
+                    candidate.error = "RESUME_MODEL_SET_FROZEN: refusing to expand a resumed experiment"
+                    self.events.append(candidate.serializable())
+                    continue
+            compatible, compatibility_reason = _transformer_runtime_compatible(candidate)
+            if not compatible:
+                candidate.status = "UNAVAILABLE_RUNTIME_FORMAT"
+                candidate.selection_reason = compatibility_reason
+                candidate.error = f"UNSUPPORTED_RUNTIME_FORMAT: {compatibility_reason}"
+                self.events.append(candidate.serializable())
+                continue
             fits, reason = _resource_fit(candidate, self.resources)
             candidate.selection_reason = reason
             if not fits:
                 candidate.status = "UNAVAILABLE_RESOURCE"
                 self.events.append(candidate.serializable())
                 continue
+            candidate.resource_usage["preferred_device"] = _preferred_device(candidate, self.resources)
+            if self.resources.gpu_memory_gib is not None and self.resources.gpu_memory_gib <= 6.0:
+                candidate.resource_usage.update(
+                    {
+                        "inference_precision": "float16",
+                        "inference_batch_size": 1,
+                        "small_gpu_low_memory_mode": True,
+                    }
+                )
             screened.append(candidate)
 
         _annotate_relative_benchmark_scores(screened)
@@ -799,6 +1023,15 @@ class ModelDiscovery:
         if len(general_pool) < general_limit:
             general_pool = screened
         general = sorted(general_pool, key=lambda item: _candidate_score(item, finance=False), reverse=True)
+        references = [item for item in general if item.metadata_evidence.get("online_reference_model")]
+        if references:
+            # Reserve the general slots for directly verified official-family
+            # candidates; missing model-index metrics must not let unrelated
+            # high-download derivatives crowd all of them out.
+            general = [
+                *sorted(references, key=lambda item: _candidate_score(item, finance=False), reverse=True),
+                *(item for item in general if not item.metadata_evidence.get("online_reference_model")),
+            ]
         finance = sorted(
             [item for item in screened if _is_finance_candidate(item)],
             key=lambda item: _candidate_score(item, finance=True),
@@ -828,6 +1061,18 @@ class ModelDiscovery:
 
     def ensure_available(self, candidate: ModelCandidate, *, allow_download: bool) -> ModelCandidate:
         started = time.perf_counter()
+        requested_download = bool(allow_download)
+        allow_download = requested_download and self.online_access
+        if requested_download and not allow_download:
+            candidate.resource_usage["online_download_frozen_for_resume"] = True
+        compatible, compatibility_reason = _transformer_runtime_compatible(candidate)
+        if not compatible:
+            candidate.status = "UNAVAILABLE_RUNTIME_FORMAT"
+            candidate.error = f"UNSUPPORTED_RUNTIME_FORMAT: {compatibility_reason}"
+            candidate.resource_usage["availability_seconds"] = time.perf_counter() - started
+            self.events.append(candidate.serializable())
+            self.flush()
+            return candidate
         local_path = Path(candidate.local_path) if candidate.local_path else None
         if (
             candidate.cache_status == "CACHED"
@@ -835,6 +1080,7 @@ class ModelDiscovery:
             and local_path.exists()
             and candidate.revision
             and local_path.name == candidate.revision
+            and _snapshot_has_model_weights(local_path, model_type=candidate.model_type)
         ):
             candidate.status = "AVAILABLE"
             candidate.resource_usage["cache_reused_without_download"] = True
@@ -850,6 +1096,8 @@ class ModelDiscovery:
                 revision=candidate.revision,
                 cache_dir=str(self.cache_root),
                 local_files_only=not allow_download,
+                allow_patterns=list(TRANSFORMER_RUNTIME_ALLOW_PATTERNS),
+                ignore_patterns=list(TRANSFORMER_RUNTIME_IGNORE_PATTERNS),
             )
             candidate.cache_status = "DOWNLOADED" if allow_download else "CACHED"
             candidate.status = "AVAILABLE"
@@ -858,6 +1106,8 @@ class ModelDiscovery:
                 candidate.revision = match.group(1) if match else None
             if not candidate.revision:
                 raise RuntimeError("Hugging Face cache did not expose an immutable model revision")
+            if not _snapshot_has_model_weights(Path(candidate.local_path), model_type=candidate.model_type):
+                raise RuntimeError("Hugging Face snapshot is incomplete: model weights are missing")
         except Exception as exc:
             candidate.status = "UNAVAILABLE"
             candidate.error = f"{type(exc).__name__}: {exc}"
@@ -869,8 +1119,34 @@ class ModelDiscovery:
     def smoke_test(self, candidate: ModelCandidate, *, device: str = "cpu") -> ModelCandidate:
         if candidate.status != "AVAILABLE":
             return candidate
+        if not str(device).startswith("cuda"):
+            candidate.status = "UNAVAILABLE_GPU_REQUIRED"
+            candidate.error = "GPU_REQUIRED: CPU smoke tests and CPU inference fallback are disabled"
+            self.events.append(candidate.serializable())
+            self.flush()
+            return candidate
+        smoke_key = (
+            str(candidate.model_type),
+            str(candidate.model_id),
+            str(candidate.revision or ""),
+            str(device),
+        )
+        with _SMOKE_RESULT_CACHE_LOCK:
+            cached = _SMOKE_RESULT_CACHE.get(smoke_key)
+        if cached is not None:
+            from copy import deepcopy
+
+            reused = deepcopy(cached)
+            reused.resource_usage = dict(reused.resource_usage)
+            reused.resource_usage["smoke_cache_hit"] = True
+            self.events.append(reused.serializable())
+            self.flush()
+            return reused
         started = time.perf_counter()
+        embedder: Any | None = None
+        reranker: Any | None = None
         try:
+            _prepare_cuda_smoke(device)
             if candidate.model_type == "embedding":
                 from mem0.utils.factory import EmbedderFactory
 
@@ -882,12 +1158,16 @@ class ModelDiscovery:
                 if contract is None:
                     raise RuntimeError(reason or "encoding contract unavailable")
                 candidate.encoding_contract = contract.serializable()
+                runtime_model_kwargs: dict[str, Any] = {"device": device}
+                precision = str(candidate.resource_usage.get("inference_precision") or "")
+                if device.startswith("cuda") and precision:
+                    runtime_model_kwargs["model_kwargs"] = {"torch_dtype": precision}
                 embedder = EmbedderFactory.create(
                     "huggingface",
                     {
                         "model": candidate.local_path or candidate.model_id,
                         "revision": candidate.revision,
-                        "model_kwargs": {"device": device},
+                        "model_kwargs": runtime_model_kwargs,
                         "encoding_contract": candidate.encoding_contract,
                     },
                     None,
@@ -895,6 +1175,9 @@ class ModelDiscovery:
                 vectors = embedder.embed_batch(["贵州茅台经营现金流", "profit and cash flow"], "search")
                 if len(vectors) != 2 or not len(vectors[0]):
                     raise RuntimeError("embedding smoke test returned invalid vectors")
+                representative = embedder.embed_batch([EMBEDDING_SMOKE_LONG_TEXT], "add")
+                if len(representative) != 1 or not len(representative[0]):
+                    raise RuntimeError("representative long-text embedding smoke test returned an invalid vector")
                 candidate.resource_usage["embedding_dimension"] = int(len(vectors[0]))
             else:
                 from mem0.utils.factory import RerankerFactory
@@ -906,21 +1189,43 @@ class ModelDiscovery:
                         "device": device,
                         "revision": candidate.revision,
                         "local_files_only": bool(candidate.local_path),
+                        "model_kwargs": (
+                            {"torch_dtype": str(candidate.resource_usage["inference_precision"])}
+                            if candidate.resource_usage.get("inference_precision")
+                            else {}
+                        ),
+                        "batch_size": int(candidate.resource_usage.get("inference_batch_size") or 1),
                         "top_k": 2,
                     },
                 )
                 ranked = reranker.rerank(
-                    "现金流",
-                    [{"memory": "经营活动现金流改善"}, {"memory": "股本结构"}],
+                    "经营活动现金流、盈利质量和资本开支是否匹配",
+                    [
+                        {"memory": EMBEDDING_SMOKE_LONG_TEXT},
+                        {"memory": f"股本结构和偿债能力分析。{EMBEDDING_SMOKE_LONG_TEXT}"},
+                    ],
                     top_k=2,
                 )
                 if len(ranked) != 2 or any("rerank_score" not in row for row in ranked):
                     raise RuntimeError("reranker smoke test returned invalid scores")
+            _record_cuda_smoke_headroom(candidate, device)
             candidate.status = "SMOKE_PASSED"
         except Exception as exc:
             candidate.status = "UNAVAILABLE_SMOKE_FAILED"
             candidate.error = f"{type(exc).__name__}: {exc}"
+        finally:
+            # Do not retain sequentially screened transformer models.  This is
+            # especially important for CPU inference on low-memory hosts where
+            # glibc otherwise keeps several models' arenas resident.
+            embedder = None
+            reranker = None
+            release_local_model_memory()
         candidate.resource_usage["smoke_seconds"] = time.perf_counter() - started
+        candidate.resource_usage["model_memory_released_after_smoke"] = True
+        with _SMOKE_RESULT_CACHE_LOCK:
+            from copy import deepcopy
+
+            _SMOKE_RESULT_CACHE[smoke_key] = deepcopy(candidate)
         self.events.append(candidate.serializable())
         self.flush()
         return candidate
@@ -930,6 +1235,8 @@ class ModelDiscovery:
             self.output_path,
             {
                 "cache_root": str(self.cache_root),
+                "online_access": self.online_access,
+                "frozen_model_revisions": self.frozen_model_revisions,
                 "resources": asdict(self.resources),
                 "models": self.events,
             },

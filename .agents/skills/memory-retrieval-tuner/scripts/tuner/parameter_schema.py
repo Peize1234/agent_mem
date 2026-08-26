@@ -270,6 +270,13 @@ def production_overrides_from_candidate(config: Mapping[str, Any]) -> dict[str, 
                         "model": str(model),
                         "revision": config.get("reranker_model_revision"),
                         "local_files_only": bool(config.get("reranker_model_path")),
+                        "device": str(config.get("reranker_inference_device") or "cuda"),
+                        "model_kwargs": (
+                            {"torch_dtype": str(config["reranker_inference_precision"])}
+                            if config.get("reranker_inference_precision")
+                            else {}
+                        ),
+                        "batch_size": int(config.get("reranker_inference_batch_size") or 1),
                     },
                     "max_concurrency": int(
                         config.get("midterm_reranker_max_concurrency") or config.get("reranker_max_concurrency") or 1
@@ -320,6 +327,13 @@ def production_overrides_from_candidate(config: Mapping[str, Any]) -> dict[str, 
                         "model": str(model),
                         "revision": config.get("longterm_reranker_model_revision"),
                         "local_files_only": bool(config.get("longterm_reranker_model_path")),
+                        "device": str(config.get("longterm_reranker_inference_device") or "cuda"),
+                        "model_kwargs": (
+                            {"torch_dtype": str(config["longterm_reranker_inference_precision"])}
+                            if config.get("longterm_reranker_inference_precision")
+                            else {}
+                        ),
+                        "batch_size": int(config.get("longterm_reranker_inference_batch_size") or 1),
                     },
                     "max_concurrency": int(
                         config.get("longterm_reranker_max_concurrency") or config.get("reranker_max_concurrency") or 1

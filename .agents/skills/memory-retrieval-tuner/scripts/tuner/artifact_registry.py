@@ -567,6 +567,7 @@ class ArtifactRegistry:
         if source_run is not None:
             roots.insert(0, source_run if source_run.is_dir() else source_run.parent)
         candidates: dict[str, Path] = {}
+        checkpoint_hashes: dict[Path, str] = {}
         expected_memory_config_sha256 = sha256_file(memory_config_path)
         expected_prompt_hashes: dict[str, str] | None = None
         for root in roots:
@@ -579,6 +580,7 @@ class ArtifactRegistry:
                 if (
                     manifest.get("schema") != ADAPTER_SCHEMA
                     or manifest.get("status") != "COMPLETE"
+                    or bool(manifest.get("low_consumption_reuse"))
                     or manifest.get("dataset_sha256") != dataset_sha256
                     or session_id not in session_turn_counts
                     or int(manifest.get("turn_count") or 0) != int(session_turn_counts[session_id])
@@ -589,7 +591,14 @@ class ArtifactRegistry:
                 ):
                     continue
                 checkpoints = Path(str(manifest.get("checkpoints_path") or ""))
-                if not checkpoints.exists() or manifest.get("checkpoints_sha256") != sha256_file(checkpoints):
+                if not checkpoints.exists():
+                    continue
+                resolved_checkpoints = checkpoints.resolve()
+                actual_checkpoint_hash = checkpoint_hashes.get(resolved_checkpoints)
+                if actual_checkpoint_hash is None:
+                    actual_checkpoint_hash = sha256_file(resolved_checkpoints)
+                    checkpoint_hashes[resolved_checkpoints] = actual_checkpoint_hash
+                if manifest.get("checkpoints_sha256") != actual_checkpoint_hash:
                     continue
                 if expected_prompt_hashes is None:
                     from .production_midterm_adapter import production_prompt_hashes

@@ -36,11 +36,15 @@ from .diagnostic_midterm_retriever import DiagnosticMidTermRetriever
 from .fact_evaluator import fact_member_hit, parse_required_context, uses_context_gold
 from .io_utils import (
     atomic_write_json,
-    iter_jsonl,
     load_jsonl,
     sha256_file,
     stable_hash,
     write_jsonl,
+)
+from .low_consumption import (
+    assert_cuda_runtime_headroom,
+    low_consumption_enabled,
+    release_local_model_memory,
 )
 from .parameter_schema import (
     production_integer_candidates,
@@ -62,6 +66,40 @@ _DEFAULT_RETRIEVAL_METHOD = str(production_parameter_metadata("retrieval_method"
 _DEFAULT_PAGE_REPRESENTATION = str(production_parameter_metadata("page_representation").default)
 _DEFAULT_QUERY_REWRITE_PROMPT = str(production_parameter_metadata("query_rewrite_prompt").default)
 logger = logging.getLogger(__name__)
+
+_LOCAL_EMBEDDER_CACHE: dict[str, Any] = {}
+_LOCAL_EMBEDDER_CACHE_LOCK = threading.RLock()
+_LOCAL_RERANKER_CACHE: dict[str, Any] = {}
+_LOCAL_RERANKER_CACHE_LOCK = threading.RLock()
+_LOW_CONSUMPTION_EMBEDDING_BATCH_SIZE = 4
+_LOW_CONSUMPTION_EMBEDDING_CHECKPOINT_INTERVAL = 64
+
+
+def _evict_low_consumption_model_cache(cache: dict[str, Any], lock: threading.RLock) -> bool:
+    """Release a mutually exclusive local transformer cache before a model switch."""
+
+    if not low_consumption_enabled():
+        return False
+    with lock:
+        if not cache:
+            return False
+        cache.clear()
+    release_local_model_memory()
+    return True
+
+
+def _guard_candidate_cuda(
+    config: Mapping[str, Any],
+    *,
+    device_key: str,
+    context: str,
+) -> dict[str, float] | None:
+    """Apply one common runtime circuit breaker to every CUDA model kind."""
+
+    device = str(config.get(device_key) or "")
+    if not device.startswith("cuda"):
+        return None
+    return assert_cuda_runtime_headroom(device, context=context)
 
 
 def production_prompt_hashes(
@@ -237,6 +275,8 @@ def _diagnostic_rows_from_pages(
                     "source_turn_id": source_turn_id,
                     "source": str(page.get("source") or "mid_term_page"),
                     "score": float(page.get("score") or page.get("final_score") or 0.0),
+                    "first_stage_score": page.get("first_stage_score"),
+                    "rerank_score": page.get("rerank_score"),
                     "memory": page.get("memory") or payload.get("memory") or payload.get("data"),
                     "summary": page.get("summary") or payload.get("summary"),
                     "raw_dialogue": page.get("raw_dialogue") or payload.get("raw_dialogue"),
@@ -1233,6 +1273,8 @@ def production_candidate_from_manifests(
 
 class ProductionMidtermAdapter:
     def __init__(self, *, run_dir: Path, candidate_hash: str, session_id: str, ranking_depth: int):
+        self.run_dir = run_dir
+        self.session_component = _safe_component(session_id)
         self.layout = isolated_runtime_layout(
             run_dir,
             candidate_hash=candidate_hash,
@@ -1240,6 +1282,208 @@ class ProductionMidtermAdapter:
             purpose="replay",
         )
         self.ranking_depth = ranking_depth
+        self.embedding_calls = 0
+        self._local_embedder: Any | None = None
+        self._local_embedder_identity: str | None = None
+        self._local_embedding_vectors: dict[str, list[float]] = {}
+        self._local_embedding_cache_dirty = False
+        self._local_embedding_calls_since_checkpoint = 0
+        self._reused_local_embedding_cache_paths: list[str] = []
+
+    def _load_reusable_local_embedding_vectors(self, identity: str) -> int:
+        """Reuse identical local vectors across isolated Candidate runtimes.
+
+        Candidate rankings and vector stores remain isolated. Only embeddings
+        with the exact same provider/config identity and content-derived
+        ``action + text`` key are merged. This prevents a promoted Candidate
+        from re-encoding hundreds of unchanged long fields that its screening
+        Candidate already encoded.
+        """
+
+        if not low_consumption_enabled():
+            return 0
+        runtime_root = self.run_dir / "production_runtimes"
+        reused = 0
+        for path in sorted(
+            runtime_root.glob(f"*/{self.session_component}/cache/low_consumption_embeddings.json")
+        ):
+            if path == self.layout.cache_path / "low_consumption_embeddings.json":
+                continue
+            try:
+                cached = load_json(path)
+            except (OSError, ValueError, TypeError):
+                continue
+            if cached.get("schema") != 1 or cached.get("embedder_identity") != identity:
+                continue
+            for key, raw_vector in dict(cached.get("vectors") or {}).items():
+                vector = [float(value) for value in raw_vector]
+                existing = self._local_embedding_vectors.get(str(key))
+                if existing is not None and existing != vector:
+                    raise RuntimeError(f"local embedding cache collision for identity {identity} and key {key}")
+                if existing is None:
+                    self._local_embedding_vectors[str(key)] = vector
+                    reused += 1
+            self._reused_local_embedding_cache_paths.append(str(path.resolve()))
+        if reused:
+            self._local_embedding_cache_dirty = True
+        return reused
+
+    def _ensure_local_embedder(self, production_config: Any, config: Mapping[str, Any]) -> Any:
+        """Create the Candidate's production embedder for local-only replay."""
+
+        from mem0.utils.factory import EmbedderFactory
+
+        # Low-consumption evaluation is sequential.  Keeping the preceding
+        # cross-encoder alive while loading an embedder needlessly consumes
+        # most of a 4 GiB GPU and can turn an otherwise valid model into an
+        # OOM.  The two transformer caches are therefore mutually exclusive.
+        _evict_low_consumption_model_cache(_LOCAL_RERANKER_CACHE, _LOCAL_RERANKER_CACHE_LOCK)
+
+        embedder_config = deepcopy(dict(production_config.embedder.config or {}))
+        inference_device = config.get("embedding_inference_device")
+        if inference_device:
+            model_kwargs = deepcopy(dict(embedder_config.get("model_kwargs") or {}))
+            model_kwargs["device"] = str(inference_device)
+            embedder_config["model_kwargs"] = model_kwargs
+        identity = stable_hash(
+            {
+                "schema": 1,
+                "provider": production_config.embedder.provider,
+                "config": embedder_config,
+                "vector_config": production_config.vector_store.config.model_dump(mode="python"),
+            }
+        )
+        if self._local_embedder is not None:
+            if identity != self._local_embedder_identity:
+                raise RuntimeError("one replay adapter cannot mix multiple embedding identities")
+            return self._local_embedder
+
+        self._local_embedder_identity = identity
+        cache_path = self.layout.cache_path / "low_consumption_embeddings.json"
+        if cache_path.is_file():
+            cached = load_json(cache_path)
+            if cached.get("schema") == 1 and cached.get("embedder_identity") == identity:
+                self._local_embedding_vectors = {
+                    str(key): [float(value) for value in vector]
+                    for key, vector in dict(cached.get("vectors") or {}).items()
+                }
+        self._load_reusable_local_embedding_vectors(identity)
+        evicted = False
+        with _LOCAL_EMBEDDER_CACHE_LOCK:
+            if low_consumption_enabled() and identity not in _LOCAL_EMBEDDER_CACHE and _LOCAL_EMBEDDER_CACHE:
+                # A low-consumption process may reuse one active model across
+                # Sessions, but must not retain every model tried by deep search.
+                _LOCAL_EMBEDDER_CACHE.clear()
+                evicted = True
+        if evicted:
+            release_local_model_memory()
+        with _LOCAL_EMBEDDER_CACHE_LOCK:
+            self._local_embedder = _LOCAL_EMBEDDER_CACHE.get(identity)
+            if self._local_embedder is None:
+                self._local_embedder = EmbedderFactory.create(
+                    production_config.embedder.provider,
+                    embedder_config,
+                    production_config.vector_store.config,
+                    timeout_seconds=production_config.embedding_timeout_seconds,
+                )
+                _LOCAL_EMBEDDER_CACHE[identity] = self._local_embedder
+        return self._local_embedder
+
+    def _store_local_embedding_batch(
+        self,
+        keys: Sequence[str],
+        vectors: Sequence[Sequence[float]],
+    ) -> None:
+        if len(vectors) != len(keys):
+            raise RuntimeError("production embedder returned an incomplete local replay batch")
+        for key, vector in zip(keys, vectors):
+            self._local_embedding_vectors[key] = [float(value) for value in vector]
+        self.embedding_calls += len(keys)
+        self._local_embedding_calls_since_checkpoint += len(keys)
+        self._local_embedding_cache_dirty = True
+
+    def _embed_local_texts(
+        self,
+        texts: Sequence[str],
+        *,
+        action: str,
+        production_config: Any,
+        config: Mapping[str, Any],
+    ) -> list[list[float]]:
+        embedder = self._ensure_local_embedder(production_config, config)
+        _guard_candidate_cuda(
+            config,
+            device_key="embedding_inference_device",
+            context=f"embedding model load ({action})",
+        )
+        keys = [stable_hash({"action": action, "text": str(text)}) for text in texts]
+        missing: dict[str, str] = {}
+        for key, value in zip(keys, texts):
+            if key not in self._local_embedding_vectors:
+                missing.setdefault(key, str(value))
+        missing_keys = list(missing)
+        missing_texts = [missing[key] for key in missing_keys]
+        if missing_texts:
+            batch = getattr(embedder, "embed_batch", None)
+            if callable(batch) and low_consumption_enabled():
+                # SentenceTransformer chooses its internal batch size from the
+                # number of submitted texts.  A full checkpoint's Page fields
+                # can push a large CPU model above the host's memory limit, so
+                # preserve identical per-text encoding with a bounded outer
+                # batch in low-consumption mode.
+                batch_size = max(
+                    1,
+                    int(config.get("embedding_inference_batch_size") or _LOW_CONSUMPTION_EMBEDDING_BATCH_SIZE),
+                )
+                for offset in range(0, len(missing_texts), batch_size):
+                    current = missing_texts[offset : offset + batch_size]
+                    current_keys = missing_keys[offset : offset + batch_size]
+                    current_vectors = batch(current, action)
+                    _guard_candidate_cuda(
+                        config,
+                        device_key="embedding_inference_device",
+                        context=(
+                            f"embedding batch ({action}, batch_size={len(current)}, "
+                            f"max_chars={max(map(len, current), default=0)})"
+                        ),
+                    )
+                    self._store_local_embedding_batch(current_keys, current_vectors)
+                    if (
+                        self._local_embedding_calls_since_checkpoint
+                        >= _LOW_CONSUMPTION_EMBEDDING_CHECKPOINT_INTERVAL
+                    ):
+                        self.flush_local_embedding_cache()
+            else:
+                vectors = (
+                    batch(missing_texts, action)
+                    if callable(batch)
+                    else [embedder.embed(text, action) for text in missing_texts]
+                )
+                _guard_candidate_cuda(
+                    config,
+                    device_key="embedding_inference_device",
+                    context=(
+                        f"embedding batch ({action}, batch_size={len(missing_texts)}, "
+                        f"max_chars={max(map(len, missing_texts), default=0)})"
+                    ),
+                )
+                self._store_local_embedding_batch(missing_keys, vectors)
+        return [list(self._local_embedding_vectors[key]) for key in keys]
+
+    def flush_local_embedding_cache(self) -> None:
+        if not self._local_embedding_cache_dirty or not self._local_embedder_identity:
+            return
+        atomic_write_json(
+            self.layout.cache_path / "low_consumption_embeddings.json",
+            {
+                "schema": 1,
+                "embedder_identity": self._local_embedder_identity,
+                "vectors": self._local_embedding_vectors,
+                "reused_cache_paths": sorted(set(self._reused_local_embedding_cache_paths)),
+            },
+        )
+        self._local_embedding_cache_dirty = False
+        self._local_embedding_calls_since_checkpoint = 0
 
     @staticmethod
     def supported(config: Mapping[str, Any]) -> None:
@@ -1323,11 +1567,40 @@ class ProductionMidtermAdapter:
             return None
         from mem0.reranker.concurrency import create_layer_reranker
 
+        # Mirror the embedder-side eviction so sequential Branches never keep
+        # an embedding model and a cross-encoder resident at the same time.
+        _evict_low_consumption_model_cache(_LOCAL_EMBEDDER_CACHE, _LOCAL_EMBEDDER_CACHE_LOCK)
+
         backend = layer.reranker.backend or memory_config.reranker
-        return create_layer_reranker(
-            backend,
-            timeout_seconds=memory_config.reranker_timeout_seconds,
+        backend_config = (
+            backend.model_dump(mode="python")
+            if hasattr(backend, "model_dump")
+            else dict(getattr(backend, "__dict__", {}) or {})
         )
+        identity = stable_hash(
+            {
+                "schema": 1,
+                "layer": layer_name,
+                "backend": backend_config,
+                "timeout_seconds": memory_config.reranker_timeout_seconds,
+            }
+        )
+        evicted = False
+        with _LOCAL_RERANKER_CACHE_LOCK:
+            if low_consumption_enabled() and identity not in _LOCAL_RERANKER_CACHE and _LOCAL_RERANKER_CACHE:
+                _LOCAL_RERANKER_CACHE.clear()
+                evicted = True
+        if evicted:
+            release_local_model_memory()
+        with _LOCAL_RERANKER_CACHE_LOCK:
+            reranker = _LOCAL_RERANKER_CACHE.get(identity)
+            if reranker is None:
+                reranker = create_layer_reranker(
+                    backend,
+                    timeout_seconds=memory_config.reranker_timeout_seconds,
+                )
+                _LOCAL_RERANKER_CACHE[identity] = reranker
+        return reranker
 
     @staticmethod
     def _create_midterm_reranker(memory_config: Any) -> Any | None:
@@ -1441,6 +1714,19 @@ class ProductionMidtermAdapter:
             or checkpoint["query"]
         )
         query_vector = list((derived or {}).get("query_vectors", {}).get(query_id) or checkpoint["query_vector"])
+        low_consumption = config.get("low_consumption_mode") is True
+        local_replay_modes = set(config.get("low_consumption_local_replay_modes") or [])
+        reembed_all = low_consumption and "query_page_session_embeddings" in local_replay_modes
+        reembed_pages = reembed_all or (
+            low_consumption and "page_representation_embedding" in local_replay_modes
+        )
+        if reembed_all:
+            query_vector = self._embed_local_texts(
+                [query],
+                action="search",
+                production_config=production_config,
+                config=config,
+            )[0]
         dimensions = len(query_vector)
         if not dimensions:
             raise ValueError("Production checkpoint has no query vector")
@@ -1482,17 +1768,63 @@ class ProductionMidtermAdapter:
             ),
         )
         try:
+            prepared_page_payloads: dict[str, dict[str, Any]] = {}
             for key, store in (("pages", memory.pages_store), ("sessions", memory.sessions_store)):
                 points = list(checkpoint.get(key) or [])
-                payloads = []
+                payloads: list[dict[str, Any]] = []
+                vectors = [list(point["vector"]) for point in points]
                 for point in points:
                     payload = dict(point["payload"])
                     if key == "pages":
                         payload.setdefault("turn_index", int(checkpoint.get("current_turn_index", 0)))
+                        if reembed_pages:
+                            # This calls Production's representation builder on the
+                            # frozen baseline Page text, then encodes it locally with
+                            # the Candidate embedder. No generative LLM is involved.
+                            payload = memory._stored_page_payload(payload)
                     payloads.append(payload)
+                if points and key == "pages" and reembed_pages:
+                    vectors = self._embed_local_texts(
+                        [memory.page_embedding_text(payload) for payload in payloads],
+                        action="add",
+                        production_config=production_config,
+                        config=config,
+                    )
+                if points and key == "sessions" and reembed_all:
+                    vectors = self._embed_local_texts(
+                        [memory.session_embedding_text(payload) for payload in payloads],
+                        action="add",
+                        production_config=production_config,
+                        config=config,
+                    )
+                reranker_method = str(production_config.midterm.reranker.method or "none")
+                if points and key == "pages" and low_consumption and reranker_method == "multi_vector_maxsim":
+                    field_entries: list[tuple[int, str, str]] = []
+                    for index, payload in enumerate(payloads):
+                        if payload.get("_field_vectors") and not reembed_all:
+                            continue
+                        for field, field_text in MidTermMemory.page_field_texts(payload).items():
+                            if field_text:
+                                field_entries.append((index, field, field_text))
+                    if field_entries:
+                        field_vectors = self._embed_local_texts(
+                            [entry[2] for entry in field_entries],
+                            action="add",
+                            production_config=production_config,
+                            config=config,
+                        )
+                        by_page: dict[int, dict[str, list[float]]] = {}
+                        for (index, field, _), vector in zip(field_entries, field_vectors):
+                            by_page.setdefault(index, {})[field] = vector
+                        for index, values in by_page.items():
+                            payloads[index]["_field_vectors"] = values
+                if key == "pages":
+                    prepared_page_payloads = {
+                        str(point["id"]): dict(payload) for point, payload in zip(points, payloads)
+                    }
                 if points:
                     store.insert(
-                        vectors=[list(point["vector"]) for point in points],
+                        vectors=vectors,
                         ids=[str(point["id"]) for point in points],
                         payloads=payloads,
                     )
@@ -1501,12 +1833,13 @@ class ProductionMidtermAdapter:
                 production_config.midterm,
                 reranker=midterm_reranker,
             )
-            page_payloads = {
-                str(point.get("id") or ""): dict(point.get("payload") or {})
-                for point in checkpoint.get("pages") or []
-                if point.get("id")
-            }
+            page_payloads = prepared_page_payloads
             results = retriever.search(query, dict(checkpoint["filters"]), record_visits=False)
+            _guard_candidate_cuda(
+                config,
+                device_key="reranker_inference_device",
+                context="midterm reranker search",
+            )
             job_map = {
                 str(job_id): [str(turn_id).upper() for turn_id in turn_ids]
                 for job_id, turn_ids in (checkpoint.get("source_turn_ids_by_job") or {}).items()
@@ -1543,6 +1876,11 @@ class ProductionMidtermAdapter:
                 query=query,
                 production_config=production_config,
                 fine_grained_longterm_reranker=fine_grained_longterm_reranker,
+            )
+            _guard_candidate_cuda(
+                config,
+                device_key="longterm_reranker_inference_device",
+                context="fine-grained longterm reranker search",
             )
             return [{**row, "rank": rank} for rank, row in enumerate([*ranking, *longterm_ranking], start=1)]
         finally:

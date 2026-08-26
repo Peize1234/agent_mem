@@ -30,9 +30,9 @@ def prepare_generated_source_candidate(
     source workers, and only promoted Candidates are completed for full Tune
     and later held-out Validation.
 
-    In low-consumption mode the Branch still reaches normal evaluation, but its
-    source-changing configuration is replayed against baseline checkpoints and
-    vectors. No candidate-specific Production Add/source generation is run.
+    In low-consumption mode no candidate-specific Production Add/source LLM is
+    run. Baseline LLM text is frozen, while the replay adapter still rebuilds
+    every Candidate-specific local embedding/index/reranking artifact.
     """
 
     spec = candidate.config.get("source_generation_spec")

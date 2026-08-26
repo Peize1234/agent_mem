@@ -60,13 +60,63 @@ def candidate_config_hash(config: Mapping[str, Any]) -> str:
 
 
 def _dedupe(candidates: Sequence[Candidate], seen_hashes: set[str]) -> list[Candidate]:
+    """Return unique unseen candidates without committing truncated entries.
+
+    The caller applies the stage budget after de-duplication and then commits
+    only candidates that will actually be evaluated.  Marking every generated
+    candidate as seen before the budget cut permanently starved candidates at
+    the tail of a Branch outcome on later generation rounds.
+    """
+
     result: list[Candidate] = []
+    unique_hashes = set(seen_hashes)
     for candidate in candidates:
         key = candidate_config_hash(candidate.config)
-        if key not in seen_hashes:
-            seen_hashes.add(key)
+        if key not in unique_hashes:
+            unique_hashes.add(key)
             result.append(candidate)
     return result
+
+
+def _fair_candidate_limit(
+    candidates: Sequence[Candidate],
+    *,
+    candidate_branches: Mapping[str, str],
+    limit: int,
+) -> list[Candidate]:
+    """Take a round-robin prefix across Branches and declared search axes.
+
+    A flat ``candidates[:limit]`` makes generated order an accidental search
+    policy.  In particular RetrievalControl appended threshold candidates
+    after four larger axes, so the configured deep budget of 16 always cut
+    every ``midterm_rag_threshold`` experiment.  Branches may declare a
+    ``search_axis`` in Candidate provenance; undeclared candidates are fairly
+    grouped by Branch.
+    """
+
+    if len(candidates) <= limit:
+        return list(candidates)
+    groups: dict[tuple[str, str], list[Candidate]] = {}
+    for candidate in candidates:
+        branch = str(candidate_branches.get(candidate.name) or candidate.config.get("experiment_branch") or "")
+        axis = str(candidate.provenance.get("search_axis") or "__branch__")
+        groups.setdefault((branch, axis), []).append(candidate)
+    selected: list[Candidate] = []
+    offsets = {key: 0 for key in groups}
+    while len(selected) < limit:
+        progressed = False
+        for key, group in groups.items():
+            offset = offsets[key]
+            if offset >= len(group):
+                continue
+            selected.append(group[offset])
+            offsets[key] = offset + 1
+            progressed = True
+            if len(selected) == limit:
+                break
+        if not progressed:
+            break
+    return selected
 
 
 def _screen_expensive(
@@ -477,7 +527,12 @@ def run_staged_search(
             if branch.spec.cost_level in {"high", "expensive"}:
                 stage_expensive_generated += len(outcome.candidates)
             stage_candidates.extend(outcome.candidates)
-        stage_candidates = _dedupe(stage_candidates, seen_hashes)[:max_candidates]
+        stage_candidates = _fair_candidate_limit(
+            _dedupe(stage_candidates, seen_hashes),
+            candidate_branches=candidate_branches,
+            limit=max_candidates,
+        )
+        seen_hashes.update(candidate_config_hash(candidate.config) for candidate in stage_candidates)
         if max_expensive_candidates >= 0:
             inexpensive = [
                 candidate

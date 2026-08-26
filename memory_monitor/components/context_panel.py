@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
-from memory_monitor.components.common import render_records, render_table
+from memory_monitor.components.common import render_json, render_records, render_table
 
 
 @dataclass(frozen=True)
@@ -32,6 +33,27 @@ def query_rewrite_summary(context: dict) -> QueryRewriteSummary:
     )
 
 
+def midterm_retrieval_rows(records: list[dict]) -> list[dict[str, Any]]:
+    """Return the production MidTerm Page score chain in display order."""
+    return [
+        {
+            "Page": record.get("id"),
+            "Session": record.get("session_id"),
+            "摘要": record.get("summary") or record.get("memory"),
+            "raw_rag_score（原始）": record.get("raw_rag_score"),
+            "× forgetting_factor（保留）": record.get("forgetting_factor"),
+            "→ final_score（最终）": record.get("final_score"),
+            "heat_factor": record.get("heat_factor"),
+            "effective_half_life_turns": record.get("effective_half_life_turns"),
+            "valid_recall_count": record.get("valid_recall_count"),
+            "last_recall_turn_index": record.get("last_recall_turn_index"),
+            "turn_index": record.get("turn_index"),
+        }
+        for record in records
+        if _is_midterm_page(record)
+    ]
+
+
 def render(st, context: dict | None, *, key_prefix: str) -> None:
     if not context:
         st.caption("执行“分层检索”后显示冻结结果。")
@@ -46,9 +68,19 @@ def render(st, context: dict | None, *, key_prefix: str) -> None:
     st.code(rewrite.retrieval_query, language=None)
     if not rewrite.retrieval_query_recorded:
         st.caption("历史 Demo 数据未单独记录 retrieval_query，按原始问题兼容展示。")
+    st.markdown("#### 短期记忆")
+    render_records(
+        st,
+        context.get("short_term") or context.get("short_term_messages") or [],
+        key_prefix=f"{key_prefix}:section:shortterm",
+    )
+    st.markdown("#### 中期记忆")
+    _render_midterm_retrieval(
+        st,
+        context.get("mid_term") or [],
+        key_prefix=f"{key_prefix}:midterm",
+    )
     sections = (
-        ("短期记忆", context.get("short_term") or context.get("short_term_messages") or []),
-        ("中期记忆", context.get("mid_term") or []),
         ("细粒度长期记忆", context.get("fine_grained_longterm") or []),
         ("跨 Session 长期记忆", context.get("promoted_longterm") or []),
     )
@@ -65,3 +97,69 @@ def render(st, context: dict | None, *, key_prefix: str) -> None:
         )
     else:
         st.caption("暂无画像")
+
+
+def _render_midterm_retrieval(st, records: list[dict], *, key_prefix: str) -> None:
+    if not records:
+        st.caption("暂无记录")
+        return
+    pages = [record for record in records if _is_midterm_page(record)]
+    sessions = [record for record in records if not _is_midterm_page(record)]
+    st.caption(f"{len(records)} 条记录")
+    if sessions:
+        st.markdown("##### Session 候选")
+        render_table(
+            st,
+            [
+                {
+                    "Session": record.get("session_id") or record.get("id"),
+                    "摘要": record.get("summary") or record.get("memory"),
+                    "R_recency": record.get("R_recency"),
+                    "H_segment": record.get("H_segment"),
+                    "valid_recall_count": record.get("valid_recall_count"),
+                }
+                for record in sessions
+            ],
+            key_prefix=f"{key_prefix}:sessions",
+        )
+    if pages:
+        st.markdown("##### Page 遗忘与最终分数")
+        render_table(st, midterm_retrieval_rows(pages), key_prefix=f"{key_prefix}:pages")
+        selected_page = st.selectbox(
+            "查看 Page 分数链路",
+            range(len(pages)),
+            format_func=lambda index: str(pages[index].get("id") or index),
+            key=f"{key_prefix}:page_selector",
+        )
+        page = pages[selected_page]
+        st.markdown(
+            f"`raw_rag_score {_format_score(page.get('raw_rag_score'))}` "
+            f"× `forgetting_factor {_format_score(page.get('forgetting_factor'))}` "
+            f"→ `final_score {_format_score(page.get('final_score'))}`"
+        )
+        if page.get("rerank_score") is not None or page.get("first_stage_score") is not None:
+            st.caption("final_score 含生产重排后的结果，因此可能不等于当前展示的遗忘乘积。")
+    selected = st.selectbox(
+        "查看中期完整字段",
+        range(len(records)),
+        format_func=lambda index: str(records[index].get("id") or index),
+        key=f"{key_prefix}:detail_selector",
+    )
+    render_json(
+        st,
+        records[selected],
+        label="选中中期记录原始 JSON",
+        expanded=False,
+        key=f"{key_prefix}:selected_record",
+    )
+
+
+def _is_midterm_page(record: dict) -> bool:
+    return record.get("source") == "mid_term_page" or "raw_rag_score" in record
+
+
+def _format_score(value: Any) -> str:
+    try:
+        return f"{float(value):.6f}"
+    except (TypeError, ValueError):
+        return "不适用"

@@ -106,14 +106,20 @@ def parse_args(argv: list[str] | None = None) -> TunerConfig:
     low_consumption = bool(values.get("low_consumption", False))
     set_low_consumption_mode(low_consumption)
     if low_consumption:
-        # Low-consumption mode permits the baseline source generation only.
-        # Search remains deterministic after Stage 1 and LLM-dependent Query
-        # rewrite branches are disabled because they cannot be approximated
-        # without creating new model output.
+        # Low-consumption applies only to generative LLM API calls. Research
+        # decisions and all local embedding/reranking/index/replay work remain
+        # enabled. Branches whose defining output is a new LLM-generated text
+        # or source layout cannot produce a meaningful Candidate in this mode.
         _nested_override(overrides, "search.low_consumption.enabled", True)
-        _nested_override(overrides, "search.research.enabled", False)
-        _nested_override(overrides, "search.branch_registry.QueryRepresentation.enabled", False)
-        _nested_override(overrides, "search.branch_registry.QueryRewritePrompt.enabled", False)
+        for branch in (
+            "QueryRepresentation",
+            "QueryRewritePrompt",
+            "MidtermSourceConfig",
+            "MidtermPageSummaryPrompt",
+            "MidtermSessionMergePrompt",
+            "FineGrainedLongtermExtractionPrompt",
+        ):
+            _nested_override(overrides, f"search.branch_registry.{branch}.enabled", False)
 
     dataset = Path(str(values["dataset"]))
     if not dataset.is_absolute():
@@ -142,6 +148,7 @@ def parse_args(argv: list[str] | None = None) -> TunerConfig:
         source_run=source_run,
         memory_config=memory_config,
         llm_mode=str(values.get("llm_mode") or "real"),
+        low_consumption=low_consumption,
         max_parallel_sessions=(
             int(values["max_parallel_sessions"]) if values.get("max_parallel_sessions") is not None else None
         ),

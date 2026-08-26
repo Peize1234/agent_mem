@@ -2398,6 +2398,18 @@ def main() -> None:
     for code, (_, filename) in TYPE_INFO.items():
         (RAW / filename).write_text(json.dumps(results[code], ensure_ascii=False, indent=2, default=str), encoding="utf-8")
 
+    # Keep the presentation layer causally explicit: historical memory evidence
+    # shows both sides of the original QA, while current answers remain excluded
+    # from pre-answer retrieval/rewrite inputs. Reload the repaired canonical JSON
+    # before building the derived HTML/Excel outputs.
+    from repair_qa_pairs import repair_raw_files
+
+    repair_raw_files()
+    results = {
+        code: json.loads((RAW / filename).read_text(encoding="utf-8"))
+        for code, (_, filename) in TYPE_INFO.items()
+    }
+
     build_excel(results, OUT / "evidence_index.xlsx")
     build_html(results, OUT / "evidence_pack.html")
     build_readme(results, OUT / "README.md")

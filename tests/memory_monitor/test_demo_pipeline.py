@@ -1,6 +1,7 @@
 import hashlib
 import inspect
 import json
+import math
 import os
 import sqlite3
 import subprocess
@@ -479,6 +480,42 @@ def test_legacy_context_without_retrieval_query_uses_original_query_for_display(
     assert summary.retrieval_query == "旧问题"
     assert summary.changed is False
     assert summary.retrieval_query_recorded is False
+
+
+def test_midterm_retrieval_display_exposes_production_score_chain():
+    records = [
+        {"id": "session-1", "source": "mid_term_session", "H_segment": 4.2},
+        {
+            "id": "page-1",
+            "source": "mid_term_page",
+            "session_id": "session-1",
+            "summary": "投资偏好",
+            "raw_rag_score": 0.8,
+            "forgetting_factor": 0.625,
+            "final_score": 0.5,
+            "heat_factor": 1.05,
+            "effective_half_life_turns": 176.4,
+            "valid_recall_count": 2,
+            "last_recall_turn_index": 8,
+            "turn_index": 3,
+        },
+    ]
+
+    assert context_panel.midterm_retrieval_rows(records) == [
+        {
+            "Page": "page-1",
+            "Session": "session-1",
+            "摘要": "投资偏好",
+            "raw_rag_score（原始）": 0.8,
+            "× forgetting_factor（保留）": 0.625,
+            "→ final_score（最终）": 0.5,
+            "heat_factor": 1.05,
+            "effective_half_life_turns": 176.4,
+            "valid_recall_count": 2,
+            "last_recall_turn_index": 8,
+            "turn_index": 3,
+        }
+    ]
 
 
 def test_query_rewrite_display_does_not_add_an_llm_call_or_persisted_step(tmp_path):
@@ -2793,6 +2830,120 @@ def test_memory_state_partial_snapshot_only_reads_requested_backend(tmp_path):
         "midterm_pages": [{"id": "page-1", "score": 0.8, "payload": {"data": "page"}}]
     }
     assert midterm.page_calls == 1
+
+
+def test_memory_state_exposes_current_midterm_heat_forgetting_and_promotion_without_mutation(tmp_path):
+    session_payload = {
+        "session_id": "session-1",
+        "user_id": "user-1",
+        "run_id": "run-1",
+        "R_recency": 1.0,
+        "H_segment": 7.0,
+        "N_visit": 2,
+        "L_interaction": 1,
+        "last_visit_turn_index": 2,
+        "valid_recall_count": 2,
+    }
+    page_payload = {
+        "session_id": "session-1",
+        "user_id": "user-1",
+        "run_id": "run-1",
+        "turn_index": 2,
+        "last_recall_turn_index": None,
+        "valid_recall_count": 0,
+    }
+
+    class Midterm:
+        current_turn = 6
+
+        def list_sessions(self, **_kwargs):
+            return [SimpleNamespace(id="session-1", score=None, payload=dict(session_payload))]
+
+        def list_pages(self, **_kwargs):
+            return [SimpleNamespace(id="page-1", score=None, payload=dict(page_payload))]
+
+        def current_turn_index(self, _filters):
+            return self.current_turn
+
+    midterm = Midterm()
+    config = SimpleNamespace(
+        enabled=True,
+        heat_recency_tau_turns=4.0,
+        heat_alpha=1.0,
+        heat_beta=0.5,
+        heat_gamma=1.0,
+        heat_modulation_min=0.9,
+        heat_modulation_max=1.1,
+        retention_half_life_turns=4.0,
+        retention_floor=0.2,
+        promotion_min_recall_count=2,
+        promotion_heat_threshold=3.0,
+    )
+    memory = SimpleNamespace(
+        config=SimpleNamespace(history_db_path=str(tmp_path / "unused.db"), midterm=config),
+        midterm_memory=midterm,
+    )
+    service = MemoryStateService(memory)
+
+    fresh = service.current_state(
+        user_id="user-1",
+        run_id="run-1",
+        sections={"midterm_sessions", "midterm_pages"},
+    )
+    fresh_session = fresh["midterm_sessions"][0]
+    fresh_session_state = fresh_session["monitor_state"]
+    fresh_page_state = fresh["midterm_pages"][0]["monitor_state"]
+
+    assert fresh_session["payload"] == session_payload
+    assert fresh["midterm_pages"][0]["payload"] == page_payload
+    assert fresh_session_state["stored_R_recency"] == 1.0
+    assert fresh_session_state["current_R_recency"] == pytest.approx(math.exp(-1.0))
+    assert fresh_session_state["stored_H_segment"] == 7.0
+    assert fresh_session_state["current_H_segment"] == pytest.approx(2.5 + math.exp(-1.0))
+    assert fresh_session_state["stored_promotion_eligible"] is True
+    assert fresh_session_state["promotion_eligible"] is True
+    assert fresh_session_state["current_promotion_eligible"] is False
+    assert fresh_page_state["turns_since_last_valid_recall"] is None
+    assert fresh_page_state["turns_since_decay_anchor"] == 4
+    assert fresh_page_state["forgetting_factor"] == pytest.approx(fresh_page_state["retention"])
+
+    midterm.current_turn = 12
+    stale = service.current_state(
+        user_id="user-1",
+        run_id="run-1",
+        sections={"midterm_sessions", "midterm_pages"},
+    )
+    stale_page_state = stale["midterm_pages"][0]["monitor_state"]
+    assert stale_page_state["turns_since_decay_anchor"] == 10
+    assert stale_page_state["retention"] < fresh_page_state["retention"]
+
+    page_payload.update(last_recall_turn_index=12, valid_recall_count=1)
+    session_payload.update(
+        R_recency=1.0,
+        H_segment=8.0,
+        N_visit=3,
+        last_visit_turn_index=12,
+        valid_recall_count=3,
+    )
+    recalled = service.current_state(
+        user_id="user-1",
+        run_id="run-1",
+        sections={"midterm_sessions", "midterm_pages"},
+    )
+    recalled_session_state = recalled["midterm_sessions"][0]["monitor_state"]
+    recalled_page_state = recalled["midterm_pages"][0]["monitor_state"]
+
+    assert recalled_session_state["current_R_recency"] == pytest.approx(1.0)
+    assert recalled_session_state["current_H_segment"] == pytest.approx(4.5)
+    assert recalled_session_state["valid_recall_count"] == 3
+    assert recalled_session_state["current_promotion_eligible"] is True
+    assert recalled_page_state["turns_since_last_valid_recall"] == 0
+    assert recalled_page_state["valid_recall_count"] == 1
+    assert recalled_page_state["retention"] == pytest.approx(1.0)
+
+    page_rows = memory_panel.midterm_page_forgetting_rows(recalled["midterm_pages"])
+    assert page_rows[0]["所属 Session"] == "session-1"
+    assert page_rows[0]["当前 retention / forgetting factor"] == pytest.approx(1.0)
 
 
 def test_memory_state_rejects_unknown_snapshot_section(tmp_path):

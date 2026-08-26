@@ -1,2274 +1,1179 @@
 {
-  "status": "SIMULATED",
-  "candidate_count": 10,
-  "top_1": {
-    "candidate_id": "I-SIM-S001-S002-2",
-    "presentation_score": 88.3,
-    "why_good_for_ppt": "使用同公司两个真实 Session 的真实 Memory 文本，按生产配置 other_session_weight=0.7 演示反超；相关分数与同次检索为模拟。",
-    "session_id": "S001_贵州茅台_投研",
-    "query_id": "S001-Q002",
-    "memory_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe / 9615e38e-ddfa-5750-8a37-98d2d6d81f6b",
-    "job_id": null,
-    "display_data": {
-      "title": "其他 Session 原始分更高 → 降权后当前 Session 反超",
-      "current_question": "刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
-      "input": [
-        "当前：用户要求确认贵州茅台2023—2025年财务底表的来源、单位和比较口径的一致性及可确认程度。助手确认：来源为指定披露文件（202…",
-        "其他：用户询问底表数据的来源、单位和比较口径是否一致，以及作为审计底稿能确认到什么程度。助手确认：来源可追溯到指定披露文件（巨潮资讯网…"
-      ],
-      "process": "SIMULATED：其他 Session × 0.7",
-      "output": "Rank：其他#1/当前#2 → 当前#1/其他#2",
-      "key_number": "0.846×0.7=0.592 < 0.698",
-      "conclusion": "仅 Memory 内容与 0.7 权重真实；同次检索及分数为模拟。",
-      "simulation_label": "SIMULATED"
-    },
-    "raw_data": {
-      "observed_input": {
-        "query": "刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
-        "current_session_memory": {
-          "memory_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
+  "data_status": "OFFLINE_RECOMBINED_FROM_STORED_VECTORS",
+  "data_note": "目标运行没有真实跨 Session recall 事件；以下 recall_score 由已保存的 query/Page vector 离线计算，decay_factor 来自真实配置，final_score=recall_score×decay_factor。",
+  "selection_note": "每个案例使用当前 Session 最后两轮问题；从当前 Session 和同公司其他 Session 各自最后 15 个已归档 Page 中各取语义 Top 5，合并后按 final_score 降序。",
+  "case_count": 10,
+  "results_per_case": 10,
+  "retrieval_cases": [
+    {
+      "current_session": "S001_贵州茅台_投研",
+      "query_id": "S001-Q049",
+      "question": "做Session的最终收束：把五章的方法论、四条降级记录、七项缺口、五件套交付物压缩成一份总纲式收官总结，并对整套档案做终态一致性验收。",
+      "retrieval_results": [
+        {
+          "rank": 1,
           "source_session": "S001",
-          "summary": "用户要求确认贵州茅台2023—2025年财务底表的来源、单位和比较口径的一致性及可确认程度。助手确认：来源为指定披露文件（2026-04-17发布），数据为真实历史披露，单位统一为亿元，总资产2023年为整数披露，其余保留原精度；比较口径方面，利润与权益为归母口径，收入与资产为合并整体口径，同比均由原数复算且八个同比全部可复现；期末时点与期间数混合的比率（周转率、权益回报）标注为近似。不能确认的包括：无法逐页核对原文、无2022年数据、无指标定义细节及明细类指标（现金流、扣非、毛利率等）无披露。助手将可追溯性分为三级：披露原数、派生复算、分析判断，并制定了引用纪律：原数带来源、复算带公式与近似标记、缺口带无披露。复核结论为底表无需修订，可继续作为公共基准。"
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S001-Q030",
+          "memory_id": "4d745c64-fc62-5441-bb01-c7173eedad0f",
+          "memory_text": "用户要求对现金章进行最终结语整理，明确哪些结论能下、哪些不能下，以及报告中的表述方式。助手给出了完整的结语框架：能下的结论按四组共十五项列出（形状与拐点、率与回报、分配错位、效率），不能下的按五类说明（利润含金量、错位性质、扣非口径、科目归因、时间口径），并提供了表述四档纪律（直接说、限定说、禁止说、归母口径前缀）及报告例句。同时总结了现金章对全Session的贡献（全确认、零修订、三处细化），预告了资产与权益章的开工动作（原数核对、权益变动表对账、资产明细判别树），并给出结语验收标准。",
+          "recall_score": 0.646669,
+          "decay_factor": 1.0,
+          "final_score": 0.646669
         },
-        "other_session_memory": {
-          "memory_id": "9615e38e-ddfa-5750-8a37-98d2d6d81f6b",
+        {
+          "rank": 2,
+          "source_session": "S001",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S001-Q029",
+          "memory_id": "c3b3467b-498b-5efa-b3fc-2092f9cbedd1",
+          "memory_text": "用户要求将现金章结论与整体画像、盈利路径两章判断进行三章对照，检查是否存在冲突及需要降级或修订之处。助手完成对照后确认：三章在形态、比率、判断层面均无方向性冲突，现金章为两章早期判断补充了效率与分配两条可复算证据线。需要降级或加标注的仅三类：周转仅为效率代理而非现金指标，现金含金量表述按“限定说”处理；“分配性错位”性质未证实，需带“归母口径、数据到位前无法证实”前缀；2023年单年数据因缺2022年披露无法复算，累计口径限定2024—2025两年。七条核心判断（2024双顶、2025拐点、质量先于规模、恶化顺序、稳量不稳率、低留存=分配而非再投资、2025盈利边际走弱、错位=分配性错位+数据缺口）全部维持原档，无一条修订。裁决总表列出七条判断的现金侧证据、裁决与证据等级。对研究员处理方式的含义：三章一致性使工作底稿内部无矛盾，可带结论进入资产与权益章；证据等级分效率层、分配层、含金量层；盈利质量总评为“高位回吐”而非“崩塌”。口径统一为净利率精确复算、周转与权益回报混口径近似、平均口径仅2024—2025可算。备忘录能写与不能写的句子按对照结果分档。",
+          "recall_score": 0.641056,
+          "decay_factor": 1.0,
+          "final_score": 0.641056
+        },
+        {
+          "rank": 3,
+          "source_session": "S001",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S001-Q038",
+          "memory_id": "94c418e3-96fc-5f7f-8860-8fbdda56376f",
+          "memory_text": "用户要求将资产与权益章的结论定稿为可引用版本，按证据强度分层归档。助手将结论分为五档：A档已核对原数（12个）、B档精确复算（净利率、乘数、留存吸收等）、C档近似复算（周转、权益回报、总资产利润率）、D档方向层判断（2024双顶、质量先于规模、恶化顺序、稳量不稳率、总量有效边际转弱结构稳、边际失效非逆转）、E档解释层结论（分配性错位、去杠杆归属、留存率主动被动、现金含金量）。每档配可引用表述、数字公式和档位标签。缺口按六项登记（现金流、资产明细、负债与少数股东、权益变动表与分红、2022年数据、扣非），每项写明解锁条件、检验动作与升降规则。交接给披露与证据章三件套：结论清单、缺口清单、表述纪律。核心结论为'总量有效、边际转弱、结构稳'，性质为'边际失效而非扩张逆转'。",
+          "recall_score": 0.639844,
+          "decay_factor": 1.0,
+          "final_score": 0.639844
+        },
+        {
+          "rank": 4,
+          "source_session": "S001",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S001-Q042",
+          "memory_id": "e592da7c-8067-5049-8232-ca8d26fe05be",
+          "memory_text": "用户要求将信息缺口清单转化为对公司的正式追问清单，明确每项缺口、补上后能验证什么、补不上时结论卡在哪，以及哪些补上也无法完全验证。助手将七项缺口（经营现金流、扣非、毛利率费用率与分部、分红、资产明细、权益变动表与负债少数股东明细、2022年数据）归为第一类“补充披露即可验证”，每项配解锁条件、检验动作、结论升降与卡点；另列四个深层问题（留存率主动/被动、差额现金性/非现金性、净利率业务端驱动、资产配置意图）为第二类“需管理层配合”。清单按优先级排序，并给出追问话术、执行纪律与在披露章中的位置。",
+          "recall_score": 0.573436,
+          "decay_factor": 1.0,
+          "final_score": 0.573436
+        },
+        {
+          "rank": 5,
+          "source_session": "S001",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S001-Q040",
+          "memory_id": "b66f4a63-505c-5a52-bb11-944e465023a3",
+          "memory_text": "用户要求将资产与权益章的结论综合成一段可直接引用的投研结语，并明确能下与不能下的结论，以及交接给后续分析的证据清单。助手给出了结语段，总结为“总量有效、边际转弱、结构稳”，并详细说明了结语的论证链、边界清单、交接清单及对权益研究员的含义。能下的结论包括：资产与权益三年连升减速、权益是主要资金来源、2025年去杠杆、权益回报破位且率先于量、放缓主因在留存率下降等；不能下的包括：659亿元差额去向、66.42亿元去杠杆归属、现金含金量、资产明细构成等，均需待数据披露。交接清单包括资产明细、现金流、分红、权益变动表、2022年数据等，并明确了数据到位后的升降规则。",
+          "recall_score": 0.568872,
+          "decay_factor": 1.0,
+          "final_score": 0.568872
+        },
+        {
+          "rank": 6,
           "source_session": "S002",
-          "summary": "用户询问底表数据的来源、单位和比较口径是否一致，以及作为审计底稿能确认到什么程度。助手确认：来源可追溯到指定披露文件（巨潮资讯网静态页，2026-04-17发布），单位统一为亿元，利润与权益取归母口径、收入与资产取整体口径且三年未变，八个同比全部可由原数复现；比率中净利率、权益乘数、非权益占比为精确复算，总资产周转与权益回报为期末/期间混口径近似。确认程度为“披露数值层”，即数值自洽、来源明确、口径固定，可锁定为后续引用基准；但原文级、定义级、基期级、重述风险、报表勾稽、范围界定六项保留未确认。助手还建立了追溯强度三档（原数/派生/判断）、口径归类表、控制点清单（录入、口径、复算、档位标签、保留意见登记），并说明口径确认对后续章节的传导作用。"
-        },
-        "configured_other_session_weight": 0.7
-      },
-      "simulated_process": {
-        "candidates": [
-          {
-            "memory_id": "9615e38e-ddfa-5750-8a37-98d2d6d81f6b",
-            "source_session": "S002",
-            "raw_score": 0.846,
-            "session_weight": 0.7,
-            "weighted_score": 0.592,
-            "rank_before": 1,
-            "rank_after": 2
-          },
-          {
-            "memory_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
-            "source_session": "S001",
-            "raw_score": 0.698,
-            "session_weight": 1.0,
-            "weighted_score": 0.698,
-            "rank_before": 2,
-            "rank_after": 1
-          }
-        ]
-      },
-      "simulation_boundary": "The target source used isolated user/run scopes and recorded zero cross-session recalls. Pairing and retrieval scores are hypothetical; memory texts and configured other_session_weight are observed."
-    },
-    "evidence": [
-      {
-        "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
-        "table / collection": "final checkpoint / pages",
-        "record_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
-        "field": "summary"
-      },
-      {
-        "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
-        "table / collection": "final checkpoint / pages",
-        "record_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
-        "field": "source_turn_id"
-      },
-      {
-        "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S002/production_midterm_checkpoints.jsonl",
-        "table / collection": "final checkpoint / pages",
-        "record_id": "9615e38e-ddfa-5750-8a37-98d2d6d81f6b",
-        "field": "summary"
-      },
-      {
-        "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S002/production_midterm_checkpoints.jsonl",
-        "table / collection": "final checkpoint / pages",
-        "record_id": "9615e38e-ddfa-5750-8a37-98d2d6d81f6b",
-        "field": "source_turn_id"
-      },
-      {
-        "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
-        "table / collection": "fine_grained_longterm config",
-        "record_id": "other_session_weight",
-        "field": "other_session_weight"
-      }
-    ]
-  },
-  "top_3": [
-    {
-      "candidate_id": "I-SIM-S001-S002-2",
-      "presentation_score": 88.3,
-      "why_good_for_ppt": "使用同公司两个真实 Session 的真实 Memory 文本，按生产配置 other_session_weight=0.7 演示反超；相关分数与同次检索为模拟。",
-      "session_id": "S001_贵州茅台_投研",
-      "query_id": "S001-Q002",
-      "memory_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe / 9615e38e-ddfa-5750-8a37-98d2d6d81f6b",
-      "job_id": null,
-      "display_data": {
-        "title": "其他 Session 原始分更高 → 降权后当前 Session 反超",
-        "current_question": "刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
-        "input": [
-          "当前：用户要求确认贵州茅台2023—2025年财务底表的来源、单位和比较口径的一致性及可确认程度。助手确认：来源为指定披露文件（202…",
-          "其他：用户询问底表数据的来源、单位和比较口径是否一致，以及作为审计底稿能确认到什么程度。助手确认：来源可追溯到指定披露文件（巨潮资讯网…"
-        ],
-        "process": "SIMULATED：其他 Session × 0.7",
-        "output": "Rank：其他#1/当前#2 → 当前#1/其他#2",
-        "key_number": "0.846×0.7=0.592 < 0.698",
-        "conclusion": "仅 Memory 内容与 0.7 权重真实；同次检索及分数为模拟。",
-        "simulation_label": "SIMULATED"
-      },
-      "raw_data": {
-        "observed_input": {
-          "query": "刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
-          "current_session_memory": {
-            "memory_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
-            "source_session": "S001",
-            "summary": "用户要求确认贵州茅台2023—2025年财务底表的来源、单位和比较口径的一致性及可确认程度。助手确认：来源为指定披露文件（2026-04-17发布），数据为真实历史披露，单位统一为亿元，总资产2023年为整数披露，其余保留原精度；比较口径方面，利润与权益为归母口径，收入与资产为合并整体口径，同比均由原数复算且八个同比全部可复现；期末时点与期间数混合的比率（周转率、权益回报）标注为近似。不能确认的包括：无法逐页核对原文、无2022年数据、无指标定义细节及明细类指标（现金流、扣非、毛利率等）无披露。助手将可追溯性分为三级：披露原数、派生复算、分析判断，并制定了引用纪律：原数带来源、复算带公式与近似标记、缺口带无披露。复核结论为底表无需修订，可继续作为公共基准。"
-          },
-          "other_session_memory": {
-            "memory_id": "9615e38e-ddfa-5750-8a37-98d2d6d81f6b",
-            "source_session": "S002",
-            "summary": "用户询问底表数据的来源、单位和比较口径是否一致，以及作为审计底稿能确认到什么程度。助手确认：来源可追溯到指定披露文件（巨潮资讯网静态页，2026-04-17发布），单位统一为亿元，利润与权益取归母口径、收入与资产取整体口径且三年未变，八个同比全部可由原数复现；比率中净利率、权益乘数、非权益占比为精确复算，总资产周转与权益回报为期末/期间混口径近似。确认程度为“披露数值层”，即数值自洽、来源明确、口径固定，可锁定为后续引用基准；但原文级、定义级、基期级、重述风险、报表勾稽、范围界定六项保留未确认。助手还建立了追溯强度三档（原数/派生/判断）、口径归类表、控制点清单（录入、口径、复算、档位标签、保留意见登记），并说明口径确认对后续章节的传导作用。"
-          },
-          "configured_other_session_weight": 0.7
-        },
-        "simulated_process": {
-          "candidates": [
-            {
-              "memory_id": "9615e38e-ddfa-5750-8a37-98d2d6d81f6b",
-              "source_session": "S002",
-              "raw_score": 0.846,
-              "session_weight": 0.7,
-              "weighted_score": 0.592,
-              "rank_before": 1,
-              "rank_after": 2
-            },
-            {
-              "memory_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
-              "source_session": "S001",
-              "raw_score": 0.698,
-              "session_weight": 1.0,
-              "weighted_score": 0.698,
-              "rank_before": 2,
-              "rank_after": 1
-            }
-          ]
-        },
-        "simulation_boundary": "The target source used isolated user/run scopes and recorded zero cross-session recalls. Pairing and retrieval scores are hypothetical; memory texts and configured other_session_weight are observed."
-      },
-      "evidence": [
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
-          "field": "summary"
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S002-Q055",
+          "memory_id": "22ca3783-204e-5d58-9198-06249d7bc647",
+          "memory_text": "跨轮综合章第五问，将审计发现清单落成审计底稿：二十三项目标按事实层（A档十四项）、分析层（B档六项独立条目加两条并入标记）、待核层（C档三项）三段式组织，每项按三要素（数字+年份+口径/判断+限定+证据包/待核内容+补证路径+状态标签）落笔，底稿页脚附三档决策表与版本号（v1.1）。底稿结构、事实层写法、分析层写法、待核层写法及底稿使用规范（审计报告/治理层汇报/监管问询三场景）均定稿，底稿作为清单的正式文本版，供后续综合结论与报告直接取用。",
+          "recall_score": 0.649146,
+          "decay_factor": 0.7,
+          "final_score": 0.454402
         },
         {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
-          "field": "source_turn_id"
+          "rank": 7,
+          "source_session": "S002",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S002-Q060",
+          "memory_id": "f0af9324-1dbc-5343-8114-a70909d57daf",
+          "memory_text": "跨轮综合章第十问，将清单、底稿、综合结论三件交付落成综合报告。报告按五部分组织：审计范围与边界、事实基础（A档）、分析判断（B档）、待核边界（C档）、综合结论（规模登顶后分化）。报告文本按三件交付取用（结论引综合结论、文本引底稿、条目引清单），呈现规范（引用格式、档位标注、边界声明）定稿，报告版本与三件交付同步（v1.1），补证联动后同步更新。",
+          "recall_score": 0.63438,
+          "decay_factor": 0.7,
+          "final_score": 0.444066
         },
         {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S002/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "9615e38e-ddfa-5750-8a37-98d2d6d81f6b",
-          "field": "summary"
+          "rank": 8,
+          "source_session": "S002",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S002-Q056",
+          "memory_id": "7ca7c18e-9a6c-5f57-a682-2a24e5d9f566",
+          "memory_text": "质疑与修订章开工，本问建立反向检验框架：质疑对象分三层（硬数据层约15项、派生比率层约10项、判断层约10项，共约35项），质疑标准三条（数字与披露原数一致、口径与定义一致、判断与证据强度匹配），质疑结果三类（维持/修订/升级），质疑纪律三条（不预设立场、三层全检、修订只改限定不动数字）。框架基于跨轮综合章移交的三件交付（清单/底稿/综合结论v1.1），与跨轮综合章双向接口确认，后续各问按此框架逐层执行质疑。",
+          "recall_score": 0.634378,
+          "decay_factor": 0.7,
+          "final_score": 0.444065
         },
         {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S002/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "9615e38e-ddfa-5750-8a37-98d2d6d81f6b",
-          "field": "source_turn_id"
+          "rank": 9,
+          "source_session": "S002",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S002-Q065",
+          "memory_id": "fd348db2-2fdc-5ecd-85ea-c050459e2ab9",
+          "memory_text": "质疑与修订章第五问，将前三问（硬数据层、派生比率层、判断层）的质疑结果汇总收拢。三层约三十五项质疑对象全部判定维持（硬数据层约十五项、派生比率层约十项、判断层约十项），零修订点，跨轮综合三件交付（清单/底稿/综合结论）维持v1.1版本不变。两处强度注释（硬数据层舍入标注、判断层B03加速型注释）作为维持的附加说明登记。补证可升级项三项登记（差额二构成、资产构成归因、留存率低归因），与各章补证路径挂接。修订处理机制预置（五步流程），本问未触发。质疑结论定稿并回传跨轮综合章，作为独立复核背书。",
+          "recall_score": 0.63342,
+          "decay_factor": 0.7,
+          "final_score": 0.443394
         },
         {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
-          "table / collection": "fine_grained_longterm config",
-          "record_id": "other_session_weight",
-          "field": "other_session_weight"
+          "rank": 10,
+          "source_session": "S002",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S002-Q058",
+          "memory_id": "61eae161-73fe-5d87-9843-bdbc1e39b14e",
+          "memory_text": "跨轮综合章第八问，将审计发现清单的决策应用框架补完整：清单三档（A/B/C）在决策层的使用场景、引用规则与监测联动如何落位，使清单从分析工具转为决策支持工具。框架包括三档决策应用（A档事实基础直接依赖、B档分析层带条件使用、C档待核边界不决策）、四个使用场景（审计报告、治理层汇报、监管问询、内部决策）的取用规则、引用规则（按编号、版本、档位引用，A档直引、B档带限定、C档不引）以及监测联动（补证可升级项触发清单更新）。本问不新增发现，仅补决策应用框架。",
+          "recall_score": 0.619265,
+          "decay_factor": 0.7,
+          "final_score": 0.433485
         }
       ]
     },
     {
-      "candidate_id": "I-SIM-S001-S002-1",
-      "presentation_score": 87.85,
-      "why_good_for_ppt": "使用同公司两个真实 Session 的真实 Memory 文本，按生产配置 other_session_weight=0.7 演示反超；相关分数与同次检索为模拟。",
-      "session_id": "S001_贵州茅台_投研",
-      "query_id": "S001-Q001",
-      "memory_id": "c6ee270c-d6cd-5972-9e46-d5feda47386f / 1a2ba249-5ced-5f36-8288-ed72fe8f07fd",
-      "job_id": null,
-      "display_data": {
-        "title": "其他 Session 原始分更高 → 降权后当前 Session 反超",
-        "current_question": "先帮我梳理一下贵州茅台2023—2025年的主要财务变化。",
-        "input": [
-          "当前：用户要求梳理贵州茅台2023—2025年主要财务变化，并随后进行多轮分析。本轮助手基于指定来源披露文件（发布于2026-04-1…",
-          "其他：用户要求将2023—2025年贵州茅台年报关键财务底表（营收、归母净利、总资产、归母权益）建立起来，并分析三年走势与拐点。助手提…"
-        ],
-        "process": "SIMULATED：其他 Session × 0.7",
-        "output": "Rank：其他#1/当前#2 → 当前#1/其他#2",
-        "key_number": "0.853×0.7=0.597 < 0.694",
-        "conclusion": "仅 Memory 内容与 0.7 权重真实；同次检索及分数为模拟。",
-        "simulation_label": "SIMULATED"
-      },
-      "raw_data": {
-        "observed_input": {
-          "query": "先帮我梳理一下贵州茅台2023—2025年的主要财务变化。",
-          "current_session_memory": {
-            "memory_id": "c6ee270c-d6cd-5972-9e46-d5feda47386f",
-            "source_session": "S001",
-            "summary": "用户要求梳理贵州茅台2023—2025年主要财务变化，并随后进行多轮分析。本轮助手基于指定来源披露文件（发布于2026-04-17）提供的数据，梳理了营业收入、归母净利润、总资产、归母股东权益四项指标的三年数值、同比、增量及形态，并计算了近似净利率、总资产周转、权益回报等比率。核心结论为：2024年是增速高点年，2025年是方向拐点年；收入与利润先升后降，资产与权益连续上升但减速；2025年利润降幅（-4.53%）显著大于收入降幅（-1.21%），净利率从50.46%降至48.76%，是利润下滑的主因（约占七成五）；高基数仅解释摆幅的一到两成。数据口径为亿元，同比由原数复算，总资产2023年为整数披露。"
-          },
-          "other_session_memory": {
-            "memory_id": "1a2ba249-5ced-5f36-8288-ed72fe8f07fd",
-            "source_session": "S002",
-            "summary": "用户要求将2023—2025年贵州茅台年报关键财务底表（营收、归母净利、总资产、归母权益）建立起来，并分析三年走势与拐点。助手提供了三年数值与同比：营收1,476.94/1,708.99/1,688.38亿元（+15.71%/-1.21%），归母净利747.34/862.28/823.20亿元（+15.38%/-4.53%），总资产2,727/2,989.45/3,038.35亿元（+9.62%/+1.64%），归母权益2,156.69/2,331.06/2,446.38亿元（+8.09%/+4.95%）。判断2024年为收入利润双高点，2025年收入利润转负、资产权益仍增长但减速，形成“存量升、增量降”的结构性信号。助手完成同比复算、比率分析（净利率50.60%/50.46%/48.76%，周转0.542/0.572/0.556倍，权益回报约34.7%/37.0%/33.6%），两因素分解显示2025年利润降幅约七成由净利率回落驱动，并列出信息缺口（无经营现金流、扣非、毛利率、费用率、分红等）。数据来源为指定披露文件（2026-04-17发布），单位亿元，利润权益归母口径、收入资产整体口径。"
-          },
-          "configured_other_session_weight": 0.7
-        },
-        "simulated_process": {
-          "candidates": [
-            {
-              "memory_id": "1a2ba249-5ced-5f36-8288-ed72fe8f07fd",
-              "source_session": "S002",
-              "raw_score": 0.853,
-              "session_weight": 0.7,
-              "weighted_score": 0.597,
-              "rank_before": 1,
-              "rank_after": 2
-            },
-            {
-              "memory_id": "c6ee270c-d6cd-5972-9e46-d5feda47386f",
-              "source_session": "S001",
-              "raw_score": 0.694,
-              "session_weight": 1.0,
-              "weighted_score": 0.694,
-              "rank_before": 2,
-              "rank_after": 1
-            }
-          ]
-        },
-        "simulation_boundary": "The target source used isolated user/run scopes and recorded zero cross-session recalls. Pairing and retrieval scores are hypothetical; memory texts and configured other_session_weight are observed."
-      },
-      "evidence": [
+      "current_session": "S001_贵州茅台_投研",
+      "query_id": "S001-Q050",
+      "question": "做Session的封卷落款：对整套档案做最后的完整性确认，给整个Session一个收官落款，以权益研究员的身份写下最终交代。",
+      "retrieval_results": [
         {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "c6ee270c-d6cd-5972-9e46-d5feda47386f",
-          "field": "summary"
+          "rank": 1,
+          "source_session": "S001",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S001-Q030",
+          "memory_id": "4d745c64-fc62-5441-bb01-c7173eedad0f",
+          "memory_text": "用户要求对现金章进行最终结语整理，明确哪些结论能下、哪些不能下，以及报告中的表述方式。助手给出了完整的结语框架：能下的结论按四组共十五项列出（形状与拐点、率与回报、分配错位、效率），不能下的按五类说明（利润含金量、错位性质、扣非口径、科目归因、时间口径），并提供了表述四档纪律（直接说、限定说、禁止说、归母口径前缀）及报告例句。同时总结了现金章对全Session的贡献（全确认、零修订、三处细化），预告了资产与权益章的开工动作（原数核对、权益变动表对账、资产明细判别树），并给出结语验收标准。",
+          "recall_score": 0.596633,
+          "decay_factor": 1.0,
+          "final_score": 0.596633
         },
         {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "c6ee270c-d6cd-5972-9e46-d5feda47386f",
-          "field": "source_turn_id"
+          "rank": 2,
+          "source_session": "S001",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S001-Q038",
+          "memory_id": "94c418e3-96fc-5f7f-8860-8fbdda56376f",
+          "memory_text": "用户要求将资产与权益章的结论定稿为可引用版本，按证据强度分层归档。助手将结论分为五档：A档已核对原数（12个）、B档精确复算（净利率、乘数、留存吸收等）、C档近似复算（周转、权益回报、总资产利润率）、D档方向层判断（2024双顶、质量先于规模、恶化顺序、稳量不稳率、总量有效边际转弱结构稳、边际失效非逆转）、E档解释层结论（分配性错位、去杠杆归属、留存率主动被动、现金含金量）。每档配可引用表述、数字公式和档位标签。缺口按六项登记（现金流、资产明细、负债与少数股东、权益变动表与分红、2022年数据、扣非），每项写明解锁条件、检验动作与升降规则。交接给披露与证据章三件套：结论清单、缺口清单、表述纪律。核心结论为'总量有效、边际转弱、结构稳'，性质为'边际失效而非扩张逆转'。",
+          "recall_score": 0.586754,
+          "decay_factor": 1.0,
+          "final_score": 0.586754
         },
         {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S002/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "1a2ba249-5ced-5f36-8288-ed72fe8f07fd",
-          "field": "summary"
+          "rank": 3,
+          "source_session": "S001",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S001-Q043",
+          "memory_id": "780b8bbb-9fe5-5a80-9804-553278be9b90",
+          "memory_text": "用户要求将整个分析收成一段可直接交付的投研摘要，区分能确认、带限定、未证实的结论，并附继续深化所需披露的清单。助手给出了综合摘要，按A-E五档标注：A档披露原数（收入、利润、资产、权益三年数值及同比），B档精确复算（净利率、留存吸收率、未留存、差额、比值等），C档混口径近似（周转、权益回报），D档方向判断（2024双顶、2025拐点、质量先于规模等），E档无披露待验（含金量未知、分配性流出未证实）。摘要后详细说明了成文过程、各档数字归属、能下与不能下的结论，并列出继续深化所需披露的两类十一项清单（七项可验证、四项需管理层配合），以及每项披露对应的摘要升级路径。",
+          "recall_score": 0.567301,
+          "decay_factor": 1.0,
+          "final_score": 0.567301
         },
         {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S002/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "1a2ba249-5ced-5f36-8288-ed72fe8f07fd",
-          "field": "source_turn_id"
+          "rank": 4,
+          "source_session": "S001",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S001-Q044",
+          "memory_id": "7d0fd4ff-039a-5660-92c6-406fa6451e24",
+          "memory_text": "用户要求对综合摘要进行全量可证伪性复核，并收成最终研究备忘录。助手将十五条能下结论按证伪路径分为三组：九条A/B档数字类结论会被披露原数更正直接推翻；四条C档近似与依赖明细的判断类会被披露补充修订；两条E档待验事项只升级不推翻。复核判定标准为三条证伪通道：原数更正走数字层（触发即整表重刷）、披露补充走解释层（到位即升降档位）、框架修订走精度层（2022年数据解锁平均口径后重算）。助手逐条给出结论、档位、证伪路径、证伪条件及触发后的新表述，并汇总成最终研究备忘录，包含底表与口径、核心结论（带证伪条件）、证据边界、修订记录与观察点、跟踪清单五节。复核结论为十五条结论全部通过、零修订，四条降级记录零激活，证伪条件全部挂账，E档七条边界明确，深化披露十一项按优先级跟踪。",
+          "recall_score": 0.551315,
+          "decay_factor": 1.0,
+          "final_score": 0.551315
         },
         {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
-          "table / collection": "fine_grained_longterm config",
-          "record_id": "other_session_weight",
-          "field": "other_session_weight"
+          "rank": 5,
+          "source_session": "S001",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S001-Q040",
+          "memory_id": "b66f4a63-505c-5a52-bb11-944e465023a3",
+          "memory_text": "用户要求将资产与权益章的结论综合成一段可直接引用的投研结语，并明确能下与不能下的结论，以及交接给后续分析的证据清单。助手给出了结语段，总结为“总量有效、边际转弱、结构稳”，并详细说明了结语的论证链、边界清单、交接清单及对权益研究员的含义。能下的结论包括：资产与权益三年连升减速、权益是主要资金来源、2025年去杠杆、权益回报破位且率先于量、放缓主因在留存率下降等；不能下的包括：659亿元差额去向、66.42亿元去杠杆归属、现金含金量、资产明细构成等，均需待数据披露。交接清单包括资产明细、现金流、分红、权益变动表、2022年数据等，并明确了数据到位后的升降规则。",
+          "recall_score": 0.536345,
+          "decay_factor": 1.0,
+          "final_score": 0.536345
+        },
+        {
+          "rank": 6,
+          "source_session": "S002",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S002-Q055",
+          "memory_id": "22ca3783-204e-5d58-9198-06249d7bc647",
+          "memory_text": "跨轮综合章第五问，将审计发现清单落成审计底稿：二十三项目标按事实层（A档十四项）、分析层（B档六项独立条目加两条并入标记）、待核层（C档三项）三段式组织，每项按三要素（数字+年份+口径/判断+限定+证据包/待核内容+补证路径+状态标签）落笔，底稿页脚附三档决策表与版本号（v1.1）。底稿结构、事实层写法、分析层写法、待核层写法及底稿使用规范（审计报告/治理层汇报/监管问询三场景）均定稿，底稿作为清单的正式文本版，供后续综合结论与报告直接取用。",
+          "recall_score": 0.587531,
+          "decay_factor": 0.7,
+          "final_score": 0.411272
+        },
+        {
+          "rank": 7,
+          "source_session": "S002",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S002-Q058",
+          "memory_id": "61eae161-73fe-5d87-9843-bdbc1e39b14e",
+          "memory_text": "跨轮综合章第八问，将审计发现清单的决策应用框架补完整：清单三档（A/B/C）在决策层的使用场景、引用规则与监测联动如何落位，使清单从分析工具转为决策支持工具。框架包括三档决策应用（A档事实基础直接依赖、B档分析层带条件使用、C档待核边界不决策）、四个使用场景（审计报告、治理层汇报、监管问询、内部决策）的取用规则、引用规则（按编号、版本、档位引用，A档直引、B档带限定、C档不引）以及监测联动（补证可升级项触发清单更新）。本问不新增发现，仅补决策应用框架。",
+          "recall_score": 0.583168,
+          "decay_factor": 0.7,
+          "final_score": 0.408218
+        },
+        {
+          "rank": 8,
+          "source_session": "S002",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S002-Q060",
+          "memory_id": "f0af9324-1dbc-5343-8114-a70909d57daf",
+          "memory_text": "跨轮综合章第十问，将清单、底稿、综合结论三件交付落成综合报告。报告按五部分组织：审计范围与边界、事实基础（A档）、分析判断（B档）、待核边界（C档）、综合结论（规模登顶后分化）。报告文本按三件交付取用（结论引综合结论、文本引底稿、条目引清单），呈现规范（引用格式、档位标注、边界声明）定稿，报告版本与三件交付同步（v1.1），补证联动后同步更新。",
+          "recall_score": 0.553672,
+          "decay_factor": 0.7,
+          "final_score": 0.38757
+        },
+        {
+          "rank": 9,
+          "source_session": "S002",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S002-Q061",
+          "memory_id": "0a465d39-e8f0-5886-af72-71f0f4cac812",
+          "memory_text": "质疑与修订章第六问，对早期章节的核心判断做修订复核：用跨轮综合结论与三层质疑结果回看整体画像、盈利路径、现金质量、资产权益四章的十项核心判断（利润拐点、结构性背离、效率三率、权益传导、利润首次转负、净利率主因、范围受限、间接证据链、效率层印证、结构反转），确认其与跨轮综合结论全部一致、结论方向均成立；执行三处表述更新（整体画像章效率三率补'期末近似'口径、盈利路径章发现一补'基于净利率效应73.4%'注释、现金质量章发现乙差额二表述与跨轮综合B01对齐'构成待拆分'），均为表述/注释层更新，不动数字、不改结论方向；修订记录按四要素回传各章版本登记表（v1.0→v1.1），跨轮综合三件交付同步确认。复核结论定稿并回传各章与跨轮综合章，质疑与修订章的'修订'职责完成。",
+          "recall_score": 0.549058,
+          "decay_factor": 0.7,
+          "final_score": 0.384341
+        },
+        {
+          "rank": 10,
+          "source_session": "S002",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S002-Q065",
+          "memory_id": "fd348db2-2fdc-5ecd-85ea-c050459e2ab9",
+          "memory_text": "质疑与修订章第五问，将前三问（硬数据层、派生比率层、判断层）的质疑结果汇总收拢。三层约三十五项质疑对象全部判定维持（硬数据层约十五项、派生比率层约十项、判断层约十项），零修订点，跨轮综合三件交付（清单/底稿/综合结论）维持v1.1版本不变。两处强度注释（硬数据层舍入标注、判断层B03加速型注释）作为维持的附加说明登记。补证可升级项三项登记（差额二构成、资产构成归因、留存率低归因），与各章补证路径挂接。修订处理机制预置（五步流程），本问未触发。质疑结论定稿并回传跨轮综合章，作为独立复核背书。",
+          "recall_score": 0.547435,
+          "decay_factor": 0.7,
+          "final_score": 0.383205
         }
       ]
     },
     {
-      "candidate_id": "I-SIM-S009-S010-2",
-      "presentation_score": 83.85,
-      "why_good_for_ppt": "使用同公司两个真实 Session 的真实 Memory 文本，按生产配置 other_session_weight=0.7 演示反超；相关分数与同次检索为模拟。",
-      "session_id": "S009_招商银行_并购",
-      "query_id": "S009-Q002",
-      "memory_id": "9d35a920-5b09-5ce6-ba4f-6d5d4b65b165 / ea8c8ee1-1d18-588d-84dc-23bb561680d3",
-      "job_id": null,
-      "display_data": {
-        "title": "其他 Session 原始分更高 → 降权后当前 Session 反超",
-        "current_question": "经营现金流三年都在3,500亿以上、总资产三年扩了约两成，收入却基本没动。银行…",
-        "input": [
-          "当前：用户询问在银行口径下如何正确理解招商银行2023-2025年经营现金流与总资产扩张，以及缺失净息差、不良率等监管指标对画像和可比…",
-          "其他：用户要求结合三年底表，将关键指标形态与履约能力、资金稳定对应，给出履约能力初步判断，并确认披露与口径边界。助手回应：履约能力初步…"
-        ],
-        "process": "SIMULATED：其他 Session × 0.7",
-        "output": "Rank：其他#1/当前#2 → 当前#1/其他#2",
-        "key_number": "0.790×0.7=0.553 < 0.730",
-        "conclusion": "仅 Memory 内容与 0.7 权重真实；同次检索及分数为模拟。",
-        "simulation_label": "SIMULATED"
-      },
-      "raw_data": {
-        "observed_input": {
-          "query": "经营现金流三年都在3,500亿以上、总资产三年扩了约两成，收入却基本没动。银行口径和制造业不一样，这两行数字该怎么正确理解？缺了净息差、不良率这类监管指标，画像和可比性会被限制在哪？",
-          "current_session_memory": {
-            "memory_id": "9d35a920-5b09-5ce6-ba4f-6d5d4b65b165",
-            "source_session": "S009",
-            "summary": "用户询问在银行口径下如何正确理解招商银行2023-2025年经营现金流与总资产扩张，以及缺失净息差、不良率等监管指标对画像和可比性的限制。助手回答：银行口径下，经营现金流是存贷款、金融投资等资产负债表摆布的结果，不能按制造业逻辑解读为利润含金量；总资产扩张是信贷、投资、同业行为的合计，无结构数据则无法判断扩张质量。缺失净息差、不良率、拨备覆盖率、资本充足率、存贷结构、收入结构等指标，导致画像只能停留在规模与形状层面，可比性仅限自身三年纵向，无法做同业横向比较。复核底稿应固化口径声明，并列出可读清单与待补数据清单。"
-          },
-          "other_session_memory": {
-            "memory_id": "ea8c8ee1-1d18-588d-84dc-23bb561680d3",
-            "source_session": "S010",
-            "summary": "用户要求结合三年底表，将关键指标形态与履约能力、资金稳定对应，给出履约能力初步判断，并确认披露与口径边界。助手回应：履约能力初步判断为正面、扎实、有冗余，依据是利润连续上升、现金流先升后平站稳高位、权益与资产连续增厚；背景是收入先降后平；边界是银行监管指标（净息差、不良率、拨备覆盖率、资本充足率、存贷结构）与收入结构无披露，属信息缺口。助手将证据分为A档（披露原数）、B档（间接推断）、C档（信息缺口），并给出三维初步画像：履约能力（强且有冗余）、资金稳定（稳定、波动向上）、合作敞口（承载极强、风险在己方）。"
-          },
-          "configured_other_session_weight": 0.7
-        },
-        "simulated_process": {
-          "candidates": [
-            {
-              "memory_id": "ea8c8ee1-1d18-588d-84dc-23bb561680d3",
-              "source_session": "S010",
-              "raw_score": 0.79,
-              "session_weight": 0.7,
-              "weighted_score": 0.553,
-              "rank_before": 1,
-              "rank_after": 2
-            },
-            {
-              "memory_id": "9d35a920-5b09-5ce6-ba4f-6d5d4b65b165",
-              "source_session": "S009",
-              "raw_score": 0.73,
-              "session_weight": 1.0,
-              "weighted_score": 0.73,
-              "rank_before": 2,
-              "rank_after": 1
-            }
-          ]
-        },
-        "simulation_boundary": "The target source used isolated user/run scopes and recorded zero cross-session recalls. Pairing and retrieval scores are hypothetical; memory texts and configured other_session_weight are observed."
-      },
-      "evidence": [
+      "current_session": "S003_比亚迪_风委",
+      "query_id": "S003-Q092",
+      "question": "开题完成了，现在把全Session判断链汇总一遍吧——哪些判断被验证、哪些被修订、汇总结论怎么定？",
+      "retrieval_results": [
         {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S009/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "9d35a920-5b09-5ce6-ba4f-6d5d4b65b165",
-          "field": "summary"
+          "rank": 1,
+          "source_session": "S003",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S003-Q073",
+          "memory_id": "05f4510c-7c90-55fc-8131-49f32a0c7db5",
+          "memory_text": "角色决策章判断链复盘完成：按全会话四分类口径（验证/修订/细化/待披露）回看本章九问判断链，验证五项（决策框架可执行、接收确认零差异、口径三部分与总表一致、简报与对外表述与备忘录一致、跨章核对零差异），修订零项，细化四项（五段简报组织法、三不引调用规则、四步披露联动流程、三十二点核对法），待披露延续跨章清单（方向项八项、挂账四件）。复盘产出四分类表、复盘结论页、确认书，随本章档案归档，结论为零修订、零遗漏、无越界纪律，本章进入收官。",
+          "recall_score": 0.663678,
+          "decay_factor": 1.0,
+          "final_score": 0.663678
         },
         {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S009/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "9d35a920-5b09-5ce6-ba4f-6d5d4b65b165",
-          "field": "source_turn_id"
+          "rank": 2,
+          "source_session": "S003",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S003-Q086",
+          "memory_id": "fba9f815-866f-5f30-80c1-18017d1fdc37",
+          "memory_text": "用户要求对因果边界章进行判断链复盘，确认框架到落地是否存在断点或越界。助手完成复盘，验证六项（框架可执行、分级有依据、清单可运行、落地可验收、收束有门槛、执行有记录）全部通过，零修订，细化五项（四步判定细则、候选三档登记、五步升级路径、四档边界标注、收束质量门槛）。复盘确认判断链完整、边界纪律一致执行，并形成复盘确认书、判断链完整性结论、执行状态回顾结论三件产出，随本章底稿归档，作为完整复盘章的输入。",
+          "recall_score": 0.628083,
+          "decay_factor": 1.0,
+          "final_score": 0.628083
         },
         {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S010/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "ea8c8ee1-1d18-588d-84dc-23bb561680d3",
-          "field": "summary"
+          "rank": 3,
+          "source_session": "S003",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S003-Q076",
+          "memory_id": "8bb745fd-1728-506f-ae75-ef52eb4a3b72",
+          "memory_text": "在风险画像推进到因果边界阶段时，用户提出需要明确收入、利润、现金流三条线之间是相关还是因果的判定边界。助手据此建立了四步判定框架（并存性、时间先后、机制路径、排除替代），并将三组关系（收入与现金流、利润与现金流、资产扩张与现金流）逐组归类为时序相关或机制相关，明确没有任何关系达到因果确认。框架与既有证据分级衔接，并制定了表述扫描与改写规则，确保因果表述不越过证据边界。",
+          "recall_score": 0.604909,
+          "decay_factor": 1.0,
+          "final_score": 0.604909
         },
         {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S010/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "ea8c8ee1-1d18-588d-84dc-23bb561680d3",
-          "field": "source_turn_id"
+          "rank": 4,
+          "source_session": "S003",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S003-Q081",
+          "memory_id": "62a65438-cf98-5eea-a758-0b082a54b6fd",
+          "memory_text": "用户提出风险画像中收入、利润、现金流三条线常被并置，但相关与因果边界未较真，要求建立判定框架。助手给出四步判定框架（并存性、时间先后、机制路径、排除替代），并据此将三组关系（收入与现金流、利润与现金流、资产扩张与现金流）归类为时序相关或机制相关，明确无一对达到因果确认。框架与既有证据分级衔接，并落地到风险总表、决策备忘录及对外表述，增加边界等级标注。后续用户要求列出数据请求清单，助手按证据缺口反推出四组请求项及触发机制。最后用户要求将边界规则落到风险总表和决策备忘录，助手完成逐行标注、备忘录更新及对外表述定稿。",
+          "recall_score": 0.594957,
+          "decay_factor": 1.0,
+          "final_score": 0.594957
         },
         {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
-          "table / collection": "fine_grained_longterm config",
-          "record_id": "other_session_weight",
-          "field": "other_session_weight"
+          "rank": 5,
+          "source_session": "S003",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S003-Q072",
+          "memory_id": "38aca19e-5045-570c-ac4d-4c2ec2b053de",
+          "memory_text": "角色决策章执行接收确认与决策备忘录草拟启动。接收确认三项核对（核心矛盾与跨轮综合章结论一致、总表主表A档支持约二十行与检验清单一致、处置档位告警预备评估区间与全会话一致）全部零差异，确认单程序启动，八段移交链最后一环进入闭环。决策备忘录草拟启动，依据层（核心矛盾对外句加A档支持约二十行）与提示层（B档方向项八项带标记）先行落定，决策纪律三条（不新增、门槛不放松、留记录）执行。",
+          "recall_score": 0.587429,
+          "decay_factor": 1.0,
+          "final_score": 0.587429
+        },
+        {
+          "rank": 6,
+          "source_session": "S004",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S004-Q060",
+          "memory_id": "9efe4c43-7111-5240-a5eb-b05a5903eb1e",
+          "memory_text": "质疑与修订章第十问（收官问）：用户要求站在接收方视角完成三件交付物（质疑综合表、复核修订记录、章末结论）移交后的收官核验，包括逐件清点、试点引用、追溯验证，以及复核修订包归档、可改进点转入跟踪、与跨轮综合章衔接的最终确认。助手完成章末收束：四块内容（质疑点复核、四组清单复核、修订与检验、可改进点）定稿；三件交付物正式移交跨轮综合章，接收三动作（核验、试点引用、收束）就位；五态收束（定稿、通过、完成、跟踪、移交）登记；方法论四件套沉淀、六类成果清点齐备。核心结论：IR沟通口径经质疑、制度经复核、表述经校准、改进有清单，质疑修订章收官完成，跨轮综合章接续推进。",
+          "recall_score": 0.662694,
+          "decay_factor": 0.7,
+          "final_score": 0.463886
+        },
+        {
+          "rank": 7,
+          "source_session": "S004",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S004-Q059",
+          "memory_id": "0520ff4c-350b-5809-bd35-281f27cfa9f8",
+          "memory_text": "质疑与修订章第九问（章末收束）完成：将全章八问成果收束为章末最终结论，四块内容（质疑点复核、四组清单复核、修订与检验、可改进点）逐块定稿；向跨轮综合章正式移交三件交付物（质疑综合表、复核修订记录、章末结论），并安排接收三动作（核验、试点引用、收束）。章末结论分一段话版（可对外复述）与分层版（内部使用），与Session主线四章（披露与证据、盈利路径、整体画像、现金质量）对表一致。",
+          "recall_score": 0.66066,
+          "decay_factor": 0.7,
+          "final_score": 0.462462
+        },
+        {
+          "rank": 8,
+          "source_session": "S004",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S004-Q055",
+          "memory_id": "dcaf5f8f-fb58-5a17-9831-76dc34a02985",
+          "memory_text": "质疑与修订章第五问，按缺口应对组清单复核IR沟通的缺口应对执行。复核三项：五项缺口（毛利率、费用率、车型/分部销量结构、研发与产能明细、投资活动/筹资活动现金流）的边界句使用正确（固定表述、零编造、零比较）；五级追问（直接问数字、追问趋势、追问原因、追问比较、施压追问）应对按矩阵执行（边界句保持、不越界）；更新路径四步（台账更新、主口径升级、矩阵更新、沟通稿重核）规则成文、未触发状态一致、可执行性验证通过。复核结论：缺口应对经得起检验，复核通过。发现一项可改进点：追问应对记录增加'追问升级层级'栏（一级至五级），登记为可选项列入下年度改进清单。复核记录进审计底稿缺口应对复核区。本问完成四组清单复核（证据分级、沟通核查、边界地图、缺口应对）全部通过，质疑修订章进入综合与修订环节。",
+          "recall_score": 0.604898,
+          "decay_factor": 0.7,
+          "final_score": 0.423429
+        },
+        {
+          "rank": 9,
+          "source_session": "S004",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S004-Q067",
+          "memory_id": "34631dd3-1319-51ac-b1d4-f155a642ed46",
+          "memory_text": "跨轮综合章第七问，综合问答底稿定稿。将第四问的问答底稿（数字类六问、比率类四问、判断类四问、边界类五问共十九问，加分红能力、非经项目、近似口径、下降结构、披露补充五处补充）合并为综合问答底稿V1.0，经第六问综合口径复核背书，确认等级正确（数字一级、比率二级带约、判断边界句、边界未披露）、禁止清单六条零出现、场合合规、缺口守住，进入最终沟通底稿。底稿与综合口径三层（基准主口径、扩展问答底稿、收尾阶段性结论）衔接完整，三场合（发布会、路演、书面答复）问答验证通过。",
+          "recall_score": 0.603706,
+          "decay_factor": 0.7,
+          "final_score": 0.422594
+        },
+        {
+          "rank": 10,
+          "source_session": "S004",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S004-Q064",
+          "memory_id": "eb08d356-7441-5805-895d-fe893d47f995",
+          "memory_text": "跨轮综合章第四问，演练综合沟通场景。用户要求对业绩发布会、路演、书面答复三场景进行完整演练，验证开场主口径、问答底稿、收尾结论的落地。助手完成三场景演练：业绩发布会（开场用主口径四段、问答按底稿六问、收尾复述阶段性结论对外版）、路演（开场主口径加适度展开、问答按底稿加扩展、收尾结论加说明）、书面答复（材料带版本号、答复按类、留痕）。共性验证通过：三层完整、等级合规、边界守住。演练记录归档，无强制改进项，季度演练频率登记。综合口径经演练验证可靠，IR沟通在实际场景中完整落地。",
+          "recall_score": 0.603483,
+          "decay_factor": 0.7,
+          "final_score": 0.422438
+        }
+      ]
+    },
+    {
+      "current_session": "S003_比亚迪_风委",
+      "query_id": "S003-Q093",
+      "question": "判断链汇总完了，最后一步就是全会话收官了吧——收官声明怎么定、执行状态怎么结束、整个Session怎么收尾？",
+      "retrieval_results": [
+        {
+          "rank": 1,
+          "source_session": "S003",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S003-Q087",
+          "memory_id": "883ffd51-4c91-5f18-af1e-e9cbaa1207a0",
+          "memory_text": "用户要求对全会话判断链进行汇总，明确哪些判断被验证、哪些被修订以及汇总结论。助手完成了验证层、修订层和汇总层的分析：验证层对十一组核心数字锚点（收入、利润、现金流、总资产、权益、净利率、权益乘数、现金流/收入、现金利润比、覆盖、破1距离）全部复算通过，九章事实层结论全部被验证；修订层核实全会话零修订，细化项十类登记完整；汇总层合并九章结论，核心矛盾“现金流质量第一、利润与现金错位”成立，风险排序维持，决策口径与边界状态一致。最终形成判断链总表v1.0和最终复盘初稿，作为收官声明的输入。",
+          "recall_score": 0.788608,
+          "decay_factor": 1.0,
+          "final_score": 0.788608
+        },
+        {
+          "rank": 2,
+          "source_session": "S003",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S003-Q073",
+          "memory_id": "05f4510c-7c90-55fc-8131-49f32a0c7db5",
+          "memory_text": "角色决策章判断链复盘完成：按全会话四分类口径（验证/修订/细化/待披露）回看本章九问判断链，验证五项（决策框架可执行、接收确认零差异、口径三部分与总表一致、简报与对外表述与备忘录一致、跨章核对零差异），修订零项，细化四项（五段简报组织法、三不引调用规则、四步披露联动流程、三十二点核对法），待披露延续跨章清单（方向项八项、挂账四件）。复盘产出四分类表、复盘结论页、确认书，随本章档案归档，结论为零修订、零遗漏、无越界纪律，本章进入收官。",
+          "recall_score": 0.680589,
+          "decay_factor": 1.0,
+          "final_score": 0.680589
+        },
+        {
+          "rank": 3,
+          "source_session": "S003",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S003-Q080",
+          "memory_id": "b2b9d79d-1741-5f9b-b1f9-44abf60d567d",
+          "memory_text": "角色决策章收官后，本问定稿了其移交与使用规则：复核了移交内容（总表与待披露区、决策边界提示、档案目录三项），明确了因果边界章按“主表取A档、待披露区取方向项、边界提示取销号条件”三路取数，并规定了本章决策使用状态的维持方式（监测继续、触发线重读、披露升版），统一版本门槛为已核对版本，完成了接口确认与回访，划清了本章与下游的职责边界。规则写入收官底稿附页并归档，全会话后半段据此运行。",
+          "recall_score": 0.633372,
+          "decay_factor": 1.0,
+          "final_score": 0.633372
+        },
+        {
+          "rank": 4,
+          "source_session": "S003",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S003-Q086",
+          "memory_id": "fba9f815-866f-5f30-80c1-18017d1fdc37",
+          "memory_text": "用户要求对因果边界章进行判断链复盘，确认框架到落地是否存在断点或越界。助手完成复盘，验证六项（框架可执行、分级有依据、清单可运行、落地可验收、收束有门槛、执行有记录）全部通过，零修订，细化五项（四步判定细则、候选三档登记、五步升级路径、四档边界标注、收束质量门槛）。复盘确认判断链完整、边界纪律一致执行，并形成复盘确认书、判断链完整性结论、执行状态回顾结论三件产出，随本章底稿归档，作为完整复盘章的输入。",
+          "recall_score": 0.627087,
+          "decay_factor": 1.0,
+          "final_score": 0.627087
+        },
+        {
+          "rank": 5,
+          "source_session": "S003",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S003-Q075",
+          "memory_id": "e2001b70-6ec5-5d0c-81f2-4c762236d83b",
+          "memory_text": "角色决策章收官后，用户询问下游因果边界章如何取数以及本章决策使用状态如何维持。助手确认移交内容复核完成（总表与待披露区、决策边界提示、档案目录三项），并定稿因果边界章的三路取数规则（主表取A档、待披露区取方向项、边界提示取销号条件），以及本章决策使用状态的维持规则（监测继续、触发线重读、披露升版）。同时明确了版本门槛（已核对版本、三不引规则、版本对照表）、接口确认与回访机制，以及本章与下游的职责边界。这些规则写入收官底稿附页并归档，作为全会话后半段运行的接口保障。",
+          "recall_score": 0.607849,
+          "decay_factor": 1.0,
+          "final_score": 0.607849
+        },
+        {
+          "rank": 6,
+          "source_session": "S004",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S004-Q059",
+          "memory_id": "0520ff4c-350b-5809-bd35-281f27cfa9f8",
+          "memory_text": "质疑与修订章第九问（章末收束）完成：将全章八问成果收束为章末最终结论，四块内容（质疑点复核、四组清单复核、修订与检验、可改进点）逐块定稿；向跨轮综合章正式移交三件交付物（质疑综合表、复核修订记录、章末结论），并安排接收三动作（核验、试点引用、收束）。章末结论分一段话版（可对外复述）与分层版（内部使用），与Session主线四章（披露与证据、盈利路径、整体画像、现金质量）对表一致。",
+          "recall_score": 0.626472,
+          "decay_factor": 0.7,
+          "final_score": 0.43853
+        },
+        {
+          "rank": 7,
+          "source_session": "S004",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S004-Q060",
+          "memory_id": "9efe4c43-7111-5240-a5eb-b05a5903eb1e",
+          "memory_text": "质疑与修订章第十问（收官问）：用户要求站在接收方视角完成三件交付物（质疑综合表、复核修订记录、章末结论）移交后的收官核验，包括逐件清点、试点引用、追溯验证，以及复核修订包归档、可改进点转入跟踪、与跨轮综合章衔接的最终确认。助手完成章末收束：四块内容（质疑点复核、四组清单复核、修订与检验、可改进点）定稿；三件交付物正式移交跨轮综合章，接收三动作（核验、试点引用、收束）就位；五态收束（定稿、通过、完成、跟踪、移交）登记；方法论四件套沉淀、六类成果清点齐备。核心结论：IR沟通口径经质疑、制度经复核、表述经校准、改进有清单，质疑修订章收官完成，跨轮综合章接续推进。",
+          "recall_score": 0.624038,
+          "decay_factor": 0.7,
+          "final_score": 0.436827
+        },
+        {
+          "rank": 8,
+          "source_session": "S004",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S004-Q064",
+          "memory_id": "eb08d356-7441-5805-895d-fe893d47f995",
+          "memory_text": "跨轮综合章第四问，演练综合沟通场景。用户要求对业绩发布会、路演、书面答复三场景进行完整演练，验证开场主口径、问答底稿、收尾结论的落地。助手完成三场景演练：业绩发布会（开场用主口径四段、问答按底稿六问、收尾复述阶段性结论对外版）、路演（开场主口径加适度展开、问答按底稿加扩展、收尾结论加说明）、书面答复（材料带版本号、答复按类、留痕）。共性验证通过：三层完整、等级合规、边界守住。演练记录归档，无强制改进项，季度演练频率登记。综合口径经演练验证可靠，IR沟通在实际场景中完整落地。",
+          "recall_score": 0.599432,
+          "decay_factor": 0.7,
+          "final_score": 0.419602
+        },
+        {
+          "rank": 9,
+          "source_session": "S004",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S004-Q061",
+          "memory_id": "c8dcfa25-0a65-555d-96d8-6945bdcb3d68",
+          "memory_text": "跨轮综合章第一问，将整体画像、现金质量、资产权益、盈利路径、披露证据、质疑修订六段成果合并为完整业绩沟通口径。确认主口径四段（收入8,039.65亿元+3.46%、归母326.19亿元-18.97%、扣非294.46亿元-20.38%、净利率约4.06%回落约1.1个百分点）及边界句，问答底稿四类加五处补充，形成最稳妥阶段性结论（2023-2025年度，对外版可复述、内部版带标注），并完成六段交叉验证、与Session主线五章衔接及证据纪律四类约束衔接。",
+          "recall_score": 0.581663,
+          "decay_factor": 0.7,
+          "final_score": 0.407164
+        },
+        {
+          "rank": 10,
+          "source_session": "S004",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S004-Q067",
+          "memory_id": "34631dd3-1319-51ac-b1d4-f155a642ed46",
+          "memory_text": "跨轮综合章第七问，综合问答底稿定稿。将第四问的问答底稿（数字类六问、比率类四问、判断类四问、边界类五问共十九问，加分红能力、非经项目、近似口径、下降结构、披露补充五处补充）合并为综合问答底稿V1.0，经第六问综合口径复核背书，确认等级正确（数字一级、比率二级带约、判断边界句、边界未披露）、禁止清单六条零出现、场合合规、缺口守住，进入最终沟通底稿。底稿与综合口径三层（基准主口径、扩展问答底稿、收尾阶段性结论）衔接完整，三场合（发布会、路演、书面答复）问答验证通过。",
+          "recall_score": 0.568208,
+          "decay_factor": 0.7,
+          "final_score": 0.397746
+        }
+      ]
+    },
+    {
+      "current_session": "S005_宁德时代_合规",
+      "query_id": "S005-Q057",
+      "question": "综合章复盘过了，收官声明怎么写？全会话综合结论怎么定？",
+      "retrieval_results": [
+        {
+          "rank": 1,
+          "source_session": "S005",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S005-Q050",
+          "memory_id": "b3992f78-5bce-5dcb-9fd7-401b50d56465",
+          "memory_text": "资产与权益章收官方案定稿并执行：收官前提为收束完成、三道闸全过、跨章核对就绪；跨章一致性核对完成，与整体画像、披露与证据、盈利路径、现金质量四章在数字、口径、边界、版本上零差异；收官声明四段（职能定位、交付物清单、三道闸与跨章核对结论、状态与签署）双签生效；本章状态定为收官完成、待取用，移交链闭环，全会话进入跨轮综合章。收官只做确认与归档、不新增判断，收官档案归档，收官全程零差异。",
+          "recall_score": 0.682765,
+          "decay_factor": 1.0,
+          "final_score": 0.682765
+        },
+        {
+          "rank": 2,
+          "source_session": "S005",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S005-Q047",
+          "memory_id": "ff57b031-08a0-5e42-bd79-3ffcd75f50fb",
+          "memory_text": "用户询问跨轮综合章如何合并五章结论并搭建合规综合结论框架。助手确定合并对象为五章已验结论（整体画像错位点、披露与证据合规体系、盈利路径净利率路径、现金质量效率近似、资产与权益结构表述），框架按四区块组织（形态错位区、合规边界区、盈利路径区、效率与结构区），合并规则四条（只并列不互释、口径统一、边界守位、版本可溯）逐句执行。综合草案形成并完成首轮合规检查，零越界零遗漏，版本出处齐备。综合表述卡按草案推进，综合结论版本随合并进度递增。",
+          "recall_score": 0.677608,
+          "decay_factor": 1.0,
+          "final_score": 0.677608
+        },
+        {
+          "rank": 3,
+          "source_session": "S005",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S005-Q051",
+          "memory_id": "4847afbc-59d7-5477-82c2-e6c31a57a6ad",
+          "memory_text": "跨轮综合章开题方案定稿：接收五章（整体画像、披露与证据、盈利路径、现金质量、资产与权益）五件套与交接单，接收确认三项（内容齐备、版本一致、签收完整）全部通过；合并基准定为已验版本（三道闸通过的五件套），只合并已验内容；边界预置可复用四项（周转近似分母口径、乘数与占比二选一、权益回报未回2023高点后缀、已复核数字出处）与不可越界三项在开题时先读后写；合并框架按“五章结论并入、只并列不互释、口径统一、边界守位”组织；本章状态启动，综合合规结论按排期推进，开题全程零新增数字。",
+          "recall_score": 0.675128,
+          "decay_factor": 1.0,
+          "final_score": 0.675128
+        },
+        {
+          "rank": 4,
+          "source_session": "S005",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S005-Q045",
+          "memory_id": "a2e90918-d2c7-5862-a39d-02713ceb2e87",
+          "memory_text": "资产与权益章在完成三道闸（审计零发现、演练零越界、章终验五维通过）后，执行收官：跨章一致性核对与整体画像、披露与证据、盈利路径、现金质量四章衔接，数字逐数一致、口径统一、边界一致、版本一致，零差异；收官声明四段（职能定位、交付物清单、三道闸与跨章核对结论、状态与签署）双签生效；本章状态定为收官完成、待取用，移交链闭环（五件套移交跨轮综合章、缺口清单与遗留项挂账、收官档案移交完整复盘章）。收官只做确认与归档，不新增判断，全程零差异。",
+          "recall_score": 0.660231,
+          "decay_factor": 1.0,
+          "final_score": 0.660231
+        },
+        {
+          "rank": 5,
+          "source_session": "S005",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S005-Q046",
+          "memory_id": "a551e6ca-838a-5968-b3d1-e320e3ec3664",
+          "memory_text": "资产与权益章证据链审计通过后，用户询问表述卡定稿方案。助手确定表述卡按三层一清单结构组织（数字层、口径层、边界层加缺口清单），入卡范围为审计通过的句式库V0.4全部定稿句，整合为表述卡V0.5，配套四场景格式与三组追问应对，版本与归档规则沿用全会话版本链纪律。表述卡V0.5成为本章对外表述的唯一基准，供演练、章终验与跨轮综合章取用。",
+          "recall_score": 0.623429,
+          "decay_factor": 1.0,
+          "final_score": 0.623429
+        },
+        {
+          "rank": 6,
+          "source_session": "S006",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S006-Q066",
+          "memory_id": "f224750f-14ed-5440-8429-d401e50215d6",
+          "memory_text": "用户询问审计委员会最需要知道什么，助手回答需要知道三件事：全会话结论的边界内表述（修订后五句基准）、可决策范围（三档边界）、数据到位后的跟进安排（六组触发器验证程序）。助手列出决策输入五句基准（底表自洽、净利率近似等幅弱证据、2024错位必要条件非充分解释、2025超额恒等式推论、扩张混合口径近似），档位边界（自洽档可直接引用、口径档带限定、待核档只作登记），行动清单六组（P1-P5/扣非/权益变动明细/资产结构/负债结构/经营现金流）。开题登记完成，下一步起草决策输入备忘录。",
+          "recall_score": 0.64268,
+          "decay_factor": 0.7,
+          "final_score": 0.449876
+        },
+        {
+          "rank": 7,
+          "source_session": "S006",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S006-Q060",
+          "memory_id": "405baae9-b7aa-5879-a90d-823f7c672c13",
+          "memory_text": "跨轮综合章收束移交完成。合并清单（三十条结论，自洽八/口径十/待核十二）、合并缺口表（五缺口/六组触发器/待核十二项绑定）、汇报要点（四层结构，经四项复核、V2锁版）三件移交物定稿，与披露与证据章证据分级表及缺口去向登记表双轨一致。章节状态变更为“合并完成、跟踪待数据”，五缺口未销项、六组触发器未到位、V2锁版不变，数据到位后按待跟进事项执行。",
+          "recall_score": 0.636523,
+          "decay_factor": 0.7,
+          "final_score": 0.445566
+        },
+        {
+          "rank": 8,
+          "source_session": "S006",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S006-Q071",
+          "memory_id": "cfe3e956-360b-56bf-8327-eea20028e15e",
+          "memory_text": "角色决策章开题，回答审计委员会最需要知道的三件事：全会话复核结论的边界内表述（修订后五句基准）、可决策范围（三档边界）、数据到位后的跟进安排（六组触发器验证程序）。决策输入以修订后基准为准，档位边界为自洽档可直接引用、口径档带限定、待核档只作登记，行动清单对应六组数据触发器。",
+          "recall_score": 0.63632,
+          "decay_factor": 0.7,
+          "final_score": 0.445424
+        },
+        {
+          "rank": 9,
+          "source_session": "S006",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S006-Q074",
+          "memory_id": "e8da573a-5fa7-5c2f-81d5-d59f2d9e0fcd",
+          "memory_text": "角色决策章在收束条件确认后正式收束，章节状态登记为“决策输入交付完成、等待数据验证”。五件移交物（备忘录V2-01、修订后基准、决议V2-01、边界清单、核实清单）终态封存，统一编号互链。六组决议事项（P1-P5、扣非、权益变动明细、资产结构、负债结构、经营现金流）等待数据到位执行验证，验证程序、验收标准、销项规则预设。收束经内容完整性、双轨一致性、档位边界、版本状态、衔接完整性五项复核及五项防错全部通过，封存差异零项。全会话复核进入数据验证阶段。",
+          "recall_score": 0.594142,
+          "decay_factor": 0.7,
+          "final_score": 0.415899
+        },
+        {
+          "rank": 10,
+          "source_session": "S006",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S006-Q072",
+          "memory_id": "2614f0da-d527-55c3-84f1-442dabc3a4c8",
+          "memory_text": "用户要求按结论、边界、行动、审议四层框架起草决策输入备忘录，供审计委员会直接审议。助手完成备忘录起草：结论层为修订后五句基准（底表自洽、净利率近似等幅弱证据、错位必要条件非充分解释、超额恒等式推论、扩张混合口径近似）；边界层为三档边界（自洽/口径/待核）与三句边界声明（五缺口未销项、六组触发器未到位、V2锁版）；行动层为六组触发器验证程序与销项规则；审议层为五项审议要点。备忘录与修订后基准、证据分级表、合并缺口表双轨一致，复核与防错通过，正式定稿交付委员会审议。",
+          "recall_score": 0.588715,
+          "decay_factor": 0.7,
+          "final_score": 0.4121
+        }
+      ]
+    },
+    {
+      "current_session": "S005_宁德时代_合规",
+      "query_id": "S005-Q058",
+      "question": "综合章收官了，全会话综合结论移交完整复盘章——接口怎么定？",
+      "retrieval_results": [
+        {
+          "rank": 1,
+          "source_session": "S005",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S005-Q051",
+          "memory_id": "4847afbc-59d7-5477-82c2-e6c31a57a6ad",
+          "memory_text": "跨轮综合章开题方案定稿：接收五章（整体画像、披露与证据、盈利路径、现金质量、资产与权益）五件套与交接单，接收确认三项（内容齐备、版本一致、签收完整）全部通过；合并基准定为已验版本（三道闸通过的五件套），只合并已验内容；边界预置可复用四项（周转近似分母口径、乘数与占比二选一、权益回报未回2023高点后缀、已复核数字出处）与不可越界三项在开题时先读后写；合并框架按“五章结论并入、只并列不互释、口径统一、边界守位”组织；本章状态启动，综合合规结论按排期推进，开题全程零新增数字。",
+          "recall_score": 0.677635,
+          "decay_factor": 1.0,
+          "final_score": 0.677635
+        },
+        {
+          "rank": 2,
+          "source_session": "S005",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S005-Q047",
+          "memory_id": "ff57b031-08a0-5e42-bd79-3ffcd75f50fb",
+          "memory_text": "用户询问跨轮综合章如何合并五章结论并搭建合规综合结论框架。助手确定合并对象为五章已验结论（整体画像错位点、披露与证据合规体系、盈利路径净利率路径、现金质量效率近似、资产与权益结构表述），框架按四区块组织（形态错位区、合规边界区、盈利路径区、效率与结构区），合并规则四条（只并列不互释、口径统一、边界守位、版本可溯）逐句执行。综合草案形成并完成首轮合规检查，零越界零遗漏，版本出处齐备。综合表述卡按草案推进，综合结论版本随合并进度递增。",
+          "recall_score": 0.669692,
+          "decay_factor": 1.0,
+          "final_score": 0.669692
+        },
+        {
+          "rank": 3,
+          "source_session": "S005",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S005-Q045",
+          "memory_id": "a2e90918-d2c7-5862-a39d-02713ceb2e87",
+          "memory_text": "资产与权益章在完成三道闸（审计零发现、演练零越界、章终验五维通过）后，执行收官：跨章一致性核对与整体画像、披露与证据、盈利路径、现金质量四章衔接，数字逐数一致、口径统一、边界一致、版本一致，零差异；收官声明四段（职能定位、交付物清单、三道闸与跨章核对结论、状态与签署）双签生效；本章状态定为收官完成、待取用，移交链闭环（五件套移交跨轮综合章、缺口清单与遗留项挂账、收官档案移交完整复盘章）。收官只做确认与归档，不新增判断，全程零差异。",
+          "recall_score": 0.649713,
+          "decay_factor": 1.0,
+          "final_score": 0.649713
+        },
+        {
+          "rank": 4,
+          "source_session": "S005",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S005-Q049",
+          "memory_id": "295c8d5b-afe0-5d05-8d3e-70c6b8f2de0b",
+          "memory_text": "资产与权益章三道闸全部通过后，用户询问如何收束移交，助手给出收束与移交方案：收束前提为三道闸全过；五件套（表述卡V0.5签署版、审计底稿、演练记录、缺口清单、边界预置说明）逐件验收；交接单七要素（交接方、接收方、接收内容、交接基准、边界预置、遗留项、版本链）双签；边界预置可复用四项（周转近似分母口径、乘数与占比二选一、权益回报未回2023高点后缀、已复核数字出处）与不可越界三项（不评价资产结构、不评价负债水平、效率近似不作经营归因）移交跨轮综合章；遗留项三项（更正版本待确认、驱动科目缺口、补强候选评估）按触发条件挂账；本章状态转为收束完成、待取用。收束只做移交与归档、不新增判断，收束声明签署后进入收官阶段。",
+          "recall_score": 0.643786,
+          "decay_factor": 1.0,
+          "final_score": 0.643786
+        },
+        {
+          "rank": 5,
+          "source_session": "S005",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S005-Q052",
+          "memory_id": "ee91be09-6af0-588b-8100-e729e1c63b52",
+          "memory_text": "用户询问跨轮综合章如何合并五章结论并搭建合规综合结论框架。助手给出合并框架定稿方案：合并对象为五章已验结论（整体画像错位点、披露与证据合规体系、盈利路径净利率路径、现金质量效率近似、资产与权益结构表述），按四区块（形态错位区、合规边界区、盈利路径区、效率与结构区）组织，合并规则四条（只并列不互释、口径统一、边界守位、版本可溯）逐句执行，综合草案形成并完成首轮合规检查，零越界零遗漏，版本出处齐备，综合表述卡按草案推进，综合结论版本随合并进度递增。",
+          "recall_score": 0.64291,
+          "decay_factor": 1.0,
+          "final_score": 0.64291
+        },
+        {
+          "rank": 6,
+          "source_session": "S006",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S006-Q060",
+          "memory_id": "405baae9-b7aa-5879-a90d-823f7c672c13",
+          "memory_text": "跨轮综合章收束移交完成。合并清单（三十条结论，自洽八/口径十/待核十二）、合并缺口表（五缺口/六组触发器/待核十二项绑定）、汇报要点（四层结构，经四项复核、V2锁版）三件移交物定稿，与披露与证据章证据分级表及缺口去向登记表双轨一致。章节状态变更为“合并完成、跟踪待数据”，五缺口未销项、六组触发器未到位、V2锁版不变，数据到位后按待跟进事项执行。",
+          "recall_score": 0.715498,
+          "decay_factor": 0.7,
+          "final_score": 0.500849
+        },
+        {
+          "rank": 7,
+          "source_session": "S006",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S006-Q071",
+          "memory_id": "cfe3e956-360b-56bf-8327-eea20028e15e",
+          "memory_text": "角色决策章开题，回答审计委员会最需要知道的三件事：全会话复核结论的边界内表述（修订后五句基准）、可决策范围（三档边界）、数据到位后的跟进安排（六组触发器验证程序）。决策输入以修订后基准为准，档位边界为自洽档可直接引用、口径档带限定、待核档只作登记，行动清单对应六组数据触发器。",
+          "recall_score": 0.632336,
+          "decay_factor": 0.7,
+          "final_score": 0.442635
+        },
+        {
+          "rank": 8,
+          "source_session": "S006",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S006-Q066",
+          "memory_id": "f224750f-14ed-5440-8429-d401e50215d6",
+          "memory_text": "用户询问审计委员会最需要知道什么，助手回答需要知道三件事：全会话结论的边界内表述（修订后五句基准）、可决策范围（三档边界）、数据到位后的跟进安排（六组触发器验证程序）。助手列出决策输入五句基准（底表自洽、净利率近似等幅弱证据、2024错位必要条件非充分解释、2025超额恒等式推论、扩张混合口径近似），档位边界（自洽档可直接引用、口径档带限定、待核档只作登记），行动清单六组（P1-P5/扣非/权益变动明细/资产结构/负债结构/经营现金流）。开题登记完成，下一步起草决策输入备忘录。",
+          "recall_score": 0.605348,
+          "decay_factor": 0.7,
+          "final_score": 0.423744
+        },
+        {
+          "rank": 9,
+          "source_session": "S006",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S006-Q074",
+          "memory_id": "e8da573a-5fa7-5c2f-81d5-d59f2d9e0fcd",
+          "memory_text": "角色决策章在收束条件确认后正式收束，章节状态登记为“决策输入交付完成、等待数据验证”。五件移交物（备忘录V2-01、修订后基准、决议V2-01、边界清单、核实清单）终态封存，统一编号互链。六组决议事项（P1-P5、扣非、权益变动明细、资产结构、负债结构、经营现金流）等待数据到位执行验证，验证程序、验收标准、销项规则预设。收束经内容完整性、双轨一致性、档位边界、版本状态、衔接完整性五项复核及五项防错全部通过，封存差异零项。全会话复核进入数据验证阶段。",
+          "recall_score": 0.602326,
+          "decay_factor": 0.7,
+          "final_score": 0.421628
+        },
+        {
+          "rank": 10,
+          "source_session": "S006",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S006-Q068",
+          "memory_id": "b20587a2-00e2-5563-9b69-03b71abe4338",
+          "memory_text": "用户询问质疑与修订章是否应收束移交，将修订成果和更新映射交给角色决策章。助手确认应收束，并执行章节收束：将四条修订（V2-REV-01等幅、02错位、03超额、04扩张）作为修订包、修订后五句基准（底表/节奏/错位/超额/扩张）及六组更新映射（P1-P5/扣非/权益变动明细/资产结构/负债结构/经营现金流）三件移交物定稿移交，章节状态变更为“修订完成、跟踪待数据”，不再新增修订动作。收束依据合并清单、合并缺口表、证据分级表三份基准文件逐条核对一致。数据到位后按更新映射执行验证程序，结果回填修订登记表并刷新修订后基准。",
+          "recall_score": 0.59744,
+          "decay_factor": 0.7,
+          "final_score": 0.418208
+        }
+      ]
+    },
+    {
+      "current_session": "S007_美的集团_授信",
+      "query_id": "S007-Q095",
+      "question": "收官总表和复盘结论都定了，完整复盘章收官怎么做？全会话十章节收尾怎么确认？",
+      "retrieval_results": [
+        {
+          "rank": 1,
+          "source_session": "S007",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S007-Q086",
+          "memory_id": "17339e48-3602-5dde-8993-fc2b80b53359",
+          "memory_text": "角色决策章判断链复盘完成：按全会话四分类口径（验证/修订/细化/待披露）回看本章六问判断链，验证五项（决策框架可执行、授信意见四段齐备、提醒与清单定稿、边界复核零触碰、收束移交完成），修订零项，细化三项（四步授信框架法、提醒清单组织法、销号联动法），待披露延续利润缺口、毛利率/费用率、有息负债明细及遗留项三项。复盘产出四分类表、复盘结论页、确认书，随本章档案归档，结论为零修订、零遗漏，本章进入收官。",
+          "recall_score": 0.696561,
+          "decay_factor": 1.0,
+          "final_score": 0.696561
+        },
+        {
+          "rank": 2,
+          "source_session": "S007",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S007-Q081",
+          "memory_id": "66de43b0-9939-5d11-8061-8d2e12e36b9d",
+          "memory_text": "角色决策章判断链复盘完成，按全会话四分类口径（验证/修订/细化/待披露）回看本章六问判断链：验证五项（决策框架可执行、授信意见四段齐备、提醒与清单定稿、边界复核零触碰、收束移交完成），修订零项，细化三项（四步授信框架法、提醒清单组织法、销号联动法），待披露延续利润缺口、毛利率/费用率、有息负债明细及遗留项三项。复盘产出四分类表、复盘结论页、确认书，随本章档案归档，结论为零修订、零遗漏，本章进入收官。",
+          "recall_score": 0.690577,
+          "decay_factor": 1.0,
+          "final_score": 0.690577
+        },
+        {
+          "rank": 3,
+          "source_session": "S007",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S007-Q087",
+          "memory_id": "b387ea38-186d-5a48-a17d-d62510a19a84",
+          "memory_text": "用户询问角色决策章收官方案及全会话授信判断收口口径。助手给出方案：收官前提为收束完成、判断链复盘完成、跨章核对就绪；跨章核对与因果边界章、跨轮综合章完成，零差异；收官声明四段双签生效；全会话授信意见定为“现金流收缩第一、偿债第一来源在经营现金流、成因待核”，成为全会话授信判断基准；本章状态定为收官完成、待取用，移交链闭环；全会话进入完整复盘章。收官只做确认与归档，不新增判断。",
+          "recall_score": 0.675801,
+          "decay_factor": 1.0,
+          "final_score": 0.675801
+        },
+        {
+          "rank": 4,
+          "source_session": "S007",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S007-Q080",
+          "memory_id": "3d21e3b5-d88f-5831-a539-366dd32b5b75",
+          "memory_text": "角色决策章收束与移交方案定稿：收束前提为授信意见V1.0定稿、提醒页与补充证据清单定稿、边界复核零触碰；交付物五件（授信意见V1.0、提醒页、补充证据清单、授信草案、边界复核记录）验收齐备；交接单七要素签署，移交完整复盘章；遗留项三项（判例更新、行业比较与季度分布、补充证据销号）按触发条件挂账；本章状态转为收束完成、待取用。收束只做移交与归档、不新增判断，收束声明签署后本章进入收官阶段。",
+          "recall_score": 0.627971,
+          "decay_factor": 1.0,
+          "final_score": 0.627971
+        },
+        {
+          "rank": 5,
+          "source_session": "S007",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S007-Q085",
+          "memory_id": "0a514980-a0b0-5274-a0c3-1273c7afc51b",
+          "memory_text": "角色决策章收束与移交方案定稿：收束前提为授信意见V1.0定稿、提醒页与补充证据清单定稿、边界复核零触碰；交付物五件（授信意见V1.0、提醒页、补充证据清单、授信草案、边界复核记录）验收齐备；交接单七要素签署，移交完整复盘章；遗留项三项按触发条件挂账；本章状态转为收束完成、待取用。收束只做移交与归档、不新增判断，收束声明签署后本章进入收官阶段。",
+          "recall_score": 0.622859,
+          "decay_factor": 1.0,
+          "final_score": 0.622859
+        },
+        {
+          "rank": 6,
+          "source_session": "S008",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S008-Q050",
+          "memory_id": "f95fc4c9-0724-5d4f-a3d7-cb0b1e47f2fe",
+          "memory_text": "披露与证据章收官问，将全章十问成果合成为章末最终结论，并向质疑与修订章移交四件内容。章末结论分一段话版（可对外复述）与分层版（内部使用），核心为：收入连续扩张、现金回收强度回落、权益缓冲充足、总体评级正面但带保留、不含盈利维度、四类决策按现行条款执行、明细数据待披露后补充评估。五块内容（证据分级体系、断口状态、表述边界、执行机制、缺口管理）逐块定稿，每块有成文规则、执行记录、复核路径。移交四件内容：六组可复核点清单、证据台账、状态总表、缺口管理记录。接收安排为核验、试点复核、排程三动作。检验标准五条（可追溯性、级别边界、断口管理、执行机制、移交完整性）。与Session主线五章对表口径一致，五态收束（定稿、分层、运行、移交、待命）登记在案。",
+          "recall_score": 0.639696,
+          "decay_factor": 0.7,
+          "final_score": 0.447787
+        },
+        {
+          "rank": 7,
+          "source_session": "S008",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S008-Q048",
+          "memory_id": "6bffb6c4-8351-54a2-8aaa-cc8ff2ecc27b",
+          "memory_text": "披露与证据章收官，将全章十问的建设成果合成为章末最终结论，并向质疑与修订章正式移交。章末结论包含五块内容：证据分级体系（四级管理加五条执行规则）、断口状态（四断口待披露）、表述边界（决策/材料/场合三层）、执行机制（检查/复核/记录三套）、缺口管理（登记/监控/标注三步）。移交四件内容：六组可复核点清单、证据台账、状态总表、缺口管理记录。接收安排为核验、试点复核、排程三动作。章末结论与Session主线五章对表一致，边界纪律守住。",
+          "recall_score": 0.618126,
+          "decay_factor": 0.7,
+          "final_score": 0.432688
+        },
+        {
+          "rank": 8,
+          "source_session": "S008",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S008-Q042",
+          "memory_id": "b1ee4fb9-db64-5624-a92e-69e61549b44a",
+          "memory_text": "在披露与证据章中段，用户要求将前六问的产出合成一张状态总表，涵盖证据分级、断口状态、表述边界三块全景，并预告与质疑修订章的移交清单。助手将证据分级全景按四层证据（一级可对外、二级限内部、三级待回填、四级零使用）登记，断口状态全景登记四个断口（账期明细、构成证据、现金流分项、权益来源）的当前状态与修复路径，表述边界全景按决策、材料、场合三个维度展开，并汇总执行机制（检查、复核、记录）。状态总表采用五栏行结构（项目、当前状态、证据级别、衔接关系、更新触发），三全景按“分级→断口→边界”顺序联动更新，提供按行、按全景、按联动三种读法。总表与盈利路径章、现金质量章、整体画像章、质疑修订章、跨轮综合章五条主线衔接，并预告六组可复核点清单（证据分级、断口管理、决策约束、分级应用、谈判证据、报告组织）。",
+          "recall_score": 0.612988,
+          "decay_factor": 0.7,
+          "final_score": 0.429092
+        },
+        {
+          "rank": 9,
+          "source_session": "S008",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S008-Q047",
+          "memory_id": "12a4f7a8-42b7-563c-a31f-3e22df48073e",
+          "memory_text": "披露与证据章走到中段，将前六问的产出合成为章中状态总表，包含证据分级全景、断口状态全景、表述边界全景和执行机制全景，并预告向质疑修订章移交六组可复核点清单。证据分级全景按四级登记：一级证据（收入、现金/收入比、权益等披露或复算数据）可对外引用；二级证据（三解释并列待检、四阈值延续待验等）限内部；三级证据（账期明细、构成证据、现金流分项、权益来源四个断口）待披露，按优先级回填；四级证据（盈利质量）永久留白零使用。断口状态全景登记四个断口全部待披露，各配影响范围、修复路径和结论标注。表述边界全景按决策（六类）、材料（四类）、场合（三个）三维展开，对外只用一级证据语言。执行机制全景汇总检查、复核、记录三套机制。状态总表采用五栏行结构（项目、当前状态、证据级别、衔接关系、更新触发），三全景按“分级→断口→边界”顺序联动更新，版本号一致。总表与盈利路径章、现金质量章、整体画像章、质疑修订章、跨轮综合章五条主线衔接，并预告向质疑修订章移交六组可复核点清单（证据分级、断口管理、决策约束、分级应用、谈判证据、报告组织）。",
+          "recall_score": 0.601687,
+          "decay_factor": 0.7,
+          "final_score": 0.421181
+        },
+        {
+          "rank": 10,
+          "source_session": "S008",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S008-Q052",
+          "memory_id": "b59f6e42-f227-5c9e-a374-a86c703d44be",
+          "memory_text": "质疑与修订章第七问，将前六问的复核发现综合成质疑综合表。六组复核（证据分级、断口管理、决策约束、分级应用、谈判证据、报告组织）结论全部通过，无强制性整改项；合并七项改进点（断口管理组三项、其余五组各一项），其中两项本季度完成、五项列入下年度评估；建立质疑综合表（复核组、复核结论、改进点、状态四栏），质综合环节按汇总→评估→移交三动作运行。本问确认证据纪律经得起检验，为后续修订环节（第八问处理三处表述修订）与跨轮综合章提供复核背书。",
+          "recall_score": 0.577592,
+          "decay_factor": 0.7,
+          "final_score": 0.404314
+        }
+      ]
+    },
+    {
+      "current_session": "S007_美的集团_授信",
+      "query_id": "S007-Q096",
+      "question": "全会话授信分析到了最终收尾，收尾总览怎么定？成果封存、档案闭合与披露机制就绪怎么一并确认？",
+      "retrieval_results": [
+        {
+          "rank": 1,
+          "source_session": "S007",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S007-Q081",
+          "memory_id": "66de43b0-9939-5d11-8061-8d2e12e36b9d",
+          "memory_text": "角色决策章判断链复盘完成，按全会话四分类口径（验证/修订/细化/待披露）回看本章六问判断链：验证五项（决策框架可执行、授信意见四段齐备、提醒与清单定稿、边界复核零触碰、收束移交完成），修订零项，细化三项（四步授信框架法、提醒清单组织法、销号联动法），待披露延续利润缺口、毛利率/费用率、有息负债明细及遗留项三项。复盘产出四分类表、复盘结论页、确认书，随本章档案归档，结论为零修订、零遗漏，本章进入收官。",
+          "recall_score": 0.665297,
+          "decay_factor": 1.0,
+          "final_score": 0.665297
+        },
+        {
+          "rank": 2,
+          "source_session": "S007",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S007-Q083",
+          "memory_id": "97129462-4e15-53f3-ba2b-07f8755ade8a",
+          "memory_text": "用户询问授信意见定稿后，监测读数和披露变化如何反向影响授信意见，以及提醒和补充证据清单如何驱动复核。助手给出持续管理方案：授信意见定稿后进入持续管理状态，监测读数变化不自动改变意见，触发披露才按版本流程复核；提醒清单三项与补充证据清单三项是复核的两条驱动线，任一触发条件成立即启动对应复核，复核影响交付物的按版本流程更新并升版。全会话授信意见“现金流收缩第一、偿债第一来源在经营现金流、成因待核”在持续管理中保持稳定，复核通过不升版、复核发现变化才升版；边界清单五条与缺口句式三项在每次复核中重新执行。方案分八层：持续管理框架、监测读数复核、披露触发复核、提醒清单驱动、补充证据驱动、版本与边界联动、留痕与合规、与完整复盘章衔接。",
+          "recall_score": 0.641598,
+          "decay_factor": 1.0,
+          "final_score": 0.641598
+        },
+        {
+          "rank": 3,
+          "source_session": "S007",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S007-Q086",
+          "memory_id": "17339e48-3602-5dde-8993-fc2b80b53359",
+          "memory_text": "角色决策章判断链复盘完成：按全会话四分类口径（验证/修订/细化/待披露）回看本章六问判断链，验证五项（决策框架可执行、授信意见四段齐备、提醒与清单定稿、边界复核零触碰、收束移交完成），修订零项，细化三项（四步授信框架法、提醒清单组织法、销号联动法），待披露延续利润缺口、毛利率/费用率、有息负债明细及遗留项三项。复盘产出四分类表、复盘结论页、确认书，随本章档案归档，结论为零修订、零遗漏，本章进入收官。",
+          "recall_score": 0.638937,
+          "decay_factor": 1.0,
+          "final_score": 0.638937
+        },
+        {
+          "rank": 4,
+          "source_session": "S007",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S007-Q090",
+          "memory_id": "80a75b23-ce00-507e-98af-e249f0fd0c04",
+          "memory_text": "用户询问角色决策章收官前是否需要对授信意见与前面八章结论进行全会话核对及如何落地。助手给出方案：核对范围覆盖八章衔接点，逐章比对授信意见四段与各章结论，核对方法为取结论、对照意见、复算读数、检查边界、登记结论五步；核对结果八项衔接全部一致零差异，授信意见作为全会话授信判断基准封存；核对记录随收官档案归档，并移交完整复盘章。",
+          "recall_score": 0.635568,
+          "decay_factor": 1.0,
+          "final_score": 0.635568
+        },
+        {
+          "rank": 5,
+          "source_session": "S007",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S007-Q087",
+          "memory_id": "b387ea38-186d-5a48-a17d-d62510a19a84",
+          "memory_text": "用户询问角色决策章收官方案及全会话授信判断收口口径。助手给出方案：收官前提为收束完成、判断链复盘完成、跨章核对就绪；跨章核对与因果边界章、跨轮综合章完成，零差异；收官声明四段双签生效；全会话授信意见定为“现金流收缩第一、偿债第一来源在经营现金流、成因待核”，成为全会话授信判断基准；本章状态定为收官完成、待取用，移交链闭环；全会话进入完整复盘章。收官只做确认与归档，不新增判断。",
+          "recall_score": 0.626655,
+          "decay_factor": 1.0,
+          "final_score": 0.626655
+        },
+        {
+          "rank": 6,
+          "source_session": "S008",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S008-Q048",
+          "memory_id": "6bffb6c4-8351-54a2-8aaa-cc8ff2ecc27b",
+          "memory_text": "披露与证据章收官，将全章十问的建设成果合成为章末最终结论，并向质疑与修订章正式移交。章末结论包含五块内容：证据分级体系（四级管理加五条执行规则）、断口状态（四断口待披露）、表述边界（决策/材料/场合三层）、执行机制（检查/复核/记录三套）、缺口管理（登记/监控/标注三步）。移交四件内容：六组可复核点清单、证据台账、状态总表、缺口管理记录。接收安排为核验、试点复核、排程三动作。章末结论与Session主线五章对表一致，边界纪律守住。",
+          "recall_score": 0.676156,
+          "decay_factor": 0.7,
+          "final_score": 0.473309
+        },
+        {
+          "rank": 7,
+          "source_session": "S008",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S008-Q050",
+          "memory_id": "f95fc4c9-0724-5d4f-a3d7-cb0b1e47f2fe",
+          "memory_text": "披露与证据章收官问，将全章十问成果合成为章末最终结论，并向质疑与修订章移交四件内容。章末结论分一段话版（可对外复述）与分层版（内部使用），核心为：收入连续扩张、现金回收强度回落、权益缓冲充足、总体评级正面但带保留、不含盈利维度、四类决策按现行条款执行、明细数据待披露后补充评估。五块内容（证据分级体系、断口状态、表述边界、执行机制、缺口管理）逐块定稿，每块有成文规则、执行记录、复核路径。移交四件内容：六组可复核点清单、证据台账、状态总表、缺口管理记录。接收安排为核验、试点复核、排程三动作。检验标准五条（可追溯性、级别边界、断口管理、执行机制、移交完整性）。与Session主线五章对表口径一致，五态收束（定稿、分层、运行、移交、待命）登记在案。",
+          "recall_score": 0.674172,
+          "decay_factor": 0.7,
+          "final_score": 0.47192
+        },
+        {
+          "rank": 8,
+          "source_session": "S008",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S008-Q044",
+          "memory_id": "e23103bc-6339-5cc7-bd72-d081cf8aa004",
+          "memory_text": "披露与证据章第九问，将披露缺口的证据链影响在决策与报告维度完整收口。四个断口（账期明细、构成证据、现金流分项、权益来源）对决策与报告的约束是：决策定案悬置、报告颗粒度受限，但执行照常、结构完整。断口状态下，证据链管理按登记、监控、标注三步运行；断口修复后按四档升级（定性升级、节奏细化、联动定案、成色定价）全链联动更新。缺口管理按季度回顾与年度复盘两节奏持续运行，记录格式统一、归档明确，与信号监控衔接（信号先行、披露定案），与报告合规衔接（台账驱动标注），并嵌入日常查询、更新、沟通环节。",
+          "recall_score": 0.645204,
+          "decay_factor": 0.7,
+          "final_score": 0.451643
+        },
+        {
+          "rank": 9,
+          "source_session": "S008",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S008-Q041",
+          "memory_id": "3d8b41e6-6e8c-5389-acf7-eb5eaca66c5a",
+          "memory_text": "披露与证据章第六问，处理年度供应商评级报告与对外披露材料的证据组织。报告按三层分区：正文层只使用一级证据（收入序列、现金/收入比、权益、负债率、三维评分与总体评级），附件层存放二级证据（三解释并列待检、四阈值延续待验、信号预警），标注层写清三级断口（账期明细、构成证据、现金流分项、权益来源待披露）与四级留白（盈利质量无三年数据、不参与评分）。正文四段固定表述（交易规模、现金回收、偿付缓冲、评级结论），全部使用一级证据语言，禁止出现利润数字、内部档位标签、断口细节与预测概率。缺口在报告中标注明示、正文不引、表述固定。发布前过四关合规检查（数字关、级别关、表述关、标注关），发布后按断口回填、年度数据更新、重大信号三种触发更新。报告与供应商分级、决策约束、证据台账衔接，引用规范为披露标注、复算底稿编号、台账编号。",
+          "recall_score": 0.644205,
+          "decay_factor": 0.7,
+          "final_score": 0.450943
+        },
+        {
+          "rank": 10,
+          "source_session": "S008",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S008-Q047",
+          "memory_id": "12a4f7a8-42b7-563c-a31f-3e22df48073e",
+          "memory_text": "披露与证据章走到中段，将前六问的产出合成为章中状态总表，包含证据分级全景、断口状态全景、表述边界全景和执行机制全景，并预告向质疑修订章移交六组可复核点清单。证据分级全景按四级登记：一级证据（收入、现金/收入比、权益等披露或复算数据）可对外引用；二级证据（三解释并列待检、四阈值延续待验等）限内部；三级证据（账期明细、构成证据、现金流分项、权益来源四个断口）待披露，按优先级回填；四级证据（盈利质量）永久留白零使用。断口状态全景登记四个断口全部待披露，各配影响范围、修复路径和结论标注。表述边界全景按决策（六类）、材料（四类）、场合（三个）三维展开，对外只用一级证据语言。执行机制全景汇总检查、复核、记录三套机制。状态总表采用五栏行结构（项目、当前状态、证据级别、衔接关系、更新触发），三全景按“分级→断口→边界”顺序联动更新，版本号一致。总表与盈利路径章、现金质量章、整体画像章、质疑修订章、跨轮综合章五条主线衔接，并预告向质疑修订章移交六组可复核点清单（证据分级、断口管理、决策约束、分级应用、谈判证据、报告组织）。",
+          "recall_score": 0.639838,
+          "decay_factor": 0.7,
+          "final_score": 0.447887
+        }
+      ]
+    },
+    {
+      "current_session": "S009_招商银行_并购",
+      "query_id": "S009-Q036",
+      "question": "现金质量章移交的三条接收项——权益缺口、杠杆边界、负债结构，验收状态怎么核对、回执怎么登记？",
+      "retrieval_results": [
+        {
+          "rank": 1,
+          "source_session": "S009",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S009-Q030",
+          "memory_id": "05a5229f-8bcc-500c-82d7-3de495eba43b",
+          "memory_text": "用户要求执行现金质量章的章末移交，包括出具正式移交备忘录、接收章签收、启动回执机制，并完结该章。助手完成了正式移交备忘录的出具（四节结构，三部分复验签核，版本记录v1.1），三章接收章（资产与权益章、披露与证据章、跨轮综合章）逐章签收五条移交项，回执机制启动（登记表启用、验收标准挂接、状态待数据触发），三章定稿句并排成正式交接件，并确认现金质量章完结（十问链条闭环、三向衔接落位、未尽事宜四件登记归属）。",
+          "recall_score": 0.794718,
+          "decay_factor": 1.0,
+          "final_score": 0.794718
+        },
+        {
+          "rank": 2,
+          "source_session": "S009",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S009-Q025",
+          "memory_id": "548c74e4-ecab-506f-8bf6-557eebd5bd4d",
+          "memory_text": "现金质量章完成章末移交：正式移交备忘录出具（四节结构，接收章清单、验证数据清单、回执登记表复验签核，版本v1.1）；资产与权益章签收三条移交项（权益缺口1,033.20亿元去向、资本充足率与杠杆10.27倍约束、负债结构）并挂接张力三与红旗七，披露与证据章签收风险质量数据（不良率/拨备覆盖率，三章共用钥匙），跨轮综合章签收监测体系合并与三章定稿句并排件；回执机制启动，五条移交项验收标准挂接，状态待数据触发。三章定稿句并排成正式交接件：盈利章'利润连升但低增、来源未验证、回报连降'、画像章'稳而不增'、现金质量章'现金流先升后平系摆布而非趋势、现金利润比相对位置稳定、扩表通道流总量层验证通过、质量结构未验证且风险不可见'。现金质量章十问链条闭环，与前两章进/出/挂接三向衔接落位，未尽事宜四件（科目归因待验证、红旗八与张力一待解锁、红旗七与张力三待验证、监测体系合并待执行）登记归属。",
+          "recall_score": 0.759846,
+          "decay_factor": 1.0,
+          "final_score": 0.759846
+        },
+        {
+          "rank": 3,
+          "source_session": "S009",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S009-Q023",
+          "memory_id": "41c1ff65-1120-59dd-8fa7-ab522517c020",
+          "memory_text": "用户要求将现金质量章全章结论归档为定稿层、待验证层、移交项三档，并与画像章27条结论清单、盈利章清单v1挂接对账。助手完成三档归档：定稿层约二十条（底表、三组联动基线、可验证边界总量层、监测规则、口径限制定义性与近似性部分、红旗已排除栏、反证设计表、路径定稿），待验证层约十条（科目归因、跨年时点、权益缺口同年、红旗待验证与被掩盖、三个张力），移交项约五条（权益缺口去向、资本充足率、负债结构、风险质量数据、监测体系合并）。对账结果：双向无孤儿、无重复、无冲突，M1-M5承接核对全部落位（M2已推进到待验证层），一个待办（监测体系合并位置移交跨轮综合章）。章末打包清单预演成型（八件套+附属三件+移交项五条，打包格式五栏、执行顺序四步、校验规则三条、与盈利章移交协议同构）。使用契约三条（定稿层进意见、待验证层进尽调、移交项进交接台账）与审委三档查阅路径固化。未修订任何既有结论，判断限2023-2025年已披露数据。",
+          "recall_score": 0.730475,
+          "decay_factor": 1.0,
+          "final_score": 0.730475
+        },
+        {
+          "rank": 4,
+          "source_session": "S009",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S009-Q018",
+          "memory_id": "69c9306a-f921-5dc6-bf51-ecc7cce1c0ac",
+          "memory_text": "用户询问估值输入如何收口并移交现金质量章。助手将盈利路径章的估值输入整合为工作底稿v1，包含六块：利润基准（归母均值1,483.91亿元、扣非均值1,480.22亿元、最新值1,501.81亿元对照）、增长边界（0%–1.3%档位，归母年化约1.2%、扣非年化约1.3%，不可外推）、质量调整（P/B分母回报衰减-1.5～-1.8个百分点）、量级标尺与监测（净利率当量年均约14亿元、监测等式约18亿元）、表述纪律（正面三项、禁写三项）、数据重述路径（六条触发条件）。同时向现金质量章移交四件输入：利润基准与口径、现金利润比分母对照（当年口径2.44/3.01/3.01对基准口径2.41/3.01/3.04）、现金流-利润差额2,111.51/2,986.32/3,012.76亿元的科目拆解任务、监测等式与量级标尺。收口的实质是把'连升但低增、来源未验证、回报连降'转成每一项都带数值锚、证据等级、触发条件与更新路径的合同级输入。",
+          "recall_score": 0.67907,
+          "decay_factor": 1.0,
+          "final_score": 0.67907
+        },
+        {
+          "rank": 5,
+          "source_session": "S009",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S009-Q022",
+          "memory_id": "9d1f5ca1-1c6a-5029-99dd-0d0c6563ad9c",
+          "memory_text": "用户要求对现金流路径做最终定性，将形状块（先升后平）、比率块（现金利润比）、通道块（扩表通道流）、质量块（结构未验证）四块结论合成一句话，并与盈利章和画像章的定稿并排核对。助手完成合成，得出定性句“先升后平、相对位置稳定、边际贡献衰减、质量不可见”，并确认四块内部无张力、与盈利章“利润连升但低增、来源未验证、回报连降”及画像章“稳而不增”三章并排核对无冲突，全景收敛为“稳而不增”的成熟大行五要素（收入平、利润低增、现金流摆布、回报稀释、质量不可见）。合成过程暴露三个新张力：边际衰减与质量合流、现金利润比回摆预期、资本联动，均登记为待验证联动，不构成当前修订。复核意见现金流段落定稿为六句话最终版，张力验证批次并入尽调清单。",
+          "recall_score": 0.663558,
+          "decay_factor": 1.0,
+          "final_score": 0.663558
+        },
+        {
+          "rank": 6,
+          "source_session": "S010",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S010-Q015",
+          "memory_id": "da671395-a283-5c3a-9eb4-bc82ce9a5c87",
+          "memory_text": "用户要求将披露与证据章的结论收束到最终信用意见，并确定下一步验证优先级。助手回应：证据底座不改变最终意见方向，只约束写法与确定性分级。具体包括：1）结论表述受证据档位约束，A档写结论、B档带待核、C档写缺口；2）披露质量评价（厚底表、薄纵深）决定确定性分级，付款能力直接写实，付款确定性与根基以缺口声明呈现，最终意见定性仍为'能力扎实、确定性待验证'；3）验证优先级：付款意愿与支付时点（执行层结算数据）最优先，其次收入结构与现金流构成（核销B档两条），再次监管指标（资本充足率、不良率为先），利润率抬升来源作为B档第一条移交盈利路径章验证。助手还给出了收束总表（六行映射）、确定性分级（三档三写法）、跨章约束落点（五处验证任务）、核销优先级与登记表、标准句三卡片等交付物。",
+          "recall_score": 0.660962,
+          "decay_factor": 0.7,
+          "final_score": 0.462673
+        },
+        {
+          "rank": 7,
+          "source_session": "S010",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S010-Q020",
+          "memory_id": "fa5c9a8d-206c-5395-b411-7305dbe89d4f",
+          "memory_text": "用户要求将披露与证据章的结论收束到最终信用意见上，并确定接下来先验证什么。助手给出结论：证据底座不改变最终意见方向，只约束写法与确定性分级。具体包括：结论表述受证据档位约束（A档写结论、B档带待核、C档写缺口）；披露质量评价（厚底表、薄纵深）决定确定性分级，付款能力直接写实，付款确定性与根基以缺口声明呈现；接下来验证优先级为付款意愿与支付时点（执行层结算数据）最优先，其次收入结构与现金流构成（核销B档两条），再次监管指标（资本充足率、不良率为先），利润率抬升来源作为B档第一条移交盈利路径章。助手还展开收束总表（六行映射）、确定性分级（三档三写法）、跨章约束落点（五处验证任务）、核销优先级与登记表、标准句三卡片等交付物。",
+          "recall_score": 0.65114,
+          "decay_factor": 0.7,
+          "final_score": 0.455798
+        },
+        {
+          "rank": 8,
+          "source_session": "S010",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S010-Q016",
+          "memory_id": "337c18b8-80bc-55c7-aa74-2243e3e9ecf4",
+          "memory_text": "用户要求将披露与证据章的结论收束到最终信用意见，并确定下一步验证优先级。助手回应：证据底座不改变最终意见方向，只约束写法与确定性分级。具体包括：结论表述受证据档位约束（A档写结论、B档带待核、C档写缺口）；披露质量评价（厚底表、薄纵深）决定确定性分级（高确定性A档直接写实、中等确定性B档带待核、无确定性C档声明缺口）；下一步验证优先级为付款意愿与支付时点（执行层结算数据）最优先，其次收入结构与现金流构成（核销B档两条），再次监管指标（资本充足率、不良率优先）。利润率抬升来源作为B档第一条移交盈利路径章验证。",
+          "recall_score": 0.63525,
+          "decay_factor": 0.7,
+          "final_score": 0.444675
+        },
+        {
+          "rank": 9,
+          "source_session": "S010",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S010-Q010",
+          "memory_id": "e90f44db-8405-5e47-8f59-f243051bfcae",
+          "memory_text": "用户要求将底表基准和四条结论打包成章末收束总表，并排定各结论最易被证伪的顺序及所需证据。助手交付了章末收束总表（分对外口径、内部底稿、待办核销三栏），并对四条结论（履约能力充足有冗余、资金稳定无背离、合作敞口承载极强、边界未验证）进行证伪测试，得出脆弱度排序：资金稳定最脆弱（依赖时点观察与B档可持续性线索），其次履约能力（来源端依赖B档），边界随披露修订，敞口承载最稳（纯A档规模事实）。同时明确了各结论的证伪路径与所需证据（B档需收入结构与现金流构成披露，C档需监管指标披露，付款意愿需执行层数据），并确认整体判断'能力扎实、确定性待验证'无需撤回，修订空间集中在B/C档。",
+          "recall_score": 0.622378,
+          "decay_factor": 0.7,
+          "final_score": 0.435665
+        },
+        {
+          "rank": 10,
+          "source_session": "S010",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S010-Q012",
+          "memory_id": "6696a2e4-5ea9-5808-bd3e-ea91012646fe",
+          "memory_text": "用户要求将监管指标缺口（净息差、不良率、拨备覆盖率、资本充足率、存贷结构）单独拎出评估，分析其对履约能力、资金稳定、合作敞口三条判断的影响及权重排序。助手给出评估框架：按影响方式分规模事实层（A档，不受影响）、解释层（B档，净息差与存贷结构相关）、缓冲与稳健性层（C档，资本充足率、不良率、拨备覆盖率相关）。逐项映射：净息差影响利润率抬升来源（B档），不良率与拨备覆盖率影响资产质量与风险抵补（C档），资本充足率影响资本缓冲（C档，权重最高），存贷结构影响现金流放量构成（B档）。权重排序：资本充足率（高）>不良率+拨备覆盖率（中）>净息差+存贷结构（低-中）。表述边界：可说的为A档规模事实（现金流4,514.57亿元、净利1,501.81亿元、权益12,728.75亿元等），不可说的为资产质量良好、资本缓冲充足等越档禁语。核销优先级：付款意愿执行数据>收入结构/现金流构成（B档）>监管指标（C档），监管指标内部按资本充足率、不良率优先。单笔付款框架不受影响，长期合作框架需年度复核与动态监测。",
+          "recall_score": 0.604864,
+          "decay_factor": 0.7,
+          "final_score": 0.423405
+        }
+      ]
+    },
+    {
+      "current_session": "S009_招商银行_并购",
+      "query_id": "S009-Q037",
+      "question": "资产与权益章六问下来定稿句不少，表述卡怎么把三层一清单汇总出来？监测与回执状态怎么一并挂进去？",
+      "retrieval_results": [
+        {
+          "rank": 1,
+          "source_session": "S009",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S009-Q023",
+          "memory_id": "41c1ff65-1120-59dd-8fa7-ab522517c020",
+          "memory_text": "用户要求将现金质量章全章结论归档为定稿层、待验证层、移交项三档，并与画像章27条结论清单、盈利章清单v1挂接对账。助手完成三档归档：定稿层约二十条（底表、三组联动基线、可验证边界总量层、监测规则、口径限制定义性与近似性部分、红旗已排除栏、反证设计表、路径定稿），待验证层约十条（科目归因、跨年时点、权益缺口同年、红旗待验证与被掩盖、三个张力），移交项约五条（权益缺口去向、资本充足率、负债结构、风险质量数据、监测体系合并）。对账结果：双向无孤儿、无重复、无冲突，M1-M5承接核对全部落位（M2已推进到待验证层），一个待办（监测体系合并位置移交跨轮综合章）。章末打包清单预演成型（八件套+附属三件+移交项五条，打包格式五栏、执行顺序四步、校验规则三条、与盈利章移交协议同构）。使用契约三条（定稿层进意见、待验证层进尽调、移交项进交接台账）与审委三档查阅路径固化。未修订任何既有结论，判断限2023-2025年已披露数据。",
+          "recall_score": 0.709323,
+          "decay_factor": 1.0,
+          "final_score": 0.709323
+        },
+        {
+          "rank": 2,
+          "source_session": "S009",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S009-Q025",
+          "memory_id": "548c74e4-ecab-506f-8bf6-557eebd5bd4d",
+          "memory_text": "现金质量章完成章末移交：正式移交备忘录出具（四节结构，接收章清单、验证数据清单、回执登记表复验签核，版本v1.1）；资产与权益章签收三条移交项（权益缺口1,033.20亿元去向、资本充足率与杠杆10.27倍约束、负债结构）并挂接张力三与红旗七，披露与证据章签收风险质量数据（不良率/拨备覆盖率，三章共用钥匙），跨轮综合章签收监测体系合并与三章定稿句并排件；回执机制启动，五条移交项验收标准挂接，状态待数据触发。三章定稿句并排成正式交接件：盈利章'利润连升但低增、来源未验证、回报连降'、画像章'稳而不增'、现金质量章'现金流先升后平系摆布而非趋势、现金利润比相对位置稳定、扩表通道流总量层验证通过、质量结构未验证且风险不可见'。现金质量章十问链条闭环，与前两章进/出/挂接三向衔接落位，未尽事宜四件（科目归因待验证、红旗八与张力一待解锁、红旗七与张力三待验证、监测体系合并待执行）登记归属。",
+          "recall_score": 0.667955,
+          "decay_factor": 1.0,
+          "final_score": 0.667955
+        },
+        {
+          "rank": 3,
+          "source_session": "S009",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S009-Q019",
+          "memory_id": "479a611e-3c86-53c8-acdf-6e97dee795c7",
+          "memory_text": "用户询问盈利路径结论与现金流、资产扩张事实对照是否存在矛盾。助手通过六组对照（利润vs现金流、利润vs资产、利润vs权益、利润vs杠杆、恒等式跨线、张力登记）进行联动复核，结论为全部自洽，无矛盾。唯一张力为现金流增量从892.70亿元收缩至44.34亿元（约95%），与利润匀速并存，但归因移交现金质量章，不构成对盈利路径结论的修订。复核确认盈利路径章定稿句“利润连升但低增、来源未验证、回报连降”与画像章“稳而不增”互相印证，证据等级升级为跨章交叉验证级。",
+          "recall_score": 0.660034,
+          "decay_factor": 1.0,
+          "final_score": 0.660034
+        },
+        {
+          "rank": 4,
+          "source_session": "S009",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S009-Q022",
+          "memory_id": "9d1f5ca1-1c6a-5029-99dd-0d0c6563ad9c",
+          "memory_text": "用户要求对现金流路径做最终定性，将形状块（先升后平）、比率块（现金利润比）、通道块（扩表通道流）、质量块（结构未验证）四块结论合成一句话，并与盈利章和画像章的定稿并排核对。助手完成合成，得出定性句“先升后平、相对位置稳定、边际贡献衰减、质量不可见”，并确认四块内部无张力、与盈利章“利润连升但低增、来源未验证、回报连降”及画像章“稳而不增”三章并排核对无冲突，全景收敛为“稳而不增”的成熟大行五要素（收入平、利润低增、现金流摆布、回报稀释、质量不可见）。合成过程暴露三个新张力：边际衰减与质量合流、现金利润比回摆预期、资本联动，均登记为待验证联动，不构成当前修订。复核意见现金流段落定稿为六句话最终版，张力验证批次并入尽调清单。",
+          "recall_score": 0.648814,
+          "decay_factor": 1.0,
+          "final_score": 0.648814
+        },
+        {
+          "rank": 5,
+          "source_session": "S009",
+          "session_type": "CURRENT_SESSION",
+          "source_turn_id": "S009-Q018",
+          "memory_id": "69c9306a-f921-5dc6-bf51-ecc7cce1c0ac",
+          "memory_text": "用户询问估值输入如何收口并移交现金质量章。助手将盈利路径章的估值输入整合为工作底稿v1，包含六块：利润基准（归母均值1,483.91亿元、扣非均值1,480.22亿元、最新值1,501.81亿元对照）、增长边界（0%–1.3%档位，归母年化约1.2%、扣非年化约1.3%，不可外推）、质量调整（P/B分母回报衰减-1.5～-1.8个百分点）、量级标尺与监测（净利率当量年均约14亿元、监测等式约18亿元）、表述纪律（正面三项、禁写三项）、数据重述路径（六条触发条件）。同时向现金质量章移交四件输入：利润基准与口径、现金利润比分母对照（当年口径2.44/3.01/3.01对基准口径2.41/3.01/3.04）、现金流-利润差额2,111.51/2,986.32/3,012.76亿元的科目拆解任务、监测等式与量级标尺。收口的实质是把'连升但低增、来源未验证、回报连降'转成每一项都带数值锚、证据等级、触发条件与更新路径的合同级输入。",
+          "recall_score": 0.62926,
+          "decay_factor": 1.0,
+          "final_score": 0.62926
+        },
+        {
+          "rank": 6,
+          "source_session": "S010",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S010-Q015",
+          "memory_id": "da671395-a283-5c3a-9eb4-bc82ce9a5c87",
+          "memory_text": "用户要求将披露与证据章的结论收束到最终信用意见，并确定下一步验证优先级。助手回应：证据底座不改变最终意见方向，只约束写法与确定性分级。具体包括：1）结论表述受证据档位约束，A档写结论、B档带待核、C档写缺口；2）披露质量评价（厚底表、薄纵深）决定确定性分级，付款能力直接写实，付款确定性与根基以缺口声明呈现，最终意见定性仍为'能力扎实、确定性待验证'；3）验证优先级：付款意愿与支付时点（执行层结算数据）最优先，其次收入结构与现金流构成（核销B档两条），再次监管指标（资本充足率、不良率为先），利润率抬升来源作为B档第一条移交盈利路径章验证。助手还给出了收束总表（六行映射）、确定性分级（三档三写法）、跨章约束落点（五处验证任务）、核销优先级与登记表、标准句三卡片等交付物。",
+          "recall_score": 0.658607,
+          "decay_factor": 0.7,
+          "final_score": 0.461025
+        },
+        {
+          "rank": 7,
+          "source_session": "S010",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S010-Q017",
+          "memory_id": "cfd42398-2209-518a-8615-a0ead9aab218",
+          "memory_text": "用户要求将证据底座六层约束合并为一份'证据使用守则'总表，并对底表、参考区间、监测阈值、三句话进行档位与脚注的全量对表终检。助手先立起守则总表，六行六层（可追溯性底稿、监管缺口权重、证据分级清单、表述边界手册、四步核档、引用三问），每行含层名、职责、检查点、引用必带标注，并说明四步用法（成文、核档、引用、发布）。随后进行三张对表：对表一核对底表十八行（六指标原数、十一条比率行、一条特殊行），档位全部A档（特殊行C档不可复算），脚注按五类规范各就其位；对表二核对参考区间与监测阈值，确认双身份数字（3,577.53亿元等）按场景标注，阈值全部由原数复算；对表三核对修订后的三句话（能力句、稳定句、边界句），档位组成与底表一致。终检结论为零冲突，确认三类对齐标注规则（双身份数字场景化、三基准口径写全、脚注五类与档位固定对应），遗留项为B档两条与C档两组待核销。最后收束本章，交付七件套（四件套加三件制度件），守则总表作为证据底座首页，后续章节引用需带档位与脚注。",
+          "recall_score": 0.648572,
+          "decay_factor": 0.7,
+          "final_score": 0.454
+        },
+        {
+          "rank": 8,
+          "source_session": "S010",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S010-Q020",
+          "memory_id": "fa5c9a8d-206c-5395-b411-7305dbe89d4f",
+          "memory_text": "用户要求将披露与证据章的结论收束到最终信用意见上，并确定接下来先验证什么。助手给出结论：证据底座不改变最终意见方向，只约束写法与确定性分级。具体包括：结论表述受证据档位约束（A档写结论、B档带待核、C档写缺口）；披露质量评价（厚底表、薄纵深）决定确定性分级，付款能力直接写实，付款确定性与根基以缺口声明呈现；接下来验证优先级为付款意愿与支付时点（执行层结算数据）最优先，其次收入结构与现金流构成（核销B档两条），再次监管指标（资本充足率、不良率为先），利润率抬升来源作为B档第一条移交盈利路径章。助手还展开收束总表（六行映射）、确定性分级（三档三写法）、跨章约束落点（五处验证任务）、核销优先级与登记表、标准句三卡片等交付物。",
+          "recall_score": 0.640675,
+          "decay_factor": 0.7,
+          "final_score": 0.448472
+        },
+        {
+          "rank": 9,
+          "source_session": "S010",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S010-Q014",
+          "memory_id": "8596c0a4-b04e-543c-b19f-bf1b4af65c01",
+          "memory_text": "用户要求将证据使用守则六行规则用于自检本章七件交付（可追溯性底稿、监管缺口权重评估、证据分级清单、表述边界手册、四步核档法、引用三问、证据使用守则总表），检查档位、脚注、结构、引用是否符合守则，并检验守则本身是否经得起自身检查。助手执行自举检查，结论为七件交付全部符合守则，无违规；守则总表作为元规则通过自检，无自指矛盾。同时发现两处执行风险并给出防偏措施：一是守则总表易被通读而非按场景查表，防偏为按触发场景查对应行；二是三句话修订版易被照抄为模板，防偏为标注“结构可仿、内容必核”。自检记录归档，守则版本不变。",
+          "recall_score": 0.637466,
+          "decay_factor": 0.7,
+          "final_score": 0.446226
+        },
+        {
+          "rank": 10,
+          "source_session": "S010",
+          "session_type": "OTHER_SESSION",
+          "source_turn_id": "S010-Q010",
+          "memory_id": "e90f44db-8405-5e47-8f59-f243051bfcae",
+          "memory_text": "用户要求将底表基准和四条结论打包成章末收束总表，并排定各结论最易被证伪的顺序及所需证据。助手交付了章末收束总表（分对外口径、内部底稿、待办核销三栏），并对四条结论（履约能力充足有冗余、资金稳定无背离、合作敞口承载极强、边界未验证）进行证伪测试，得出脆弱度排序：资金稳定最脆弱（依赖时点观察与B档可持续性线索），其次履约能力（来源端依赖B档），边界随披露修订，敞口承载最稳（纯A档规模事实）。同时明确了各结论的证伪路径与所需证据（B档需收入结构与现金流构成披露，C档需监管指标披露，付款意愿需执行层数据），并确认整体判断'能力扎实、确定性待验证'无需撤回，修订空间集中在B/C档。",
+          "recall_score": 0.630562,
+          "decay_factor": 0.7,
+          "final_score": 0.441393
         }
       ]
     }
-  ],
-  "top_10": [
-    {
-      "candidate_id": "I-SIM-S001-S002-2",
-      "presentation_score": 88.3,
-      "why_good_for_ppt": "使用同公司两个真实 Session 的真实 Memory 文本，按生产配置 other_session_weight=0.7 演示反超；相关分数与同次检索为模拟。",
-      "session_id": "S001_贵州茅台_投研",
-      "query_id": "S001-Q002",
-      "memory_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe / 9615e38e-ddfa-5750-8a37-98d2d6d81f6b",
-      "job_id": null,
-      "display_data": {
-        "title": "其他 Session 原始分更高 → 降权后当前 Session 反超",
-        "current_question": "刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
-        "input": [
-          "当前：用户要求确认贵州茅台2023—2025年财务底表的来源、单位和比较口径的一致性及可确认程度。助手确认：来源为指定披露文件（202…",
-          "其他：用户询问底表数据的来源、单位和比较口径是否一致，以及作为审计底稿能确认到什么程度。助手确认：来源可追溯到指定披露文件（巨潮资讯网…"
-        ],
-        "process": "SIMULATED：其他 Session × 0.7",
-        "output": "Rank：其他#1/当前#2 → 当前#1/其他#2",
-        "key_number": "0.846×0.7=0.592 < 0.698",
-        "conclusion": "仅 Memory 内容与 0.7 权重真实；同次检索及分数为模拟。",
-        "simulation_label": "SIMULATED"
-      },
-      "raw_data": {
-        "observed_input": {
-          "query": "刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
-          "current_session_memory": {
-            "memory_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
-            "source_session": "S001",
-            "summary": "用户要求确认贵州茅台2023—2025年财务底表的来源、单位和比较口径的一致性及可确认程度。助手确认：来源为指定披露文件（2026-04-17发布），数据为真实历史披露，单位统一为亿元，总资产2023年为整数披露，其余保留原精度；比较口径方面，利润与权益为归母口径，收入与资产为合并整体口径，同比均由原数复算且八个同比全部可复现；期末时点与期间数混合的比率（周转率、权益回报）标注为近似。不能确认的包括：无法逐页核对原文、无2022年数据、无指标定义细节及明细类指标（现金流、扣非、毛利率等）无披露。助手将可追溯性分为三级：披露原数、派生复算、分析判断，并制定了引用纪律：原数带来源、复算带公式与近似标记、缺口带无披露。复核结论为底表无需修订，可继续作为公共基准。"
-          },
-          "other_session_memory": {
-            "memory_id": "9615e38e-ddfa-5750-8a37-98d2d6d81f6b",
-            "source_session": "S002",
-            "summary": "用户询问底表数据的来源、单位和比较口径是否一致，以及作为审计底稿能确认到什么程度。助手确认：来源可追溯到指定披露文件（巨潮资讯网静态页，2026-04-17发布），单位统一为亿元，利润与权益取归母口径、收入与资产取整体口径且三年未变，八个同比全部可由原数复现；比率中净利率、权益乘数、非权益占比为精确复算，总资产周转与权益回报为期末/期间混口径近似。确认程度为“披露数值层”，即数值自洽、来源明确、口径固定，可锁定为后续引用基准；但原文级、定义级、基期级、重述风险、报表勾稽、范围界定六项保留未确认。助手还建立了追溯强度三档（原数/派生/判断）、口径归类表、控制点清单（录入、口径、复算、档位标签、保留意见登记），并说明口径确认对后续章节的传导作用。"
-          },
-          "configured_other_session_weight": 0.7
-        },
-        "simulated_process": {
-          "candidates": [
-            {
-              "memory_id": "9615e38e-ddfa-5750-8a37-98d2d6d81f6b",
-              "source_session": "S002",
-              "raw_score": 0.846,
-              "session_weight": 0.7,
-              "weighted_score": 0.592,
-              "rank_before": 1,
-              "rank_after": 2
-            },
-            {
-              "memory_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
-              "source_session": "S001",
-              "raw_score": 0.698,
-              "session_weight": 1.0,
-              "weighted_score": 0.698,
-              "rank_before": 2,
-              "rank_after": 1
-            }
-          ]
-        },
-        "simulation_boundary": "The target source used isolated user/run scopes and recorded zero cross-session recalls. Pairing and retrieval scores are hypothetical; memory texts and configured other_session_weight are observed."
-      },
-      "evidence": [
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S002/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "9615e38e-ddfa-5750-8a37-98d2d6d81f6b",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S002/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "9615e38e-ddfa-5750-8a37-98d2d6d81f6b",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
-          "table / collection": "fine_grained_longterm config",
-          "record_id": "other_session_weight",
-          "field": "other_session_weight"
-        }
-      ]
-    },
-    {
-      "candidate_id": "I-SIM-S001-S002-1",
-      "presentation_score": 87.85,
-      "why_good_for_ppt": "使用同公司两个真实 Session 的真实 Memory 文本，按生产配置 other_session_weight=0.7 演示反超；相关分数与同次检索为模拟。",
-      "session_id": "S001_贵州茅台_投研",
-      "query_id": "S001-Q001",
-      "memory_id": "c6ee270c-d6cd-5972-9e46-d5feda47386f / 1a2ba249-5ced-5f36-8288-ed72fe8f07fd",
-      "job_id": null,
-      "display_data": {
-        "title": "其他 Session 原始分更高 → 降权后当前 Session 反超",
-        "current_question": "先帮我梳理一下贵州茅台2023—2025年的主要财务变化。",
-        "input": [
-          "当前：用户要求梳理贵州茅台2023—2025年主要财务变化，并随后进行多轮分析。本轮助手基于指定来源披露文件（发布于2026-04-1…",
-          "其他：用户要求将2023—2025年贵州茅台年报关键财务底表（营收、归母净利、总资产、归母权益）建立起来，并分析三年走势与拐点。助手提…"
-        ],
-        "process": "SIMULATED：其他 Session × 0.7",
-        "output": "Rank：其他#1/当前#2 → 当前#1/其他#2",
-        "key_number": "0.853×0.7=0.597 < 0.694",
-        "conclusion": "仅 Memory 内容与 0.7 权重真实；同次检索及分数为模拟。",
-        "simulation_label": "SIMULATED"
-      },
-      "raw_data": {
-        "observed_input": {
-          "query": "先帮我梳理一下贵州茅台2023—2025年的主要财务变化。",
-          "current_session_memory": {
-            "memory_id": "c6ee270c-d6cd-5972-9e46-d5feda47386f",
-            "source_session": "S001",
-            "summary": "用户要求梳理贵州茅台2023—2025年主要财务变化，并随后进行多轮分析。本轮助手基于指定来源披露文件（发布于2026-04-17）提供的数据，梳理了营业收入、归母净利润、总资产、归母股东权益四项指标的三年数值、同比、增量及形态，并计算了近似净利率、总资产周转、权益回报等比率。核心结论为：2024年是增速高点年，2025年是方向拐点年；收入与利润先升后降，资产与权益连续上升但减速；2025年利润降幅（-4.53%）显著大于收入降幅（-1.21%），净利率从50.46%降至48.76%，是利润下滑的主因（约占七成五）；高基数仅解释摆幅的一到两成。数据口径为亿元，同比由原数复算，总资产2023年为整数披露。"
-          },
-          "other_session_memory": {
-            "memory_id": "1a2ba249-5ced-5f36-8288-ed72fe8f07fd",
-            "source_session": "S002",
-            "summary": "用户要求将2023—2025年贵州茅台年报关键财务底表（营收、归母净利、总资产、归母权益）建立起来，并分析三年走势与拐点。助手提供了三年数值与同比：营收1,476.94/1,708.99/1,688.38亿元（+15.71%/-1.21%），归母净利747.34/862.28/823.20亿元（+15.38%/-4.53%），总资产2,727/2,989.45/3,038.35亿元（+9.62%/+1.64%），归母权益2,156.69/2,331.06/2,446.38亿元（+8.09%/+4.95%）。判断2024年为收入利润双高点，2025年收入利润转负、资产权益仍增长但减速，形成“存量升、增量降”的结构性信号。助手完成同比复算、比率分析（净利率50.60%/50.46%/48.76%，周转0.542/0.572/0.556倍，权益回报约34.7%/37.0%/33.6%），两因素分解显示2025年利润降幅约七成由净利率回落驱动，并列出信息缺口（无经营现金流、扣非、毛利率、费用率、分红等）。数据来源为指定披露文件（2026-04-17发布），单位亿元，利润权益归母口径、收入资产整体口径。"
-          },
-          "configured_other_session_weight": 0.7
-        },
-        "simulated_process": {
-          "candidates": [
-            {
-              "memory_id": "1a2ba249-5ced-5f36-8288-ed72fe8f07fd",
-              "source_session": "S002",
-              "raw_score": 0.853,
-              "session_weight": 0.7,
-              "weighted_score": 0.597,
-              "rank_before": 1,
-              "rank_after": 2
-            },
-            {
-              "memory_id": "c6ee270c-d6cd-5972-9e46-d5feda47386f",
-              "source_session": "S001",
-              "raw_score": 0.694,
-              "session_weight": 1.0,
-              "weighted_score": 0.694,
-              "rank_before": 2,
-              "rank_after": 1
-            }
-          ]
-        },
-        "simulation_boundary": "The target source used isolated user/run scopes and recorded zero cross-session recalls. Pairing and retrieval scores are hypothetical; memory texts and configured other_session_weight are observed."
-      },
-      "evidence": [
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "c6ee270c-d6cd-5972-9e46-d5feda47386f",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "c6ee270c-d6cd-5972-9e46-d5feda47386f",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S002/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "1a2ba249-5ced-5f36-8288-ed72fe8f07fd",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S002/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "1a2ba249-5ced-5f36-8288-ed72fe8f07fd",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
-          "table / collection": "fine_grained_longterm config",
-          "record_id": "other_session_weight",
-          "field": "other_session_weight"
-        }
-      ]
-    },
-    {
-      "candidate_id": "I-SIM-S009-S010-2",
-      "presentation_score": 83.85,
-      "why_good_for_ppt": "使用同公司两个真实 Session 的真实 Memory 文本，按生产配置 other_session_weight=0.7 演示反超；相关分数与同次检索为模拟。",
-      "session_id": "S009_招商银行_并购",
-      "query_id": "S009-Q002",
-      "memory_id": "9d35a920-5b09-5ce6-ba4f-6d5d4b65b165 / ea8c8ee1-1d18-588d-84dc-23bb561680d3",
-      "job_id": null,
-      "display_data": {
-        "title": "其他 Session 原始分更高 → 降权后当前 Session 反超",
-        "current_question": "经营现金流三年都在3,500亿以上、总资产三年扩了约两成，收入却基本没动。银行…",
-        "input": [
-          "当前：用户询问在银行口径下如何正确理解招商银行2023-2025年经营现金流与总资产扩张，以及缺失净息差、不良率等监管指标对画像和可比…",
-          "其他：用户要求结合三年底表，将关键指标形态与履约能力、资金稳定对应，给出履约能力初步判断，并确认披露与口径边界。助手回应：履约能力初步…"
-        ],
-        "process": "SIMULATED：其他 Session × 0.7",
-        "output": "Rank：其他#1/当前#2 → 当前#1/其他#2",
-        "key_number": "0.790×0.7=0.553 < 0.730",
-        "conclusion": "仅 Memory 内容与 0.7 权重真实；同次检索及分数为模拟。",
-        "simulation_label": "SIMULATED"
-      },
-      "raw_data": {
-        "observed_input": {
-          "query": "经营现金流三年都在3,500亿以上、总资产三年扩了约两成，收入却基本没动。银行口径和制造业不一样，这两行数字该怎么正确理解？缺了净息差、不良率这类监管指标，画像和可比性会被限制在哪？",
-          "current_session_memory": {
-            "memory_id": "9d35a920-5b09-5ce6-ba4f-6d5d4b65b165",
-            "source_session": "S009",
-            "summary": "用户询问在银行口径下如何正确理解招商银行2023-2025年经营现金流与总资产扩张，以及缺失净息差、不良率等监管指标对画像和可比性的限制。助手回答：银行口径下，经营现金流是存贷款、金融投资等资产负债表摆布的结果，不能按制造业逻辑解读为利润含金量；总资产扩张是信贷、投资、同业行为的合计，无结构数据则无法判断扩张质量。缺失净息差、不良率、拨备覆盖率、资本充足率、存贷结构、收入结构等指标，导致画像只能停留在规模与形状层面，可比性仅限自身三年纵向，无法做同业横向比较。复核底稿应固化口径声明，并列出可读清单与待补数据清单。"
-          },
-          "other_session_memory": {
-            "memory_id": "ea8c8ee1-1d18-588d-84dc-23bb561680d3",
-            "source_session": "S010",
-            "summary": "用户要求结合三年底表，将关键指标形态与履约能力、资金稳定对应，给出履约能力初步判断，并确认披露与口径边界。助手回应：履约能力初步判断为正面、扎实、有冗余，依据是利润连续上升、现金流先升后平站稳高位、权益与资产连续增厚；背景是收入先降后平；边界是银行监管指标（净息差、不良率、拨备覆盖率、资本充足率、存贷结构）与收入结构无披露，属信息缺口。助手将证据分为A档（披露原数）、B档（间接推断）、C档（信息缺口），并给出三维初步画像：履约能力（强且有冗余）、资金稳定（稳定、波动向上）、合作敞口（承载极强、风险在己方）。"
-          },
-          "configured_other_session_weight": 0.7
-        },
-        "simulated_process": {
-          "candidates": [
-            {
-              "memory_id": "ea8c8ee1-1d18-588d-84dc-23bb561680d3",
-              "source_session": "S010",
-              "raw_score": 0.79,
-              "session_weight": 0.7,
-              "weighted_score": 0.553,
-              "rank_before": 1,
-              "rank_after": 2
-            },
-            {
-              "memory_id": "9d35a920-5b09-5ce6-ba4f-6d5d4b65b165",
-              "source_session": "S009",
-              "raw_score": 0.73,
-              "session_weight": 1.0,
-              "weighted_score": 0.73,
-              "rank_before": 2,
-              "rank_after": 1
-            }
-          ]
-        },
-        "simulation_boundary": "The target source used isolated user/run scopes and recorded zero cross-session recalls. Pairing and retrieval scores are hypothetical; memory texts and configured other_session_weight are observed."
-      },
-      "evidence": [
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S009/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "9d35a920-5b09-5ce6-ba4f-6d5d4b65b165",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S009/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "9d35a920-5b09-5ce6-ba4f-6d5d4b65b165",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S010/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "ea8c8ee1-1d18-588d-84dc-23bb561680d3",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S010/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "ea8c8ee1-1d18-588d-84dc-23bb561680d3",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
-          "table / collection": "fine_grained_longterm config",
-          "record_id": "other_session_weight",
-          "field": "other_session_weight"
-        }
-      ]
-    },
-    {
-      "candidate_id": "I-SIM-S009-S010-1",
-      "presentation_score": 83.4,
-      "why_good_for_ppt": "使用同公司两个真实 Session 的真实 Memory 文本，按生产配置 other_session_weight=0.7 演示反超；相关分数与同次检索为模拟。",
-      "session_id": "S009_招商银行_并购",
-      "query_id": "S009-Q001",
-      "memory_id": "6bcc05c4-e6b3-5c91-87ac-0e91c4b39892 / 46f5aad8-d7a9-508d-bc5d-b0bbd1828d32",
-      "job_id": null,
-      "display_data": {
-        "title": "其他 Session 原始分更高 → 降权后当前 Session 反超",
-        "current_question": "把招商银行2023–2025年营业收入、归母净利润、扣非、经营现金流、总资产、…",
-        "input": [
-          "当前：用户要求梳理招商银行2023-2025年营业收入、归母净利润、扣非、经营现金流、总资产、归母权益六项底表数据，并分析三年画像。助…",
-          "其他：用户要求对招商银行2023-2025年财务数据进行整体画像，作为采购信用评估的起点。助手提供了三年底表，显示规模、盈利、现金流、…"
-        ],
-        "process": "SIMULATED：其他 Session × 0.7",
-        "output": "Rank：其他#1/当前#2 → 当前#1/其他#2",
-        "key_number": "0.797×0.7=0.558 < 0.726",
-        "conclusion": "仅 Memory 内容与 0.7 权重真实；同次检索及分数为模拟。",
-        "simulation_label": "SIMULATED"
-      },
-      "raw_data": {
-        "observed_input": {
-          "query": "把招商银行2023–2025年营业收入、归母净利润、扣非、经营现金流、总资产、归母权益这组底表数字整体梳理一遍：各年数值、两年同比和整体形状，三年是什么画像？",
-          "current_session_memory": {
-            "memory_id": "6bcc05c4-e6b3-5c91-87ac-0e91c4b39892",
-            "source_session": "S009",
-            "summary": "用户要求梳理招商银行2023-2025年营业收入、归母净利润、扣非、经营现金流、总资产、归母权益六项底表数据，并分析三年画像。助手给出完整数据：营业收入3,391.23/3,374.88/3,375.32亿元，同比-0.48%、+0.01%，先降后平；归母净利润1,466.02/1,483.91/1,501.81亿元，同比+1.22%、+1.21%，连续上升；扣非归母净利润1,460.47/1,480.11/1,500.07亿元，同比+1.34%、+1.35%；经营现金流3,577.53/4,470.23/4,514.57亿元，同比+24.95%、+0.99%，先升后平；归母权益10,763.7/12,260.14/12,728.75亿元，同比+13.90%、+3.82%；总资产110,284.83/121,520.36/130,705.23亿元，同比+10.19%、+7.56%。画像为收入停滞、利润温和上升、资产快速扩张、回报被摊薄。助手强调银行口径特殊性，指出经营现金流受存贷款摆布影响，不能作为利润质量证据；缺失净息差、不良率等监管指标，限制可比性。初步估值印象：估值锚应放在利润与回报口径，利润基准干净（非经常项占比0.25%），但回报率连降（近似ROE从13.6%降至11.8%），权益对账出现断点（2025年权益增量仅为利润31%），需优先核实收入平而利润升的驱动、权益缺口去向、资产扩张质量。"
-          },
-          "other_session_memory": {
-            "memory_id": "46f5aad8-d7a9-508d-bc5d-b0bbd1828d32",
-            "source_session": "S010",
-            "summary": "用户要求对招商银行2023-2025年财务数据进行整体画像，作为采购信用评估的起点。助手提供了三年底表，显示规模、盈利、现金流、权益均呈正面走势，并进行了形态研判、证据分级（A/B/C档）、现金流专项检验、场景检验和降档检验。最终结论为：履约能力充足且有冗余，资金稳定无背离，合作敞口承载极强；但现金流放量构成、利润上升来源、资产质量与资本缓冲等监管指标无披露，付款确定性未验证。对内对外可讲三句话：能力、稳定、边界。"
-          },
-          "configured_other_session_weight": 0.7
-        },
-        "simulated_process": {
-          "candidates": [
-            {
-              "memory_id": "46f5aad8-d7a9-508d-bc5d-b0bbd1828d32",
-              "source_session": "S010",
-              "raw_score": 0.797,
-              "session_weight": 0.7,
-              "weighted_score": 0.558,
-              "rank_before": 1,
-              "rank_after": 2
-            },
-            {
-              "memory_id": "6bcc05c4-e6b3-5c91-87ac-0e91c4b39892",
-              "source_session": "S009",
-              "raw_score": 0.726,
-              "session_weight": 1.0,
-              "weighted_score": 0.726,
-              "rank_before": 2,
-              "rank_after": 1
-            }
-          ]
-        },
-        "simulation_boundary": "The target source used isolated user/run scopes and recorded zero cross-session recalls. Pairing and retrieval scores are hypothetical; memory texts and configured other_session_weight are observed."
-      },
-      "evidence": [
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S009/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "6bcc05c4-e6b3-5c91-87ac-0e91c4b39892",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S009/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "6bcc05c4-e6b3-5c91-87ac-0e91c4b39892",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S010/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "46f5aad8-d7a9-508d-bc5d-b0bbd1828d32",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S010/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "46f5aad8-d7a9-508d-bc5d-b0bbd1828d32",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
-          "table / collection": "fine_grained_longterm config",
-          "record_id": "other_session_weight",
-          "field": "other_session_weight"
-        }
-      ]
-    },
-    {
-      "candidate_id": "I-SIM-S007-S008-2",
-      "presentation_score": 82.95,
-      "why_good_for_ppt": "使用同公司两个真实 Session 的真实 Memory 文本，按生产配置 other_session_weight=0.7 演示反超；相关分数与同次检索为模拟。",
-      "session_id": "S007_美的集团_授信",
-      "query_id": "S007-Q002",
-      "memory_id": "ed415954-88c9-59a7-b084-be2d58477d6e / 8ac72888-69bf-5558-9eb4-89205b967211",
-      "job_id": null,
-      "display_data": {
-        "title": "其他 Session 原始分更高 → 降权后当前 Session 反超",
-        "current_question": "现金流先升后降对偿债第一来源意味着什么？",
-        "input": [
-          "当前：用户询问美的集团2023-2025年经营现金流先升后降对偿债第一来源的含义。助手分析指出，现金流作为第一偿债来源，规模仍在（20…",
-          "其他：用户询问美的集团收入增量逐年扩大、资产在2024年一次性大幅扩张、现金流先升后降的扩张节奏错位对供应链交易稳定性和订单连续性的含…"
-        ],
-        "process": "SIMULATED：其他 Session × 0.7",
-        "output": "Rank：其他#1/当前#2 → 当前#1/其他#2",
-        "key_number": "0.804×0.7=0.563 < 0.722",
-        "conclusion": "仅 Memory 内容与 0.7 权重真实；同次检索及分数为模拟。",
-        "simulation_label": "SIMULATED"
-      },
-      "raw_data": {
-        "observed_input": {
-          "query": "现金流先升后降对偿债第一来源意味着什么？",
-          "current_session_memory": {
-            "memory_id": "ed415954-88c9-59a7-b084-be2d58477d6e",
-            "source_session": "S007",
-            "summary": "用户询问美的集团2023-2025年经营现金流先升后降对偿债第一来源的含义。助手分析指出，现金流作为第一偿债来源，规模仍在（2025年533.46亿元），但强度在变薄：回收率（现金流/收入）从15.6%降至11.7%，2025年收入增长12.11%而现金流下降11.84%，背离扩大；路径呈不对称的“小升一大跌”（2024年+26.09亿元，2025年-71.66亿元），2025年现金流较2023年低7.87%；三个口径（收入、资产、权益）的回收率均同步走弱。结论是：第一来源地位不变，但强度变薄、结构待查（无营运资本分项）、相对覆盖待补（无有息负债数据）；授信测算应锚定下沿533.46亿元，按当前回收率下沿取数，并关注现金流稳定性。"
-          },
-          "other_session_memory": {
-            "memory_id": "8ac72888-69bf-5558-9eb4-89205b967211",
-            "source_session": "S008",
-            "summary": "用户询问美的集团收入增量逐年扩大、资产在2024年一次性大幅扩张、现金流先升后降的扩张节奏错位对供应链交易稳定性和订单连续性的含义。助手基于三年底表数据（2023-2025年）分析，指出收入呈连续加速型（2024年+9.44%、2025年+12.11%，增量从351.13亿元增至493.02亿元），资产呈单年脉冲型（2024年+24.34%，净增1183.14亿元，占三年增量的96.4%），现金流呈先滞后后反转型（2024年+4.51%滞后于收入，2025年-11.84%反向）。三股节奏错位形成三种性质不同的错位：收入与资产为期差（资产领先收入约一年兑现），收入与现金为方向错位（先慢后反），资产与现金为背离（扩表同时转化率下滑）。对供应链的含义是：交易稳定性正面（收入连续加速支撑订单池），回款能力需跟踪（现金/收入比从15.6%降至11.7%，边际现金转化由正转负），供应保障待验证（资产脉冲去向不明）。助手将底表的静态轮廓升级为动态结构，并更新了四个监控锚点（现金/收入比、期末总资产周转、归母权益占比、收入与现金流增速剪刀差），新增转化率下滑加速比（第二段3.2个百分点约为第一段0.7个百分点的4.6倍）作为附加观察点。整体判断为'正面但带保留'，需后续验证资产脉冲去向、现金反转成因和转化率是否续降。"
-          },
-          "configured_other_session_weight": 0.7
-        },
-        "simulated_process": {
-          "candidates": [
-            {
-              "memory_id": "8ac72888-69bf-5558-9eb4-89205b967211",
-              "source_session": "S008",
-              "raw_score": 0.804,
-              "session_weight": 0.7,
-              "weighted_score": 0.563,
-              "rank_before": 1,
-              "rank_after": 2
-            },
-            {
-              "memory_id": "ed415954-88c9-59a7-b084-be2d58477d6e",
-              "source_session": "S007",
-              "raw_score": 0.722,
-              "session_weight": 1.0,
-              "weighted_score": 0.722,
-              "rank_before": 2,
-              "rank_after": 1
-            }
-          ]
-        },
-        "simulation_boundary": "The target source used isolated user/run scopes and recorded zero cross-session recalls. Pairing and retrieval scores are hypothetical; memory texts and configured other_session_weight are observed."
-      },
-      "evidence": [
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S007/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "ed415954-88c9-59a7-b084-be2d58477d6e",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S007/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "ed415954-88c9-59a7-b084-be2d58477d6e",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S008/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "8ac72888-69bf-5558-9eb4-89205b967211",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S008/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "8ac72888-69bf-5558-9eb4-89205b967211",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
-          "table / collection": "fine_grained_longterm config",
-          "record_id": "other_session_weight",
-          "field": "other_session_weight"
-        }
-      ]
-    },
-    {
-      "candidate_id": "I-SIM-S007-S008-1",
-      "presentation_score": 82.5,
-      "why_good_for_ppt": "使用同公司两个真实 Session 的真实 Memory 文本，按生产配置 other_session_weight=0.7 演示反超；相关分数与同次检索为模拟。",
-      "session_id": "S007_美的集团_授信",
-      "query_id": "S007-Q001",
-      "memory_id": "879f7bac-c4c1-5285-bd0c-d12a12424bce / fc2665d6-c6f5-5507-8849-c624a5e40af4",
-      "job_id": null,
-      "display_data": {
-        "title": "其他 Session 原始分更高 → 降权后当前 Session 反超",
-        "current_question": "先对美的集团2023–2025年报做个整体画像：收入、经营现金流、总资产和权益…",
-        "input": [
-          "当前：用户要求对美的集团2023-2025年报进行整体画像，分析收入、经营现金流、总资产和权益的三年数据及形态，并初步评估偿债能力。助…",
-          "其他：用户要求将美的集团2023-2025年营业收入、经营现金流净额、总资产、归母股东权益四条主线拉成三年底表并给出整体轮廓。助手基于…"
-        ],
-        "process": "SIMULATED：其他 Session × 0.7",
-        "output": "Rank：其他#1/当前#2 → 当前#1/其他#2",
-        "key_number": "0.811×0.7=0.568 < 0.718",
-        "conclusion": "仅 Memory 内容与 0.7 权重真实；同次检索及分数为模拟。",
-        "simulation_label": "SIMULATED"
-      },
-      "raw_data": {
-        "observed_input": {
-          "query": "先对美的集团2023–2025年报做个整体画像：收入、经营现金流、总资产和权益三年各是多少、什么形态，哪些指标有数哪些没数，初步看偿债能力如何。",
-          "current_session_memory": {
-            "memory_id": "879f7bac-c4c1-5285-bd0c-d12a12424bce",
-            "source_session": "S007",
-            "summary": "用户要求对美的集团2023-2025年报进行整体画像，分析收入、经营现金流、总资产和权益的三年数据及形态，并初步评估偿债能力。助手提供了三年底表：营业收入3,720.37/4,071.5/4,564.52亿元（连续上升，同比+9.44%、+12.11%）；经营现金流净额579.03/605.12/533.46亿元（先升后降，同比+4.51%、-11.84%）；总资产4,860.38/6,043.52/6,087.92亿元（先升后平，同比+24.34%、+0.73%）；归母股东权益1,628.79/2,167.5/2,232.21亿元（先升后平，同比+33.07%、+2.99%）。明确数据缺口：无归母净利润/净利润、扣非净利润、毛利率、费用率、分产品/分地区收入、有息负债明细。初步偿债印象：经营现金流为第一偿债来源（500亿级），但回收强度走弱（现金流/收入比15.6%→11.7%），资产安全边际方向改善但厚度不明。后续对话围绕现金流稳定性、覆盖水平、利润缺口影响及2025年现金流回落归因展开。"
-          },
-          "other_session_memory": {
-            "memory_id": "fc2665d6-c6f5-5507-8849-c624a5e40af4",
-            "source_session": "S008",
-            "summary": "用户要求将美的集团2023-2025年营业收入、经营现金流净额、总资产、归母股东权益四条主线拉成三年底表并给出整体轮廓。助手基于真实上市公司公开历史披露（年报来源日期2026-03-31，单位亿元）完成底表：营业收入3,720.37→4,071.5→4,564.52亿元，同比+9.44%、+12.11%，连续加速；经营现金流净额579.03→605.12→533.46亿元，同比+4.51%、-11.84%，先升后降；总资产4,860.38→6,043.52→6,087.92亿元，同比+24.34%、+0.73%，先升后平；归母股东权益1,628.79→2,167.5→2,232.21亿元，同比+33.07%、+2.99%，先升后平。整体轮廓为“收入向上、现金向下”，2024年为扩张年，2025年为收敛分化年。助手进一步计算派生比率：现金/收入比约15.6%→14.9%→11.7%，期末总资产周转近似0.765→0.674→0.750倍，归母权益占总资产比重约33.5%→35.9%→36.7%，收入与现金流增速剪刀差约4.9→24.0个百分点。并完成稳健性检查，确认结论方向稳定。从供应链风控视角给出初步印象：交易稳定性正面、回款强度需跟踪、盈利与账期维度留白。信息边界：净利润、扣非净利润、账期明细、资产构成、现金流分项均缺失，不填补估计值。"
-          },
-          "configured_other_session_weight": 0.7
-        },
-        "simulated_process": {
-          "candidates": [
-            {
-              "memory_id": "fc2665d6-c6f5-5507-8849-c624a5e40af4",
-              "source_session": "S008",
-              "raw_score": 0.811,
-              "session_weight": 0.7,
-              "weighted_score": 0.568,
-              "rank_before": 1,
-              "rank_after": 2
-            },
-            {
-              "memory_id": "879f7bac-c4c1-5285-bd0c-d12a12424bce",
-              "source_session": "S007",
-              "raw_score": 0.718,
-              "session_weight": 1.0,
-              "weighted_score": 0.718,
-              "rank_before": 2,
-              "rank_after": 1
-            }
-          ]
-        },
-        "simulation_boundary": "The target source used isolated user/run scopes and recorded zero cross-session recalls. Pairing and retrieval scores are hypothetical; memory texts and configured other_session_weight are observed."
-      },
-      "evidence": [
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S007/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "879f7bac-c4c1-5285-bd0c-d12a12424bce",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S007/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "879f7bac-c4c1-5285-bd0c-d12a12424bce",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S008/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "fc2665d6-c6f5-5507-8849-c624a5e40af4",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S008/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "fc2665d6-c6f5-5507-8849-c624a5e40af4",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
-          "table / collection": "fine_grained_longterm config",
-          "record_id": "other_session_weight",
-          "field": "other_session_weight"
-        }
-      ]
-    },
-    {
-      "candidate_id": "I-SIM-S005-S006-2",
-      "presentation_score": 82.05,
-      "why_good_for_ppt": "使用同公司两个真实 Session 的真实 Memory 文本，按生产配置 other_session_weight=0.7 演示反超；相关分数与同次检索为模拟。",
-      "session_id": "S005_宁德时代_合规",
-      "query_id": "S005-Q002",
-      "memory_id": "555f349d-78a4-5b18-be47-9c46f6be1bf3 / f5ea3d32-cc36-5396-8dad-ad6317594e58",
-      "job_id": null,
-      "display_data": {
-        "title": "其他 Session 原始分更高 → 降权后当前 Session 反超",
-        "current_question": "底表数字先钉口径和来源：这组三年数字各是什么口径、来自哪份披露，2024年收入…",
-        "input": [
-          "当前：用户要求将宁德时代2023—2025年三年底表按年拆开对照，明确2023基数年、2024反向年、2025同向年各自的正确表述和表…",
-          "其他：用户要求对宁德时代2023-2025年三年底表进行口径一致性初查。助手确认了五项可确认事项：数据同源（唯一指定披露文件，2026…"
-        ],
-        "process": "SIMULATED：其他 Session × 0.7",
-        "output": "Rank：其他#1/当前#2 → 当前#1/其他#2",
-        "key_number": "0.818×0.7=0.573 < 0.714",
-        "conclusion": "仅 Memory 内容与 0.7 权重真实；同次检索及分数为模拟。",
-        "simulation_label": "SIMULATED"
-      },
-      "raw_data": {
-        "observed_input": {
-          "query": "底表数字先钉口径和来源：这组三年数字各是什么口径、来自哪份披露，2024年收入降利润升的错位在表述上哪些话能说、哪些不能说？",
-          "current_session_memory": {
-            "memory_id": "555f349d-78a4-5b18-be47-9c46f6be1bf3",
-            "source_session": "S005",
-            "summary": "用户要求将宁德时代2023—2025年三年底表按年拆开对照，明确2023基数年、2024反向年、2025同向年各自的正确表述和表述红线。助手给出总结论：2023年为基数年，无同比，只报原数；2024年为反向年，收入降9.70%与利润升15.01%必须成对披露，归因止于净利率路径（约11.00%升至约14.02%）；2025年为同向年，收入升17.04%、利润升42.28%，成对披露仍适用，增速差只作算术事实。三年合一表述为“收入先降后升、利润连续上升”，并列出五条红线：方向成对、算术归因、缺口明示、形态词一致、不预测。所有数字均来自2026年3月10日披露的年报文件，口径为归母净利润、归母股东权益，单位亿元。"
-          },
-          "other_session_memory": {
-            "memory_id": "f5ea3d32-cc36-5396-8dad-ad6317594e58",
-            "source_session": "S006",
-            "summary": "用户要求对宁德时代2023-2025年三年底表进行口径一致性初查。助手确认了五项可确认事项：数据同源（唯一指定披露文件，2026-03-10发布）、单位统一为亿元、期间数与时点数划分清晰、八项同比全部复现、五组比率勾稽无矛盾；同时列出八项不可确认的缺口，包括无第二来源交叉验证、无2022年期初数导致平均口径不可行、经营现金流与扣非等数据缺失。初查发现2025年周转率在平均口径下持平（约0.481倍）、期初口径下回升（约0.539倍），与期末口径连降（0.435倍）方向不同，因此'周转连续下降'修正为期末口径专属结论；权益回报'未收复2023起点'也限定为期末口径专属。两个已立案异常点（收入利润错位、2025年权益超额增量179.77亿元）在口径层面均维持'数字自洽、成因待核'。初查确立了引用纪律：数字三分类（披露原数、精确复算、近似复算），引用必须带单位、年份和口径标注。下一步进入盈利路径章复核净利率抬升构成。"
-          },
-          "configured_other_session_weight": 0.7
-        },
-        "simulated_process": {
-          "candidates": [
-            {
-              "memory_id": "f5ea3d32-cc36-5396-8dad-ad6317594e58",
-              "source_session": "S006",
-              "raw_score": 0.818,
-              "session_weight": 0.7,
-              "weighted_score": 0.573,
-              "rank_before": 1,
-              "rank_after": 2
-            },
-            {
-              "memory_id": "555f349d-78a4-5b18-be47-9c46f6be1bf3",
-              "source_session": "S005",
-              "raw_score": 0.714,
-              "session_weight": 1.0,
-              "weighted_score": 0.714,
-              "rank_before": 2,
-              "rank_after": 1
-            }
-          ]
-        },
-        "simulation_boundary": "The target source used isolated user/run scopes and recorded zero cross-session recalls. Pairing and retrieval scores are hypothetical; memory texts and configured other_session_weight are observed."
-      },
-      "evidence": [
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S005/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "555f349d-78a4-5b18-be47-9c46f6be1bf3",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S005/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "555f349d-78a4-5b18-be47-9c46f6be1bf3",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S006/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "f5ea3d32-cc36-5396-8dad-ad6317594e58",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S006/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "f5ea3d32-cc36-5396-8dad-ad6317594e58",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
-          "table / collection": "fine_grained_longterm config",
-          "record_id": "other_session_weight",
-          "field": "other_session_weight"
-        }
-      ]
-    },
-    {
-      "candidate_id": "I-SIM-S005-S006-1",
-      "presentation_score": 81.65,
-      "why_good_for_ppt": "使用同公司两个真实 Session 的真实 Memory 文本，按生产配置 other_session_weight=0.7 演示反超；相关分数与同次检索为模拟。",
-      "session_id": "S005_宁德时代_合规",
-      "query_id": "S005-Q001",
-      "memory_id": "5f9504f5-68c4-5a02-acd1-86b62b351ce1 / 279a27b1-8dbb-57d1-94ee-c561e8c39a54",
-      "job_id": null,
-      "display_data": {
-        "title": "其他 Session 原始分更高 → 降权后当前 Session 反超",
-        "current_question": "先按年度把宁德时代2023—2025年营业收入、归母净利润、归母股东权益、总资…",
-        "input": [
-          "当前：用户要求按年度将宁德时代2023—2025年营业收入、归母净利润、归母股东权益、总资产拉成三年底表，逐项说明形态，并标出最需合规…",
-          "其他：用户要求梳理宁德时代2023—2025年主要财务变化并建立三年底表。助手基于唯一指定披露文件（发布于2026-03-10）构建了…"
-        ],
-        "process": "SIMULATED：其他 Session × 0.7",
-        "output": "Rank：其他#1/当前#2 → 当前#1/其他#2",
-        "key_number": "0.825×0.7=0.577 < 0.710",
-        "conclusion": "仅 Memory 内容与 0.7 权重真实；同次检索及分数为模拟。",
-        "simulation_label": "SIMULATED"
-      },
-      "raw_data": {
-        "observed_input": {
-          "query": "先按年度把宁德时代2023—2025年营业收入、归母净利润、归母股东权益、总资产拉成三年底表，逐项说清形态，再把最需要合规关注的错位点标出来。",
-          "current_session_memory": {
-            "memory_id": "5f9504f5-68c4-5a02-acd1-86b62b351ce1",
-            "source_session": "S005",
-            "summary": "用户要求按年度将宁德时代2023—2025年营业收入、归母净利润、归母股东权益、总资产拉成三年底表，逐项说明形态，并标出最需合规关注的错位点。助手基于2026年3月10日披露的年报文件（唯一来源）给出完整底表：营业收入4,009.17/3,620.13/4,237.02亿元（同比-9.70%/+17.04%，先降后升），归母净利润441.21/507.45/722.01亿元（同比+15.01%/+42.28%，连续上升），归母股东权益1,977.08/2,469.30/3,371.08亿元（同比+24.90%/+36.52%，连续上升），总资产7,171.68/7,866.58/9,748.28亿元（同比+9.69%/+23.92%，连续上升）。核心错位点为2024年收入下降9.70%而利润增长15.01%，方向相反。助手强调合规表述边界：净利润必须带“归母”前缀，权益为期末时点数，派生比率（净利率约11.00%/14.02%/17.04%，周转近似0.559/0.460/0.435倍，期末近似权益回报约22.3%/20.6%/21.4%，权益占比约27.6%/31.4%/34.6%）必须带“约/近似”，并列出信息缺口（经营现金流、扣非净利润、毛利率、费用率、出货量、产能、单位成本均无三年披露数值，不可评价）。同时给出利润分解（2024年收入效应约-42.8亿元、净利率效应约+109.1亿元；2025年约+86.5亿元、+128.1亿元），并明确不预测、不引第三方、不带内部待核对项（如权益差额276.67亿元）。"
-          },
-          "other_session_memory": {
-            "memory_id": "279a27b1-8dbb-57d1-94ee-c561e8c39a54",
-            "source_session": "S006",
-            "summary": "用户要求梳理宁德时代2023—2025年主要财务变化并建立三年底表。助手基于唯一指定披露文件（发布于2026-03-10）构建了包含营业收入、归母净利润、总资产、归母股东权益的底表，并进行了详细复核。核心发现：收入先降后升（4,009.17→3,620.13→4,237.02亿元，同比-9.70%、+17.04%），利润连续上升（441.21→507.45→722.01亿元，同比+15.01%、+42.28%），资产和权益连续上升且加速。收入与利润错位（2024年方向背离、2025年幅度背离）由净利率连续抬升（11.00%→14.02%→17.04%）解释，累计约91%的利润增量来自净利率抬升。2025年权益增量超当期利润179.77亿元，来源待核。整体定性为“数字自洽、成因待核”，并列出八项信息缺口及后续复核安排。"
-          },
-          "configured_other_session_weight": 0.7
-        },
-        "simulated_process": {
-          "candidates": [
-            {
-              "memory_id": "279a27b1-8dbb-57d1-94ee-c561e8c39a54",
-              "source_session": "S006",
-              "raw_score": 0.825,
-              "session_weight": 0.7,
-              "weighted_score": 0.577,
-              "rank_before": 1,
-              "rank_after": 2
-            },
-            {
-              "memory_id": "5f9504f5-68c4-5a02-acd1-86b62b351ce1",
-              "source_session": "S005",
-              "raw_score": 0.71,
-              "session_weight": 1.0,
-              "weighted_score": 0.71,
-              "rank_before": 2,
-              "rank_after": 1
-            }
-          ]
-        },
-        "simulation_boundary": "The target source used isolated user/run scopes and recorded zero cross-session recalls. Pairing and retrieval scores are hypothetical; memory texts and configured other_session_weight are observed."
-      },
-      "evidence": [
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S005/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "5f9504f5-68c4-5a02-acd1-86b62b351ce1",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S005/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "5f9504f5-68c4-5a02-acd1-86b62b351ce1",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S006/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "279a27b1-8dbb-57d1-94ee-c561e8c39a54",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S006/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "279a27b1-8dbb-57d1-94ee-c561e8c39a54",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
-          "table / collection": "fine_grained_longterm config",
-          "record_id": "other_session_weight",
-          "field": "other_session_weight"
-        }
-      ]
-    },
-    {
-      "candidate_id": "I-SIM-S003-S004-2",
-      "presentation_score": 81.2,
-      "why_good_for_ppt": "使用同公司两个真实 Session 的真实 Memory 文本，按生产配置 other_session_weight=0.7 演示反超；相关分数与同次检索为模拟。",
-      "session_id": "S003_比亚迪_风委",
-      "query_id": "S003-Q002",
-      "memory_id": "e3e34ea1-ef6a-5e49-9e41-b40157075254 / 8f7a6ce5-1943-5700-91c3-a98bfcafcac4",
-      "job_id": null,
-      "display_data": {
-        "title": "其他 Session 原始分更高 → 降权后当前 Session 反超",
-        "current_question": "收入升、利润先升后降、现金流连降，这种背离的风险含义是什么？",
-        "input": [
-          "当前：用户询问收入升、利润先升后降、现金流连降这一背离的风险含义。助手基于比亚迪2023-2025年财务数据（营业收入6,023.15…",
-          "其他：用户要求将业绩沟通底稿二稿转为幻灯片，并给出每张图的建议和标注规范。助手提供了五张图的设计方案，包括收入柱状图、利润柱状图、三线…"
-        ],
-        "process": "SIMULATED：其他 Session × 0.7",
-        "output": "Rank：其他#1/当前#2 → 当前#1/其他#2",
-        "key_number": "0.832×0.7=0.582 < 0.706",
-        "conclusion": "仅 Memory 内容与 0.7 权重真实；同次检索及分数为模拟。",
-        "simulation_label": "SIMULATED"
-      },
-      "raw_data": {
-        "observed_input": {
-          "query": "收入升、利润先升后降、现金流连降，这种背离的风险含义是什么？",
-          "current_session_memory": {
-            "memory_id": "e3e34ea1-ef6a-5e49-9e41-b40157075254",
-            "source_session": "S003",
-            "summary": "用户询问收入升、利润先升后降、现金流连降这一背离的风险含义。助手基于比亚迪2023-2025年财务数据（营业收入6,023.15→7,771.02→8,039.65亿元，归母净利润300.41→402.54→326.19亿元，经营现金流1,697.25→1,334.54→591.36亿元）展开分析，指出背离本质是盈利转化率与现金转化率的两段式衰减：2024年先断利润→现金传导（利润+34.00%而现金流-21.37%），2025年再断收入→利润传导（收入+3.46%而利润-18.97%），断裂由下游向上游蔓延，现金流恶化领先利润一年。风险含义上，现金流是唯一无反证的持续恶化项，风险权重最高；利润与现金流错位重于收入与利润错位。反证包括现金流三年为正、现金利润比1.81倍仍大于1、负债占比近似下降等，定性为边际恶化型而非危机型。成因上，现金流下降无法区分营运资本占用与回款质量恶化，投资筹资现金流无披露，只能并列假说。监测位置固定为现金利润比与1倍分界、收入利润弹性符号、非经常损益占比。"
-          },
-          "other_session_memory": {
-            "memory_id": "8f7a6ce5-1943-5700-91c3-a98bfcafcac4",
-            "source_session": "S004",
-            "summary": "用户要求将业绩沟通底稿二稿转为幻灯片，并给出每张图的建议和标注规范。助手提供了五张图的设计方案，包括收入柱状图、利润柱状图、三线增速对比图、现金含量与净利率对照图、权益与权益乘数对照图、现金利润比收敛图，并明确了图表标注五件套（单位、口径、时点或期间、同比或累计、数据来源）和三条禁令（禁止主观评价词、禁止预测延伸、禁止截断轴不说明），同时列出禁入清单（分析层数值、未披露科目、未来数据）。"
-          },
-          "configured_other_session_weight": 0.7
-        },
-        "simulated_process": {
-          "candidates": [
-            {
-              "memory_id": "8f7a6ce5-1943-5700-91c3-a98bfcafcac4",
-              "source_session": "S004",
-              "raw_score": 0.832,
-              "session_weight": 0.7,
-              "weighted_score": 0.582,
-              "rank_before": 1,
-              "rank_after": 2
-            },
-            {
-              "memory_id": "e3e34ea1-ef6a-5e49-9e41-b40157075254",
-              "source_session": "S003",
-              "raw_score": 0.706,
-              "session_weight": 1.0,
-              "weighted_score": 0.706,
-              "rank_before": 2,
-              "rank_after": 1
-            }
-          ]
-        },
-        "simulation_boundary": "The target source used isolated user/run scopes and recorded zero cross-session recalls. Pairing and retrieval scores are hypothetical; memory texts and configured other_session_weight are observed."
-      },
-      "evidence": [
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S003/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "e3e34ea1-ef6a-5e49-9e41-b40157075254",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S003/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "e3e34ea1-ef6a-5e49-9e41-b40157075254",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S004___IR/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "8f7a6ce5-1943-5700-91c3-a98bfcafcac4",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S004___IR/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "8f7a6ce5-1943-5700-91c3-a98bfcafcac4",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
-          "table / collection": "fine_grained_longterm config",
-          "record_id": "other_session_weight",
-          "field": "other_session_weight"
-        }
-      ]
-    },
-    {
-      "candidate_id": "I-SIM-S003-S004-1",
-      "presentation_score": 80.75,
-      "why_good_for_ppt": "使用同公司两个真实 Session 的真实 Memory 文本，按生产配置 other_session_weight=0.7 演示反超；相关分数与同次检索为模拟。",
-      "session_id": "S003_比亚迪_风委",
-      "query_id": "S003-Q001",
-      "memory_id": "0a8a2559-9375-558d-918f-309cf1538015 / d54eda22-3121-5243-8d22-62d79ef5de5a",
-      "job_id": null,
-      "display_data": {
-        "title": "其他 Session 原始分更高 → 降权后当前 Session 反超",
-        "current_question": "先整体看一下比亚迪2023到2025这三年的财务变化",
-        "input": [
-          "当前：用户要求整体查看比亚迪2023至2025年财务变化。助手基于2025年年报数据，梳理了营业收入、归母净利润、扣非归母净利润、经营…",
-          "其他：比亚迪投资者关系负责人要求梳理2023—2025年核心财务数字（收入、归母净利润、扣非、经营现金流、总资产、归母权益）的三年数值…"
-        ],
-        "process": "SIMULATED：其他 Session × 0.7",
-        "output": "Rank：其他#1/当前#2 → 当前#1/其他#2",
-        "key_number": "0.839×0.7=0.587 < 0.702",
-        "conclusion": "仅 Memory 内容与 0.7 权重真实；同次检索及分数为模拟。",
-        "simulation_label": "SIMULATED"
-      },
-      "raw_data": {
-        "observed_input": {
-          "query": "先整体看一下比亚迪2023到2025这三年的财务变化",
-          "current_session_memory": {
-            "memory_id": "0a8a2559-9375-558d-918f-309cf1538015",
-            "source_session": "S003",
-            "summary": "用户要求整体查看比亚迪2023至2025年财务变化。助手基于2025年年报数据，梳理了营业收入、归母净利润、扣非归母净利润、经营活动现金流净额、归母股东权益、总资产六项核心指标的三年变化，指出整体呈现“扩张中的现金收缩”特征：收入、权益、资产连续上升，利润2024年见顶后2025年回落，经营现金流连续且加速下降。助手对收入、利润、现金流、资产权益进行了分项分析，计算了净利率、现金利润比、ROE等比率，并进行了杜邦分解。随后助手将形态异常和背离整理成初步风险点清单，按证据强度分为硬证据（现金流下降、利润拐点、收入增速断崖）和待验证项（权益缺口、现金流成因），并给出风险排序。最后助手评估了反证，建立了尾部风险触发线（现金利润比破1、经营现金流转负、收入增速转负），并确定了复核优先级。"
-          },
-          "other_session_memory": {
-            "memory_id": "d54eda22-3121-5243-8d22-62d79ef5de5a",
-            "source_session": "S004",
-            "summary": "比亚迪投资者关系负责人要求梳理2023—2025年核心财务数字（收入、归母净利润、扣非、经营现金流、总资产、归母权益）的三年数值和两段同比，用于对外沟通底表。助手提供了完整数据：收入6023.15→7771.02→8039.65亿元（同比+29.02%、+3.46%），归母净利润300.41→402.54→326.19亿元（+34.00%、-18.97%），扣非284.62→369.83→294.46亿元（+29.94%、-20.38%），经营现金流1697.25→1334.54→591.36亿元（-21.37%、-55.69%），总资产6795.48→7833.56→8837.3亿元（+15.28%、+12.81%），归母权益1388.1→1852.51→2462.75亿元（+33.46%、+32.94%）。数据来源为2026-03-28发布的披露文件，单位亿元。助手分析了形态：规模端连续上升但收入增速2025年骤降，盈利端2024年见顶、2025年双降，现金流连续两年大幅下降且与利润错位，权益扩张快于资产、杠杆下行。识别出四个投资者追问点：现金流连降、利润双降、收入增速骤降、权益增量超净利，并准备了披露层面事实加边界内表述的口径。后续将三线（收入、利润、现金流）对照，形成对外沟通主线，并修订为二稿底稿，转成五张幻灯片图表。"
-          },
-          "configured_other_session_weight": 0.7
-        },
-        "simulated_process": {
-          "candidates": [
-            {
-              "memory_id": "d54eda22-3121-5243-8d22-62d79ef5de5a",
-              "source_session": "S004",
-              "raw_score": 0.839,
-              "session_weight": 0.7,
-              "weighted_score": 0.587,
-              "rank_before": 1,
-              "rank_after": 2
-            },
-            {
-              "memory_id": "0a8a2559-9375-558d-918f-309cf1538015",
-              "source_session": "S003",
-              "raw_score": 0.702,
-              "session_weight": 1.0,
-              "weighted_score": 0.702,
-              "rank_before": 2,
-              "rank_after": 1
-            }
-          ]
-        },
-        "simulation_boundary": "The target source used isolated user/run scopes and recorded zero cross-session recalls. Pairing and retrieval scores are hypothetical; memory texts and configured other_session_weight are observed."
-      },
-      "evidence": [
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S003/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "0a8a2559-9375-558d-918f-309cf1538015",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S003/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "0a8a2559-9375-558d-918f-309cf1538015",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S004___IR/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "d54eda22-3121-5243-8d22-62d79ef5de5a",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S004___IR/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "d54eda22-3121-5243-8d22-62d79ef5de5a",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
-          "table / collection": "fine_grained_longterm config",
-          "record_id": "other_session_weight",
-          "field": "other_session_weight"
-        }
-      ]
-    }
-  ],
-  "all_candidates": [
-    {
-      "candidate_id": "I-SIM-S001-S002-2",
-      "presentation_score": 88.3,
-      "why_good_for_ppt": "使用同公司两个真实 Session 的真实 Memory 文本，按生产配置 other_session_weight=0.7 演示反超；相关分数与同次检索为模拟。",
-      "session_id": "S001_贵州茅台_投研",
-      "query_id": "S001-Q002",
-      "memory_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe / 9615e38e-ddfa-5750-8a37-98d2d6d81f6b",
-      "job_id": null,
-      "display_data": {
-        "title": "其他 Session 原始分更高 → 降权后当前 Session 反超",
-        "current_question": "刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
-        "input": [
-          "当前：用户要求确认贵州茅台2023—2025年财务底表的来源、单位和比较口径的一致性及可确认程度。助手确认：来源为指定披露文件（202…",
-          "其他：用户询问底表数据的来源、单位和比较口径是否一致，以及作为审计底稿能确认到什么程度。助手确认：来源可追溯到指定披露文件（巨潮资讯网…"
-        ],
-        "process": "SIMULATED：其他 Session × 0.7",
-        "output": "Rank：其他#1/当前#2 → 当前#1/其他#2",
-        "key_number": "0.846×0.7=0.592 < 0.698",
-        "conclusion": "仅 Memory 内容与 0.7 权重真实；同次检索及分数为模拟。",
-        "simulation_label": "SIMULATED"
-      },
-      "raw_data": {
-        "observed_input": {
-          "query": "刚才梳理的底表，来源、单位和比较口径是否一致，能确认到什么程度？",
-          "current_session_memory": {
-            "memory_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
-            "source_session": "S001",
-            "summary": "用户要求确认贵州茅台2023—2025年财务底表的来源、单位和比较口径的一致性及可确认程度。助手确认：来源为指定披露文件（2026-04-17发布），数据为真实历史披露，单位统一为亿元，总资产2023年为整数披露，其余保留原精度；比较口径方面，利润与权益为归母口径，收入与资产为合并整体口径，同比均由原数复算且八个同比全部可复现；期末时点与期间数混合的比率（周转率、权益回报）标注为近似。不能确认的包括：无法逐页核对原文、无2022年数据、无指标定义细节及明细类指标（现金流、扣非、毛利率等）无披露。助手将可追溯性分为三级：披露原数、派生复算、分析判断，并制定了引用纪律：原数带来源、复算带公式与近似标记、缺口带无披露。复核结论为底表无需修订，可继续作为公共基准。"
-          },
-          "other_session_memory": {
-            "memory_id": "9615e38e-ddfa-5750-8a37-98d2d6d81f6b",
-            "source_session": "S002",
-            "summary": "用户询问底表数据的来源、单位和比较口径是否一致，以及作为审计底稿能确认到什么程度。助手确认：来源可追溯到指定披露文件（巨潮资讯网静态页，2026-04-17发布），单位统一为亿元，利润与权益取归母口径、收入与资产取整体口径且三年未变，八个同比全部可由原数复现；比率中净利率、权益乘数、非权益占比为精确复算，总资产周转与权益回报为期末/期间混口径近似。确认程度为“披露数值层”，即数值自洽、来源明确、口径固定，可锁定为后续引用基准；但原文级、定义级、基期级、重述风险、报表勾稽、范围界定六项保留未确认。助手还建立了追溯强度三档（原数/派生/判断）、口径归类表、控制点清单（录入、口径、复算、档位标签、保留意见登记），并说明口径确认对后续章节的传导作用。"
-          },
-          "configured_other_session_weight": 0.7
-        },
-        "simulated_process": {
-          "candidates": [
-            {
-              "memory_id": "9615e38e-ddfa-5750-8a37-98d2d6d81f6b",
-              "source_session": "S002",
-              "raw_score": 0.846,
-              "session_weight": 0.7,
-              "weighted_score": 0.592,
-              "rank_before": 1,
-              "rank_after": 2
-            },
-            {
-              "memory_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
-              "source_session": "S001",
-              "raw_score": 0.698,
-              "session_weight": 1.0,
-              "weighted_score": 0.698,
-              "rank_before": 2,
-              "rank_after": 1
-            }
-          ]
-        },
-        "simulation_boundary": "The target source used isolated user/run scopes and recorded zero cross-session recalls. Pairing and retrieval scores are hypothetical; memory texts and configured other_session_weight are observed."
-      },
-      "evidence": [
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "f98c6dd6-8417-5a0e-a505-60f85664e0fe",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S002/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "9615e38e-ddfa-5750-8a37-98d2d6d81f6b",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S002/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "9615e38e-ddfa-5750-8a37-98d2d6d81f6b",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
-          "table / collection": "fine_grained_longterm config",
-          "record_id": "other_session_weight",
-          "field": "other_session_weight"
-        }
-      ]
-    },
-    {
-      "candidate_id": "I-SIM-S001-S002-1",
-      "presentation_score": 87.85,
-      "why_good_for_ppt": "使用同公司两个真实 Session 的真实 Memory 文本，按生产配置 other_session_weight=0.7 演示反超；相关分数与同次检索为模拟。",
-      "session_id": "S001_贵州茅台_投研",
-      "query_id": "S001-Q001",
-      "memory_id": "c6ee270c-d6cd-5972-9e46-d5feda47386f / 1a2ba249-5ced-5f36-8288-ed72fe8f07fd",
-      "job_id": null,
-      "display_data": {
-        "title": "其他 Session 原始分更高 → 降权后当前 Session 反超",
-        "current_question": "先帮我梳理一下贵州茅台2023—2025年的主要财务变化。",
-        "input": [
-          "当前：用户要求梳理贵州茅台2023—2025年主要财务变化，并随后进行多轮分析。本轮助手基于指定来源披露文件（发布于2026-04-1…",
-          "其他：用户要求将2023—2025年贵州茅台年报关键财务底表（营收、归母净利、总资产、归母权益）建立起来，并分析三年走势与拐点。助手提…"
-        ],
-        "process": "SIMULATED：其他 Session × 0.7",
-        "output": "Rank：其他#1/当前#2 → 当前#1/其他#2",
-        "key_number": "0.853×0.7=0.597 < 0.694",
-        "conclusion": "仅 Memory 内容与 0.7 权重真实；同次检索及分数为模拟。",
-        "simulation_label": "SIMULATED"
-      },
-      "raw_data": {
-        "observed_input": {
-          "query": "先帮我梳理一下贵州茅台2023—2025年的主要财务变化。",
-          "current_session_memory": {
-            "memory_id": "c6ee270c-d6cd-5972-9e46-d5feda47386f",
-            "source_session": "S001",
-            "summary": "用户要求梳理贵州茅台2023—2025年主要财务变化，并随后进行多轮分析。本轮助手基于指定来源披露文件（发布于2026-04-17）提供的数据，梳理了营业收入、归母净利润、总资产、归母股东权益四项指标的三年数值、同比、增量及形态，并计算了近似净利率、总资产周转、权益回报等比率。核心结论为：2024年是增速高点年，2025年是方向拐点年；收入与利润先升后降，资产与权益连续上升但减速；2025年利润降幅（-4.53%）显著大于收入降幅（-1.21%），净利率从50.46%降至48.76%，是利润下滑的主因（约占七成五）；高基数仅解释摆幅的一到两成。数据口径为亿元，同比由原数复算，总资产2023年为整数披露。"
-          },
-          "other_session_memory": {
-            "memory_id": "1a2ba249-5ced-5f36-8288-ed72fe8f07fd",
-            "source_session": "S002",
-            "summary": "用户要求将2023—2025年贵州茅台年报关键财务底表（营收、归母净利、总资产、归母权益）建立起来，并分析三年走势与拐点。助手提供了三年数值与同比：营收1,476.94/1,708.99/1,688.38亿元（+15.71%/-1.21%），归母净利747.34/862.28/823.20亿元（+15.38%/-4.53%），总资产2,727/2,989.45/3,038.35亿元（+9.62%/+1.64%），归母权益2,156.69/2,331.06/2,446.38亿元（+8.09%/+4.95%）。判断2024年为收入利润双高点，2025年收入利润转负、资产权益仍增长但减速，形成“存量升、增量降”的结构性信号。助手完成同比复算、比率分析（净利率50.60%/50.46%/48.76%，周转0.542/0.572/0.556倍，权益回报约34.7%/37.0%/33.6%），两因素分解显示2025年利润降幅约七成由净利率回落驱动，并列出信息缺口（无经营现金流、扣非、毛利率、费用率、分红等）。数据来源为指定披露文件（2026-04-17发布），单位亿元，利润权益归母口径、收入资产整体口径。"
-          },
-          "configured_other_session_weight": 0.7
-        },
-        "simulated_process": {
-          "candidates": [
-            {
-              "memory_id": "1a2ba249-5ced-5f36-8288-ed72fe8f07fd",
-              "source_session": "S002",
-              "raw_score": 0.853,
-              "session_weight": 0.7,
-              "weighted_score": 0.597,
-              "rank_before": 1,
-              "rank_after": 2
-            },
-            {
-              "memory_id": "c6ee270c-d6cd-5972-9e46-d5feda47386f",
-              "source_session": "S001",
-              "raw_score": 0.694,
-              "session_weight": 1.0,
-              "weighted_score": 0.694,
-              "rank_before": 2,
-              "rank_after": 1
-            }
-          ]
-        },
-        "simulation_boundary": "The target source used isolated user/run scopes and recorded zero cross-session recalls. Pairing and retrieval scores are hypothetical; memory texts and configured other_session_weight are observed."
-      },
-      "evidence": [
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "c6ee270c-d6cd-5972-9e46-d5feda47386f",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "c6ee270c-d6cd-5972-9e46-d5feda47386f",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S002/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "1a2ba249-5ced-5f36-8288-ed72fe8f07fd",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S002/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "1a2ba249-5ced-5f36-8288-ed72fe8f07fd",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
-          "table / collection": "fine_grained_longterm config",
-          "record_id": "other_session_weight",
-          "field": "other_session_weight"
-        }
-      ]
-    },
-    {
-      "candidate_id": "I-SIM-S009-S010-2",
-      "presentation_score": 83.85,
-      "why_good_for_ppt": "使用同公司两个真实 Session 的真实 Memory 文本，按生产配置 other_session_weight=0.7 演示反超；相关分数与同次检索为模拟。",
-      "session_id": "S009_招商银行_并购",
-      "query_id": "S009-Q002",
-      "memory_id": "9d35a920-5b09-5ce6-ba4f-6d5d4b65b165 / ea8c8ee1-1d18-588d-84dc-23bb561680d3",
-      "job_id": null,
-      "display_data": {
-        "title": "其他 Session 原始分更高 → 降权后当前 Session 反超",
-        "current_question": "经营现金流三年都在3,500亿以上、总资产三年扩了约两成，收入却基本没动。银行…",
-        "input": [
-          "当前：用户询问在银行口径下如何正确理解招商银行2023-2025年经营现金流与总资产扩张，以及缺失净息差、不良率等监管指标对画像和可比…",
-          "其他：用户要求结合三年底表，将关键指标形态与履约能力、资金稳定对应，给出履约能力初步判断，并确认披露与口径边界。助手回应：履约能力初步…"
-        ],
-        "process": "SIMULATED：其他 Session × 0.7",
-        "output": "Rank：其他#1/当前#2 → 当前#1/其他#2",
-        "key_number": "0.790×0.7=0.553 < 0.730",
-        "conclusion": "仅 Memory 内容与 0.7 权重真实；同次检索及分数为模拟。",
-        "simulation_label": "SIMULATED"
-      },
-      "raw_data": {
-        "observed_input": {
-          "query": "经营现金流三年都在3,500亿以上、总资产三年扩了约两成，收入却基本没动。银行口径和制造业不一样，这两行数字该怎么正确理解？缺了净息差、不良率这类监管指标，画像和可比性会被限制在哪？",
-          "current_session_memory": {
-            "memory_id": "9d35a920-5b09-5ce6-ba4f-6d5d4b65b165",
-            "source_session": "S009",
-            "summary": "用户询问在银行口径下如何正确理解招商银行2023-2025年经营现金流与总资产扩张，以及缺失净息差、不良率等监管指标对画像和可比性的限制。助手回答：银行口径下，经营现金流是存贷款、金融投资等资产负债表摆布的结果，不能按制造业逻辑解读为利润含金量；总资产扩张是信贷、投资、同业行为的合计，无结构数据则无法判断扩张质量。缺失净息差、不良率、拨备覆盖率、资本充足率、存贷结构、收入结构等指标，导致画像只能停留在规模与形状层面，可比性仅限自身三年纵向，无法做同业横向比较。复核底稿应固化口径声明，并列出可读清单与待补数据清单。"
-          },
-          "other_session_memory": {
-            "memory_id": "ea8c8ee1-1d18-588d-84dc-23bb561680d3",
-            "source_session": "S010",
-            "summary": "用户要求结合三年底表，将关键指标形态与履约能力、资金稳定对应，给出履约能力初步判断，并确认披露与口径边界。助手回应：履约能力初步判断为正面、扎实、有冗余，依据是利润连续上升、现金流先升后平站稳高位、权益与资产连续增厚；背景是收入先降后平；边界是银行监管指标（净息差、不良率、拨备覆盖率、资本充足率、存贷结构）与收入结构无披露，属信息缺口。助手将证据分为A档（披露原数）、B档（间接推断）、C档（信息缺口），并给出三维初步画像：履约能力（强且有冗余）、资金稳定（稳定、波动向上）、合作敞口（承载极强、风险在己方）。"
-          },
-          "configured_other_session_weight": 0.7
-        },
-        "simulated_process": {
-          "candidates": [
-            {
-              "memory_id": "ea8c8ee1-1d18-588d-84dc-23bb561680d3",
-              "source_session": "S010",
-              "raw_score": 0.79,
-              "session_weight": 0.7,
-              "weighted_score": 0.553,
-              "rank_before": 1,
-              "rank_after": 2
-            },
-            {
-              "memory_id": "9d35a920-5b09-5ce6-ba4f-6d5d4b65b165",
-              "source_session": "S009",
-              "raw_score": 0.73,
-              "session_weight": 1.0,
-              "weighted_score": 0.73,
-              "rank_before": 2,
-              "rank_after": 1
-            }
-          ]
-        },
-        "simulation_boundary": "The target source used isolated user/run scopes and recorded zero cross-session recalls. Pairing and retrieval scores are hypothetical; memory texts and configured other_session_weight are observed."
-      },
-      "evidence": [
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S009/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "9d35a920-5b09-5ce6-ba4f-6d5d4b65b165",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S009/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "9d35a920-5b09-5ce6-ba4f-6d5d4b65b165",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S010/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "ea8c8ee1-1d18-588d-84dc-23bb561680d3",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S010/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "ea8c8ee1-1d18-588d-84dc-23bb561680d3",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
-          "table / collection": "fine_grained_longterm config",
-          "record_id": "other_session_weight",
-          "field": "other_session_weight"
-        }
-      ]
-    },
-    {
-      "candidate_id": "I-SIM-S009-S010-1",
-      "presentation_score": 83.4,
-      "why_good_for_ppt": "使用同公司两个真实 Session 的真实 Memory 文本，按生产配置 other_session_weight=0.7 演示反超；相关分数与同次检索为模拟。",
-      "session_id": "S009_招商银行_并购",
-      "query_id": "S009-Q001",
-      "memory_id": "6bcc05c4-e6b3-5c91-87ac-0e91c4b39892 / 46f5aad8-d7a9-508d-bc5d-b0bbd1828d32",
-      "job_id": null,
-      "display_data": {
-        "title": "其他 Session 原始分更高 → 降权后当前 Session 反超",
-        "current_question": "把招商银行2023–2025年营业收入、归母净利润、扣非、经营现金流、总资产、…",
-        "input": [
-          "当前：用户要求梳理招商银行2023-2025年营业收入、归母净利润、扣非、经营现金流、总资产、归母权益六项底表数据，并分析三年画像。助…",
-          "其他：用户要求对招商银行2023-2025年财务数据进行整体画像，作为采购信用评估的起点。助手提供了三年底表，显示规模、盈利、现金流、…"
-        ],
-        "process": "SIMULATED：其他 Session × 0.7",
-        "output": "Rank：其他#1/当前#2 → 当前#1/其他#2",
-        "key_number": "0.797×0.7=0.558 < 0.726",
-        "conclusion": "仅 Memory 内容与 0.7 权重真实；同次检索及分数为模拟。",
-        "simulation_label": "SIMULATED"
-      },
-      "raw_data": {
-        "observed_input": {
-          "query": "把招商银行2023–2025年营业收入、归母净利润、扣非、经营现金流、总资产、归母权益这组底表数字整体梳理一遍：各年数值、两年同比和整体形状，三年是什么画像？",
-          "current_session_memory": {
-            "memory_id": "6bcc05c4-e6b3-5c91-87ac-0e91c4b39892",
-            "source_session": "S009",
-            "summary": "用户要求梳理招商银行2023-2025年营业收入、归母净利润、扣非、经营现金流、总资产、归母权益六项底表数据，并分析三年画像。助手给出完整数据：营业收入3,391.23/3,374.88/3,375.32亿元，同比-0.48%、+0.01%，先降后平；归母净利润1,466.02/1,483.91/1,501.81亿元，同比+1.22%、+1.21%，连续上升；扣非归母净利润1,460.47/1,480.11/1,500.07亿元，同比+1.34%、+1.35%；经营现金流3,577.53/4,470.23/4,514.57亿元，同比+24.95%、+0.99%，先升后平；归母权益10,763.7/12,260.14/12,728.75亿元，同比+13.90%、+3.82%；总资产110,284.83/121,520.36/130,705.23亿元，同比+10.19%、+7.56%。画像为收入停滞、利润温和上升、资产快速扩张、回报被摊薄。助手强调银行口径特殊性，指出经营现金流受存贷款摆布影响，不能作为利润质量证据；缺失净息差、不良率等监管指标，限制可比性。初步估值印象：估值锚应放在利润与回报口径，利润基准干净（非经常项占比0.25%），但回报率连降（近似ROE从13.6%降至11.8%），权益对账出现断点（2025年权益增量仅为利润31%），需优先核实收入平而利润升的驱动、权益缺口去向、资产扩张质量。"
-          },
-          "other_session_memory": {
-            "memory_id": "46f5aad8-d7a9-508d-bc5d-b0bbd1828d32",
-            "source_session": "S010",
-            "summary": "用户要求对招商银行2023-2025年财务数据进行整体画像，作为采购信用评估的起点。助手提供了三年底表，显示规模、盈利、现金流、权益均呈正面走势，并进行了形态研判、证据分级（A/B/C档）、现金流专项检验、场景检验和降档检验。最终结论为：履约能力充足且有冗余，资金稳定无背离，合作敞口承载极强；但现金流放量构成、利润上升来源、资产质量与资本缓冲等监管指标无披露，付款确定性未验证。对内对外可讲三句话：能力、稳定、边界。"
-          },
-          "configured_other_session_weight": 0.7
-        },
-        "simulated_process": {
-          "candidates": [
-            {
-              "memory_id": "46f5aad8-d7a9-508d-bc5d-b0bbd1828d32",
-              "source_session": "S010",
-              "raw_score": 0.797,
-              "session_weight": 0.7,
-              "weighted_score": 0.558,
-              "rank_before": 1,
-              "rank_after": 2
-            },
-            {
-              "memory_id": "6bcc05c4-e6b3-5c91-87ac-0e91c4b39892",
-              "source_session": "S009",
-              "raw_score": 0.726,
-              "session_weight": 1.0,
-              "weighted_score": 0.726,
-              "rank_before": 2,
-              "rank_after": 1
-            }
-          ]
-        },
-        "simulation_boundary": "The target source used isolated user/run scopes and recorded zero cross-session recalls. Pairing and retrieval scores are hypothetical; memory texts and configured other_session_weight are observed."
-      },
-      "evidence": [
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S009/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "6bcc05c4-e6b3-5c91-87ac-0e91c4b39892",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S009/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "6bcc05c4-e6b3-5c91-87ac-0e91c4b39892",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S010/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "46f5aad8-d7a9-508d-bc5d-b0bbd1828d32",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S010/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "46f5aad8-d7a9-508d-bc5d-b0bbd1828d32",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
-          "table / collection": "fine_grained_longterm config",
-          "record_id": "other_session_weight",
-          "field": "other_session_weight"
-        }
-      ]
-    },
-    {
-      "candidate_id": "I-SIM-S007-S008-2",
-      "presentation_score": 82.95,
-      "why_good_for_ppt": "使用同公司两个真实 Session 的真实 Memory 文本，按生产配置 other_session_weight=0.7 演示反超；相关分数与同次检索为模拟。",
-      "session_id": "S007_美的集团_授信",
-      "query_id": "S007-Q002",
-      "memory_id": "ed415954-88c9-59a7-b084-be2d58477d6e / 8ac72888-69bf-5558-9eb4-89205b967211",
-      "job_id": null,
-      "display_data": {
-        "title": "其他 Session 原始分更高 → 降权后当前 Session 反超",
-        "current_question": "现金流先升后降对偿债第一来源意味着什么？",
-        "input": [
-          "当前：用户询问美的集团2023-2025年经营现金流先升后降对偿债第一来源的含义。助手分析指出，现金流作为第一偿债来源，规模仍在（20…",
-          "其他：用户询问美的集团收入增量逐年扩大、资产在2024年一次性大幅扩张、现金流先升后降的扩张节奏错位对供应链交易稳定性和订单连续性的含…"
-        ],
-        "process": "SIMULATED：其他 Session × 0.7",
-        "output": "Rank：其他#1/当前#2 → 当前#1/其他#2",
-        "key_number": "0.804×0.7=0.563 < 0.722",
-        "conclusion": "仅 Memory 内容与 0.7 权重真实；同次检索及分数为模拟。",
-        "simulation_label": "SIMULATED"
-      },
-      "raw_data": {
-        "observed_input": {
-          "query": "现金流先升后降对偿债第一来源意味着什么？",
-          "current_session_memory": {
-            "memory_id": "ed415954-88c9-59a7-b084-be2d58477d6e",
-            "source_session": "S007",
-            "summary": "用户询问美的集团2023-2025年经营现金流先升后降对偿债第一来源的含义。助手分析指出，现金流作为第一偿债来源，规模仍在（2025年533.46亿元），但强度在变薄：回收率（现金流/收入）从15.6%降至11.7%，2025年收入增长12.11%而现金流下降11.84%，背离扩大；路径呈不对称的“小升一大跌”（2024年+26.09亿元，2025年-71.66亿元），2025年现金流较2023年低7.87%；三个口径（收入、资产、权益）的回收率均同步走弱。结论是：第一来源地位不变，但强度变薄、结构待查（无营运资本分项）、相对覆盖待补（无有息负债数据）；授信测算应锚定下沿533.46亿元，按当前回收率下沿取数，并关注现金流稳定性。"
-          },
-          "other_session_memory": {
-            "memory_id": "8ac72888-69bf-5558-9eb4-89205b967211",
-            "source_session": "S008",
-            "summary": "用户询问美的集团收入增量逐年扩大、资产在2024年一次性大幅扩张、现金流先升后降的扩张节奏错位对供应链交易稳定性和订单连续性的含义。助手基于三年底表数据（2023-2025年）分析，指出收入呈连续加速型（2024年+9.44%、2025年+12.11%，增量从351.13亿元增至493.02亿元），资产呈单年脉冲型（2024年+24.34%，净增1183.14亿元，占三年增量的96.4%），现金流呈先滞后后反转型（2024年+4.51%滞后于收入，2025年-11.84%反向）。三股节奏错位形成三种性质不同的错位：收入与资产为期差（资产领先收入约一年兑现），收入与现金为方向错位（先慢后反），资产与现金为背离（扩表同时转化率下滑）。对供应链的含义是：交易稳定性正面（收入连续加速支撑订单池），回款能力需跟踪（现金/收入比从15.6%降至11.7%，边际现金转化由正转负），供应保障待验证（资产脉冲去向不明）。助手将底表的静态轮廓升级为动态结构，并更新了四个监控锚点（现金/收入比、期末总资产周转、归母权益占比、收入与现金流增速剪刀差），新增转化率下滑加速比（第二段3.2个百分点约为第一段0.7个百分点的4.6倍）作为附加观察点。整体判断为'正面但带保留'，需后续验证资产脉冲去向、现金反转成因和转化率是否续降。"
-          },
-          "configured_other_session_weight": 0.7
-        },
-        "simulated_process": {
-          "candidates": [
-            {
-              "memory_id": "8ac72888-69bf-5558-9eb4-89205b967211",
-              "source_session": "S008",
-              "raw_score": 0.804,
-              "session_weight": 0.7,
-              "weighted_score": 0.563,
-              "rank_before": 1,
-              "rank_after": 2
-            },
-            {
-              "memory_id": "ed415954-88c9-59a7-b084-be2d58477d6e",
-              "source_session": "S007",
-              "raw_score": 0.722,
-              "session_weight": 1.0,
-              "weighted_score": 0.722,
-              "rank_before": 2,
-              "rank_after": 1
-            }
-          ]
-        },
-        "simulation_boundary": "The target source used isolated user/run scopes and recorded zero cross-session recalls. Pairing and retrieval scores are hypothetical; memory texts and configured other_session_weight are observed."
-      },
-      "evidence": [
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S007/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "ed415954-88c9-59a7-b084-be2d58477d6e",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S007/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "ed415954-88c9-59a7-b084-be2d58477d6e",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S008/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "8ac72888-69bf-5558-9eb4-89205b967211",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S008/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "8ac72888-69bf-5558-9eb4-89205b967211",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
-          "table / collection": "fine_grained_longterm config",
-          "record_id": "other_session_weight",
-          "field": "other_session_weight"
-        }
-      ]
-    },
-    {
-      "candidate_id": "I-SIM-S007-S008-1",
-      "presentation_score": 82.5,
-      "why_good_for_ppt": "使用同公司两个真实 Session 的真实 Memory 文本，按生产配置 other_session_weight=0.7 演示反超；相关分数与同次检索为模拟。",
-      "session_id": "S007_美的集团_授信",
-      "query_id": "S007-Q001",
-      "memory_id": "879f7bac-c4c1-5285-bd0c-d12a12424bce / fc2665d6-c6f5-5507-8849-c624a5e40af4",
-      "job_id": null,
-      "display_data": {
-        "title": "其他 Session 原始分更高 → 降权后当前 Session 反超",
-        "current_question": "先对美的集团2023–2025年报做个整体画像：收入、经营现金流、总资产和权益…",
-        "input": [
-          "当前：用户要求对美的集团2023-2025年报进行整体画像，分析收入、经营现金流、总资产和权益的三年数据及形态，并初步评估偿债能力。助…",
-          "其他：用户要求将美的集团2023-2025年营业收入、经营现金流净额、总资产、归母股东权益四条主线拉成三年底表并给出整体轮廓。助手基于…"
-        ],
-        "process": "SIMULATED：其他 Session × 0.7",
-        "output": "Rank：其他#1/当前#2 → 当前#1/其他#2",
-        "key_number": "0.811×0.7=0.568 < 0.718",
-        "conclusion": "仅 Memory 内容与 0.7 权重真实；同次检索及分数为模拟。",
-        "simulation_label": "SIMULATED"
-      },
-      "raw_data": {
-        "observed_input": {
-          "query": "先对美的集团2023–2025年报做个整体画像：收入、经营现金流、总资产和权益三年各是多少、什么形态，哪些指标有数哪些没数，初步看偿债能力如何。",
-          "current_session_memory": {
-            "memory_id": "879f7bac-c4c1-5285-bd0c-d12a12424bce",
-            "source_session": "S007",
-            "summary": "用户要求对美的集团2023-2025年报进行整体画像，分析收入、经营现金流、总资产和权益的三年数据及形态，并初步评估偿债能力。助手提供了三年底表：营业收入3,720.37/4,071.5/4,564.52亿元（连续上升，同比+9.44%、+12.11%）；经营现金流净额579.03/605.12/533.46亿元（先升后降，同比+4.51%、-11.84%）；总资产4,860.38/6,043.52/6,087.92亿元（先升后平，同比+24.34%、+0.73%）；归母股东权益1,628.79/2,167.5/2,232.21亿元（先升后平，同比+33.07%、+2.99%）。明确数据缺口：无归母净利润/净利润、扣非净利润、毛利率、费用率、分产品/分地区收入、有息负债明细。初步偿债印象：经营现金流为第一偿债来源（500亿级），但回收强度走弱（现金流/收入比15.6%→11.7%），资产安全边际方向改善但厚度不明。后续对话围绕现金流稳定性、覆盖水平、利润缺口影响及2025年现金流回落归因展开。"
-          },
-          "other_session_memory": {
-            "memory_id": "fc2665d6-c6f5-5507-8849-c624a5e40af4",
-            "source_session": "S008",
-            "summary": "用户要求将美的集团2023-2025年营业收入、经营现金流净额、总资产、归母股东权益四条主线拉成三年底表并给出整体轮廓。助手基于真实上市公司公开历史披露（年报来源日期2026-03-31，单位亿元）完成底表：营业收入3,720.37→4,071.5→4,564.52亿元，同比+9.44%、+12.11%，连续加速；经营现金流净额579.03→605.12→533.46亿元，同比+4.51%、-11.84%，先升后降；总资产4,860.38→6,043.52→6,087.92亿元，同比+24.34%、+0.73%，先升后平；归母股东权益1,628.79→2,167.5→2,232.21亿元，同比+33.07%、+2.99%，先升后平。整体轮廓为“收入向上、现金向下”，2024年为扩张年，2025年为收敛分化年。助手进一步计算派生比率：现金/收入比约15.6%→14.9%→11.7%，期末总资产周转近似0.765→0.674→0.750倍，归母权益占总资产比重约33.5%→35.9%→36.7%，收入与现金流增速剪刀差约4.9→24.0个百分点。并完成稳健性检查，确认结论方向稳定。从供应链风控视角给出初步印象：交易稳定性正面、回款强度需跟踪、盈利与账期维度留白。信息边界：净利润、扣非净利润、账期明细、资产构成、现金流分项均缺失，不填补估计值。"
-          },
-          "configured_other_session_weight": 0.7
-        },
-        "simulated_process": {
-          "candidates": [
-            {
-              "memory_id": "fc2665d6-c6f5-5507-8849-c624a5e40af4",
-              "source_session": "S008",
-              "raw_score": 0.811,
-              "session_weight": 0.7,
-              "weighted_score": 0.568,
-              "rank_before": 1,
-              "rank_after": 2
-            },
-            {
-              "memory_id": "879f7bac-c4c1-5285-bd0c-d12a12424bce",
-              "source_session": "S007",
-              "raw_score": 0.718,
-              "session_weight": 1.0,
-              "weighted_score": 0.718,
-              "rank_before": 2,
-              "rank_after": 1
-            }
-          ]
-        },
-        "simulation_boundary": "The target source used isolated user/run scopes and recorded zero cross-session recalls. Pairing and retrieval scores are hypothetical; memory texts and configured other_session_weight are observed."
-      },
-      "evidence": [
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S007/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "879f7bac-c4c1-5285-bd0c-d12a12424bce",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S007/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "879f7bac-c4c1-5285-bd0c-d12a12424bce",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S008/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "fc2665d6-c6f5-5507-8849-c624a5e40af4",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S008/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "fc2665d6-c6f5-5507-8849-c624a5e40af4",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
-          "table / collection": "fine_grained_longterm config",
-          "record_id": "other_session_weight",
-          "field": "other_session_weight"
-        }
-      ]
-    },
-    {
-      "candidate_id": "I-SIM-S005-S006-2",
-      "presentation_score": 82.05,
-      "why_good_for_ppt": "使用同公司两个真实 Session 的真实 Memory 文本，按生产配置 other_session_weight=0.7 演示反超；相关分数与同次检索为模拟。",
-      "session_id": "S005_宁德时代_合规",
-      "query_id": "S005-Q002",
-      "memory_id": "555f349d-78a4-5b18-be47-9c46f6be1bf3 / f5ea3d32-cc36-5396-8dad-ad6317594e58",
-      "job_id": null,
-      "display_data": {
-        "title": "其他 Session 原始分更高 → 降权后当前 Session 反超",
-        "current_question": "底表数字先钉口径和来源：这组三年数字各是什么口径、来自哪份披露，2024年收入…",
-        "input": [
-          "当前：用户要求将宁德时代2023—2025年三年底表按年拆开对照，明确2023基数年、2024反向年、2025同向年各自的正确表述和表…",
-          "其他：用户要求对宁德时代2023-2025年三年底表进行口径一致性初查。助手确认了五项可确认事项：数据同源（唯一指定披露文件，2026…"
-        ],
-        "process": "SIMULATED：其他 Session × 0.7",
-        "output": "Rank：其他#1/当前#2 → 当前#1/其他#2",
-        "key_number": "0.818×0.7=0.573 < 0.714",
-        "conclusion": "仅 Memory 内容与 0.7 权重真实；同次检索及分数为模拟。",
-        "simulation_label": "SIMULATED"
-      },
-      "raw_data": {
-        "observed_input": {
-          "query": "底表数字先钉口径和来源：这组三年数字各是什么口径、来自哪份披露，2024年收入降利润升的错位在表述上哪些话能说、哪些不能说？",
-          "current_session_memory": {
-            "memory_id": "555f349d-78a4-5b18-be47-9c46f6be1bf3",
-            "source_session": "S005",
-            "summary": "用户要求将宁德时代2023—2025年三年底表按年拆开对照，明确2023基数年、2024反向年、2025同向年各自的正确表述和表述红线。助手给出总结论：2023年为基数年，无同比，只报原数；2024年为反向年，收入降9.70%与利润升15.01%必须成对披露，归因止于净利率路径（约11.00%升至约14.02%）；2025年为同向年，收入升17.04%、利润升42.28%，成对披露仍适用，增速差只作算术事实。三年合一表述为“收入先降后升、利润连续上升”，并列出五条红线：方向成对、算术归因、缺口明示、形态词一致、不预测。所有数字均来自2026年3月10日披露的年报文件，口径为归母净利润、归母股东权益，单位亿元。"
-          },
-          "other_session_memory": {
-            "memory_id": "f5ea3d32-cc36-5396-8dad-ad6317594e58",
-            "source_session": "S006",
-            "summary": "用户要求对宁德时代2023-2025年三年底表进行口径一致性初查。助手确认了五项可确认事项：数据同源（唯一指定披露文件，2026-03-10发布）、单位统一为亿元、期间数与时点数划分清晰、八项同比全部复现、五组比率勾稽无矛盾；同时列出八项不可确认的缺口，包括无第二来源交叉验证、无2022年期初数导致平均口径不可行、经营现金流与扣非等数据缺失。初查发现2025年周转率在平均口径下持平（约0.481倍）、期初口径下回升（约0.539倍），与期末口径连降（0.435倍）方向不同，因此'周转连续下降'修正为期末口径专属结论；权益回报'未收复2023起点'也限定为期末口径专属。两个已立案异常点（收入利润错位、2025年权益超额增量179.77亿元）在口径层面均维持'数字自洽、成因待核'。初查确立了引用纪律：数字三分类（披露原数、精确复算、近似复算），引用必须带单位、年份和口径标注。下一步进入盈利路径章复核净利率抬升构成。"
-          },
-          "configured_other_session_weight": 0.7
-        },
-        "simulated_process": {
-          "candidates": [
-            {
-              "memory_id": "f5ea3d32-cc36-5396-8dad-ad6317594e58",
-              "source_session": "S006",
-              "raw_score": 0.818,
-              "session_weight": 0.7,
-              "weighted_score": 0.573,
-              "rank_before": 1,
-              "rank_after": 2
-            },
-            {
-              "memory_id": "555f349d-78a4-5b18-be47-9c46f6be1bf3",
-              "source_session": "S005",
-              "raw_score": 0.714,
-              "session_weight": 1.0,
-              "weighted_score": 0.714,
-              "rank_before": 2,
-              "rank_after": 1
-            }
-          ]
-        },
-        "simulation_boundary": "The target source used isolated user/run scopes and recorded zero cross-session recalls. Pairing and retrieval scores are hypothetical; memory texts and configured other_session_weight are observed."
-      },
-      "evidence": [
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S005/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "555f349d-78a4-5b18-be47-9c46f6be1bf3",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S005/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "555f349d-78a4-5b18-be47-9c46f6be1bf3",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S006/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "f5ea3d32-cc36-5396-8dad-ad6317594e58",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S006/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "f5ea3d32-cc36-5396-8dad-ad6317594e58",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
-          "table / collection": "fine_grained_longterm config",
-          "record_id": "other_session_weight",
-          "field": "other_session_weight"
-        }
-      ]
-    },
-    {
-      "candidate_id": "I-SIM-S005-S006-1",
-      "presentation_score": 81.65,
-      "why_good_for_ppt": "使用同公司两个真实 Session 的真实 Memory 文本，按生产配置 other_session_weight=0.7 演示反超；相关分数与同次检索为模拟。",
-      "session_id": "S005_宁德时代_合规",
-      "query_id": "S005-Q001",
-      "memory_id": "5f9504f5-68c4-5a02-acd1-86b62b351ce1 / 279a27b1-8dbb-57d1-94ee-c561e8c39a54",
-      "job_id": null,
-      "display_data": {
-        "title": "其他 Session 原始分更高 → 降权后当前 Session 反超",
-        "current_question": "先按年度把宁德时代2023—2025年营业收入、归母净利润、归母股东权益、总资…",
-        "input": [
-          "当前：用户要求按年度将宁德时代2023—2025年营业收入、归母净利润、归母股东权益、总资产拉成三年底表，逐项说明形态，并标出最需合规…",
-          "其他：用户要求梳理宁德时代2023—2025年主要财务变化并建立三年底表。助手基于唯一指定披露文件（发布于2026-03-10）构建了…"
-        ],
-        "process": "SIMULATED：其他 Session × 0.7",
-        "output": "Rank：其他#1/当前#2 → 当前#1/其他#2",
-        "key_number": "0.825×0.7=0.577 < 0.710",
-        "conclusion": "仅 Memory 内容与 0.7 权重真实；同次检索及分数为模拟。",
-        "simulation_label": "SIMULATED"
-      },
-      "raw_data": {
-        "observed_input": {
-          "query": "先按年度把宁德时代2023—2025年营业收入、归母净利润、归母股东权益、总资产拉成三年底表，逐项说清形态，再把最需要合规关注的错位点标出来。",
-          "current_session_memory": {
-            "memory_id": "5f9504f5-68c4-5a02-acd1-86b62b351ce1",
-            "source_session": "S005",
-            "summary": "用户要求按年度将宁德时代2023—2025年营业收入、归母净利润、归母股东权益、总资产拉成三年底表，逐项说明形态，并标出最需合规关注的错位点。助手基于2026年3月10日披露的年报文件（唯一来源）给出完整底表：营业收入4,009.17/3,620.13/4,237.02亿元（同比-9.70%/+17.04%，先降后升），归母净利润441.21/507.45/722.01亿元（同比+15.01%/+42.28%，连续上升），归母股东权益1,977.08/2,469.30/3,371.08亿元（同比+24.90%/+36.52%，连续上升），总资产7,171.68/7,866.58/9,748.28亿元（同比+9.69%/+23.92%，连续上升）。核心错位点为2024年收入下降9.70%而利润增长15.01%，方向相反。助手强调合规表述边界：净利润必须带“归母”前缀，权益为期末时点数，派生比率（净利率约11.00%/14.02%/17.04%，周转近似0.559/0.460/0.435倍，期末近似权益回报约22.3%/20.6%/21.4%，权益占比约27.6%/31.4%/34.6%）必须带“约/近似”，并列出信息缺口（经营现金流、扣非净利润、毛利率、费用率、出货量、产能、单位成本均无三年披露数值，不可评价）。同时给出利润分解（2024年收入效应约-42.8亿元、净利率效应约+109.1亿元；2025年约+86.5亿元、+128.1亿元），并明确不预测、不引第三方、不带内部待核对项（如权益差额276.67亿元）。"
-          },
-          "other_session_memory": {
-            "memory_id": "279a27b1-8dbb-57d1-94ee-c561e8c39a54",
-            "source_session": "S006",
-            "summary": "用户要求梳理宁德时代2023—2025年主要财务变化并建立三年底表。助手基于唯一指定披露文件（发布于2026-03-10）构建了包含营业收入、归母净利润、总资产、归母股东权益的底表，并进行了详细复核。核心发现：收入先降后升（4,009.17→3,620.13→4,237.02亿元，同比-9.70%、+17.04%），利润连续上升（441.21→507.45→722.01亿元，同比+15.01%、+42.28%），资产和权益连续上升且加速。收入与利润错位（2024年方向背离、2025年幅度背离）由净利率连续抬升（11.00%→14.02%→17.04%）解释，累计约91%的利润增量来自净利率抬升。2025年权益增量超当期利润179.77亿元，来源待核。整体定性为“数字自洽、成因待核”，并列出八项信息缺口及后续复核安排。"
-          },
-          "configured_other_session_weight": 0.7
-        },
-        "simulated_process": {
-          "candidates": [
-            {
-              "memory_id": "279a27b1-8dbb-57d1-94ee-c561e8c39a54",
-              "source_session": "S006",
-              "raw_score": 0.825,
-              "session_weight": 0.7,
-              "weighted_score": 0.577,
-              "rank_before": 1,
-              "rank_after": 2
-            },
-            {
-              "memory_id": "5f9504f5-68c4-5a02-acd1-86b62b351ce1",
-              "source_session": "S005",
-              "raw_score": 0.71,
-              "session_weight": 1.0,
-              "weighted_score": 0.71,
-              "rank_before": 2,
-              "rank_after": 1
-            }
-          ]
-        },
-        "simulation_boundary": "The target source used isolated user/run scopes and recorded zero cross-session recalls. Pairing and retrieval scores are hypothetical; memory texts and configured other_session_weight are observed."
-      },
-      "evidence": [
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S005/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "5f9504f5-68c4-5a02-acd1-86b62b351ce1",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S005/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "5f9504f5-68c4-5a02-acd1-86b62b351ce1",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S006/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "279a27b1-8dbb-57d1-94ee-c561e8c39a54",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S006/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "279a27b1-8dbb-57d1-94ee-c561e8c39a54",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
-          "table / collection": "fine_grained_longterm config",
-          "record_id": "other_session_weight",
-          "field": "other_session_weight"
-        }
-      ]
-    },
-    {
-      "candidate_id": "I-SIM-S003-S004-2",
-      "presentation_score": 81.2,
-      "why_good_for_ppt": "使用同公司两个真实 Session 的真实 Memory 文本，按生产配置 other_session_weight=0.7 演示反超；相关分数与同次检索为模拟。",
-      "session_id": "S003_比亚迪_风委",
-      "query_id": "S003-Q002",
-      "memory_id": "e3e34ea1-ef6a-5e49-9e41-b40157075254 / 8f7a6ce5-1943-5700-91c3-a98bfcafcac4",
-      "job_id": null,
-      "display_data": {
-        "title": "其他 Session 原始分更高 → 降权后当前 Session 反超",
-        "current_question": "收入升、利润先升后降、现金流连降，这种背离的风险含义是什么？",
-        "input": [
-          "当前：用户询问收入升、利润先升后降、现金流连降这一背离的风险含义。助手基于比亚迪2023-2025年财务数据（营业收入6,023.15…",
-          "其他：用户要求将业绩沟通底稿二稿转为幻灯片，并给出每张图的建议和标注规范。助手提供了五张图的设计方案，包括收入柱状图、利润柱状图、三线…"
-        ],
-        "process": "SIMULATED：其他 Session × 0.7",
-        "output": "Rank：其他#1/当前#2 → 当前#1/其他#2",
-        "key_number": "0.832×0.7=0.582 < 0.706",
-        "conclusion": "仅 Memory 内容与 0.7 权重真实；同次检索及分数为模拟。",
-        "simulation_label": "SIMULATED"
-      },
-      "raw_data": {
-        "observed_input": {
-          "query": "收入升、利润先升后降、现金流连降，这种背离的风险含义是什么？",
-          "current_session_memory": {
-            "memory_id": "e3e34ea1-ef6a-5e49-9e41-b40157075254",
-            "source_session": "S003",
-            "summary": "用户询问收入升、利润先升后降、现金流连降这一背离的风险含义。助手基于比亚迪2023-2025年财务数据（营业收入6,023.15→7,771.02→8,039.65亿元，归母净利润300.41→402.54→326.19亿元，经营现金流1,697.25→1,334.54→591.36亿元）展开分析，指出背离本质是盈利转化率与现金转化率的两段式衰减：2024年先断利润→现金传导（利润+34.00%而现金流-21.37%），2025年再断收入→利润传导（收入+3.46%而利润-18.97%），断裂由下游向上游蔓延，现金流恶化领先利润一年。风险含义上，现金流是唯一无反证的持续恶化项，风险权重最高；利润与现金流错位重于收入与利润错位。反证包括现金流三年为正、现金利润比1.81倍仍大于1、负债占比近似下降等，定性为边际恶化型而非危机型。成因上，现金流下降无法区分营运资本占用与回款质量恶化，投资筹资现金流无披露，只能并列假说。监测位置固定为现金利润比与1倍分界、收入利润弹性符号、非经常损益占比。"
-          },
-          "other_session_memory": {
-            "memory_id": "8f7a6ce5-1943-5700-91c3-a98bfcafcac4",
-            "source_session": "S004",
-            "summary": "用户要求将业绩沟通底稿二稿转为幻灯片，并给出每张图的建议和标注规范。助手提供了五张图的设计方案，包括收入柱状图、利润柱状图、三线增速对比图、现金含量与净利率对照图、权益与权益乘数对照图、现金利润比收敛图，并明确了图表标注五件套（单位、口径、时点或期间、同比或累计、数据来源）和三条禁令（禁止主观评价词、禁止预测延伸、禁止截断轴不说明），同时列出禁入清单（分析层数值、未披露科目、未来数据）。"
-          },
-          "configured_other_session_weight": 0.7
-        },
-        "simulated_process": {
-          "candidates": [
-            {
-              "memory_id": "8f7a6ce5-1943-5700-91c3-a98bfcafcac4",
-              "source_session": "S004",
-              "raw_score": 0.832,
-              "session_weight": 0.7,
-              "weighted_score": 0.582,
-              "rank_before": 1,
-              "rank_after": 2
-            },
-            {
-              "memory_id": "e3e34ea1-ef6a-5e49-9e41-b40157075254",
-              "source_session": "S003",
-              "raw_score": 0.706,
-              "session_weight": 1.0,
-              "weighted_score": 0.706,
-              "rank_before": 2,
-              "rank_after": 1
-            }
-          ]
-        },
-        "simulation_boundary": "The target source used isolated user/run scopes and recorded zero cross-session recalls. Pairing and retrieval scores are hypothetical; memory texts and configured other_session_weight are observed."
-      },
-      "evidence": [
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S003/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "e3e34ea1-ef6a-5e49-9e41-b40157075254",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S003/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "e3e34ea1-ef6a-5e49-9e41-b40157075254",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S004___IR/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "8f7a6ce5-1943-5700-91c3-a98bfcafcac4",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S004___IR/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "8f7a6ce5-1943-5700-91c3-a98bfcafcac4",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
-          "table / collection": "fine_grained_longterm config",
-          "record_id": "other_session_weight",
-          "field": "other_session_weight"
-        }
-      ]
-    },
-    {
-      "candidate_id": "I-SIM-S003-S004-1",
-      "presentation_score": 80.75,
-      "why_good_for_ppt": "使用同公司两个真实 Session 的真实 Memory 文本，按生产配置 other_session_weight=0.7 演示反超；相关分数与同次检索为模拟。",
-      "session_id": "S003_比亚迪_风委",
-      "query_id": "S003-Q001",
-      "memory_id": "0a8a2559-9375-558d-918f-309cf1538015 / d54eda22-3121-5243-8d22-62d79ef5de5a",
-      "job_id": null,
-      "display_data": {
-        "title": "其他 Session 原始分更高 → 降权后当前 Session 反超",
-        "current_question": "先整体看一下比亚迪2023到2025这三年的财务变化",
-        "input": [
-          "当前：用户要求整体查看比亚迪2023至2025年财务变化。助手基于2025年年报数据，梳理了营业收入、归母净利润、扣非归母净利润、经营…",
-          "其他：比亚迪投资者关系负责人要求梳理2023—2025年核心财务数字（收入、归母净利润、扣非、经营现金流、总资产、归母权益）的三年数值…"
-        ],
-        "process": "SIMULATED：其他 Session × 0.7",
-        "output": "Rank：其他#1/当前#2 → 当前#1/其他#2",
-        "key_number": "0.839×0.7=0.587 < 0.702",
-        "conclusion": "仅 Memory 内容与 0.7 权重真实；同次检索及分数为模拟。",
-        "simulation_label": "SIMULATED"
-      },
-      "raw_data": {
-        "observed_input": {
-          "query": "先整体看一下比亚迪2023到2025这三年的财务变化",
-          "current_session_memory": {
-            "memory_id": "0a8a2559-9375-558d-918f-309cf1538015",
-            "source_session": "S003",
-            "summary": "用户要求整体查看比亚迪2023至2025年财务变化。助手基于2025年年报数据，梳理了营业收入、归母净利润、扣非归母净利润、经营活动现金流净额、归母股东权益、总资产六项核心指标的三年变化，指出整体呈现“扩张中的现金收缩”特征：收入、权益、资产连续上升，利润2024年见顶后2025年回落，经营现金流连续且加速下降。助手对收入、利润、现金流、资产权益进行了分项分析，计算了净利率、现金利润比、ROE等比率，并进行了杜邦分解。随后助手将形态异常和背离整理成初步风险点清单，按证据强度分为硬证据（现金流下降、利润拐点、收入增速断崖）和待验证项（权益缺口、现金流成因），并给出风险排序。最后助手评估了反证，建立了尾部风险触发线（现金利润比破1、经营现金流转负、收入增速转负），并确定了复核优先级。"
-          },
-          "other_session_memory": {
-            "memory_id": "d54eda22-3121-5243-8d22-62d79ef5de5a",
-            "source_session": "S004",
-            "summary": "比亚迪投资者关系负责人要求梳理2023—2025年核心财务数字（收入、归母净利润、扣非、经营现金流、总资产、归母权益）的三年数值和两段同比，用于对外沟通底表。助手提供了完整数据：收入6023.15→7771.02→8039.65亿元（同比+29.02%、+3.46%），归母净利润300.41→402.54→326.19亿元（+34.00%、-18.97%），扣非284.62→369.83→294.46亿元（+29.94%、-20.38%），经营现金流1697.25→1334.54→591.36亿元（-21.37%、-55.69%），总资产6795.48→7833.56→8837.3亿元（+15.28%、+12.81%），归母权益1388.1→1852.51→2462.75亿元（+33.46%、+32.94%）。数据来源为2026-03-28发布的披露文件，单位亿元。助手分析了形态：规模端连续上升但收入增速2025年骤降，盈利端2024年见顶、2025年双降，现金流连续两年大幅下降且与利润错位，权益扩张快于资产、杠杆下行。识别出四个投资者追问点：现金流连降、利润双降、收入增速骤降、权益增量超净利，并准备了披露层面事实加边界内表述的口径。后续将三线（收入、利润、现金流）对照，形成对外沟通主线，并修订为二稿底稿，转成五张幻灯片图表。"
-          },
-          "configured_other_session_weight": 0.7
-        },
-        "simulated_process": {
-          "candidates": [
-            {
-              "memory_id": "d54eda22-3121-5243-8d22-62d79ef5de5a",
-              "source_session": "S004",
-              "raw_score": 0.839,
-              "session_weight": 0.7,
-              "weighted_score": 0.587,
-              "rank_before": 1,
-              "rank_after": 2
-            },
-            {
-              "memory_id": "0a8a2559-9375-558d-918f-309cf1538015",
-              "source_session": "S003",
-              "raw_score": 0.702,
-              "session_weight": 1.0,
-              "weighted_score": 0.702,
-              "rank_before": 2,
-              "rank_after": 1
-            }
-          ]
-        },
-        "simulation_boundary": "The target source used isolated user/run scopes and recorded zero cross-session recalls. Pairing and retrieval scores are hypothetical; memory texts and configured other_session_weight are observed."
-      },
-      "evidence": [
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S003/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "0a8a2559-9375-558d-918f-309cf1538015",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S003/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "0a8a2559-9375-558d-918f-309cf1538015",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S004___IR/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "d54eda22-3121-5243-8d22-62d79ef5de5a",
-          "field": "summary"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S004___IR/production_midterm_checkpoints.jsonl",
-          "table / collection": "final checkpoint / pages",
-          "record_id": "d54eda22-3121-5243-8d22-62d79ef5de5a",
-          "field": "source_turn_id"
-        },
-        {
-          "source_file": "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
-          "table / collection": "fine_grained_longterm config",
-          "record_id": "other_session_weight",
-          "field": "other_session_weight"
-        }
-      ]
-    }
-  ],
-  "selection_criteria": {
-    "score_range": "0-100",
-    "dimensions": {
-      "change_magnitude": "排序/指标/状态变化是否明显",
-      "comprehensibility": "金融问题是否自然、非技术人员是否容易理解",
-      "evidence_completeness": "Input / Process / Output / Source 是否齐全",
-      "ppt_fit": "能否压缩成半页 PPT 的 Before/After、流程或时间轴"
-    },
-    "tie_breaker": "优先 S001_贵州茅台_投研，其次证据链更完整、文字更短"
-  },
-  "source_files": [
-    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S001/production_midterm_checkpoints.jsonl",
-    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S002/production_midterm_checkpoints.jsonl",
-    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S003/production_midterm_checkpoints.jsonl",
-    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S004___IR/production_midterm_checkpoints.jsonl",
-    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S005/production_midterm_checkpoints.jsonl",
-    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S006/production_midterm_checkpoints.jsonl",
-    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S007/production_midterm_checkpoints.jsonl",
-    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S008/production_midterm_checkpoints.jsonl",
-    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S009/production_midterm_checkpoints.jsonl",
-    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/production_source/S010/production_midterm_checkpoints.jsonl",
-    "exp/results/auto_tuning/20260823T100601Z-99ac7ea4/resolved_memory_config.json",
-    "exp/金融分析数据集_S001-S010高质量重构.xlsx",
-    "mem0/memory/fine_grained_longterm.py"
-  ],
-  "note": "目标运行的 652 个 turn 中跨 Session recall 为 0；以下为真实 Memory 文本 + 真实配置权重的模拟排序。",
-  "scan_stats": {
-    "observed_cross_session_recall_count": 0,
-    "simulated_scenario_count": 10,
-    "target_cross_session_valid_recall_count": 0,
-    "target_turns_with_cross_session_results": 0
-  }
+  ]
 }

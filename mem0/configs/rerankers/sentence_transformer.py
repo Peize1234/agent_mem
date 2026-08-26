@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import Field
 
@@ -17,5 +17,9 @@ class SentenceTransformerRerankerConfig(BaseRerankerConfig):
     device: Optional[str] = Field(default=None, description="Device to run the model on ('cpu', 'cuda', etc.)")
     revision: Optional[str] = Field(default=None, description="Immutable Hugging Face model revision")
     local_files_only: bool = Field(default=False, description="Load the model only from the local Hugging Face cache")
+    model_kwargs: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Keyword arguments forwarded to the underlying Transformers model",
+    )
     batch_size: int = Field(default=32, description="Batch size for processing documents")
     show_progress_bar: bool = Field(default=False, description="Whether to show progress bar during processing")

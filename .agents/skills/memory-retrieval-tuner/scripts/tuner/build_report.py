@@ -30,7 +30,9 @@ def _leaderboard_rows(
                 "candidate": tune.name,
                 "stage": tune.stage,
                 f"tune_R@{k}": tune.metrics.get("recall_at_k"),
+                "tune_context_precision": tune.metrics.get("context_precision"),
                 f"validation_R@{k}": validation.metrics.get("recall_at_k") if validation else None,
+                "validation_context_precision": validation.metrics.get("context_precision") if validation else None,
                 f"validation_macro_R@{k}": validation.metrics.get("macro_session_recall_at_k") if validation else None,
                 f"validation_R@{2 * k}": validation.metrics.get("recall_at_2k") if validation else None,
                 f"validation_R@{4 * k}": validation.metrics.get("recall_at_4k") if validation else None,
@@ -83,6 +85,9 @@ def write_outputs(
     baseline_metric = float(baseline_validation.metrics.get("recall_at_k") or 0.0)
     best_metric = float(best.metrics.get("recall_at_k") or 0.0)
     improvement_pp = (best_metric - baseline_metric) * 100.0
+    baseline_precision = float(baseline_validation.metrics.get("context_precision") or 0.0)
+    best_precision = float(best.metrics.get("context_precision") or 0.0)
+    precision_delta_pp = (best_precision - baseline_precision) * 100.0
     tune_rows = {result.name: result for result in tune_results}
     validated_parameters = sorted(
         {
@@ -134,9 +139,11 @@ def write_outputs(
         "## Baseline and best stable configuration",
         "",
         f"- Baseline validation R@{k}: {baseline_metric:.4f}",
+        f"- Baseline validation context precision: {baseline_precision:.4f}",
         f"- Best stable: **{best.name}**",
         f"- Best validation R@{k}: {best_metric:.4f}",
         f"- Improvement: **{improvement_pp:+.2f} pp**",
+        f"- Best validation context precision / delta: {best_precision:.4f} / **{precision_delta_pp:+.2f} pp**",
         f"- R@{2 * k} / R@{4 * k}: {float(best.metrics.get('recall_at_2k') or 0):.4f} / "
         f"{float(best.metrics.get('recall_at_4k') or 0):.4f}",
         f"- MRR: {float(best.metrics.get('mrr') or 0):.4f}",
@@ -161,15 +168,17 @@ def write_outputs(
         "",
         "## Tune and validation finalists",
         "",
-        f"| Candidate | Tune R@{k} | Validation R@{k} | Macro R@{k} | R@{2 * k} | R@{4 * k} | MRR | Status |",
-        "|---|---:|---:|---:|---:|---:|---:|---|",
+        f"| Candidate | Tune R@{k} | Tune precision | Validation R@{k} | Validation precision | Macro R@{k} | R@{2 * k} | R@{4 * k} | MRR | Status |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---|",
     ]
     for row in leaderboard:
         validation = validation_by_name.get(str(row["candidate"]))
         tune = tune_rows[str(row["candidate"])]
         lines.append(
             f"| {row['candidate']} | {float(tune.metrics.get('recall_at_k') or 0):.4f} | "
+            f"{float(tune.metrics.get('context_precision') or 0):.4f} | "
             f"{displayed(validation, 'recall_at_k')} | "
+            f"{displayed(validation, 'context_precision')} | "
             f"{displayed(validation, 'macro_session_recall_at_k')} | "
             f"{displayed(validation, 'recall_at_2k')} | "
             f"{displayed(validation, 'recall_at_4k')} | "

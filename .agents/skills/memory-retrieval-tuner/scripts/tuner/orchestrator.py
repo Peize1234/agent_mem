@@ -51,6 +51,7 @@ class TunerConfig:
     source_run: Path | None = None
     memory_config: Path | None = None
     llm_mode: str = "real"
+    low_consumption: bool = False
     max_parallel_sessions: int | None = None
     max_parallel_candidates: int | None = None
     max_parallel_llm_calls: int | None = None
@@ -274,49 +275,58 @@ def _evaluate_many(
     candidate_parallelism = min(execution["max_parallel_candidates"], len(prepared_candidates) or 1)
     session_parallelism = execution["max_parallel_sessions"] if candidate_parallelism == 1 else 1
 
-    with ThreadPoolExecutor(max_workers=max(1, candidate_parallelism)) as executor:
-        futures = {executor.submit(run, candidate, session_parallelism): candidate for candidate in prepared_candidates}
-        for future in as_completed(futures):
-            candidate = futures[future]
-            try:
-                result = future.result()
-            except Exception as exc:
-                message = f"{type(exc).__name__}: {exc}"
-                if any(marker in message.lower() for marker in ("out of memory", "oom", "rate limit", "contention")):
-                    execution["adaptive_reductions"].append(
-                        {"candidate": candidate.name, "reason": message, "retry_parallel_sessions": 1}
-                    )
-                    try:
-                        result = run(candidate, 1)
-                    except Exception as retry_exc:
-                        append_jsonl(
-                            trace_path,
-                            {"scope": scope, "candidate": candidate.name, "status": "INVALID", "error": str(retry_exc)},
-                        )
-                        results.append(invalid_result(candidate))
-                        continue
-                else:
+    def collect(candidate: Candidate, evaluate: Any) -> None:
+        try:
+            result = evaluate()
+        except Exception as exc:
+            message = f"{type(exc).__name__}: {exc}"
+            if any(marker in message.lower() for marker in ("out of memory", "oom", "rate limit", "contention")):
+                execution["adaptive_reductions"].append(
+                    {"candidate": candidate.name, "reason": message, "retry_parallel_sessions": 1}
+                )
+                try:
+                    result = run(candidate, 1)
+                except Exception as retry_exc:
                     append_jsonl(
                         trace_path,
-                        {"scope": scope, "candidate": candidate.name, "status": "INVALID", "error": message},
+                        {"scope": scope, "candidate": candidate.name, "status": "INVALID", "error": str(retry_exc)},
                     )
                     results.append(invalid_result(candidate))
-                    continue
-            results.append(result)
-            append_jsonl(
-                trace_path,
-                {
-                    "scope": scope,
-                    "candidate": result.name,
-                    "candidate_hash": result.candidate_hash,
-                    "stage": result.stage,
-                    "status": result.status,
-                    "metrics": result.metrics,
-                    "runtime_seconds": result.runtime_seconds,
-                    "cache_hits": result.cache_hits,
-                    "cache_misses": result.cache_misses,
-                },
-            )
+                    return
+            else:
+                append_jsonl(
+                    trace_path,
+                    {"scope": scope, "candidate": candidate.name, "status": "INVALID", "error": message},
+                )
+                results.append(invalid_result(candidate))
+                return
+        results.append(result)
+        append_jsonl(
+            trace_path,
+            {
+                "scope": scope,
+                "candidate": result.name,
+                "candidate_hash": result.candidate_hash,
+                "stage": result.stage,
+                "status": result.status,
+                "metrics": result.metrics,
+                "runtime_seconds": result.runtime_seconds,
+                "cache_hits": result.cache_hits,
+                "cache_misses": result.cache_misses,
+            },
+        )
+
+    if candidate_parallelism == 1:
+        for candidate in prepared_candidates:
+            collect(candidate, lambda candidate=candidate: run(candidate, session_parallelism))
+    else:
+        with ThreadPoolExecutor(max_workers=candidate_parallelism) as executor:
+            futures = {
+                executor.submit(run, candidate, session_parallelism): candidate for candidate in prepared_candidates
+            }
+            for future in as_completed(futures):
+                candidate = futures[future]
+                collect(candidate, future.result)
     return sorted(results, key=lambda result: result.name)
 
 
@@ -494,6 +504,61 @@ def _artifact_cache_root(config: TunerConfig, run_dir: Path) -> Path:
     return run_dir.parent / ".cache" if config.resume else config.output_root.resolve() / ".cache"
 
 
+def _load_or_create_resume_model_revisions(run_dir: Path) -> dict[str, dict[str, list[str]]]:
+    """Freeze discovered model identities already materialized by an interrupted run."""
+
+    frozen_path = run_dir / "resume_model_revisions.json"
+    if frozen_path.is_file():
+        payload = load_json(frozen_path)
+        if not isinstance(payload, Mapping) or int(payload.get("schema") or 0) != 1:
+            raise ValueError(f"Invalid resume model identity manifest: {frozen_path}")
+        raw_models = payload.get("models") or {}
+        if not isinstance(raw_models, Mapping):
+            raise ValueError(f"Invalid resume model identity mapping: {frozen_path}")
+        return {
+            str(model_type): {
+                str(model_id): sorted({str(revision) for revision in revisions if str(revision)})
+                for model_id, revisions in models.items()
+            }
+            for model_type, models in raw_models.items()
+            if isinstance(models, Mapping)
+        }
+
+    embeddings: dict[str, set[str]] = {}
+    source_root = run_dir / "low_consumption_sources"
+    for source_dir in sorted(source_root.glob("*")):
+        if not source_dir.is_dir():
+            continue
+        manifest_path = next(iter(sorted(source_dir.glob("*/production_midterm_manifest.json"))), None)
+        if manifest_path is None:
+            continue
+        try:
+            manifest = load_json(manifest_path)
+        except (OSError, ValueError, TypeError):
+            continue
+        source_identity = manifest.get("source_identity") or {}
+        if source_identity.get("kind") != "low_consumption_discovered_embedding_multi_vector":
+            continue
+        embedding_identity = source_identity.get("embedding_source_identity") or {}
+        model_id = str(embedding_identity.get("model_id") or "")
+        revision = str(embedding_identity.get("model_revision") or "")
+        if model_id and revision:
+            embeddings.setdefault(model_id, set()).add(revision)
+
+    if not embeddings:
+        return {}
+    models = {"embedding": {model_id: sorted(revisions) for model_id, revisions in sorted(embeddings.items())}}
+    atomic_write_json(
+        frozen_path,
+        {
+            "schema": 1,
+            "source": "existing low_consumption discovered-model source identities",
+            "models": models,
+        },
+    )
+    return models
+
+
 def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
     started = time.perf_counter()
     space = _load_space(skill_root, config.overrides)
@@ -518,6 +583,7 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         run_key = stable_hash({"dataset": str(config.dataset.resolve()), "k": config.k, "seed": seed})[:8]
         run_dir = (config.output_root / f"{stamp}-{run_key}").resolve()
         run_dir.mkdir(parents=True, exist_ok=False)
+    resume_model_revisions = _load_or_create_resume_model_revisions(run_dir) if config.resume else {}
     previous_metadata: dict[str, Any] = {}
     if config.resume and (run_dir / "run_metadata.json").exists():
         loaded_metadata = load_json(run_dir / "run_metadata.json")
@@ -706,6 +772,8 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
     model_discovery = ModelDiscovery(
         output_path=run_dir / "model_discovery.json",
         resources=resources,
+        online_access=not bool(config.resume),
+        frozen_model_revisions=resume_model_revisions,
     )
     model_discovery.flush()
     research_settings = (space.get("search") or {}).get("research") or {}
@@ -960,6 +1028,13 @@ def run_tuning(config: TunerConfig, *, skill_root: Path) -> Path:
         "secondary_cutoffs": [2 * config.k, 4 * config.k],
         "ranking_cache_depth": ranking_depth,
         "budget": config.budget,
+        "low_consumption_mode": bool(config.low_consumption),
+        "low_consumption_contract": (
+            "freeze baseline generative-LLM text/source topology; rerun local embeddings, indexes, rerankers, "
+            "retrieval and evolution; Research LLM remains enabled"
+            if config.low_consumption
+            else None
+        ),
         "budget_profile": dict(profile),
         "resolved_search_config": space.get("search") or {},
         "target": config.target,

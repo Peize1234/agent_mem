@@ -27,7 +27,8 @@ from .production_midterm_adapter import (
 _DEFAULT_MAX_TOTAL_PAGES = int(production_parameter_metadata("max_total_pages").default)
 _DEFAULT_AGENTIC_MAX_TOTAL_RESULTS = int(production_parameter_metadata("max_total_results").default)
 _DEFAULT_LONGTERM_TOP_K = int(production_parameter_metadata("longterm_top_k").default)
-_EVALUATION_SCHEMA = 3
+_RANKING_SCHEMA = 3
+_EVALUATION_SCHEMA = 5
 
 
 def candidate_hash(dataset_sha256: str, candidate: Candidate) -> str:
@@ -54,6 +55,22 @@ def _ranking_identity_config(config: Mapping[str, Any]) -> dict[str, Any]:
             value[f"{path_key}_identity"] = value.get(hash_key)
     for key in ("experiment_branch", "branch_cost_level", "parent_candidate_hash", "applied_branches"):
         value.pop(key, None)
+    return value
+
+
+def _raw_ranking_cache_config(config: Mapping[str, Any]) -> dict[str, Any]:
+    """Normalize controls that the evaluator applies to a deeper raw ranking.
+
+    Production replay stores long-term rows up to the configured top-k, while
+    ``_apply_retrieval_controls`` always clips those rows to the Candidate's
+    requested top-k.  Keying the raw cache by a smaller top-k needlessly
+    rebuilds Qdrant even when the default/deeper cache already contains every
+    row needed by the Candidate.  The registry's stored-depth check prevents a
+    shallower artifact from satisfying a deeper request.
+    """
+
+    value = _ranking_identity_config(config)
+    value["longterm_top_k"] = _DEFAULT_LONGTERM_TOP_K
     return value
 
 
@@ -145,17 +162,92 @@ def _row_text(row: Mapping[str, Any]) -> str:
     return f"{identifiers} {content}".strip()
 
 
+def _memory_key(row: Mapping[str, Any], fallback_index: int) -> tuple[str, str]:
+    source = str(row.get("source") or row.get("layer") or row.get("memory_layer") or "memory").lower()
+    identifier = str(row.get("page_id") or row.get("id") or row.get("memory_id") or "")
+    if not identifier:
+        identifier = str(row.get("source_turn_id") or row.get("turn_id") or f"row-{fallback_index}")
+    return source, identifier
+
+
+def _limit_unique_memories(rows: Sequence[Mapping[str, Any]], limit: int) -> list[dict[str, Any]]:
+    """Keep every lineage row for the first ``limit`` unique memories.
+
+    Production Page diagnostics expand one Page into one row per source turn.
+    Context budgets and precision are Page/memory budgets, not expanded-row
+    budgets, so slicing the expanded list can silently drop lineage and count
+    one returned Page multiple times.
+    """
+
+    budget = max(0, int(limit))
+    if budget == 0:
+        return []
+    selected_keys: set[tuple[str, str]] = set()
+    output: list[dict[str, Any]] = []
+    for index, raw in enumerate(rows):
+        row = dict(raw)
+        key = _memory_key(row, index)
+        if key not in selected_keys:
+            if len(selected_keys) >= budget:
+                continue
+            selected_keys.add(key)
+        output.append(row)
+    return output
+
+
+def _unique_memory_count(rows: Sequence[Mapping[str, Any]]) -> int:
+    return len({_memory_key(row, index) for index, row in enumerate(rows)})
+
+
+def _row_source_ids(row: Mapping[str, Any]) -> set[str]:
+    explicit = str(row.get("source_turn_id") or row.get("turn_id") or "").upper()
+    if explicit:
+        return {explicit}
+    fallback = str(row.get("page_id") or row.get("id") or "").upper()
+    return {fallback} if fallback else set()
+
+
+def _source_ids(rows: Sequence[Mapping[str, Any]]) -> set[str]:
+    return {source_id for row in rows for source_id in _row_source_ids(row)}
+
+
+def _id_context_precision(rows: Sequence[Mapping[str, Any]], gold_members: set[str]) -> float:
+    grouped: dict[tuple[str, str], set[str]] = {}
+    for index, row in enumerate(rows):
+        grouped.setdefault(_memory_key(row, index), set()).update(_row_source_ids(row))
+    if not grouped:
+        return 0.0
+    relevant = sum(bool(source_ids & gold_members) for source_ids in grouped.values())
+    return relevant / len(grouped)
+
+
+def _fact_context_precision(rows: Sequence[Mapping[str, Any]], requirements: Sequence[FactRequirement]) -> float:
+    """Measure fact relevance once per returned memory, not per lineage row."""
+
+    grouped: dict[tuple[str, str], list[str]] = {}
+    for index, row in enumerate(rows):
+        grouped.setdefault(_memory_key(row, index), []).append(_row_text(row))
+    if not grouped:
+        return 0.0
+    relevant = sum(
+        any(any(fact_member_hit(member, memory_text) for member in requirement.members) for requirement in requirements)
+        for memory_text in ("\n".join(parts) for parts in grouped.values())
+    )
+    return relevant / len(grouped)
+
+
 def _visible_midterm_rows(rows: Sequence[Mapping[str, Any]], context_budget: int) -> list[dict[str, Any]]:
     """Select the production-visible Mid-term Pages from a diagnostic trace."""
-    budget = min(5, max(1, int(context_budget)))
+    budget = max(1, int(context_budget))
     diagnostic_rows = [row for row in rows if "final_visible" in row or "threshold_passed" in row]
     if diagnostic_rows:
-        return [
-            dict(row)
+        visible = [
+            row
             for row in diagnostic_rows
             if row.get("final_visible") is True and row.get("threshold_filtered") is not True
-        ][:budget]
-    return [dict(row) for row in rows[:budget]]
+        ]
+        return _limit_unique_memories(visible, budget)
+    return _limit_unique_memories(rows, budget)
 
 
 def _fact_rows_for_visible(
@@ -414,11 +506,11 @@ def _rank_session(
     checkpoint_path: Path | None,
     run_dir: Path,
     candidate_id: str,
-) -> tuple[dict[str, list[dict[str, Any]]], bool]:
-    ranking_config = _ranking_identity_config(candidate.config)
+) -> tuple[dict[str, list[dict[str, Any]]], bool, int]:
+    ranking_config = _raw_ranking_cache_config(candidate.config)
     raw_depth = ranking_depth + int(candidate.config.get("longterm_top_k", _DEFAULT_LONGTERM_TOP_K))
     identity = {
-        "schema": _EVALUATION_SCHEMA,
+        "schema": _RANKING_SCHEMA,
         "dataset_sha256": dataset.sha256,
         "session_id": session_id,
         "target": target,
@@ -430,10 +522,14 @@ def _rank_session(
         grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for row in cached["rows"]:
             grouped[str(row["query_id"])].append({key: value for key, value in row.items() if key != "query_id"})
-        return {
-            query_id: _apply_retrieval_controls(ranking, candidate.config, ranking_depth)
-            for query_id, ranking in grouped.items()
-        }, True
+        return (
+            {
+                query_id: _apply_retrieval_controls(ranking, candidate.config, ranking_depth)
+                for query_id, ranking in grouped.items()
+            },
+            True,
+            0,
+        )
 
     session_turns = dataset.sessions[session_id]
     grouped = {}
@@ -495,8 +591,10 @@ def _rank_session(
                 f"Production checkpoint contains extra Query for {session_id}: "
                 f"{str(extra_checkpoint.get('query_id') or '<missing>').upper()}"
             )
+    if adapter is not None:
+        adapter.flush_local_embedding_cache()
     registry.store_ranking(identity, flat, raw_depth)
-    return grouped, False
+    return grouped, False, int(adapter.embedding_calls if adapter is not None else 0)
 
 
 def _evaluate_session(
@@ -570,20 +668,24 @@ def _evaluate_session(
             and item.get("in_candidate_pool", True) is not False
             and (item.get("page_id") or item.get("id"))
         }
-        context_budget = min(5, max_total_pages)
+        context_budget = min(k, max_total_pages)
         # Candidate configs are not part of the evaluator API; callers may
         # pass a synthetic ``max_total_pages`` on the ranking mapping.
         if isinstance(rankings.get("__meta__"), Mapping):
             configured_budget = validate_candidate_config(
                 {"max_total_pages": rankings["__meta__"].get("max_total_pages", context_budget)}
             )["max_total_pages"]
-            context_budget = min(5, int(configured_budget))
+            context_budget = min(k, int(configured_budget))
         visible_midterm = _visible_midterm_rows(midterm_rows, context_budget)
-        remaining_agentic_budget = max(0, 5 - len(visible_midterm))
-        visible_agentic = agentic_rows[: min(5, agentic_max_total_results, remaining_agentic_budget)]
-        visible_longterm = longterm_rows[:longterm_top_k]
+        remaining_agentic_budget = max(0, k - _unique_memory_count(visible_midterm))
+        visible_agentic = _limit_unique_memories(
+            agentic_rows,
+            min(k, agentic_max_total_results, remaining_agentic_budget),
+        )
+        visible_longterm = _limit_unique_memories(longterm_rows, longterm_top_k)
         visible_rows = [*short_rows, *session_rows, *visible_midterm, *visible_agentic, *visible_longterm]
-        returned_page_counts.append(len(visible_midterm) + len(visible_agentic) + len(visible_longterm))
+        returned_memory_rows = [*session_rows, *visible_midterm, *visible_agentic, *visible_longterm]
+        returned_page_counts.append(_unique_memory_count(returned_memory_rows))
         if context_mode and uses_context_gold(turn):
             context_rows, context_requirements = _fact_rows_for_visible(
                 turn,
@@ -598,18 +700,18 @@ def _evaluate_session(
             for row in context_rows:
                 row.update(
                     {
-                        "selected_session_count": len(session_rows),
+                        "selected_session_count": _unique_memory_count(session_rows),
                         "session_routed_page_count": max(
                             [int(item.get("session_routed_page_count") or 0) for item in midterm_rows]
-                            or [len(midterm_rows)]
+                            or [_unique_memory_count(midterm_rows)]
                         ),
-                        "global_supplement_page_count": sum(
-                            1 for item in midterm_rows if item.get("global_supplement")
+                        "global_supplement_page_count": _unique_memory_count(
+                            [item for item in midterm_rows if item.get("global_supplement")]
                         ),
                         "dedup_candidate_count": len(candidate_page_ids),
                         "candidate_pool_count": len(candidate_page_ids),
-                        "returned_page_count": len(visible_midterm),
-                        "returned_agentic_count": len(visible_agentic),
+                        "returned_page_count": _unique_memory_count(visible_midterm),
+                        "returned_agentic_count": _unique_memory_count(visible_agentic),
                     }
                 )
             # Context requirements, rather than source IDs, are the fixed Gold
@@ -620,44 +722,69 @@ def _evaluate_session(
                 contribution_counts["midterm"] += int(bool(row["midterm_hit"]))
                 contribution_counts["agentic"] += int(bool(row["agentic_hit"]))
                 contribution_counts["session_longterm"] += int(bool(row["session_longterm_hit"]))
-            returned_memory_rows = [*session_rows, *visible_midterm, *visible_agentic, *visible_longterm]
-            relevant_pages = sum(
-                any(
-                    any(fact_member_hit(member, _row_text(page)) for member in requirement.members)
-                    for requirement in context_requirements
-                )
-                for page in returned_memory_rows
-            )
-            precision_values.append(relevant_pages / max(len(returned_memory_rows), 1))
+            precision_values.append(_fact_context_precision(returned_memory_rows, context_requirements))
             continue
-        ranked_ids = [str(row.get("source_turn_id") or row.get("page_id")) for row in midterm_rows]
-        rank_by_id = {page_id: rank for rank, page_id in enumerate(ranked_ids, start=1)}
+        candidate_midterm_rows = [row for row in midterm_rows if row.get("in_candidate_pool", True) is not False]
+        post_threshold_rows = [row for row in candidate_midterm_rows if row.get("threshold_filtered") is not True]
+        rank_by_id: dict[str, int] = {}
+        for row_index, row in enumerate(candidate_midterm_rows, start=1):
+            rank = int(row.get("rank_before_threshold") or row.get("rank") or row_index)
+            for source_id in _row_source_ids(row):
+                rank_by_id[source_id] = min(rank, rank_by_id.get(source_id, rank))
+        candidate_ids = _source_ids(candidate_midterm_rows)
+        post_threshold_ids = _source_ids(post_threshold_rows)
+        midterm_final_ids = _source_ids([*session_rows, *visible_midterm])
+        shortterm_id_set = {source_id.upper() for source_id in shortterm_ids}
+        agentic_ids = _source_ids(visible_agentic)
+        longterm_ids = _source_ids(visible_longterm)
+        final_ids = shortterm_id_set | midterm_final_ids | agentic_ids | longterm_ids
+        query_gold_members = {member.upper() for requirement in eligible for member in requirement.members}
+        precision_values.append(_id_context_precision(returned_memory_rows, query_gold_members))
         for group_index, requirement in enumerate(eligible, start=1):
-            member_ranks = [rank_by_id[member] for member in requirement.members if member in rank_by_id]
+            members = {member.upper() for member in requirement.members}
+            member_ranks = [rank_by_id[member] for member in members if member in rank_by_id]
             best_rank = min(member_ranks) if member_ranks else None
-            requirement_rows.append(
-                {
-                    "requirement_id": f"{turn.query_id}::G{group_index}",
-                    "session_id": session_id,
-                    "query_id": turn.query_id,
-                    "turn_index": turn.turn_index,
-                    "gold_members": list(requirement.members),
-                    "is_or": requirement.is_or,
-                    "best_rank": best_rank,
-                    "hit_at_k": bool(best_rank is not None and best_rank <= k),
-                    "hit_at_2k": bool(best_rank is not None and best_rank <= 2 * k),
-                    "hit_at_4k": bool(best_rank is not None and best_rank <= 4 * k),
-                    "reciprocal_rank": 1.0 / best_rank if best_rank else 0.0,
-                    "selected_session_count": len(layers.get("sessions", [])),
-                    "session_routed_page_count": len(midterm_rows),
-                    "global_supplement_page_count": sum(
-                        1 for item in midterm_rows if bool(item.get("global_supplement"))
-                    ),
-                    "dedup_candidate_count": len(candidate_page_ids),
-                    "candidate_pool_count": len(candidate_page_ids),
-                    "returned_page_count": len(_visible_midterm_rows(midterm_rows, context_budget)),
-                }
-            )
+            candidate_hit = bool(members & candidate_ids)
+            post_threshold_hit = bool(members & post_threshold_ids)
+            midterm_final_hit = bool(members & midterm_final_ids)
+            shortterm_hit = bool(members & shortterm_id_set)
+            agentic_hit = bool(members & agentic_ids)
+            longterm_hit = bool(members & longterm_ids)
+            final_hit = bool(members & final_ids)
+            row = {
+                "requirement_id": f"{turn.query_id}::G{group_index}",
+                "session_id": session_id,
+                "query_id": turn.query_id,
+                "turn_index": turn.turn_index,
+                "gold_members": list(requirement.members),
+                "is_or": requirement.is_or,
+                "best_rank": best_rank,
+                "hit_at_k": final_hit,
+                "hit_at_2k": final_hit or bool(best_rank is not None and best_rank <= 2 * k),
+                "hit_at_4k": final_hit or bool(best_rank is not None and best_rank <= 4 * k),
+                "candidate_pool_hit": candidate_hit,
+                "post_threshold_hit": post_threshold_hit,
+                "midterm_final_context_hit": midterm_final_hit,
+                "final_context_hit": final_hit,
+                "shortterm_hit": shortterm_hit,
+                "midterm_hit": midterm_final_hit,
+                "agentic_hit": agentic_hit,
+                "session_longterm_hit": longterm_hit,
+                "reciprocal_rank": 1.0 / best_rank if best_rank else 0.0,
+                "selected_session_count": _unique_memory_count(layers.get("sessions", [])),
+                "session_routed_page_count": _unique_memory_count(midterm_rows),
+                "global_supplement_page_count": _unique_memory_count(
+                    [item for item in midterm_rows if bool(item.get("global_supplement"))]
+                ),
+                "dedup_candidate_count": len(candidate_page_ids),
+                "candidate_pool_count": len(candidate_page_ids),
+                "returned_page_count": _unique_memory_count(visible_midterm),
+            }
+            requirement_rows.append(row)
+            contribution_counts["shortterm"] += int(shortterm_hit)
+            contribution_counts["midterm"] += int(midterm_final_hit)
+            contribution_counts["agentic"] += int(agentic_hit)
+            contribution_counts["session_longterm"] += int(longterm_hit)
     total = len(requirement_rows)
 
     def recall(field: str) -> float:
@@ -746,9 +873,16 @@ def _evaluate_session(
         # MidTerm rows.  These are marginal layer rates over the same fixed
         # Gold denominator, not additive components of R@K.
         metrics["shortterm_contribution"] = shortterm_hits / max(shortterm_total, 1)
-        metrics["midterm_contribution"] = sum(bool(row["hit_at_k"]) for row in requirement_rows) / max(
+        metrics["midterm_contribution"] = sum(bool(row["midterm_hit"]) for row in requirement_rows) / max(
             shortterm_total, 1
         )
+        metrics["agentic_contribution"] = sum(bool(row["agentic_hit"]) for row in requirement_rows) / max(
+            shortterm_total, 1
+        )
+        metrics["session_longterm_contribution"] = sum(
+            bool(row["session_longterm_hit"]) for row in requirement_rows
+        ) / max(shortterm_total, 1)
+        metrics["short_mid_session_longterm_union"] = metrics["target_layer_union"]
     metrics["all_memory_union"] = None
     metrics["query_completion"] = None
     return {"metrics": metrics, "requirements": requirement_rows}
@@ -769,6 +903,19 @@ def _aggregate(
     total_gold = sum(int(row["total_gold_requirement_count"]) for row in session_rows)
     short_hits = sum(int(row["shortterm_requirement_count"]) for row in session_rows)
     target_hits = sum(bool(row["hit_at_k"]) for row in requirement_rows)
+
+    def query_weighted_session_metric(name: str) -> float:
+        weighted = [(float(row.get(name) or 0.0), int(row.get("evaluated_query_count") or 0)) for row in session_rows]
+        weight = sum(item_weight for _, item_weight in weighted)
+        return sum(value * item_weight for value, item_weight in weighted) / weight if weight else 0.0
+
+    def query_mean(field: str) -> float:
+        by_query: dict[tuple[str, str], float] = {}
+        for row in requirement_rows:
+            key = (str(row.get("session_id") or ""), str(row.get("query_id") or ""))
+            by_query.setdefault(key, float(row.get(field) or 0.0))
+        return statistics.fmean(by_query.values()) if by_query else 0.0
+
     metrics = {
         "evaluated_query_count": len({row["query_id"] for row in requirement_rows}),
         "eligible_requirement_count": total,
@@ -785,29 +932,32 @@ def _aggregate(
         "target_layer_union": (short_hits + target_hits) / total_gold if total_gold else 0.0,
         "all_memory_union": None,
         "query_completion": None,
+        "candidate_pool_recall": hit("candidate_pool_hit"),
+        "post_threshold_recall": hit("post_threshold_hit"),
+        "midterm_final_context_recall": hit("midterm_final_context_hit"),
+        "final_context_recall": hit("final_context_hit"),
+        "context_precision": query_weighted_session_metric("context_precision"),
+        "mean_returned_pages": query_weighted_session_metric("mean_returned_pages"),
+        "candidate_pool_count": query_mean("candidate_pool_count"),
+        "returned_page_count": query_mean("returned_page_count"),
+        "shortterm_contribution": short_hits / total_gold if total_gold else 0.0,
+        "midterm_contribution": sum(bool(row["midterm_hit"]) for row in requirement_rows) / total_gold
+        if total_gold
+        else 0.0,
+        "agentic_contribution": sum(bool(row["agentic_hit"]) for row in requirement_rows) / total_gold
+        if total_gold
+        else 0.0,
+        "session_longterm_contribution": sum(bool(row["session_longterm_hit"]) for row in requirement_rows) / total_gold
+        if total_gold
+        else 0.0,
+        "short_mid_session_longterm_union": (short_hits + target_hits) / total_gold if total_gold else 0.0,
     }
-    for name in (
-        "candidate_pool_recall",
-        "post_threshold_recall",
-        "midterm_final_context_recall",
-        "final_context_recall",
-        "context_precision",
-        "mean_returned_pages",
-        "candidate_pool_count",
-        "returned_page_count",
-        "shortterm_contribution",
-        "midterm_contribution",
-        "agentic_contribution",
-        "session_longterm_contribution",
-        "short_mid_session_longterm_union",
-    ):
-        values = [float(row.get(name) or 0.0) for row in session_rows]
-        metrics[name] = statistics.fmean(values) if values else 0.0
     metrics["query_completion"] = metrics["final_context_recall"]
     if any(bool(row.get("required_context_evaluation")) for row in session_rows):
         metrics["target_layer_union"] = metrics["final_context_recall"]
         metrics["all_memory_union"] = metrics["final_context_recall"]
         metrics["query_completion"] = metrics["final_context_recall"]
+        metrics["short_mid_session_longterm_union"] = metrics["final_context_recall"]
     return metrics, requirement_rows, session_rows
 
 
@@ -959,7 +1109,7 @@ def evaluate_candidate(
     cache_misses = 0
     work_seconds = 0.0
 
-    def run_session(session_id: str) -> tuple[dict[str, Any], bool, float]:
+    def run_session(session_id: str) -> tuple[dict[str, Any], bool, float, int]:
         session_started = time.perf_counter()
         session_turns = dataset.sessions[session_id]
         expected_queries = sum(
@@ -979,8 +1129,13 @@ def evaluate_candidate(
         worker_path = registry.worker_path(run_dir, candidate_id, evaluation_scope, session_id)
         resumed = registry.valid_worker(worker_path, expected_queries=expected_queries, identity=identity)
         if resumed is not None:
-            return resumed["result"], True, time.perf_counter() - session_started
-        rankings, ranking_cache_hit = _rank_session(
+            return (
+                resumed["result"],
+                True,
+                time.perf_counter() - session_started,
+                int(resumed.get("local_embedding_calls") or 0),
+            )
+        rankings, ranking_cache_hit, local_embedding_calls = _rank_session(
             dataset,
             session_id,
             candidate,
@@ -1021,21 +1176,34 @@ def evaluate_candidate(
                 "evaluated_query_count": expected_queries,
                 "failed_turns": 0,
                 "ranking_cache_hit": ranking_cache_hit,
+                "local_embedding_calls": local_embedding_calls,
                 "result": result,
             },
         )
-        return result, ranking_cache_hit, time.perf_counter() - session_started
+        return result, ranking_cache_hit, time.perf_counter() - session_started, local_embedding_calls
 
     completed: dict[str, dict[str, Any]] = {}
-    with ThreadPoolExecutor(max_workers=max(1, min(max_parallel_sessions, len(sessions) or 1))) as executor:
-        futures = {executor.submit(run_session, session_id): session_id for session_id in sessions}
-        for future in as_completed(futures):
-            session_id = futures[future]
-            result, hit_cache, elapsed = future.result()
-            completed[session_id] = result
-            cache_hits += int(hit_cache)
-            cache_misses += int(not hit_cache)
-            work_seconds += elapsed
+    local_embedding_calls = 0
+
+    def record_session(session_id: str, payload: tuple[dict[str, Any], bool, float, int]) -> None:
+        nonlocal cache_hits, cache_misses, work_seconds, local_embedding_calls
+        result, hit_cache, elapsed, session_embedding_calls = payload
+        completed[session_id] = result
+        cache_hits += int(hit_cache)
+        cache_misses += int(not hit_cache)
+        work_seconds += elapsed
+        local_embedding_calls += session_embedding_calls
+
+    session_parallelism = max(1, min(max_parallel_sessions, len(sessions) or 1))
+    if session_parallelism == 1:
+        for session_id in sessions:
+            record_session(session_id, run_session(session_id))
+    else:
+        with ThreadPoolExecutor(max_workers=session_parallelism) as executor:
+            futures = {executor.submit(run_session, session_id): session_id for session_id in sessions}
+            for future in as_completed(futures):
+                session_id = futures[future]
+                record_session(session_id, future.result())
     ordered = [completed[session_id] for session_id in sessions]
     metrics, requirements, session_rows = _aggregate(ordered)
     if backend == "production_trace":
@@ -1052,6 +1220,7 @@ def evaluate_candidate(
         metrics[f"{target}_recall_at_k"] = metrics["recall_at_k"]
     metrics["tuning_llm_calls"] = int(candidate.provenance.get("tuning_llm_calls") or 0)
     metrics["tuning_embedding_calls"] = int(candidate.provenance.get("tuning_embedding_calls") or 0)
+    metrics["local_replay_embedding_calls"] = local_embedding_calls
     reused_artifacts: list[str] = []
     if candidate.provenance.get("ranking_sha256"):
         reused_artifacts.append(str(candidate.provenance["ranking_sha256"]))
@@ -1078,7 +1247,7 @@ def evaluate_candidate(
         cache_hits=cache_hits,
         cache_misses=cache_misses,
         llm_calls=int(generation_stats.get("llm_calls") or 0),
-        embedding_calls=int(generation_stats.get("embedding_calls") or 0),
+        embedding_calls=int(generation_stats.get("embedding_calls") or 0) + local_embedding_calls,
         reused_artifacts=reused_artifacts,
         complexity=candidate.complexity,
     )

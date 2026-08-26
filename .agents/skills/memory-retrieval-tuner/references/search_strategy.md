@@ -37,7 +37,7 @@ For the reconstructed workbook, fixed Gold is the source-question IDs in `关联
 
 Research decisions use only the current run's Tune evidence and current-run experiment trajectory; previous-run winners, metrics or lessons are never search priors.
 
-Production is the single implementation of every behavior that can change retrieval output or generated source. The Skill owns preset-to-config mapping, diagnostic state, cache/experiment state, benchmark evaluation, and benchmark-only context caps. Hybrid presets and Prompt candidates are converted to validated `MemoryConfig` overrides before production execution. Every Experiment Branch declares whether its change requires source regeneration; no global parameter-class list decides this. `DiagnosticMidTermRetriever` may override only the production `_on_stage` hook and must inherit `search()` unchanged. The tuner `<=5` Agentic/Mid-term union is an evaluation constraint independent from Production's config-owned `max_total_results`; Production's fixed `max_tool_result_chars` is read from the effective config and must match every reused Agentic trace row.
+Production is the single implementation of every behavior that can change retrieval output or generated source. The Skill owns preset-to-config mapping, diagnostic state, cache/experiment state, benchmark evaluation, and benchmark-only context caps. Hybrid presets and Prompt candidates are converted to validated `MemoryConfig` overrides before production execution. Every Experiment Branch declares whether its change requires source regeneration; no global parameter-class list decides this. `DiagnosticMidTermRetriever` may override only the production `_on_stage` hook and must inherit `search()` unchanged. The tuner `<=K` Agentic/Mid-term union is an evaluation constraint independent from Production's config-owned `max_total_results`; Production's fixed `max_tool_result_chars` is read from the effective config and must match every reused Agentic trace row.
 
 ## 2. Configurable Recall@K
 
@@ -467,11 +467,14 @@ Tie-break:
 
 1. higher Macro/session R@K;
 2. lower per-Session variance / fewer catastrophic Sessions;
-3. higher MRR;
-4. higher R@(2K), then R@(4K);
-5. lower LLM calls;
-6. lower embedding/runtime cost;
-7. simpler configuration.
+3. higher context precision;
+4. higher MRR;
+5. higher R@(2K), then R@(4K);
+6. lower LLM calls;
+7. lower embedding/runtime cost;
+8. simpler configuration.
+
+`context_precision` must be computed on Tune and held-out Validation and shown in the finalist report. Small regressions are allowed; this is a measured trade-off and tie-breaker, not a hard zero-regression gate.
 
 This prevents selecting a fragile +0.1 pp configuration over a simpler stable one.
 

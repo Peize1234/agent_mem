@@ -241,7 +241,13 @@ def test_evaluator_parameterizes_k(tmp_path: Path, k: int, expected: bool) -> No
         {"source_turn_id": f"S001-Q{index:03d}", "page_id": f"S001-Q{index:03d}"} for index in (2, 3, 4, 8, 9, 10, 1)
     ]
     evaluated = _evaluate_session(
-        dataset, session, {target.query_id: ranking}, k=k, target="midterm", shortterm_window=3
+        dataset,
+        session,
+        {target.query_id: ranking},
+        k=k,
+        target="midterm",
+        shortterm_window=3,
+        max_total_pages=k,
     )
     assert evaluated["requirements"][0]["hit_at_k"] is expected
 
@@ -442,6 +448,38 @@ def test_resume_derives_cache_from_run_directory(tmp_path: Path) -> None:
         _artifact_cache_root(fresh, tmp_path / "fresh-output" / "run")
         == (tmp_path / "fresh-output" / ".cache").resolve()
     )
+
+
+def test_resume_model_revisions_freeze_existing_discovered_sources(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+
+    def write_source(identity: str, model_id: str, revision: str) -> None:
+        manifest = run_dir / "low_consumption_sources" / identity / "S001" / "production_midterm_manifest.json"
+        manifest.parent.mkdir(parents=True)
+        manifest.write_text(
+            json.dumps(
+                {
+                    "source_identity": {
+                        "kind": "low_consumption_discovered_embedding_multi_vector",
+                        "embedding_source_identity": {
+                            "model_id": model_id,
+                            "model_revision": revision,
+                        },
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    write_source("existing", "BAAI/bge-m3", "revision-a")
+    frozen = orchestrator._load_or_create_resume_model_revisions(run_dir)
+    write_source("later", "test/new-model", "revision-b")
+    resumed = orchestrator._load_or_create_resume_model_revisions(run_dir)
+
+    assert frozen == {"embedding": {"BAAI/bge-m3": ["revision-a"]}}
+    assert resumed == frozen
+    payload = json.loads((run_dir / "resume_model_revisions.json").read_text(encoding="utf-8"))
+    assert payload["schema"] == 1
 
 
 def test_loso_executes_every_frozen_fold(tmp_path: Path) -> None:
@@ -811,7 +849,10 @@ def test_production_source_workers_respect_llm_concurrency_limit(
     assert 1 < max_active <= 2
 
 
-def test_production_adapter_calls_real_midterm_retriever(tmp_path: Path) -> None:
+def test_production_adapter_calls_real_midterm_retriever(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     session_point_id = "11111111-1111-1111-1111-111111111111"
     page_point_id = "22222222-2222-2222-2222-222222222222"
     scope = {"user_id": "recall::S001_test", "run_id": "S001_test"}
@@ -895,6 +936,45 @@ def test_production_adapter_calls_real_midterm_retriever(tmp_path: Path) -> None
     )
     assert hybrid_ranking[0]["source_turn_id"] == "S001-Q001"
     assert hybrid_ranking[0]["source"] == "mid_term_page"
+
+    class FakeLocalEmbedding:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, str]] = []
+
+        def embed_batch(self, texts: list[str], action: str) -> list[list[float]]:
+            self.calls.extend((text, action) for text in texts)
+            return [[1.0, 0.0] if "源问题" in text else [0.8, 0.6] for text in texts]
+
+    fake_local_embedding = FakeLocalEmbedding()
+    monkeypatch.setattr(
+        "mem0.utils.factory.EmbedderFactory.create",
+        lambda *_args, **_kwargs: fake_local_embedding,
+    )
+    low_consumption_adapter = ProductionMidtermAdapter(
+        run_dir=tmp_path,
+        candidate_hash="candidate-low-consumption-multi-vector",
+        session_id="S001_test",
+        ranking_depth=20,
+    )
+    low_consumption_multi_vector = low_consumption_adapter.rank(
+        checkpoint,
+        {
+            **config,
+            "low_consumption_mode": True,
+            "low_consumption_local_replay_modes": ["page_field_embeddings"],
+            "reranker_method": "multi_vector_maxsim",
+            "rerank_depth": 20,
+        },
+    )
+    assert low_consumption_multi_vector[0]["source_turn_id"] == "S001-Q001"
+    assert low_consumption_multi_vector[0]["first_stage_score"] == pytest.approx(1.0)
+    assert low_consumption_multi_vector[0]["rerank_score"] == pytest.approx(1.0)
+    assert low_consumption_adapter.embedding_calls == 3
+    assert {text for text, _ in fake_local_embedding.calls} == {
+        "真实生产检索查询的 Page prompt 摘要",
+        "生产 摘要",
+        "源问题",
+    }
 
 
 def test_diagnostic_retriever_matches_production_and_keeps_trace_isolated() -> None:
@@ -1336,6 +1416,7 @@ def test_candidate_selection_near_tie_and_overfit() -> None:
 def test_report_marks_missing_full_memory_trace_as_na(tmp_path: Path) -> None:
     baseline = result("baseline", 0.5)
     baseline.metrics["midterm_recall_at_k"] = 0.5
+    baseline.metrics["context_precision"] = 0.2
     reason = "No complete production trace is available"
     write_outputs(
         run_dir=tmp_path,
@@ -1376,6 +1457,11 @@ def test_report_marks_missing_full_memory_trace_as_na(tmp_path: Path) -> None:
     report = (tmp_path / "final_report.md").read_text(encoding="utf-8")
     assert "Regression ShortTerm coverage: N/A" in report
     assert "Regression LongTerm R@5: N/A" in report
+    assert "Baseline validation context precision: 0.2000" in report
+    assert "Tune precision | Validation R@5 | Validation precision" in report
+    leaderboard = (tmp_path / "leaderboard.csv").read_text(encoding="utf-8")
+    assert "tune_context_precision" in leaderboard
+    assert "validation_context_precision" in leaderboard
     assert reason in report
 
 
@@ -1775,7 +1861,9 @@ def test_parallel_session_candidate_isolation_and_resume(tmp_path: Path) -> None
     assert json.loads(interrupted.read_text(encoding="utf-8"))["status"] == "COMPLETE"
 
 
-def test_k_change_reuses_deep_raw_ranking_cache(tmp_path: Path) -> None:
+def test_k_and_longterm_top_k_changes_reuse_deep_raw_ranking_cache(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     dataset = make_dataset(tmp_path, 1)
     registry = ArtifactRegistry(tmp_path / "cache", tmp_path / "results")
     turns = next(iter(dataset.sessions.values()))
@@ -1798,7 +1886,16 @@ def test_k_change_reuses_deep_raw_ranking_cache(tmp_path: Path) -> None:
         "max_total_pages": 20,
     }
     baseline = Candidate(name="baseline", stage="baseline", config=base_config)
-    same_ranking = Candidate(name="same-ranking", stage="cheap", config=base_config)
+    same_ranking = Candidate(
+        name="same-ranking",
+        stage="cheap",
+        config={**base_config, "longterm_top_k": 1},
+    )
+
+    def unexpected_thread_pool(*_args: Any, **_kwargs: Any) -> None:
+        raise AssertionError("single-Session evaluation must not create a ThreadPoolExecutor")
+
+    monkeypatch.setattr("tuner.evaluate_candidate.ThreadPoolExecutor", unexpected_thread_pool)
     common = {
         "dataset": dataset,
         "sessions": list(dataset.sessions),
@@ -1813,6 +1910,7 @@ def test_k_change_reuses_deep_raw_ranking_cache(tmp_path: Path) -> None:
     }
     evaluate_candidate(candidate=baseline, **common)
     reused = evaluate_candidate(candidate=same_ranking, **{**common, "k": 10})
+    assert candidate_hash(dataset.sha256, baseline) != candidate_hash(dataset.sha256, same_ranking)
     assert reused.cache_hits == 1
     assert reused.cache_misses == 0
 
@@ -2913,7 +3011,7 @@ def test_deep_model_discovery_unifies_cached_and_online_quality_ranking(
 
     discovery = ModelDiscovery(
         output_path=tmp_path / "models.json",
-        resources=ResourceEnvelope(0, None, 16.0, 100.0),
+        resources=ResourceEnvelope(1, 4.0, 16.0, 100.0),
         cache_root=cache,
         api=FakeApi(),
     )
@@ -2948,7 +3046,7 @@ def test_standard_model_discovery_is_cache_only(tmp_path: Path) -> None:
 
     discovery = ModelDiscovery(
         output_path=tmp_path / "models.json",
-        resources=ResourceEnvelope(0, None, 16.0, 100.0),
+        resources=ResourceEnvelope(1, 4.0, 16.0, 100.0),
         cache_root=cache,
         api=OfflineApi(),
     )
@@ -2989,7 +3087,7 @@ def test_model_discovery_deduplicates_exact_cached_online_revision(tmp_path: Pat
 
     discovery = ModelDiscovery(
         output_path=tmp_path / "models.json",
-        resources=ResourceEnvelope(0, None, 16.0, 100.0),
+        resources=ResourceEnvelope(1, 4.0, 16.0, 100.0),
         cache_root=cache,
         api=FakeApi(),
     )
@@ -3090,6 +3188,7 @@ def test_exact_cached_revision_reuses_snapshot_without_download(
 ) -> None:
     snapshot = tmp_path / "hf" / "hub" / "models--cached--embedding" / "snapshots" / "abc123"
     snapshot.mkdir(parents=True)
+    (snapshot / "model.safetensors").write_bytes(b"cached-model-weights")
     discovery = ModelDiscovery(
         output_path=tmp_path / "models.json",
         resources=ResourceEnvelope(0, None, 16.0, 100.0),
@@ -3137,6 +3236,41 @@ def test_model_download_failure_is_isolated(
     assert "gated model" in str(failed.error)
     payload = json.loads((tmp_path / "models.json").read_text(encoding="utf-8"))
     assert any(item.get("status") == "UNAVAILABLE" for item in payload["models"])
+
+
+def test_model_download_excludes_non_transformer_artifacts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    snapshot = tmp_path / "downloaded" / "snapshot-revision"
+    snapshot.mkdir(parents=True)
+    (snapshot / "model.safetensors").write_bytes(b"weights")
+    captured: dict[str, Any] = {}
+
+    def download(**kwargs: Any) -> str:
+        captured.update(kwargs)
+        return str(snapshot)
+
+    monkeypatch.setattr("huggingface_hub.snapshot_download", download)
+    discovery = ModelDiscovery(
+        output_path=tmp_path / "models.json",
+        resources=ResourceEnvelope(1, 4.0, 16.0, 100.0),
+        cache_root=tmp_path / "hf" / "hub",
+    )
+    available = discovery.ensure_available(
+        ModelCandidate(
+            "test/transformer-embedding",
+            "embedding",
+            "huggingface_search",
+            revision="snapshot-revision",
+        ),
+        allow_download=True,
+    )
+
+    assert available.status == "AVAILABLE"
+    assert "*.safetensors" in captured["allow_patterns"]
+    assert "*.gguf" in captured["ignore_patterns"]
+    assert "*.onnx" in captured["ignore_patterns"]
 
 
 def test_budget_profiles_gate_real_cost_levels() -> None:
@@ -3295,8 +3429,22 @@ def _branch_context(
         stage_index=generation_round,
         generation_round=generation_round,
         branch_history=branch_history,
-        execution_settings={"max_parallel_sessions": 2, "max_parallel_llm_calls": 2},
+        execution_settings={"gpu_count": 1, "max_parallel_sessions": 2, "max_parallel_llm_calls": 2},
     )
+
+
+def test_branch_registry_skips_embedding_branches_without_gpu(tmp_path: Path) -> None:
+    dataset = make_dataset(tmp_path, 1)
+    baseline, _ = _production_branch_inputs(tmp_path, dataset)
+    context = _branch_context(tmp_path, dataset, baseline)
+    context.execution_settings["gpu_count"] = 0
+    branch = FieldAwareMultiVectorBranch()
+
+    outcome = BranchRegistry([branch]).generate(branch, context)
+
+    assert outcome.status == "UNAVAILABLE_NO_GPU"
+    assert outcome.candidates == []
+    assert "CPU fallback is disabled" in str(outcome.reason)
 
 
 def test_standard_retrieval_control_searches_top_k_sessions_without_source_regeneration(tmp_path: Path) -> None:
@@ -3334,6 +3482,60 @@ def test_standard_retrieval_control_searches_top_k_sessions_without_source_regen
         )
         production = ProductionMidtermAdapter._validated_production_config(candidate.config)
         assert production.midterm.top_k_sessions == candidate.config["top_k_sessions"]
+
+
+def test_retrieval_control_stage_budget_fairly_covers_threshold_and_integer_extremes(tmp_path: Path) -> None:
+    import yaml
+
+    dataset = make_dataset(tmp_path, 1)
+    baseline, _ = _production_branch_inputs(tmp_path, dataset)
+    baseline_result = result(baseline.name, 0.5)
+    baseline_result.config = baseline.config
+    space = yaml.safe_load((SCRIPTS.parent / "search_space.yaml").read_text(encoding="utf-8"))
+    evaluated_names: list[str] = []
+
+    def evaluate(candidates: Any, sessions: Any, scope: str) -> list[CandidateResult]:
+        del sessions
+        assert scope == "stage_1_tune"
+        evaluated_names.extend(candidate.name for candidate in candidates)
+        values: list[CandidateResult] = []
+        for candidate in candidates:
+            measured = result(candidate.name, 0.5)
+            measured.config = candidate.config
+            measured.stage = candidate.stage
+            measured.complexity = candidate.complexity
+            values.append(measured)
+        return values
+
+    search = run_staged_search(
+        dataset=dataset,
+        baseline=baseline,
+        baseline_result=baseline_result,
+        tune_sessions=tuple(dataset.sessions),
+        registry=BranchRegistry([RetrievalControlBranch()]),
+        artifact_registry=ArtifactRegistry(tmp_path / "cache", tmp_path / "results"),
+        model_discovery=None,
+        run_dir=tmp_path / "run",
+        search_space=space,
+        budget="deep",
+        profile={
+            "max_stages": 1,
+            "max_cost_level": "expensive",
+            "max_branches_per_stage": 1,
+            "max_candidates_per_stage": 16,
+            "tune_frontier": 8,
+            "max_expensive_candidates": 16,
+        },
+        k=5,
+        ranking_depth=20,
+        evaluate=evaluate,
+        diagnose=lambda _: {"regime": "candidate_coverage_bottleneck"},
+    )
+
+    assert len(evaluated_names) == 16
+    assert any("midterm_rag_threshold=" in name for name in evaluated_names)
+    assert any("midterm_candidate_pool_multiplier=8" in name for name in evaluated_names)
+    assert search.stage_history[0]["candidate_count"] == 16
 
 
 def test_page_representation_branch_reads_literal_and_regenerates_source(
@@ -4872,6 +5074,11 @@ def test_embedding_branch_replays_real_production_sources_before_evaluation(
         return measured
 
     monkeypatch.setattr(orchestrator, "evaluate_candidate", fake_evaluate_candidate)
+
+    def unexpected_thread_pool(*_args: Any, **_kwargs: Any) -> None:
+        raise AssertionError("single-Candidate evaluation must not create a ThreadPoolExecutor")
+
+    monkeypatch.setattr(orchestrator, "ThreadPoolExecutor", unexpected_thread_pool)
     evaluated = orchestrator._evaluate_many(
         dataset,
         [candidate],

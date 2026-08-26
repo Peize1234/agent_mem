@@ -12392,5 +12392,14 @@
         }
       ]
     }
-  ]
+  ],
+  "qa_pair_review": {
+    "version": "2026-08-24.qa-pair-repair.v1",
+    "candidate_selection_changed": false,
+    "candidate_count_reviewed": 29,
+    "qa_pairs_or_answer_bearing_records_added": 0,
+    "source_dataset": "exp/金融分析数据集_S001-S010高质量重构.xlsx",
+    "causal_rule": "Historical memory representations expose both source question and source answer. For pre-answer retrieval/rewrite, the current assistant answer is shown only as later observed output and is never labeled as retrieval input.",
+    "scope": "NOT_APPLICABLE: aggregate tuning/benchmark evidence"
+  }
 }
