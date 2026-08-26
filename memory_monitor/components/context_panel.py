@@ -35,23 +35,50 @@ def query_rewrite_summary(context: dict) -> QueryRewriteSummary:
 
 def midterm_retrieval_rows(records: list[dict]) -> list[dict[str, Any]]:
     """Return the production MidTerm Page score chain in display order."""
-    return [
-        {
+    page_records = [record for record in records if _is_midterm_page(record)]
+    has_reranker_scores = any(_has_reranker_scores(record) for record in page_records)
+    rows = []
+    for record in page_records:
+        row = {
             "Page": record.get("id"),
             "Session": record.get("session_id"),
             "摘要": record.get("summary") or record.get("memory"),
             "raw_rag_score（原始）": record.get("raw_rag_score"),
             "× forgetting_factor（保留）": record.get("forgetting_factor"),
-            "→ final_score（最终）": record.get("final_score"),
-            "heat_factor": record.get("heat_factor"),
-            "effective_half_life_turns": record.get("effective_half_life_turns"),
-            "valid_recall_count": record.get("valid_recall_count"),
-            "last_recall_turn_index": record.get("last_recall_turn_index"),
-            "turn_index": record.get("turn_index"),
         }
-        for record in records
-        if _is_midterm_page(record)
-    ]
+        if has_reranker_scores:
+            row["→ first_stage_score（第一阶段）"] = record.get("first_stage_score")
+            row["→ rerank_score（重排）"] = record.get("rerank_score")
+        row.update(
+            {
+                "→ final_score（最终）": record.get("final_score"),
+                "heat_factor": record.get("heat_factor"),
+                "effective_half_life_turns": record.get("effective_half_life_turns"),
+                "valid_recall_count": record.get("valid_recall_count"),
+                "last_recall_turn_index": record.get("last_recall_turn_index"),
+                "turn_index": record.get("turn_index"),
+            }
+        )
+        rows.append(row)
+    return rows
+
+
+def midterm_score_chain_markdown(record: dict) -> str:
+    """Format one Page using only the score stages returned by production retrieval."""
+    first_line = (
+        f"**原始相关度** `{_format_score(record.get('raw_rag_score'))}` "
+        f"× **当前记忆保留度** `{_format_score(record.get('forgetting_factor'))}`"
+    )
+    if not _has_reranker_scores(record):
+        return f"{first_line} → **最终检索分数** `{_format_score(record.get('final_score'))}`"
+    return "  \n".join(
+        (
+            first_line,
+            f"→ **第一阶段分数** `{_format_score(record.get('first_stage_score'))}`",
+            f"→ **重排分数** `{_format_score(record.get('rerank_score'))}`",
+            f"→ **最终检索分数** `{_format_score(record.get('final_score'))}`",
+        )
+    )
 
 
 def render(st, context: dict | None, *, key_prefix: str) -> None:
@@ -132,13 +159,7 @@ def _render_midterm_retrieval(st, records: list[dict], *, key_prefix: str) -> No
             key=f"{key_prefix}:page_selector",
         )
         page = pages[selected_page]
-        st.markdown(
-            f"`raw_rag_score {_format_score(page.get('raw_rag_score'))}` "
-            f"× `forgetting_factor {_format_score(page.get('forgetting_factor'))}` "
-            f"→ `final_score {_format_score(page.get('final_score'))}`"
-        )
-        if page.get("rerank_score") is not None or page.get("first_stage_score") is not None:
-            st.caption("final_score 含生产重排后的结果，因此可能不等于当前展示的遗忘乘积。")
+        st.markdown(midterm_score_chain_markdown(page))
     selected = st.selectbox(
         "查看中期完整字段",
         range(len(records)),
@@ -156,6 +177,10 @@ def _render_midterm_retrieval(st, records: list[dict], *, key_prefix: str) -> No
 
 def _is_midterm_page(record: dict) -> bool:
     return record.get("source") == "mid_term_page" or "raw_rag_score" in record
+
+
+def _has_reranker_scores(record: dict) -> bool:
+    return "first_stage_score" in record or "rerank_score" in record
 
 
 def _format_score(value: Any) -> str:

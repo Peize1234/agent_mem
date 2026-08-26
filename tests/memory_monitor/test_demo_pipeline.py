@@ -482,7 +482,7 @@ def test_legacy_context_without_retrieval_query_uses_original_query_for_display(
     assert summary.retrieval_query_recorded is False
 
 
-def test_midterm_retrieval_display_exposes_production_score_chain():
+def test_midterm_retrieval_display_exposes_score_chain_without_reranker():
     records = [
         {"id": "session-1", "source": "mid_term_session", "H_segment": 4.2},
         {
@@ -516,6 +516,57 @@ def test_midterm_retrieval_display_exposes_production_score_chain():
             "turn_index": 3,
         }
     ]
+    assert context_panel.midterm_score_chain_markdown(records[1]) == (
+        "**原始相关度** `0.800000` × **当前记忆保留度** `0.625000` → **最终检索分数** `0.500000`"
+    )
+
+
+def test_midterm_retrieval_display_exposes_reranker_score_stages_without_mutating_record():
+    record = {
+        "id": "page-reranked",
+        "source": "mid_term_page",
+        "session_id": "session-2",
+        "summary": "重排后的投资偏好",
+        "raw_rag_score": 0.8,
+        "forgetting_factor": 0.625,
+        "first_stage_score": 0.5,
+        "rerank_score": 0.91,
+        "final_score": 0.91,
+        "heat_factor": 1.05,
+        "effective_half_life_turns": 176.4,
+        "valid_recall_count": 2,
+        "last_recall_turn_index": 8,
+        "turn_index": 3,
+    }
+    original = deepcopy(record)
+
+    rows = context_panel.midterm_retrieval_rows([record])
+    chain = context_panel.midterm_score_chain_markdown(record)
+
+    assert rows == [
+        {
+            "Page": "page-reranked",
+            "Session": "session-2",
+            "摘要": "重排后的投资偏好",
+            "raw_rag_score（原始）": 0.8,
+            "× forgetting_factor（保留）": 0.625,
+            "→ first_stage_score（第一阶段）": 0.5,
+            "→ rerank_score（重排）": 0.91,
+            "→ final_score（最终）": 0.91,
+            "heat_factor": 1.05,
+            "effective_half_life_turns": 176.4,
+            "valid_recall_count": 2,
+            "last_recall_turn_index": 8,
+            "turn_index": 3,
+        }
+    ]
+    assert chain == (
+        "**原始相关度** `0.800000` × **当前记忆保留度** `0.625000`  \n"
+        "→ **第一阶段分数** `0.500000`  \n"
+        "→ **重排分数** `0.910000`  \n"
+        "→ **最终检索分数** `0.910000`"
+    )
+    assert record == original
 
 
 def test_query_rewrite_display_does_not_add_an_llm_call_or_persisted_step(tmp_path):
