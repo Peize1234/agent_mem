@@ -98,6 +98,7 @@ class DemoPipelineService:
         user_id: str,
         run_id: str,
         user_message: str,
+        custom_prompt: Optional[str] = None,
         turn_id: Optional[str] = None,
         background_config: BackgroundStepConfig | Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
@@ -106,6 +107,7 @@ class DemoPipelineService:
             user_id=user_id,
             run_id=run_id,
             user_message=user_message,
+            custom_prompt=custom_prompt,
             turn_id=turn_id,
             background_config=background_config,
         )
@@ -674,10 +676,12 @@ class DemoPipelineService:
             prompt = self.memory.build_prompt_from_context(
                 context,
                 agentic_memory_supplement=agentic.get("agentic_memory_supplement") or "",
+                custom_prompt=turn.get("custom_prompt"),
             )
             output = {
                 "context_hash": self.memory.context_hash(context),
                 "agentic_status": agentic.get("agentic_status"),
+                "custom_prompt": turn.get("custom_prompt"),
                 "messages": prompt,
             }
             return output, {}
@@ -1006,6 +1010,7 @@ class DemoPipelineService:
                 "agentic_status": agentic.get("agentic_status"),
                 "agentic_memory_supplement": agentic.get("agentic_memory_supplement"),
                 "agentic_answer": agentic.get("agentic_answer"),
+                "custom_prompt": turn.get("custom_prompt"),
             }
         if step is PipelineStep.GENERATE_RESPONSE:
             prompt = self._step_output(turn_id, PipelineStep.BUILD_PROMPT)

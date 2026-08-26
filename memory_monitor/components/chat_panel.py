@@ -32,3 +32,20 @@ def chat_input(
     disabled: bool = False,
 ):
     return st.chat_input("输入用户问题", key=key, disabled=disabled)
+
+
+def custom_prompt_input(
+    st,
+    *,
+    key: str,
+    disabled: bool = False,
+):
+    with st.expander("回答自定义要求（可选）", expanded=False):
+        st.caption("控制本轮回答的格式、侧重点和表达方式，不影响记忆检索。")
+        return st.text_area(
+            "回答自定义要求",
+            placeholder="例如：请按重要性排序，并用表格展示结论与主要风险。",
+            key=key,
+            disabled=disabled,
+            label_visibility="collapsed",
+        )

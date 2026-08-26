@@ -61,7 +61,14 @@ class _AgenticDemoMemory:
         context["context_hash"] = self.context_hash(context)
         return context
 
-    def build_prompt_from_context(self, context, *, agentic_memory_supplement=None, agentic_answer=None):
+    def build_prompt_from_context(
+        self,
+        context,
+        *,
+        agentic_memory_supplement=None,
+        agentic_answer=None,
+        custom_prompt=None,
+    ):
         supplement = agentic_memory_supplement or agentic_answer or ""
         return [{"role": "system", "content": f"final prompt supplement: {supplement}"}]
 
@@ -251,10 +258,16 @@ def test_frozen_demo_context_builds_exactly_the_core_final_prompt(monkeypatch):
     core_context = deepcopy(context)
     core_context.pop("context_hash")
 
-    demo_messages = memory.build_prompt_from_context(context, agentic_memory_supplement="历史口径补充")
+    custom_prompt = "请按风险等级排序，并使用表格回答"
+    demo_messages = memory.build_prompt_from_context(
+        context,
+        agentic_memory_supplement="历史口径补充",
+        custom_prompt=custom_prompt,
+    )
     core_messages = build_answer_prompt_messages_from_context(
         core_context,
         agentic_memory_supplement="历史口径补充",
+        custom_prompt=custom_prompt,
     )
 
     assert demo_messages == core_messages
@@ -267,6 +280,7 @@ def test_frozen_demo_context_builds_exactly_the_core_final_prompt(monkeypatch):
     assert "<reference_information>\n[]\n</reference_information>" in prompt
     assert "\\u4e2d" not in prompt
     assert "<agentic_memory_supplement>\n历史口径补充\n</agentic_memory_supplement>" in prompt
+    assert f"<custom_prompt>\n{custom_prompt}\n</custom_prompt>" in prompt
 
 
 def test_agentic_loop_runs_in_its_own_node_and_commit_receives_only_final_turn(tmp_path):

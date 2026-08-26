@@ -119,6 +119,7 @@ class DemoMemory(Memory):
         reference_information: Any = None,
         agentic_memory_supplement: Optional[str] = None,
         agentic_answer: Optional[str] = None,
+        custom_prompt: Optional[str] = None,
     ) -> list[Dict[str, str]]:
         """Build answer-model messages from the supplied frozen context only."""
         frozen_context = self._validated_frozen_context(context)
@@ -129,6 +130,7 @@ class DemoMemory(Memory):
                 frozen_context,
                 reference_information,
                 agentic_memory_supplement=agentic_memory_supplement or "",
+                custom_prompt=custom_prompt,
             )
         )
 

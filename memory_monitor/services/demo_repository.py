@@ -81,6 +81,7 @@ class DemoRepository:
                     user_id TEXT NOT NULL,
                     run_id TEXT NOT NULL,
                     user_message TEXT NOT NULL,
+                    custom_prompt TEXT,
                     assistant_message TEXT,
                     generation_json TEXT,
                     commit_json TEXT,
@@ -146,6 +147,7 @@ class DemoRepository:
     def _migrate_turn_columns(connection: sqlite3.Connection) -> None:
         columns = {row["name"] for row in connection.execute("PRAGMA table_info(demo_turns)").fetchall()}
         additions = {
+            "custom_prompt": "TEXT",
             "run_shortterm": "INTEGER NOT NULL DEFAULT 1",
             "run_midterm": "INTEGER NOT NULL DEFAULT 1",
             "run_longterm": "INTEGER NOT NULL DEFAULT 1",
@@ -324,6 +326,7 @@ class DemoRepository:
         user_id: str,
         run_id: str,
         user_message: str,
+        custom_prompt: Optional[str] = None,
         turn_id: Optional[str] = None,
         background_config: BackgroundStepConfig | Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
@@ -332,6 +335,8 @@ class DemoRepository:
         config = BackgroundStepConfig.from_mapping(
             background_config.as_dict() if isinstance(background_config, BackgroundStepConfig) else background_config
         )
+        custom_prompt = custom_prompt.strip() if custom_prompt else None
+        custom_prompt = custom_prompt or None
         turn_id = turn_id or str(uuid.uuid4())
         now = _now()
         with self._connection() as connection:
@@ -348,10 +353,10 @@ class DemoRepository:
                 connection.execute(
                     """
                     INSERT INTO demo_turns (
-                        turn_id, session_id, user_id, run_id, user_message,
+                        turn_id, session_id, user_id, run_id, user_message, custom_prompt,
                         run_shortterm, run_midterm, run_longterm, run_profile,
                         created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         turn_id,
@@ -359,6 +364,7 @@ class DemoRepository:
                         user_id,
                         run_id,
                         user_message.strip(),
+                        custom_prompt,
                         int(config.run_shortterm),
                         int(config.run_midterm),
                         int(config.run_longterm),

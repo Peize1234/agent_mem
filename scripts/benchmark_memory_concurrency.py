@@ -57,6 +57,7 @@ DEFAULT_TARGET_RPS = 5.0
 DEFAULT_SUSTAINED_DURATION_SECONDS = 180.0
 DEFAULT_REQUEST_TIMEOUT_SECONDS = 600.0
 DEFAULT_BACKGROUND_TIMEOUT_SECONDS = 600.0
+DEFAULT_TRACE_SAMPLE = 30
 LOCAL_EMBEDDING_DIMENSIONS = 64
 SUMMARY_WIDTH = 68
 TOKEN_PATTERN = re.compile(r"BENCH_U(?P<user>\d+)_S(?P<session>[A-Z0-9]+)_R(?P<request>\d+)")
@@ -78,6 +79,109 @@ class RequestSpec:
     assistant_response: str
     idempotency_key: str
     warmup: bool = False
+
+
+class LiveTrace:
+    """Print real lifecycle events for a deterministic sample of measured requests."""
+
+    def __init__(self, specs: Sequence[RequestSpec], *, enabled: bool, sample_size: int):
+        self.enabled = enabled
+        self.sample_size = min(sample_size, len(specs)) if enabled else 0
+        sampled_specs = tuple(specs[: self.sample_size])
+        self._sampled_request_ids = {spec.request_id for spec in sampled_specs}
+        self._spec_by_operation_key = {spec.idempotency_key: spec for spec in sampled_specs}
+        self._active: Counter[str] = Counter()
+        self._lock = threading.Lock()
+        self._started_at: float | None = None
+
+    def start(self, *, total_requests: int, load_mode: str) -> None:
+        if not self.enabled:
+            return
+        with self._lock:
+            self._started_at = time.perf_counter()
+            print("=" * SUMMARY_WIDTH, flush=True)
+            print(
+                f"LIVE TRACE | real AsyncMemory events | mode={load_mode} "
+                f"sampled={self.sample_size}/{total_requests}",
+                flush=True,
+            )
+            print("Counters below cover the sampled requests; BURST RELEASE reports the full real wave.", flush=True)
+            print("=" * SUMMARY_WIDTH, flush=True)
+
+    def is_sampled(self, spec: RequestSpec) -> bool:
+        return self.enabled and spec.request_id in self._sampled_request_ids and not spec.warmup
+
+    def spec_for_job(self, job: dict[str, Any]) -> RequestSpec | None:
+        operation_key = job.get("source_operation_key")
+        return self._spec_by_operation_key.get(str(operation_key)) if operation_key is not None else None
+
+    def system(self, event: str, detail: str = "") -> None:
+        if not self.enabled:
+            return
+        self._emit(None, "SYSTEM", event, detail=detail)
+
+    def stage_start(self, spec: RequestSpec, stage: str, *, detail: str = "") -> None:
+        if not self.is_sampled(spec):
+            return
+        self._emit(spec, stage, "START", active_delta=1, detail=detail)
+
+    def stage_finish(
+        self,
+        spec: RequestSpec,
+        stage: str,
+        *,
+        started_at: float,
+        outcome: str = "DONE",
+        detail: str = "",
+    ) -> None:
+        if not self.is_sampled(spec):
+            return
+        self._emit(
+            spec,
+            stage,
+            outcome,
+            active_delta=-1,
+            duration_seconds=time.perf_counter() - started_at,
+            detail=detail,
+        )
+
+    def _emit(
+        self,
+        spec: RequestSpec | None,
+        stage: str,
+        event: str,
+        *,
+        active_delta: int = 0,
+        duration_seconds: float | None = None,
+        detail: str = "",
+    ) -> None:
+        if not self.enabled:
+            return
+        counter_stage = "BACKGROUND" if stage.startswith("BG-") else stage
+        with self._lock:
+            if self._started_at is None:
+                return
+            if active_delta > 0:
+                self._active[counter_stage] += active_delta
+            elif active_delta < 0:
+                self._active[counter_stage] = max(0, self._active[counter_stage] + active_delta)
+            elapsed = time.perf_counter() - self._started_at
+            request_label = (
+                f"req={spec.request_id:04d} user={spec.user_id} session={spec.session_id}"
+                if spec is not None
+                else "req=----"
+            )
+            duration = f" duration={duration_seconds * 1000:.1f}ms" if duration_seconds is not None else ""
+            extra = f" {detail}" if detail else ""
+            active = (
+                f"sample-active(req={self._active['REQUEST']} ret={self._active['RETRIEVAL']} "
+                f"add={self._active['ADD']} bg={self._active['BACKGROUND']})"
+            )
+            print(
+                f"[TRACE +{elapsed:07.3f}s] {request_label} | {stage:<18} {event:<6}{duration}{extra} "
+                f"| {active} | thread={threading.current_thread().name}",
+                flush=True,
+            )
 
 
 @dataclass
@@ -564,6 +668,17 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help="Enable optional Agentic retrieval calls inside build_agent_answer_messages.",
     )
+    parser.add_argument(
+        "--trace",
+        action="store_true",
+        help="Print live lifecycle events from a sample of real measured requests (default: disabled).",
+    )
+    parser.add_argument(
+        "--trace-sample",
+        type=int,
+        default=DEFAULT_TRACE_SAMPLE,
+        help=f"Number of measured requests included in --trace output (default: {DEFAULT_TRACE_SAMPLE}).",
+    )
     args = parser.parse_args()
 
     for name in (
@@ -573,6 +688,7 @@ def _parse_args() -> argparse.Namespace:
         "background_concurrency",
         "entity_extraction_workers",
         "entity_extraction_pending_capacity",
+        "trace_sample",
     ):
         if getattr(args, name) <= 0:
             parser.error(f"--{name.replace('_', '-')} must be greater than 0")
@@ -769,13 +885,59 @@ def _install_retrieval_stage_probe(memory: AsyncMemory) -> RetrievalStageProbe:
     return probe
 
 
-async def _submit_qa(memory: AsyncMemory, spec: RequestSpec) -> RequestResult:
+def _install_background_trace(memory: AsyncMemory, trace: LiveTrace) -> None:
+    """Wrap actual worker execution coroutines so trace lines reflect claimed durable jobs."""
+    if not trace.enabled:
+        return
+    worker = memory._ensure_background_workers()
+
+    def wrap_async(method_name: str, stage_name, job_position: int = 0) -> None:
+        original = getattr(worker, method_name)
+
+        async def instrumented(*args: Any, **kwargs: Any):
+            job = args[job_position]
+            stage = stage_name(*args, **kwargs) if callable(stage_name) else stage_name
+            spec = trace.spec_for_job(job) if isinstance(job, dict) else None
+            started_at = time.perf_counter()
+            job_id = str(job.get("job_id", "unknown")) if isinstance(job, dict) else "unknown"
+            if spec is not None:
+                trace.stage_start(spec, stage, detail=f"job={job_id[:8]}")
+            try:
+                result = await original(*args, **kwargs)
+            except BaseException as exc:
+                if spec is not None:
+                    trace.stage_finish(
+                        spec,
+                        stage,
+                        started_at=started_at,
+                        outcome="ERROR",
+                        detail=f"job={job_id[:8]} error={type(exc).__name__}",
+                    )
+                raise
+            else:
+                if spec is not None:
+                    trace.stage_finish(spec, stage, started_at=started_at, detail=f"job={job_id[:8]}")
+                return result
+
+        setattr(worker, method_name, instrumented)
+
+    wrap_async("_execute_migration_stage", lambda _job, stage, *_args, **_kwargs: f"BG-{stage.upper()}")
+    wrap_async("_run_longterm_extraction_job_async", "BG-FINE-LONGTERM")
+    wrap_async("_execute_profile_job", "BG-PROFILE")
+    wrap_async("_execute_promotion_job", "BG-PROMOTION")
+
+
+async def _submit_qa(memory: AsyncMemory, spec: RequestSpec, trace: LiveTrace | None = None) -> RequestResult:
     started = time.perf_counter()
     retrieval_latency: float | None = None
     add_latency: float | None = None
+    if trace is not None:
+        trace.stage_start(spec, "REQUEST")
     try:
         if not spec.warmup:
             retrieval_started = time.perf_counter()
+            if trace is not None:
+                trace.stage_start(spec, "RETRIEVAL")
             entity_scope_token = ENTITY_EXTRACTION_SCOPE.set(MEASURED_RETRIEVAL_SCOPE)
             try:
                 answer_messages = await memory.build_agent_answer_messages(
@@ -784,6 +946,19 @@ async def _submit_qa(memory: AsyncMemory, spec: RequestSpec) -> RequestResult:
                     session_id=spec.session_id,
                     top_k=20,
                 )
+            except BaseException as exc:
+                if trace is not None:
+                    trace.stage_finish(
+                        spec,
+                        "RETRIEVAL",
+                        started_at=retrieval_started,
+                        outcome="ERROR",
+                        detail=f"error={type(exc).__name__}",
+                    )
+                raise
+            else:
+                if trace is not None:
+                    trace.stage_finish(spec, "RETRIEVAL", started_at=retrieval_started)
             finally:
                 ENTITY_EXTRACTION_SCOPE.reset(entity_scope_token)
                 retrieval_latency = time.perf_counter() - retrieval_started
@@ -791,6 +966,8 @@ async def _submit_qa(memory: AsyncMemory, spec: RequestSpec) -> RequestResult:
                 raise RuntimeError("build_agent_answer_messages returned no prompt messages")
 
         add_started = time.perf_counter()
+        if trace is not None:
+            trace.stage_start(spec, "ADD")
         try:
             result = await memory.add(
                 [
@@ -801,20 +978,49 @@ async def _submit_qa(memory: AsyncMemory, spec: RequestSpec) -> RequestResult:
                 run_id=spec.session_id,
                 idempotency_key=spec.idempotency_key,
             )
+        except BaseException as exc:
+            if trace is not None:
+                trace.stage_finish(
+                    spec,
+                    "ADD",
+                    started_at=add_started,
+                    outcome="ERROR",
+                    detail=f"error={type(exc).__name__}",
+                )
+            raise
         finally:
             add_latency = time.perf_counter() - add_started
         background = result.get("background", {}) if isinstance(result, dict) else {}
-        return RequestResult(
+        migration_job_id = background.get("migration_job_id")
+        profile_job_id = background.get("profile_job_id")
+        if trace is not None:
+            jobs = ",".join(
+                part
+                for part in (
+                    f"migration={str(migration_job_id)[:8]}" if migration_job_id else "",
+                    f"profile={str(profile_job_id)[:8]}" if profile_job_id else "",
+                )
+                if part
+            )
+            trace.stage_finish(spec, "ADD", started_at=add_started, detail=f"enqueued={jobs or 'none'}")
+        request_result = RequestResult(
             spec=spec,
             retrieval_latency_seconds=retrieval_latency,
             add_latency_seconds=add_latency,
             end_to_end_latency_seconds=time.perf_counter() - started,
             succeeded=True,
-            migration_job_id=background.get("migration_job_id"),
-            profile_job_id=background.get("profile_job_id"),
+            migration_job_id=migration_job_id,
+            profile_job_id=profile_job_id,
         )
+        if trace is not None:
+            trace.stage_finish(spec, "REQUEST", started_at=started, detail="status=success")
+        return request_result
+    except asyncio.CancelledError:
+        if trace is not None:
+            trace.stage_finish(spec, "REQUEST", started_at=started, outcome="CANCEL")
+        raise
     except Exception as exc:
-        return RequestResult(
+        request_result = RequestResult(
             spec=spec,
             retrieval_latency_seconds=retrieval_latency,
             add_latency_seconds=add_latency,
@@ -822,6 +1028,15 @@ async def _submit_qa(memory: AsyncMemory, spec: RequestSpec) -> RequestResult:
             succeeded=False,
             error=f"{type(exc).__name__}: {exc}",
         )
+        if trace is not None:
+            trace.stage_finish(
+                spec,
+                "REQUEST",
+                started_at=started,
+                outcome="ERROR",
+                detail=f"error={type(exc).__name__}",
+            )
+        return request_result
 
 
 async def _run_warmup(
@@ -855,13 +1070,14 @@ async def _run_request_wave(
     memory: AsyncMemory,
     specs: Sequence[RequestSpec],
     request_timeout: float,
+    trace: LiveTrace | None = None,
 ) -> tuple[list[RequestResult], int, float, ForegroundResourceUsage]:
     counter = InFlightRequestCounter(len(specs))
 
     async def run_one(spec: RequestSpec) -> RequestResult:
         await counter.enter()
         try:
-            return await asyncio.wait_for(_submit_qa(memory, spec), timeout=request_timeout)
+            return await asyncio.wait_for(_submit_qa(memory, spec, trace), timeout=request_timeout)
         except Exception as exc:
             return RequestResult(
                 spec=spec,
@@ -882,6 +1098,8 @@ async def _run_request_wave(
     resource_sampler = ForegroundResourceSampler(default_executor_workers)
     resource_sampler.start()
     started = time.perf_counter()
+    if trace is not None:
+        trace.system("BURST RELEASE", detail=f"real_in_flight={counter.active} total={len(specs)}")
     counter.release.set()
     try:
         results = await asyncio.gather(*tasks)
@@ -896,6 +1114,7 @@ async def _run_sustained_load(
     request_timeout: float,
     target_rps: float,
     duration_seconds: float,
+    trace: LiveTrace | None = None,
 ) -> tuple[list[RequestResult], int, float, ForegroundResourceUsage, LoadMetrics]:
     """Submit requests on a monotonic open-loop schedule without waiting for completion."""
     counter = SustainedInFlightCounter()
@@ -908,7 +1127,7 @@ async def _run_sustained_load(
     async def run_one(spec: RequestSpec) -> RequestResult:
         counter.enter()
         try:
-            return await asyncio.wait_for(_submit_qa(memory, spec), timeout=request_timeout)
+            return await asyncio.wait_for(_submit_qa(memory, spec, trace), timeout=request_timeout)
         except Exception as exc:
             return RequestResult(
                 spec=spec,
@@ -1288,6 +1507,8 @@ async def _run_benchmark(args: argparse.Namespace, root: Path) -> BenchmarkResul
     memory = _create_memory(args, root)
     entity_probe = _install_entity_extraction_probe(memory, disabled=args.disable_entity_extraction)
     retrieval_stage_probe = _install_retrieval_stage_probe(memory)
+    trace = LiveTrace(request_specs, enabled=args.trace, sample_size=args.trace_sample)
+    _install_background_trace(memory, trace)
     report: SafetyReport | None = None
     closed = False
     try:
@@ -1299,6 +1520,7 @@ async def _run_benchmark(args: argparse.Namespace, root: Path) -> BenchmarkResul
             args.background_timeout,
         )
         entity_probe.reset()
+        trace.start(total_requests=measured_request_count, load_mode=args.load_mode)
 
         if args.load_mode == "sustained":
             print(
@@ -1312,6 +1534,7 @@ async def _run_benchmark(args: argparse.Namespace, root: Path) -> BenchmarkResul
                 args.request_timeout,
                 args.target_rps,
                 args.duration,
+                trace,
             )
         else:
             print(f"Launching {args.concurrency} synchronized AsyncMemory requests...", flush=True)
@@ -1319,6 +1542,7 @@ async def _run_benchmark(args: argparse.Namespace, root: Path) -> BenchmarkResul
                 memory,
                 request_specs,
                 args.request_timeout,
+                trace,
             )
             foreground_backlog = await asyncio.to_thread(_background_backlog_snapshot, memory)
             load = LoadMetrics(
@@ -1334,13 +1558,28 @@ async def _run_benchmark(args: argparse.Namespace, root: Path) -> BenchmarkResul
                 background_backlog_at_foreground_end=dict(foreground_backlog),
                 peak_sampled_background_backlog=sum(foreground_backlog.values()),
             )
+        trace.system(
+            "FOREGROUND DONE",
+            detail=(
+                f"duration={foreground_duration:.3f}s peak_in_flight={peak_in_flight} "
+                f"backlog={sum(load.background_backlog_at_foreground_end.values())}"
+            ),
+        )
         entity_extraction = entity_probe.snapshot()
         retrieval_stages = retrieval_stage_probe.snapshot()
 
         print("Draining persistent background memory jobs...", flush=True)
+        trace.system(
+            "BACKGROUND DRAIN START",
+            detail=f"backlog={sum(load.background_backlog_at_foreground_end.values())}",
+        )
         drain_started = time.perf_counter()
         background_drained = await memory.flush_background_tasks(timeout=args.background_timeout)
         drain_duration = time.perf_counter() - drain_started
+        trace.system(
+            "BACKGROUND DRAIN DONE",
+            detail=f"duration={drain_duration:.3f}s drained={str(background_drained).lower()}",
+        )
         total_duration = foreground_duration + drain_duration
 
         print("Verifying user/session isolation and durable job ordering...", flush=True)
@@ -1617,6 +1856,7 @@ def main() -> int:
             "DISABLED (benchmark-only -> [])" if args.disable_entity_extraction else "ENABLED",
         )
     )
+    print(_line("Live Trace", f"ENABLED (sample={args.trace_sample})" if args.trace else "DISABLED"))
     print("Worker concurrency is an in-flight cap per worker, not a sustained-throughput guarantee.")
     if args.real:
         print("WARNING: --real performs external LLM and embedding calls for the full workload.")

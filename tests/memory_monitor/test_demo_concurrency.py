@@ -370,7 +370,8 @@ def test_lightweight_demo_schema_migration_adds_defaults_and_new_steps(tmp_path)
         turn_columns = {row["name"] for row in connection.execute("PRAGMA table_info(demo_turns)")}
     assert "queued_at" in step_columns
     assert "is_held" in step_columns
-    assert {"run_shortterm", "execution_target", "completed_at"} <= turn_columns
+    assert {"custom_prompt", "run_shortterm", "execution_target", "completed_at"} <= turn_columns
+    assert repository.get_turn("turn-1")["custom_prompt"] is None
 
 
 def test_run_all_returns_immediately_while_two_slow_turns_run_concurrently(tmp_path):

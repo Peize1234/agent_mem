@@ -23,6 +23,8 @@ def _args(**overrides):
         "background_timeout": 10.0,
         "real": False,
         "agentic": False,
+        "trace": False,
+        "trace_sample": 30,
     }
     values.update(overrides)
     return Namespace(**values)
@@ -56,6 +58,22 @@ def test_sustained_request_count_uses_target_rate_and_duration():
     assert benchmark._measured_request_count(_args(load_mode="sustained", target_rps=2.5, duration=4.0)) == 10
     assert benchmark._measured_request_count(_args(load_mode="sustained", target_rps=0.1, duration=1.0)) == 1
     assert benchmark._measured_request_count(_args(load_mode="burst", concurrency=17)) == 17
+
+
+def test_trace_cli_is_opt_in_and_accepts_sample_size(monkeypatch):
+    monkeypatch.setattr(benchmark.sys, "argv", ["benchmark_memory_concurrency.py"])
+    defaults = benchmark._parse_args()
+    assert defaults.trace is False
+    assert defaults.trace_sample == 30
+
+    monkeypatch.setattr(
+        benchmark.sys,
+        "argv",
+        ["benchmark_memory_concurrency.py", "--trace", "--trace-sample", "7"],
+    )
+    traced = benchmark._parse_args()
+    assert traced.trace is True
+    assert traced.trace_sample == 7
 
 
 def test_entity_extraction_probe_tracks_actual_executor_execution():
@@ -141,6 +159,89 @@ def test_submit_qa_records_retrieval_add_and_end_to_end_latency():
     assert result.end_to_end_latency_seconds >= result.retrieval_latency_seconds + result.add_latency_seconds
     assert result.migration_job_id == "migration"
     assert result.profile_job_id == "profile"
+
+
+def test_live_trace_prints_real_request_stages_for_only_the_sample(capsys):
+    class FakeMemory:
+        async def build_agent_answer_messages(self, *args, **kwargs):
+            return [{"role": "system", "content": "context"}]
+
+        async def add(self, *args, **kwargs):
+            return {"background": {"migration_job_id": "migration-job", "profile_job_id": "profile-job"}}
+
+    specs = [
+        benchmark.RequestSpec(
+            request_id=index,
+            user_id=f"user-{index}",
+            session_id=f"session-{index}",
+            marker=f"BENCH_U{index:03d}_S000_R{index:04d}",
+            query="query",
+            user_message="user message",
+            assistant_response="assistant response",
+            idempotency_key=f"key-{index}",
+        )
+        for index in range(2)
+    ]
+    trace = benchmark.LiveTrace(specs, enabled=True, sample_size=1)
+    trace.start(total_requests=2, load_mode="burst")
+
+    asyncio.run(benchmark._submit_qa(FakeMemory(), specs[0], trace))
+    asyncio.run(benchmark._submit_qa(FakeMemory(), specs[1], trace))
+
+    output = capsys.readouterr().out
+    assert "LIVE TRACE | real AsyncMemory events | mode=burst sampled=1/2" in output
+    assert "req=0000 user=user-0 session=session-0 | REQUEST" in output
+    assert "| RETRIEVAL" in output
+    assert "| ADD" in output
+    assert "enqueued=migration=migratio,profile=profile-" in output
+    assert "req=0001" not in output
+
+
+def test_background_trace_wraps_actual_worker_coroutine(capsys):
+    spec = benchmark.RequestSpec(
+        request_id=7,
+        user_id="user-7",
+        session_id="session-7",
+        marker="BENCH_U007_S000_R0007",
+        query="query",
+        user_message="user message",
+        assistant_response="assistant response",
+        idempotency_key="key-7",
+    )
+
+    class FakeWorker:
+        async def _execute_migration_stage(self, job, stage, handler, async_handler):
+            del job, stage, handler, async_handler
+
+        async def _run_longterm_extraction_job_async(self, job):
+            del job
+
+        async def _execute_profile_job(self, job):
+            del job
+
+        async def _execute_promotion_job(self, job):
+            del job
+
+    class FakeMemory:
+        def __init__(self):
+            self.worker = FakeWorker()
+
+        def _ensure_background_workers(self):
+            return self.worker
+
+    memory = FakeMemory()
+    trace = benchmark.LiveTrace([spec], enabled=True, sample_size=1)
+    benchmark._install_background_trace(memory, trace)
+    trace.start(total_requests=1, load_mode="burst")
+    job = {"job_id": "migration-job", "source_operation_key": spec.idempotency_key}
+
+    asyncio.run(memory.worker._execute_migration_stage(job, "midterm", None, None))
+
+    output = capsys.readouterr().out
+    assert output.count("| BG-MIDTERM") == 2
+    assert "START" in output
+    assert "DONE" in output
+    assert "job=migratio" in output
 
 
 def test_summary_separates_foreground_and_settled_throughput(capsys):

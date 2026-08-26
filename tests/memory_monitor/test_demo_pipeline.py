@@ -24,6 +24,7 @@ from memory_monitor.components import (
     memory_panel,
     pipeline_graph,
     pipeline_panel,
+    prompt_panel,
     styles,
 )
 from memory_monitor.config import DemoLabConfig
@@ -131,6 +132,7 @@ class _FakeDemoMemory:
         self.commit_kwargs = []
         self.commit_failures = commit_failures
         self.generated_messages = None
+        self.build_custom_prompts = []
         self._events = []
         self.state = {
             "short_term": [],
@@ -155,8 +157,16 @@ class _FakeDemoMemory:
         context["context_hash"] = self.context_hash(context)
         return context
 
-    def build_prompt_from_context(self, context, *, agentic_memory_supplement=None, agentic_answer=None):
+    def build_prompt_from_context(
+        self,
+        context,
+        *,
+        agentic_memory_supplement=None,
+        agentic_answer=None,
+        custom_prompt=None,
+    ):
         self.build_calls += 1
+        self.build_custom_prompts.append(custom_prompt)
         return [{"role": "system", "content": f"frozen:{context['query']}"}]
 
     def generate_response_for_demo(self, messages, **kwargs):
@@ -195,6 +205,40 @@ class _FakeDemoMemory:
 
     def demo_events(self):
         return deepcopy(self._events)
+
+
+class _ProductionPromptFakeMemory(_FakeDemoMemory):
+    _validated_frozen_context = DemoMemory._validated_frozen_context
+
+    def __init__(self, *, build_failures=0):
+        super().__init__()
+        self.build_failures = build_failures
+        self.retrieve_requests = []
+
+    def retrieve_context_for_demo(self, query, *, user_id, session_id):
+        self.retrieve_requests.append({"query": query, "user_id": user_id, "session_id": session_id})
+        return super().retrieve_context_for_demo(query, user_id=user_id, session_id=session_id)
+
+    def build_prompt_from_context(
+        self,
+        context,
+        *,
+        agentic_memory_supplement=None,
+        agentic_answer=None,
+        custom_prompt=None,
+    ):
+        self.build_calls += 1
+        self.build_custom_prompts.append(custom_prompt)
+        if self.build_failures:
+            self.build_failures -= 1
+            raise RuntimeError("temporary prompt build failure")
+        return DemoMemory.build_prompt_from_context(
+            self,
+            context,
+            agentic_memory_supplement=agentic_memory_supplement,
+            agentic_answer=agentic_answer,
+            custom_prompt=custom_prompt,
+        )
 
 
 class _PersistentlyIdempotentFakeMemory(_FakeDemoMemory):
@@ -468,9 +512,7 @@ def test_query_rewrite_ui_distinguishes_original_and_retrieval_queries(
     rendered = pipeline_graph.render_html(steps, BackgroundStepConfig())
     labels = ("捕获输入", "问题重写", "分层检索", "Agentic 检索", "构建 Prompt", "模型回答")
     node_titles = [f'<div class="demo-node-title">{label}</div>' for label in labels]
-    assert [rendered.index(title) for title in node_titles] == sorted(
-        rendered.index(title) for title in node_titles
-    )
+    assert [rendered.index(title) for title in node_titles] == sorted(rendered.index(title) for title in node_titles)
     assert rendered.count("resolver prompt") == 1
 
 
@@ -616,10 +658,7 @@ def test_query_rewrite_display_does_not_add_an_llm_call_or_persisted_step(tmp_pa
         assert len(retrieve["output"]["llm_calls"]) == 1
         assert retrieve["output"]["llm_calls"][0]["purpose"] == "问题重写"
         assert len(repository.list_steps(turn["turn_id"])) == len(PIPELINE_STEPS)
-        assert all(
-            step["step"] != pipeline_graph.QUERY_REWRITE_NODE
-            for step in repository.list_steps(turn["turn_id"])
-        )
+        assert all(step["step"] != pipeline_graph.QUERY_REWRITE_NODE for step in repository.list_steps(turn["turn_id"]))
 
         pipeline_graph.render_html(repository.list_steps(turn["turn_id"]), BackgroundStepConfig())
         context_panel.query_rewrite_summary(retrieve["output"])
@@ -708,6 +747,87 @@ def test_chat_history_uses_tall_keyed_native_scroll_container():
     assert "overflow-x: auto" in table_style
 
 
+def test_custom_prompt_input_is_collapsed_and_keeps_its_session_key():
+    expanders = []
+    captions = []
+    text_areas = []
+
+    class _Context:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    class _Streamlit:
+        @staticmethod
+        def expander(label, *, expanded):
+            expanders.append((label, expanded))
+            return _Context()
+
+        @staticmethod
+        def caption(value):
+            captions.append(value)
+
+        @staticmethod
+        def text_area(label, **kwargs):
+            text_areas.append((label, kwargs))
+            return "连续多轮复用"
+
+    value = chat_panel.custom_prompt_input(_Streamlit(), key="custom:session-1")
+
+    assert value == "连续多轮复用"
+    assert expanders == [("回答自定义要求（可选）", False)]
+    assert captions == ["控制本轮回答的格式、侧重点和表达方式，不影响记忆检索。"]
+    assert text_areas == [
+        (
+            "回答自定义要求",
+            {
+                "placeholder": "例如：请按重要性排序，并用表格展示结论与主要风险。",
+                "key": "custom:session-1",
+                "disabled": False,
+                "label_visibility": "collapsed",
+            },
+        )
+    ]
+
+
+def test_prompt_panel_summarizes_present_and_empty_custom_prompts():
+    class _Streamlit:
+        def __init__(self):
+            self.markdowns = []
+            self.captions = []
+            self.codes = []
+
+        def markdown(self, value):
+            self.markdowns.append(value)
+
+        def caption(self, value):
+            self.captions.append(value)
+
+        def code(self, value, *, language):
+            self.codes.append((value, language))
+
+    custom = _Streamlit()
+    prompt_panel.render_prompt(
+        custom,
+        {
+            "custom_prompt": "请按风险等级排序，并使用表格回答",
+            "context_hash": "hash-a",
+            "messages": [{"role": "system", "content": "complete model prompt"}],
+        },
+    )
+    assert custom.markdowns[:2] == ["### 本轮回答要求", "### 实际发送给模型的 Prompt / messages"]
+    assert custom.codes == [
+        ("请按风险等级排序，并使用表格回答", "text"),
+        ("complete model prompt", "text"),
+    ]
+
+    empty = _Streamlit()
+    prompt_panel.render_prompt(empty, {"custom_prompt": None, "context_hash": "hash-b", "messages": []})
+    assert "本轮未设置额外回答要求" in empty.captions
+
+
 def test_chat_history_fragment_reloads_messages_and_renders_new_assistant_reply():
     class _Repository:
         calls = []
@@ -789,9 +909,12 @@ def test_right_controls_and_live_status_share_one_fragment_boundary():
     content_source = inspect.getsource(demo_lab._render_right_workspace_content)
 
     assert "_render_chat_history_workspace" in page_source
+    assert "chat_panel.custom_prompt_input" in page_source
     assert "chat_panel.chat_input" in page_source
-    assert page_source.index("_render_chat_history_workspace") < page_source.index("chat_panel.chat_input")
+    assert page_source.index("_render_chat_history_workspace") < page_source.index("chat_panel.custom_prompt_input")
+    assert page_source.index("chat_panel.custom_prompt_input") < page_source.index("chat_panel.chat_input")
     assert page_source.index("chat_panel.chat_input") < page_source.index("_render_right_workspace")
+    assert "custom_prompt=custom_prompt" in page_source
     assert "repository.raw_messages" not in page_source
     assert "pipeline_panel.render_controls" not in page_source
     assert "pipeline_panel.apply_action" not in page_source
@@ -1996,6 +2119,126 @@ def test_demo_database_has_separate_tables_and_preserves_raw_messages(tmp_path):
         messages = repository.raw_messages(session["session_id"])
         assert [message["role"] for message in messages] == ["user", "assistant"]
         assert messages[1]["content"] == "model answer"
+    finally:
+        coordinator.shutdown(wait=True)
+
+
+@pytest.mark.parametrize("custom_prompt", [None, "", "   "])
+def test_empty_custom_prompt_is_normalized_and_builds_with_production_prompt(tmp_path, custom_prompt):
+    repository = DemoRepository(tmp_path / "demo.db")
+    session = repository.create_session("simulation-1", "user-1", "run-1")
+    memory = _ProductionPromptFakeMemory()
+    pipeline = DemoPipelineService(memory, repository, _FakeStateService(memory))
+
+    turn = pipeline.create_turn(
+        session["session_id"],
+        user_id="user-1",
+        run_id="run-1",
+        user_message="分析一下这个公司的风险",
+        custom_prompt=custom_prompt,
+    )
+    context = memory.retrieve_context_for_demo("分析一下这个公司的风险", user_id="user-1", session_id="run-1")
+    messages = memory.build_prompt_from_context(context, custom_prompt=turn["custom_prompt"])
+
+    assert turn["custom_prompt"] is None
+    assert repository.get_turn(turn["turn_id"])["custom_prompt"] is None
+    assert "<custom_prompt>\n\n</custom_prompt>" in messages[0]["content"]
+
+
+def test_custom_prompt_is_isolated_per_turn_and_only_affects_prompt_build(tmp_path):
+    repository = DemoRepository(tmp_path / "demo.db")
+    session = repository.create_session("simulation-1", "user-1", "run-1")
+    memory = _ProductionPromptFakeMemory()
+    pipeline = DemoPipelineService(memory, repository, _FakeStateService(memory))
+    coordinator = _coordinator(pipeline, repository, "custom-prompt-isolation")
+    prompts = (
+        "请按风险等级排序，并使用表格回答",
+        "请先总结主要结论，再说明依据",
+    )
+    turns = [
+        pipeline.create_turn(
+            session["session_id"],
+            user_id="user-1",
+            run_id="run-1",
+            user_message="分析一下这个公司的风险",
+            custom_prompt=f"  {custom_prompt}  ",
+        )
+        for custom_prompt in prompts
+    ]
+
+    try:
+        for turn in turns:
+            pipeline.run_to_answer(turn["turn_id"], session_id=session["session_id"])
+            assert coordinator.wait_for_idle(3)
+
+        retrieval_steps = []
+        prompt_steps = []
+        for turn, custom_prompt in zip(turns, prompts):
+            persisted = repository.get_turn(turn["turn_id"])
+            capture = repository.get_step(turn["turn_id"], PipelineStep.CAPTURE_INPUT)
+            retrieval = repository.get_step(turn["turn_id"], PipelineStep.RETRIEVE_CONTEXT)
+            agentic = repository.get_step(turn["turn_id"], PipelineStep.AGENTIC_RETRIEVAL)
+            build = repository.get_step(turn["turn_id"], PipelineStep.BUILD_PROMPT)
+
+            assert persisted["custom_prompt"] == custom_prompt
+            assert build["input"]["custom_prompt"] == custom_prompt
+            assert build["output"]["custom_prompt"] == custom_prompt
+            assert f"<custom_prompt>\n{custom_prompt}\n</custom_prompt>" in build["output"]["messages"][0]["content"]
+            assert "custom_prompt" not in capture["input"]
+            assert "custom_prompt" not in capture["output"]
+            assert "custom_prompt" not in retrieval["input"]
+            assert "custom_prompt" not in retrieval["output"]
+            assert "custom_prompt" not in agentic["input"]
+            assert "custom_prompt" not in agentic["output"]
+            retrieval_steps.append(retrieval)
+            prompt_steps.append(build)
+
+        assert retrieval_steps[0]["output"] == retrieval_steps[1]["output"]
+        assert retrieval_steps[0]["output"]["context_hash"] == retrieval_steps[1]["output"]["context_hash"]
+        assert prompt_steps[0]["output"]["context_hash"] == prompt_steps[1]["output"]["context_hash"]
+        assert prompt_steps[0]["output"]["messages"] != prompt_steps[1]["output"]["messages"]
+        assert memory.retrieve_requests == [
+            {"query": "分析一下这个公司的风险", "user_id": "user-1", "session_id": "run-1"},
+            {"query": "分析一下这个公司的风险", "user_id": "user-1", "session_id": "run-1"},
+        ]
+    finally:
+        coordinator.shutdown(wait=True)
+
+
+def test_build_prompt_retry_reuses_persisted_turn_custom_prompt(tmp_path):
+    repository = DemoRepository(tmp_path / "demo.db")
+    session = repository.create_session("simulation-1", "user-1", "run-1")
+    memory = _ProductionPromptFakeMemory(build_failures=1)
+    pipeline = DemoPipelineService(memory, repository, _FakeStateService(memory))
+    coordinator = _coordinator(pipeline, repository, "custom-prompt-retry")
+    original_prompt = "回答要求 A"
+    current_ui_state = {"custom_prompt": original_prompt}
+    turn = pipeline.create_turn(
+        session["session_id"],
+        user_id="user-1",
+        run_id="run-1",
+        user_message="分析风险",
+        custom_prompt=current_ui_state["custom_prompt"],
+    )
+
+    try:
+        pipeline.run_to_answer(turn["turn_id"], session_id=session["session_id"])
+        assert coordinator.wait_for_idle(3)
+        failed = repository.get_step(turn["turn_id"], PipelineStep.BUILD_PROMPT)
+        assert failed["status"] == StepStatus.FAILED.value
+        assert failed["input"]["custom_prompt"] == original_prompt
+
+        current_ui_state["custom_prompt"] = "回答要求 B"
+        pipeline.retry_step(turn["turn_id"], PipelineStep.BUILD_PROMPT, session_id=session["session_id"])
+        assert coordinator.wait_for_idle(3)
+
+        retried = repository.get_step(turn["turn_id"], PipelineStep.BUILD_PROMPT)
+        assert repository.get_turn(turn["turn_id"])["custom_prompt"] == original_prompt
+        assert memory.build_custom_prompts == [original_prompt, original_prompt]
+        assert retried["status"] == StepStatus.SUCCEEDED.value
+        assert retried["input"]["custom_prompt"] == original_prompt
+        assert retried["output"]["custom_prompt"] == original_prompt
+        assert f"<custom_prompt>\n{original_prompt}\n</custom_prompt>" in retried["output"]["messages"][0]["content"]
     finally:
         coordinator.shutdown(wait=True)
 

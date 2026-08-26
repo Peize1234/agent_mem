@@ -104,6 +104,10 @@ def render(st, simulation_service, config) -> None:
             session_id=session["session_id"],
             poll_interval_seconds=config.poll_interval_seconds,
         )
+        custom_prompt = chat_panel.custom_prompt_input(
+            st,
+            key=f"custom_prompt:{environment.simulation_id}:{session['session_id']}",
+        )
         user_message = chat_panel.chat_input(
             st,
             key=f"chat_input:{environment.simulation_id}:{session['session_id']}",
@@ -114,6 +118,7 @@ def render(st, simulation_service, config) -> None:
                 user_id=session["user_id"],
                 run_id=session["run_id"],
                 user_message=user_message,
+                custom_prompt=custom_prompt,
             )
             st.session_state["demo_turn_id"] = turn["turn_id"]
 
